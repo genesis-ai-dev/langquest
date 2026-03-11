@@ -971,7 +971,8 @@ export async function concatenateAudioListToFile(
 
       if (isWav) {
         // Convert .wav to .m4a
-        const tempM4aPath = `${FileSystem.cacheDirectory}temp_${Date.now()}_${i}.m4a`;
+        const cacheDir = Paths.cache.uri;
+        const tempM4aPath = `${cacheDir}/temp_${Date.now()}_${i}.m4a`;
         const tempM4aNativePath = getNativePath(tempM4aPath);
         tempFiles.push(tempM4aPath);
         console.log(`Converting ${nativePath} to ${tempM4aNativePath}...`);
@@ -1137,7 +1138,8 @@ export async function concatenateAudioListToFile(
     if (parts.length === 0) parts.push('quest');
 
     const outputFileName = `${parts.join('-')}-${dateStr}.m4a`;
-    const outputPath = `${FileSystem.cacheDirectory}${outputFileName}`;
+    const cacheDir = Paths.cache.uri;
+    const outputPath = `${cacheDir}/${outputFileName}`;
     const outputNativePath = getNativePath(outputPath);
 
     // Convert audio URIs to the format expected by concatAudioFiles
@@ -1163,7 +1165,10 @@ export async function concatenateAudioListToFile(
     // Clean up temporary converted files
     for (const tempFile of tempFiles) {
       try {
-        await FileSystem.deleteAsync(tempFile, { idempotent: true });
+        const file = new File(tempFile);
+        if (file.exists) {
+          file.delete();
+        }
       } catch (error) {
         console.warn(`Failed to delete temp file ${tempFile}:`, error);
       }

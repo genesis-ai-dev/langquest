@@ -4,13 +4,12 @@ import { projectService } from '@/database_services/projectService';
 import { questService } from '@/database_services/questService';
 import { escapeCsvField } from '@/utils/backupUtils';
 import {
-    concatenateAudioListToFile,
-    getQuestAudioUrisByAssetList
+  concatenateAudioListToFile,
+  getQuestAudioUrisByAssetList
 } from '@/utils/localAudioConcat';
-import * as FileSystem from 'expo-file-system';
-import { StorageAccessFramework } from 'expo-file-system';
+import { Directory, File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
-import { Platform, Share as NativeShare } from 'react-native';
+import { Share as NativeShare, Platform } from 'react-native';
 import { zip as zipArchive } from 'react-native-zip-archive';
 import { getFiaSequenceFromQuestMetadata } from './fiaUtils';
 
@@ -81,6 +80,36 @@ function normalizeFileSystemUri(uri: string): string {
     return `file://${uri}`;
   }
   return uri;
+}
+
+function joinUri(baseUri: string, fileName: string): string {
+  return `${baseUri.replace(/\/+$/, '')}/${fileName}`;
+}
+
+function getCacheUri(fileName: string): string {
+  return joinUri(Paths.cache.uri, fileName);
+}
+
+async function deleteUriIfExists(uri: string): Promise<void> {
+  const normalizedUri = normalizeFileSystemUri(uri);
+  try {
+    const file = new File(normalizedUri);
+    if (file.exists) {
+      file.delete();
+      return;
+    }
+  } catch {
+    // Ignore and try as directory.
+  }
+
+  try {
+    const directory = new Directory(normalizedUri);
+    if (directory.exists) {
+      directory.delete();
+    }
+  } catch {
+    // Ignore cleanup failures.
+  }
 }
 
 function sanitizeNamePart(input: string): string {
@@ -226,23 +255,25 @@ async function compressFiles(options: {
     }`
   );
   const zipFileName = `${zipNameBase || 'export'}-${currentDateTime}.zip`;
-  const stagingDir = `${FileSystem.cacheDirectory}export-zip-staging-${Date.now()}/`;
-  const zipOutputPath = `${FileSystem.cacheDirectory}${zipFileName}`;
-
-  await FileSystem.makeDirectoryAsync(stagingDir, { intermediates: true });
+  const stagingDir = new Directory(Paths.cache, `export-zip-staging-${Date.now()}`);
+  const zipOutputPath = getCacheUri(zipFileName);
+  if (!stagingDir.exists) {
+    stagingDir.create({ intermediates: true });
+  }
 
   try {
     await Promise.all(
       files.map(async (file) => {
-        await FileSystem.copyAsync({
-          from: file.uri,
-          to: `${stagingDir}${file.name}`
-        });
+        const sourceFile = new File(normalizeFileSystemUri(file.uri));
+        sourceFile.copy(new File(stagingDir, file.name));
       })
     );
 
     const zipUri = normalizeFileSystemUri(
-      await zipArchive(stagingDir, zipOutputPath)
+      await zipArchive(
+        normalizeFileSystemUri(stagingDir.uri),
+        normalizeFileSystemUri(zipOutputPath)
+      )
     );
 
     return {
@@ -253,12 +284,10 @@ async function compressFiles(options: {
           mimeType: 'application/zip'
         }
       ],
-      cleanupTargets: [zipUri, stagingDir]
+      cleanupTargets: [zipUri, stagingDir.uri]
     };
   } catch (error) {
-    await FileSystem.deleteAsync(stagingDir, { idempotent: true }).catch(
-      () => undefined
-    );
+    await deleteUriIfExists(stagingDir.uri);
     throw error;
   }
 }
@@ -371,11 +400,9 @@ export async function generateExportAssetsCSVFile(
   const dateTime = formatCurrentDateTime(new Date());
   const safePrefix = sanitizeNamePart(fileNamePrefix || 'export-assets');
   const csvName = `${safePrefix}-${dateTime}.csv`;
-  const csvUri = `${FileSystem.cacheDirectory}${csvName}`;
-
-  await FileSystem.writeAsStringAsync(csvUri, csvContent, {
-    encoding: FileSystem.EncodingType.UTF8
-  });
+  const csvUri = getCacheUri(csvName);
+  const csvFile = new File(csvUri);
+  csvFile.write(csvContent);
 
   return {
     uri: csvUri,
@@ -527,9 +554,7 @@ export async function buildExportArtifacts({
       await Promise.all(
         cleanupTargets.map(async (uri) => {
           try {
-            await FileSystem.deleteAsync(normalizeFileSystemUri(uri), {
-              idempotent: true
-            });
+            await deleteUriIfExists(uri);
           } catch (error) {
             console.warn(`[exportUtils] Failed to cleanup ${uri}:`, error);
           }
@@ -564,11 +589,9 @@ export async function shareExport(
   // iOS share sheet uses the source URI filename. If needed, create a temp copy
   // with the intended export name so users see the expected filename.
   if (Platform.OS === 'ios' && currentFileName !== targetFileName) {
-    tempShareUri = `${FileSystem.cacheDirectory}share-${Date.now()}-${targetFileName}`;
-    await FileSystem.copyAsync({
-      from: sourceUri,
-      to: tempShareUri,
-    });
+    tempShareUri = getCacheUri(`share-${Date.now()}-${targetFileName}`);
+    const sourceFile = new File(sourceUri);
+    sourceFile.copy(new File(tempShareUri));
     shareUri = tempShareUri;
   }
 
@@ -596,9 +619,7 @@ export async function shareExport(
     return 'completed';
   } finally {
     if (tempShareUri) {
-      await FileSystem.deleteAsync(tempShareUri, { idempotent: true }).catch(
-        () => undefined
-      );
+      await deleteUriIfExists(tempShareUri);
     }
   }
 }
@@ -613,34 +634,28 @@ export async function downloadExportAndroid(
 
   let targetDirectory = directoryUri;
   if (!targetDirectory) {
-    const permission =
-      await StorageAccessFramework.requestDirectoryPermissionsAsync();
-    if (!permission.granted || !permission.directoryUri) {
+    const pickedDirectory = await Directory.pickDirectoryAsync();
+    if (!pickedDirectory?.uri) {
       throw new Error('Directory permission was not granted.');
     }
-    targetDirectory = permission.directoryUri;
+    targetDirectory = pickedDirectory.uri;
   }
 
   const savedFiles: AndroidDownloadResult['savedFiles'] = [];
+  const targetDirectoryRef = new Directory(targetDirectory);
 
   for (const file of artifacts.files) {
-    const fileBase64 = await FileSystem.readAsStringAsync(file.uri, {
-      encoding: FileSystem.EncodingType.Base64
-    });
-
-    const targetUri = await StorageAccessFramework.createFileAsync(
-      targetDirectory,
-      file.name,
-      file.mimeType
-    );
-
-    await FileSystem.writeAsStringAsync(targetUri, fileBase64, {
-      encoding: FileSystem.EncodingType.Base64
-    });
+    const sourceFile = new File(normalizeFileSystemUri(file.uri));
+    const fileBase64 = await sourceFile.base64();
+    const targetFile = new File(targetDirectoryRef, file.name);
+    if (targetFile.exists) {
+      targetFile.delete();
+    }
+    targetFile.write(fileBase64, { encoding: 'base64' });
 
     savedFiles.push({
       sourceUri: file.uri,
-      targetUri,
+      targetUri: targetFile.uri,
       name: file.name
     });
   }
