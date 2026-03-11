@@ -9,7 +9,7 @@ import { getBibleBook } from '@/constants/bibleStructure';
 import { useAuth } from '@/contexts/AuthContext';
 import { system } from '@/db/powersync/system';
 import { useProjectById } from '@/hooks/db/useProjects';
-import { useAppNavigation } from '@/hooks/useAppNavigation';
+import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useBibleChapterCreation } from '@/hooks/useBibleChapterCreation';
 import { useBibleChapters } from '@/hooks/useBibleChapters';
 import { useColorScheme } from '@/hooks/useColorScheme';
@@ -194,7 +194,7 @@ export function BibleChapterList({
   bookId,
   onCloudLoadingChange
 }: BibleChapterListProps) {
-  const { goToQuest } = useAppNavigation();
+  const { goToQuest } = useNavigationHelpers();
   const { project } = useProjectById(projectId);
   const { createChapter, isCreating } = useBibleChapterCreation();
   const { currentUser } = useAuth();
@@ -531,9 +531,7 @@ export function BibleChapterList({
         goToQuest({
           id: existingChapter.id,
           project_id: projectId,
-          name: existingChapter.name,
-          projectData: project as Record<string, unknown>, // Pass project data!
-          questData: existingChapter as unknown as Record<string, unknown> // Pass chapter/quest data!
+          name: existingChapter.name
         });
       })();
       return;
@@ -578,8 +576,7 @@ export function BibleChapterList({
               goToQuest({
                 id: result.questId,
                 project_id: projectId,
-                name: result.questName,
-                projectData: project as Record<string, unknown> // Pass project data!
+                name: result.questName
               });
             } catch (error) {
               console.error('Failed to create chapter:', error);

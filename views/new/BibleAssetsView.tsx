@@ -23,10 +23,8 @@ import {
 } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useDebouncedState } from '@/hooks/use-debounced-state';
-import {
-  useAppNavigation,
-  useCurrentNavigation
-} from '@/hooks/useAppNavigation';
+import { useProjectById } from '@/hooks/db/useProjects';
+import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useQuestDownloadStatusLive } from '@/hooks/useQuestDownloadStatusLive';
@@ -527,14 +525,11 @@ const fiaDrawerDismissedQuests = new Set<string>();
 
 export default function BibleAssetsView() {
   const {
-    currentQuestId,
-    currentProjectId,
-    currentProjectData,
-    currentQuestData,
-    currentBookId,
-    currentProjectName: navProjectName
-  } = useCurrentNavigation();
-  const { goBack, navigate } = useAppNavigation();
+    questId,
+    projectId,
+    router,
+    goToRecording
+  } = useNavigationHelpers();
   const { currentUser } = useAuth();
   const audioContext = useAudio();
   const queryClient = useQueryClient();
@@ -692,42 +687,70 @@ export default function BibleAssetsView() {
   // Use passed quest data if available (instant!), otherwise query
   const { data: queriedQuestData, refetch: refetchQuest } = useHybridData({
     dataType: 'current-quest',
-    queryKeyParams: [currentQuestId],
+    queryKeyParams: [questId],
     offlineQuery: toCompilableQuery(
       system.db.query.quest.findFirst({
-        where: eq(questTable.id, currentQuestId!)
+        where: eq(questTable.id, questId!)
       })
     ),
     cloudQueryFn: async () => {
       const { data, error } = await system.supabaseConnector.client
         .from('quest')
         .select('*')
-        .eq('id', currentQuestId)
+        .eq('id', questId)
         .overrideTypes<Quest[]>();
       if (error) throw error;
       return data;
     },
-    enableCloudQuery: !!currentQuestId,
-    enableOfflineQuery: !!currentQuestId,
+    enableCloudQuery: !!questId,
+    enableOfflineQuery: !!questId,
     getItemId: (item) => item.id
   });
 
-  // Prefer queried data (fresh) over navigation data (may be stale)
-  // This ensures UI updates immediately after publishing without needing to navigate away
   const selectedQuest = React.useMemo(() => {
-    // If we have queried data, prefer it (it's fresh from refetch)
-    // Otherwise fall back to currentQuestData for instant initial rendering
-    const questData =
-      queriedQuestData && queriedQuestData.length > 0
-        ? queriedQuestData
-        : currentQuestData
-          ? [currentQuestData as Quest]
-          : undefined;
-    return questData?.[0];
-  }, [currentQuestData, queriedQuestData]);
+    return queriedQuestData && queriedQuestData.length > 0
+      ? queriedQuestData[0]
+      : undefined;
+  }, [queriedQuestData]);
 
   // Check if quest is published (source is 'synced')
   const isPublished = selectedQuest?.source === 'synced';
+
+  // Derive bookId from quest metadata (was previously passed via navigation)
+  const currentBookId = React.useMemo(() => {
+    if (!selectedQuest?.metadata) return undefined;
+    try {
+      const metadata: unknown =
+        typeof selectedQuest.metadata === 'string'
+          ? JSON.parse(selectedQuest.metadata)
+          : selectedQuest.metadata;
+      if (
+        metadata &&
+        typeof metadata === 'object' &&
+        'bible' in metadata &&
+        metadata.bible &&
+        typeof metadata.bible === 'object' &&
+        'book' in metadata.bible &&
+        typeof metadata.bible.book === 'string'
+      ) {
+        return metadata.bible.book;
+      }
+      if (
+        metadata &&
+        typeof metadata === 'object' &&
+        'fia' in metadata &&
+        metadata.fia &&
+        typeof metadata.fia === 'object' &&
+        'bookId' in metadata.fia &&
+        typeof metadata.fia.bookId === 'string'
+      ) {
+        return metadata.fia.bookId;
+      }
+    } catch {
+      // Ignore parse errors
+    }
+    return undefined;
+  }, [selectedQuest?.metadata]);
 
   const enableFia = useLocalStore((s) => s.enableFia);
 
@@ -744,7 +767,7 @@ export default function BibleAssetsView() {
   // Fetch all FIA steps (only for FIA pericope quests)
   const { data: fiaStepsData, isLoading: fiaStepsLoading } =
     useFiaPericopeSteps(
-      fiaPericopeId ? currentProjectId : undefined,
+      fiaPericopeId ? projectId : undefined,
       fiaPericopeId ?? undefined
     );
 
@@ -753,14 +776,14 @@ export default function BibleAssetsView() {
   React.useEffect(() => {
     if (
       fiaPericopeId &&
-      currentQuestId &&
+      questId &&
       fiaStepsData &&
       !fiaStepsLoading &&
-      !fiaDrawerDismissedQuests.has(currentQuestId)
+      !fiaDrawerDismissedQuests.has(questId)
     ) {
       setShowFiaTextDrawer(true);
     }
-  }, [fiaPericopeId, currentQuestId, fiaStepsData, fiaStepsLoading]);
+  }, [fiaPericopeId, questId, fiaStepsData, fiaStepsLoading]);
 
   // Build the ordered verse sequence for FIA pericopes (null for standard chapters)
   const pericopeSequence = React.useMemo<ChapterVerse[] | null>(() => {
@@ -855,8 +878,6 @@ export default function BibleAssetsView() {
     bookChapterLabelRef.current = bookChapterLabel;
   }, [bookChapterLabel]);
 
-  // Get verse count for current chapter/pericope
-  // Use selectedQuest instead of currentQuestData to ensure we have the metadata from the database
   const verseCount = React.useMemo(() => {
     if (!selectedQuest || !currentBookId) return 0;
 
@@ -919,37 +940,31 @@ export default function BibleAssetsView() {
   // Query project data to get privacy status if not passed
   const { data: queriedProjectData } = useHybridData({
     dataType: 'project-privacy-assets',
-    queryKeyParams: [currentProjectId],
+    queryKeyParams: [projectId],
     offlineQuery: toCompilableQuery(
       system.db.query.project.findFirst({
-        where: eq(project.id, currentProjectId!),
+        where: eq(project.id, projectId!),
         columns: { id: true, private: true, creator_id: true }
       })
     ),
     cloudQueryFn: async () => {
-      if (!currentProjectId) return [];
+      if (!projectId) return [];
       const { data, error } = await system.supabaseConnector.client
         .from('project')
         .select('id, private, creator_id')
-        .eq('id', currentProjectId);
+        .eq('id', projectId);
       if (error) throw error;
       return data as Pick<
         typeof project.$inferSelect,
         'id' | 'private' | 'creator_id'
       >[];
     },
-    enableCloudQuery: !!currentProjectId && !currentProjectData,
-    enableOfflineQuery: !!currentProjectId && !currentProjectData,
+    enableCloudQuery: !!projectId,
+    enableOfflineQuery: !!projectId,
     getItemId: (item) => item.id
   });
 
-  // Prefer passed project data for instant rendering
-  const projectPrivacyData = currentProjectData
-    ? {
-        private: currentProjectData.private,
-        creator_id: currentProjectData.creator_id
-      }
-    : queriedProjectData?.[0];
+  const projectPrivacyData = queriedProjectData?.[0];
   const isPrivateProject = projectPrivacyData?.private ?? false;
 
   // Track selected item for recording insertion
@@ -965,7 +980,7 @@ export default function BibleAssetsView() {
   } | null>(null);
 
   const { membership } = useUserPermissions(
-    currentProjectId || '',
+    projectId || '',
     'open_project',
     !!isPrivateProject
   );
@@ -978,25 +993,25 @@ export default function BibleAssetsView() {
   const canSeePublishedBadge = isCreator || isMember;
 
   // Initialize offload verification hook
-  const verificationState = useQuestOffloadVerification(currentQuestId || '');
+  const verificationState = useQuestOffloadVerification(questId || '');
 
   // Query SQLite directly - single source of truth, no cache, no race conditions
-  const isQuestDownloaded = useQuestDownloadStatusLive(currentQuestId || null);
+  const isQuestDownloaded = useQuestDownloadStatusLive(questId || null);
 
   // Clean deeper layers
   const currentStatus = useStatusContext();
-  currentStatus.layerStatus(LayerType.QUEST, currentQuestId || '');
+  currentStatus.layerStatus(LayerType.QUEST, questId || '');
   const showInvisibleContent = useLocalStore((s) => s.showHiddenContent);
   const enableMerge = useLocalStore((s) => s.enableMerge);
 
   // Call both hooks unconditionally to comply with React Hooks rules
   const publishedAssets = useAssetsByQuest(
-    currentQuestId || '',
+    questId || '',
     debouncedSearchQuery,
     showInvisibleContent
   );
   const localAssets = useLocalAssetsByQuest(
-    currentQuestId || '',
+    questId || '',
     debouncedSearchQuery,
     showInvisibleContent
   );
@@ -1247,7 +1262,7 @@ export default function BibleAssetsView() {
   // Handle batch delete of selected assets
   // Handle delete all assets
   const handleDeleteAllAssets = React.useCallback(async () => {
-    if (!currentQuestId) return;
+    if (!questId) return;
 
     // Filter assets that are local (not cloud-only)
     const localAssets = assets.filter((a) => a.source !== 'cloud');
@@ -1265,7 +1280,7 @@ export default function BibleAssetsView() {
       }
 
       // Reset the name counter for this quest
-      const counterKey = `bible_recording_counter_${currentQuestId}`;
+      const counterKey = `bible_recording_counter_${questId}`;
       await AsyncStorage.removeItem(counterKey);
 
       setSelectedForRecording(null);
@@ -1283,7 +1298,7 @@ export default function BibleAssetsView() {
       console.error('Failed to delete all assets', e);
       RNAlert.alert(t('error'), 'Failed to delete assets. Please try again.');
     }
-  }, [assets, currentQuestId, queryClient, t, refetch]);
+  }, [assets, questId, queryClient, t, refetch]);
 
   const handleBatchDeleteSelected = React.useCallback(() => {
     // Filter selected assets that are local (not cloud-only)
@@ -2193,7 +2208,7 @@ export default function BibleAssetsView() {
 
   const safeAttachmentStates = attachmentStates;
 
-  const _blockedCount = useBlockedAssetsCount(currentQuestId || '');
+  const _blockedCount = useBlockedAssetsCount(questId || '');
 
   const attachmentStateSummary = React.useMemo(() => {
     if (safeAttachmentStates.size === 0) {
@@ -2214,8 +2229,8 @@ export default function BibleAssetsView() {
 
   const handleAssetUpdate = React.useCallback(async () => {
     // await queryClient.invalidateQueries({
-    //   // queryKey: ['assets', 'by-quest', currentQuestId],
-    //   queryKey: ['by-quest', currentQuestId],
+    //   // queryKey: ['assets', 'by-quest', questId],
+    //   queryKey: ['by-quest', questId],
     //   exact: false
     // });
     await queryClient.invalidateQueries({
@@ -2232,7 +2247,7 @@ export default function BibleAssetsView() {
   // ============================================================================
   const _normalizeOrderIndexForVerses = React.useCallback(
     async (verses: number[]) => {
-      if (!currentQuestId || verses.length === 0) return;
+      if (!questId || verses.length === 0) return;
 
       const assetTable = resolveTable('asset', { localOverride: true });
       const questAssetLinkTable = resolveTable('quest_asset_link', {
@@ -2262,7 +2277,7 @@ export default function BibleAssetsView() {
             )
             .where(
               and(
-                eq(questAssetLinkTable.quest_id, currentQuestId),
+                eq(questAssetLinkTable.quest_id, questId),
                 gte(assetTable.order_index, minOrderIndex),
                 lte(assetTable.order_index, maxOrderIndex)
               )
@@ -2307,7 +2322,7 @@ export default function BibleAssetsView() {
         }
       }
     },
-    [currentQuestId]
+    [questId]
   );
 
   // Calculate available range for adding verse label above a specific asset
@@ -2668,7 +2683,7 @@ export default function BibleAssetsView() {
       return (
         <DraggableAssetItem
           asset={asset}
-          questId={currentQuestId || ''}
+          questId={questId || ''}
           isPublished={isPublished}
           isPlaying={isPlaying}
           isHighlighted={
@@ -2703,7 +2718,7 @@ export default function BibleAssetsView() {
     },
     [
       isPublished,
-      currentQuestId,
+      questId,
       audioContext.isPlaying,
       audioContext.currentAudioId,
       currentlyPlayingAssetId,
@@ -2756,12 +2771,12 @@ export default function BibleAssetsView() {
     hasReported,
     // isLoading: isReportLoading,
     refetch: refetchReport
-  } = useHasUserReported(currentQuestId || '', 'quests');
+  } = useHasUserReported(questId || '', 'quests');
 
   const statusContext = useStatusContext();
   const { allowSettings } = statusContext.getStatusParams(
     LayerType.QUEST,
-    currentQuestId
+    questId
   );
 
   // Special audio ID for "play all" mode
@@ -3292,7 +3307,7 @@ export default function BibleAssetsView() {
 
   // Handle going to recording - stops any playing audio first
   const handleGoToRecording = React.useCallback(async () => {
-    if (!currentQuestId) {
+    if (!questId) {
       console.error('Cannot start recording without quest ID');
       return;
     }
@@ -3325,30 +3340,25 @@ export default function BibleAssetsView() {
     const recordingOrderIndex =
       selectedForRecording?.orderIndex ?? lastUnassignedOrderIndex;
     const recordingSessionId =
-      await createQuestRecordingSession(currentQuestId);
+      await createQuestRecordingSession(questId);
 
-    navigate({
-      view: 'recording',
-      questId: currentQuestId,
-      projectId: currentProjectId,
-      recordingData: {
-        recordingSession: recordingSessionId,
-        bookChapterLabel: bookChapterLabel,
-        bookChapterLabelFull: selectedQuest?.name,
-        initialOrderIndex: recordingOrderIndex,
-        verse: selectedForRecording?.metadata?.verse,
-        nextVerse: nextVerse,
-        limitVerse: limitVerse,
-        label: selectedForRecording?.verseName,
-        pericopeSequence: pericopeSequence ?? undefined,
-        bookShortName: pericopeBookShortName ?? undefined
-      }
+    goToRecording({
+      recordingSession: recordingSessionId,
+      bookChapterLabel: bookChapterLabel,
+      bookChapterLabelFull: selectedQuest?.name,
+      initialOrderIndex: recordingOrderIndex,
+      verse: selectedForRecording?.metadata?.verse,
+      nextVerse: nextVerse,
+      limitVerse: limitVerse,
+      label: selectedForRecording?.verseName,
+      pericopeSequence: pericopeSequence ?? undefined,
+      bookShortName: pericopeBookShortName ?? undefined
     });
   }, [
     audioContext,
-    navigate,
-    currentQuestId,
-    currentProjectId,
+    goToRecording,
+    questId,
+    projectId,
     bookChapterLabel,
     selectedQuest?.name,
     selectedForRecording?.orderIndex,
@@ -3531,11 +3541,11 @@ export default function BibleAssetsView() {
   // Handle publish button press with useMutation
   const { mutate: publishQuest, isPending: isPublishing } = useMutation({
     mutationFn: async () => {
-      if (!currentQuestId || !currentProjectId) {
+      if (!questId || !projectId) {
         throw new Error('Missing quest or project ID');
       }
-      console.log(`📤 Publishing quest ${currentQuestId}...`);
-      const result = await publishQuestUtils(currentQuestId, currentProjectId);
+      console.log(`📤 Publishing quest ${questId}...`);
+      const result = await publishQuestUtils(questId, projectId);
       return result;
     },
     onSuccess: async (result) => {
@@ -3547,24 +3557,24 @@ export default function BibleAssetsView() {
 
         // Invalidate the quest query used by this component
         await queryClient.invalidateQueries({
-          queryKey: ['current-quest', 'offline', currentQuestId]
+          queryKey: ['current-quest', 'offline', questId]
         });
         await queryClient.invalidateQueries({
-          queryKey: ['current-quest', 'cloud', currentQuestId]
+          queryKey: ['current-quest', 'cloud', questId]
         });
 
         // Invalidate general quest queries
         await queryClient.invalidateQueries({
-          queryKey: ['quests', 'for-project', currentProjectId]
+          queryKey: ['quests', 'for-project', projectId]
         });
         await queryClient.invalidateQueries({
-          queryKey: ['quests', 'infinite', 'for-project', currentProjectId]
+          queryKey: ['quests', 'infinite', 'for-project', projectId]
         });
         await queryClient.invalidateQueries({
-          queryKey: ['quests', 'offline', 'for-project', currentProjectId]
+          queryKey: ['quests', 'offline', 'for-project', projectId]
         });
         await queryClient.invalidateQueries({
-          queryKey: ['quests', 'cloud', 'for-project', currentProjectId]
+          queryKey: ['quests', 'cloud', 'for-project', projectId]
         });
         await queryClient.invalidateQueries({
           queryKey: ['quests']
@@ -3615,7 +3625,7 @@ export default function BibleAssetsView() {
     setIsOffloading(true);
     try {
       await offloadQuest({
-        questId: currentQuestId || '',
+        questId: questId || '',
         verifiedIds: verificationState.verifiedIds,
         onProgress: (progress, message) => {
           console.log(`🗑️ [Offload Progress] ${progress}%: ${message}`);
@@ -3630,16 +3640,16 @@ export default function BibleAssetsView() {
 
       // Invalidate download status queries
       await queryClient.invalidateQueries({
-        queryKey: ['download-status', 'quest', currentQuestId]
+        queryKey: ['download-status', 'quest', questId]
       });
       await queryClient.invalidateQueries({
-        queryKey: ['download-status', 'project', currentProjectId]
+        queryKey: ['download-status', 'project', projectId]
       });
       await queryClient.invalidateQueries({
-        queryKey: ['quest-download-status', currentQuestId]
+        queryKey: ['quest-download-status', questId]
       });
       await queryClient.invalidateQueries({
-        queryKey: ['project-download-status', currentProjectId]
+        queryKey: ['project-download-status', projectId]
       });
       await queryClient.invalidateQueries({
         queryKey: ['download-status']
@@ -3647,16 +3657,16 @@ export default function BibleAssetsView() {
 
       // Invalidate ALL quest queries (comprehensive like create quest)
       await queryClient.invalidateQueries({
-        queryKey: ['quests', 'for-project', currentProjectId]
+        queryKey: ['quests', 'for-project', projectId]
       });
       await queryClient.invalidateQueries({
-        queryKey: ['quests', 'infinite', 'for-project', currentProjectId]
+        queryKey: ['quests', 'infinite', 'for-project', projectId]
       });
       await queryClient.invalidateQueries({
-        queryKey: ['quests', 'offline', 'for-project', currentProjectId]
+        queryKey: ['quests', 'offline', 'for-project', projectId]
       });
       await queryClient.invalidateQueries({
-        queryKey: ['quests', 'cloud', 'for-project', currentProjectId]
+        queryKey: ['quests', 'cloud', 'for-project', projectId]
       });
       // Also invalidate generic quest queries
       await queryClient.invalidateQueries({
@@ -3675,7 +3685,7 @@ export default function BibleAssetsView() {
 
       // Invalidate quest closure data
       await queryClient.invalidateQueries({
-        queryKey: ['quest-closure', currentQuestId]
+        queryKey: ['quest-closure', questId]
       });
 
       console.log('✅ [Offload] All queries invalidated');
@@ -3683,8 +3693,7 @@ export default function BibleAssetsView() {
       RNAlert.alert(t('success'), t('offloadComplete'));
       setShowOffloadDrawer(false);
 
-      // Navigate back to project directory view (quests view)
-      goBack();
+      router.back();
     } catch (error) {
       console.error('Failed to offload quest:', error);
       RNAlert.alert(t('error'), t('offloadError'));
@@ -3782,7 +3791,7 @@ export default function BibleAssetsView() {
     [queryClient, refetch, getAssetMetadata]
   );
 
-  if (!currentQuestId) {
+  if (!questId) {
     return (
       <View className="flex-1 items-center justify-center p-6">
         <Text>{t('noQuestSelected')}</Text>
@@ -3793,9 +3802,8 @@ export default function BibleAssetsView() {
   // Check if quest is published (source is 'synced')
   // const isPublished = selectedQuest?.source === 'synced';
 
-  // Get project name for PrivateAccessGate - prefer route params, fallback to data object
-  const projectName =
-    navProjectName || (currentProjectData?.name as string) || '';
+  const { project: projectForName } = useProjectById(projectId);
+  const projectName = projectForName?.name || '';
 
   return (
     <View className="flex flex-1 flex-col gap-6 p-6 pt-0">
@@ -3923,10 +3931,10 @@ export default function BibleAssetsView() {
                     <Icon as={CheckCheck} size={14} />
                   </View>
                 </Button>
-                {currentQuestId && currentProjectId && (
+                {questId && projectId && (
                   <ExportButton
-                    questId={currentQuestId}
-                    projectId={currentProjectId}
+                    questId={questId}
+                    projectId={projectId}
                     questName={selectedQuest?.name}
                     disabled={isPublishing || !isOnline}
                     membership={membership}
@@ -3965,7 +3973,7 @@ export default function BibleAssetsView() {
                       return;
                     }
 
-                    if (!currentQuestId) {
+                    if (!questId) {
                       console.error('No current quest id');
                       return;
                     }
@@ -4005,10 +4013,10 @@ export default function BibleAssetsView() {
                     <Icon as={CloudUpload} />
                   )}
                 </Button>
-                {currentQuestId && currentProjectId && (
+                {questId && projectId && (
                   <ExportButton
-                    questId={currentQuestId}
-                    projectId={currentProjectId}
+                    questId={questId}
+                    projectId={projectId}
                     questName={selectedQuest?.name}
                     disabled={isPublishing || !isOnline}
                     membership={membership}
@@ -4220,8 +4228,8 @@ export default function BibleAssetsView() {
         <QuestSettingsModal
           isVisible={showSettingsModal}
           onClose={() => setShowSettingsModal(false)}
-          questId={currentQuestId}
-          projectId={currentProjectId || ''}
+          questId={questId}
+          projectId={projectId || ''}
         />
       )}
 
@@ -4251,7 +4259,7 @@ export default function BibleAssetsView() {
         <ReportModal
           isVisible={showReportModal}
           onClose={() => setShowReportModal(false)}
-          recordId={currentQuestId}
+          recordId={questId}
           recordTable="quest"
           hasAlreadyReported={hasReported}
           creatorId={selectedQuest?.creator_id ?? undefined}
@@ -4329,7 +4337,7 @@ export default function BibleAssetsView() {
       {/* Private Access Gate Modal for Membership Requests */}
       {isPrivateProject && showPrivateAccessModal && (
         <PrivateAccessGate
-          projectId={currentProjectId || ''}
+          projectId={projectId || ''}
           projectName={projectName as string}
           isPrivate={isPrivateProject as boolean}
           action="contribute"
@@ -4531,11 +4539,11 @@ export default function BibleAssetsView() {
         open={showFiaTextDrawer}
         onOpenChange={(open) => {
           setShowFiaTextDrawer(open);
-          if (!open && currentQuestId) {
-            fiaDrawerDismissedQuests.add(currentQuestId);
+          if (!open && questId) {
+            fiaDrawerDismissedQuests.add(questId);
           }
         }}
-        projectId={currentProjectId}
+        projectId={projectId}
         pericopeId={fiaPericopeId ?? undefined}
         questName={selectedQuest?.name}
         fiaBookId={fiaMetaExtracted?.bookId}

@@ -10,7 +10,7 @@ import { Icon } from '@/components/ui/icon';
 import { Progress } from '@/components/ui/progress';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
-import { useAppNavigation } from '@/hooks/useAppNavigation';
+import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useAttachmentProgress } from '@/hooks/useAttachmentProgress';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
@@ -30,7 +30,7 @@ import { ScrollView, View } from 'react-native';
 
 export default function DownloadStatusView() {
   const { t } = useLocalization();
-  const { goToProjects } = useAppNavigation();
+  const { goToProjects } = useNavigationHelpers();
   const { isAuthenticated } = useAuth();
   const isConnected = useNetworkStatus();
 

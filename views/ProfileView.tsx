@@ -18,7 +18,7 @@ import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
 import { profileService } from '@/database_services/profileService';
 import { system } from '@/db/powersync/system';
-import { useAppNavigation } from '@/hooks/useAppNavigation';
+import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { usePostHog } from '@/hooks/usePostHog';
@@ -61,7 +61,7 @@ export default function ProfileView() {
   // const { currentUser, setCurrentUser } = useAuth();
   const { currentUser } = useAuth();
   const { t } = useLocalization();
-  const { goToProjects, navigate } = useAppNavigation();
+  const { goToProjects, goToAccountDeletion } = useNavigationHelpers();
   const isOnline = useNetworkStatus();
   const systemReady = useLocalStore((state) => state.systemReady);
   const posthog = usePostHog();
@@ -530,7 +530,7 @@ export default function ProfileView() {
                     <Button
                       variant="destructive"
                       onPress={() => {
-                        navigate({ view: 'account-deletion' });
+                        goToAccountDeletion();
                       }}
                       className="mt-2"
                     >

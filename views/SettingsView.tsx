@@ -8,7 +8,7 @@ import {
 import { Icon } from '@/components/ui/icon';
 import { Switch } from '@/components/ui/switch';
 import { Text } from '@/components/ui/text';
-import { useAppNavigation } from '@/hooks/useAppNavigation';
+import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useLocalStore } from '@/store/localStore';
@@ -37,7 +37,7 @@ interface SettingsItem {
 
 export default function SettingsView() {
   const { t } = useLocalization();
-  const { goToProjects } = useAppNavigation();
+  const { goToProjects } = useNavigationHelpers();
   const isOnline = useNetworkStatus();
 
   // Centralized settings store (select individual slices to avoid broad subscriptions)

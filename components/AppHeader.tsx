@@ -1,5 +1,5 @@
 import { Icon } from '@/components/ui/icon';
-import { useAppNavigation } from '@/hooks/useAppNavigation';
+import { useBreadcrumbs } from '@/hooks/useBreadcrumbs';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
@@ -9,7 +9,7 @@ import { cn, useThemeToken } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { AttachmentState } from '@powersync/attachments';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter, useSegments } from 'expo-router';
+import { useRouter } from 'expo-router';
 import {
   AlertTriangle,
   ChevronLeftIcon,
@@ -43,8 +43,8 @@ export default function AppHeader({
   onOnboardingPress?: () => void;
 }) {
   const router = useRouter();
-  const segments = useSegments();
-  const { goBack, breadcrumbs, currentView } = useAppNavigation();
+  const breadcrumbs = useBreadcrumbs();
+  const isProjectsView = breadcrumbs.length <= 1;
 
   // Get background HSL from generated-tokens.ts (format: "240 100% 98.04%")
   const backgroundHsl = useThemeToken('background');
@@ -184,8 +184,8 @@ export default function AppHeader({
         {/* Back Button */}
 
         <View className="flex-1 flex-row gap-2 overflow-hidden">
-          {router.canGoBack() && currentView !== 'projects' && (
-            <Button variant="ghost" size="icon" onPress={goBack}>
+          {router.canGoBack() && !isProjectsView && (
+            <Button variant="ghost" size="icon" onPress={() => router.back()}>
               <Icon as={ChevronLeftIcon} className="size-6" />
             </Button>
           )}
