@@ -9,7 +9,7 @@ import {
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
-import { useAppNavigation } from '@/hooks/useAppNavigation';
+import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useAttachmentProgress } from '@/hooks/useAttachmentProgress';
 import { getUpdateVersion } from '@/hooks/useExpoUpdates';
 import { useLocalization } from '@/hooks/useLocalization';
@@ -18,7 +18,6 @@ import { usePowerSyncStatus } from '@/hooks/usePowerSyncStatus';
 import { isDegradedMode } from '@/services/degradedModeService';
 import { useLocalStore } from '@/store/localStore';
 import { cn } from '@/utils/styleUtils';
-import { useRouter } from 'expo-router';
 import * as Updates from 'expo-updates';
 import type { LucideIcon } from 'lucide-react-native';
 import {
@@ -68,8 +67,10 @@ export default function AppDrawer({
     goToNotifications,
     goToSettings,
     goToCorruptedAttachments,
-    currentView
-  } = useAppNavigation();
+    goToDownloadStatus,
+    pathname,
+    router
+  } = useNavigationHelpers();
 
   const notificationResult = useNotifications();
   const notificationCount = useMemo(
@@ -77,7 +78,13 @@ export default function AppDrawer({
     [notificationResult.totalCount]
   );
 
-  const router = useRouter();
+  const currentView = pathname === '/' || pathname === '' ? 'projects'
+    : pathname.includes('/profile') ? 'profile'
+    : pathname.includes('/notifications') ? 'notifications'
+    : pathname.includes('/settings') ? 'settings'
+    : pathname.includes('/corrupted-attachments') ? 'corrupted-attachments'
+    : pathname.includes('/download-status') ? 'download-status'
+    : undefined;
 
   // Always call hooks (Rules of Hooks), but only subscribe when drawer is visible
   // The hooks themselves handle memoization to prevent re-renders
@@ -251,10 +258,10 @@ export default function AppDrawer({
     () => closeDrawerAndExecute(goToCorruptedAttachments),
     [closeDrawerAndExecute, goToCorruptedAttachments]
   );
-  // const handleGoToDownloadStatus = useCallback(
-  //   () => closeDrawerAndExecute(goToDownloadStatus as () => void),
-  //   [closeDrawerAndExecute, goToDownloadStatus]
-  // );
+  const handleGoToDownloadStatus = useCallback(
+    () => closeDrawerAndExecute(goToDownloadStatus),
+    [closeDrawerAndExecute, goToDownloadStatus]
+  );
   const handleSignIn = useCallback(() => {
     setDrawerIsVisible(false);
     router.push('/(auth)/sign-in');

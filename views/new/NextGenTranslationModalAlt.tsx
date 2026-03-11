@@ -16,7 +16,7 @@ import type { asset_content_link } from '@/db/drizzleSchema';
 import { asset } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useProjectById } from '@/hooks/db/useProjects';
-import { useAppNavigation } from '@/hooks/useAppNavigation';
+import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
@@ -170,7 +170,7 @@ export default function NextGenTranslationModal({
   projectName
 }: NextGenTranslationModalProps) {
   const { project } = useProjectById(projectId);
-  const { currentQuestId } = useAppNavigation();
+  const { questId } = useNavigationHelpers();
   const { t } = useLocalization();
   const { currentUser, isAuthenticated } = useAuth();
   const router = useRouter();
@@ -300,7 +300,7 @@ export default function NextGenTranslationModal({
           throw new Error('Project is required');
         }
 
-        if (!currentQuestId) {
+        if (!questId) {
           throw new Error(
             'Quest context is missing. This is an unexpected error.'
           );
@@ -390,7 +390,7 @@ export default function NextGenTranslationModal({
           await tx
             .insert(resolveTable('quest_asset_link', tableOptions))
             .values({
-              quest_id: currentQuestId,
+              quest_id: questId,
               asset_id: newAsset.id,
               download_profiles: [currentUser.id]
             });

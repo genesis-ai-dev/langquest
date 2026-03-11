@@ -19,7 +19,7 @@ import type { languoid } from '@/db/drizzleSchema';
 import { project_language_link } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useLanguoidNames } from '@/hooks/db/useLanguoids';
-import { useAppNavigation } from '@/hooks/useAppNavigation';
+import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { cn } from '@/utils/styleUtils';
@@ -55,7 +55,7 @@ export function ProjectListItem({
 }) {
   const { t } = useLocalization();
   const { currentUser } = useAuth();
-  const { goToProject, goToNotifications } = useAppNavigation();
+  const { goToProject, goToNotifications } = useNavigationHelpers();
   const layerStatus = useStatusContext();
   const isDownloaded = useItemDownloadStatus(project, currentUser?.id);
 
@@ -188,12 +188,7 @@ export function ProjectListItem({
   };
 
   function goToProjectHelper() {
-    goToProject({
-      id: project.id,
-      name: project.name,
-      template: project.template,
-      projectData: project // Pass full project data for instant rendering!
-    });
+    goToProject({ id: project.id });
   }
 
   return (

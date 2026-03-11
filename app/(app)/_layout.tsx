@@ -129,10 +129,6 @@ function AppContent() {
         {/* Public routes - accessible to both anonymous and authenticated users */}
         <Stack.Screen name="index" />
         <Stack.Screen name="project/[projectId]" />
-        <Stack.Screen name="quest/[questId]" />
-        <Stack.Screen name="bible-quest/[questId]" />
-        <Stack.Screen name="asset/[assetId]" />
-        <Stack.Screen name="recording" />
         <Stack.Screen name="download-status" />
 
         {/* Auth-only routes - anonymous users are redirected to index */}

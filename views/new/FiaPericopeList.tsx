@@ -21,7 +21,7 @@ import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
 import { system } from '@/db/powersync/system';
 import { useProjectById } from '@/hooks/db/useProjects';
-import { useAppNavigation } from '@/hooks/useAppNavigation';
+import { useNavigationHelpers } from '@/hooks/useNavigation';
 import type { FiaBook, FiaPericope } from '@/hooks/useFiaBooks';
 import { useFiaPericopeCreation } from '@/hooks/useFiaPericopeCreation';
 import {
@@ -291,7 +291,7 @@ export function FiaPericopeList({
   onCloudLoadingChange
 }: FiaPericopeListProps) {
   const { currentUser } = useAuth();
-  const { goToQuest } = useAppNavigation();
+  const { goToQuest } = useNavigationHelpers();
   const { createPericope, isCreating } = useFiaPericopeCreation();
   const queryClient = useQueryClient();
   const [creatingPericopeId, setCreatingPericopeId] = React.useState<
@@ -499,9 +499,7 @@ export function FiaPericopeList({
       goToQuest({
         id: version.id,
         project_id: projectId,
-        name: version.name,
-        projectData: project as Record<string, unknown>,
-        questData: version as unknown as Record<string, unknown>
+        name: version.name
       });
       setPickerPericopeId(null);
       return;
@@ -531,9 +529,7 @@ export function FiaPericopeList({
     goToQuest({
       id: version.id,
       project_id: projectId,
-      name: version.name,
-      projectData: project as Record<string, unknown>,
-      questData: version as unknown as Record<string, unknown>
+      name: version.name
     });
     setPickerPericopeId(null);
   };
@@ -557,8 +553,7 @@ export function FiaPericopeList({
       goToQuest({
         id: result.questId,
         project_id: projectId,
-        name: result.questName,
-        projectData: project as Record<string, unknown>
+        name: result.questName
       });
     } catch (error) {
       console.error('Failed to create pericope quest:', error);

@@ -27,7 +27,7 @@ import { project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useLanguageById } from '@/hooks/db/useLanguages';
 import { useLanguoidById } from '@/hooks/db/useLanguoids';
-import { useAppNavigation } from '@/hooks/useAppNavigation';
+import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNearbyTranslations } from '@/hooks/useNearbyTranslations';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
@@ -106,8 +106,7 @@ export default function NextGenNewTranslationModal({
   initialText = '',
   resolvedAudioUris = []
 }: NextGenNewTranslationModalProps) {
-  const { currentProjectId, currentQuestId, currentProjectData } =
-    useAppNavigation();
+  const { projectId, questId } = useNavigationHelpers();
   const { t } = useLocalization();
   const { currentUser, isAuthenticated, isSystemReady } = useAuth();
   const router = useRouter();
@@ -141,46 +140,44 @@ export default function NextGenNewTranslationModal({
     }
     return toCompilableQuery(
       system.db.query.project.findFirst({
-        where: currentProjectId ? eq(project.id, currentProjectId) : undefined
+        where: projectId ? eq(project.id, projectId) : undefined
       })
     );
-  }, [currentProjectId, isPowerSyncReady, isAuthenticated]);
+  }, [projectId, isPowerSyncReady, isAuthenticated]);
 
   const { data: queriedProjectDataArray } = useHybridData({
     dataType: 'project-new-translation',
-    queryKeyParams: [currentProjectId || ''],
+    queryKeyParams: [projectId || ''],
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     offlineQuery: projectOfflineQuery,
     cloudQueryFn: async (): Promise<(typeof project.$inferSelect)[]> => {
-      if (!currentProjectId) return [];
+      if (!projectId) return [];
       const result = await system.supabaseConnector.client
         .from('project')
         .select('*')
-        .eq('id', currentProjectId)
+        .eq('id', projectId)
         .limit(1);
       if (result.error) throw result.error;
       const typedData = result.data as (typeof project.$inferSelect)[] | null;
       return typedData || [];
     },
-    enableCloudQuery: !!currentProjectId && !currentProjectData,
-    enableOfflineQuery: !!currentProjectId && !currentProjectData
+    enableCloudQuery: !!projectId,
+    enableOfflineQuery: !!projectId
   });
 
   const queriedProjectData =
     queriedProjectDataArray.length > 0 ? queriedProjectDataArray[0] : undefined;
 
-  // Prefer passed project data for instant rendering
   // Extract project data from WithSource wrapper if needed
   const projectData =
-    currentProjectData ||
-    (queriedProjectData && 'source' in queriedProjectData
+    queriedProjectData && 'source' in queriedProjectData
       ? (queriedProjectData as typeof project.$inferSelect & {
           source?: string;
         })
-      : queriedProjectData);
+      : queriedProjectData;
 
   const { hasAccess: canTranslate } = useUserPermissions(
-    currentProjectId || '',
+    projectId || '',
     'translate',
     (projectData as typeof project.$inferSelect | undefined)?.private
   );
@@ -386,7 +383,7 @@ export default function NextGenNewTranslationModal({
   // Get orthography examples for transcription localization
   // Use primitive string value directly for stable query key
   const { data: orthographyExamples = [] } = useOrthographyExamples(
-    currentProjectId,
+    projectId,
     sourceLanguoidId || ''
   );
 
@@ -397,7 +394,7 @@ export default function NextGenNewTranslationModal({
   // Using primitive string value directly ensures stable query key
   const { data: nearbyExamples = [], isLoading: isLoadingExamples } =
     useNearbyTranslations(
-      visible ? currentQuestId || undefined : undefined,
+      visible ? questId || undefined : undefined,
       visible ? translationLanguageId : '',
       visible ? contentPreview || null : null
     );
@@ -457,7 +454,7 @@ export default function NextGenNewTranslationModal({
         throw new Error('Please record audio');
       }
 
-      if (!translationLanguageId || !currentProjectId || !currentQuestId) {
+      if (!translationLanguageId || !projectId || !questId) {
         throw new Error('Missing required context');
       }
 
@@ -502,7 +499,7 @@ export default function NextGenNewTranslationModal({
             source_asset_id: assetId,
             source_language_id: translationLanguageId,
             content_type: contentType,
-            project_id: currentProjectId,
+            project_id: projectId,
             creator_id: currentUser.id,
             download_profiles: [currentUser.id]
           })
@@ -535,7 +532,7 @@ export default function NextGenNewTranslationModal({
           .values(contentValues);
 
         await tx.insert(resolveTable('quest_asset_link', tableOptions)).values({
-          quest_id: currentQuestId,
+          quest_id: questId,
           asset_id: newAsset.id,
           download_profiles: [currentUser.id]
         });

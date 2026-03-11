@@ -13,7 +13,7 @@ import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
 import { profileService } from '@/database_services/profileService';
 import { system } from '@/db/powersync/system';
-import { useAppNavigation } from '@/hooks/useAppNavigation';
+import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { getNetworkStatus, useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useLocalStore } from '@/store/localStore';
@@ -33,7 +33,7 @@ import { ScrollView, View } from 'react-native';
 export default function AccountDeletionView() {
   const { t } = useLocalization();
   const { currentUser, signOut } = useAuth();
-  const { goToProjects, goBack } = useAppNavigation();
+  const { goToProjects, router } = useNavigationHelpers();
   const isOnline = useNetworkStatus();
   const [step, setStep] = useState<1 | 2>(1);
   const setSystemReady = useLocalStore((state) => state.setSystemReady);
@@ -138,7 +138,7 @@ export default function AccountDeletionView() {
         {/* Header */}
         <View className="flex flex-row items-center justify-between">
           <View className="flex flex-row items-center gap-3">
-            <Button variant="ghost" size="icon" onPress={goBack}>
+            <Button variant="ghost" size="icon" onPress={() => router.back()}>
               <Icon as={ChevronLeft} size={24} className="text-foreground" />
             </Button>
             <Text className="text-2xl font-bold text-foreground">
@@ -211,7 +211,7 @@ export default function AccountDeletionView() {
         <View className="flex flex-row gap-2">
           {step === 1 ? (
             <>
-              <Button variant="outline" onPress={goBack} className="flex-1">
+              <Button variant="outline" onPress={() => router.back()} className="flex-1">
                 <Text>{t('cancel')}</Text>
               </Button>
               <Button

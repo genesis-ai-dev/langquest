@@ -22,10 +22,8 @@ import {
 } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useDebouncedState } from '@/hooks/use-debounced-state';
-import {
-  useAppNavigation,
-  useCurrentNavigation
-} from '@/hooks/useAppNavigation';
+import { useProjectById } from '@/hooks/db/useProjects';
+import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useQuestDownloadStatusLive } from '@/hooks/useQuestDownloadStatusLive';
@@ -104,13 +102,11 @@ const DEFAULT_RECORDING_INITIAL_ORDER_INDEX = 1000000;
 
 export default function NextGenAssetsView() {
   const {
-    currentQuestId,
-    currentProjectId,
-    currentProjectData,
-    currentQuestData,
-    currentProjectName: navProjectName
-  } = useCurrentNavigation();
-  const { goBack, navigate } = useAppNavigation();
+    questId,
+    projectId,
+    router,
+    goToRecording
+  } = useNavigationHelpers();
   const { currentUser } = useAuth();
   const audioContext = useAudio();
   const queryClient = useQueryClient();
@@ -196,39 +192,31 @@ export default function NextGenAssetsView() {
   // Use passed quest data if available (instant!), otherwise query
   const { data: queriedQuestData, refetch: refetchQuest } = useHybridData({
     dataType: 'current-quest',
-    queryKeyParams: [currentQuestId],
+    queryKeyParams: [questId],
     offlineQuery: toCompilableQuery(
       system.db.query.quest.findFirst({
-        where: eq(questTable.id, currentQuestId!)
+        where: eq(questTable.id, questId!)
       })
     ),
     cloudQueryFn: async () => {
       const { data, error } = await system.supabaseConnector.client
         .from('quest')
         .select('*')
-        .eq('id', currentQuestId)
+        .eq('id', questId)
         .overrideTypes<Quest[]>();
       if (error) throw error;
       return data;
     },
-    enableCloudQuery: !!currentQuestId,
-    enableOfflineQuery: !!currentQuestId,
+    enableCloudQuery: !!questId,
+    enableOfflineQuery: !!questId,
     getItemId: (item) => item.id
   });
 
-  // Prefer queried data (fresh) over navigation data (may be stale)
-  // This ensures UI updates immediately after publishing without needing to navigate away
   const selectedQuest = React.useMemo(() => {
-    // If we have queried data, prefer it (it's fresh from refetch)
-    // Otherwise fall back to currentQuestData for instant initial rendering
-    const questData =
-      queriedQuestData && queriedQuestData.length > 0
-        ? queriedQuestData
-        : currentQuestData
-          ? [currentQuestData as Quest]
-          : undefined;
-    return questData?.[0];
-  }, [currentQuestData, queriedQuestData]);
+    return queriedQuestData && queriedQuestData.length > 0
+      ? queriedQuestData[0]
+      : undefined;
+  }, [queriedQuestData]);
 
   // Check if quest is published (source is 'synced') - computed early for use in callbacks
   const isPublished = selectedQuest?.source === 'synced';
@@ -268,41 +256,35 @@ export default function NextGenAssetsView() {
   // Query project data to get privacy status if not passed
   const { data: queriedProjectData } = useHybridData({
     dataType: 'project-privacy-assets',
-    queryKeyParams: [currentProjectId],
+    queryKeyParams: [projectId],
     offlineQuery: toCompilableQuery(
       system.db.query.project.findFirst({
-        where: eq(project.id, currentProjectId!),
+        where: eq(project.id, projectId!),
         columns: { id: true, private: true, creator_id: true }
       })
     ),
     cloudQueryFn: async () => {
-      if (!currentProjectId) return [];
+      if (!projectId) return [];
       const { data, error } = await system.supabaseConnector.client
         .from('project')
         .select('id, private, creator_id')
-        .eq('id', currentProjectId);
+        .eq('id', projectId);
       if (error) throw error;
       return data as Pick<
         typeof project.$inferSelect,
         'id' | 'private' | 'creator_id'
       >[];
     },
-    enableCloudQuery: !!currentProjectId && !currentProjectData,
-    enableOfflineQuery: !!currentProjectId && !currentProjectData,
+    enableCloudQuery: !!projectId,
+    enableOfflineQuery: !!projectId,
     getItemId: (item) => item.id
   });
 
-  // Prefer passed project data for instant rendering
-  const projectPrivacyData = currentProjectData
-    ? {
-        private: currentProjectData.private,
-        creator_id: currentProjectData.creator_id
-      }
-    : queriedProjectData?.[0];
+  const projectPrivacyData = queriedProjectData?.[0];
   const isPrivateProject = projectPrivacyData?.private ?? false;
 
   const { membership } = useUserPermissions(
-    currentProjectId || '',
+    projectId || '',
     'open_project',
     !!isPrivateProject
   );
@@ -315,14 +297,14 @@ export default function NextGenAssetsView() {
   const canSeePublishedBadge = isCreator || isMember;
 
   // Initialize offload verification hook
-  const verificationState = useQuestOffloadVerification(currentQuestId || '');
+  const verificationState = useQuestOffloadVerification(questId || '');
 
   // Query SQLite directly - single source of truth, no cache, no race conditions
-  const isQuestDownloaded = useQuestDownloadStatusLive(currentQuestId || null);
+  const isQuestDownloaded = useQuestDownloadStatusLive(questId || null);
 
   // Clean deeper layers
   const currentStatus = useStatusContext();
-  currentStatus.layerStatus(LayerType.QUEST, currentQuestId || '');
+  currentStatus.layerStatus(LayerType.QUEST, questId || '');
   const showInvisibleContent = useLocalStore((s) => s.showHiddenContent);
 
   const {
@@ -335,7 +317,7 @@ export default function NextGenAssetsView() {
     isFetching,
     refetch
   } = useAssetsByQuest(
-    currentQuestId || '',
+    questId || '',
     debouncedSearchQuery,
     showInvisibleContent
   );
@@ -378,7 +360,7 @@ export default function NextGenAssetsView() {
 
   const safeAttachmentStates = attachmentStates;
 
-  const blockedCount = useBlockedAssetsCount(currentQuestId || '');
+  const blockedCount = useBlockedAssetsCount(questId || '');
 
   const attachmentStateSummary = React.useMemo(() => {
     if (safeAttachmentStates.size === 0) {
@@ -399,8 +381,8 @@ export default function NextGenAssetsView() {
 
   const handleAssetUpdate = React.useCallback(async () => {
     // await queryClient.invalidateQueries({
-    //   // queryKey: ['assets', 'by-quest', currentQuestId],
-    //   queryKey: ['by-quest', currentQuestId],
+    //   // queryKey: ['assets', 'by-quest', questId],
+    //   queryKey: ['by-quest', questId],
     //   exact: false
     // });
     await queryClient.invalidateQueries({
@@ -590,7 +572,7 @@ export default function NextGenAssetsView() {
             key={item.id}
             asset={item}
             attachmentState={safeAttachmentStates.get(item.id)}
-            questId={currentQuestId || ''}
+            questId={questId || ''}
             isCurrentlyPlaying={isPlaying}
             isHighlighted={isHighlighted && !isPublished}
             onPlay={stableOnPlay}
@@ -607,7 +589,7 @@ export default function NextGenAssetsView() {
       );
     },
     [
-      currentQuestId,
+      questId,
       safeAttachmentStates,
       currentlyPlayingAssetId,
       stableOnPlay,
@@ -655,12 +637,12 @@ export default function NextGenAssetsView() {
     hasReported,
     // isLoading: isReportLoading,
     refetch: refetchReport
-  } = useHasUserReported(currentQuestId || '', 'quests');
+  } = useHasUserReported(questId || '', 'quests');
 
   const statusContext = useStatusContext();
   const { allowSettings } = statusContext.getStatusParams(
     LayerType.QUEST,
-    currentQuestId
+    questId
   );
 
   // Special audio ID for "play all" mode
@@ -1249,11 +1231,11 @@ export default function NextGenAssetsView() {
   // Handle publish button press with useMutation
   const { mutate: publishQuest, isPending: isPublishing } = useMutation({
     mutationFn: async () => {
-      if (!currentQuestId || !currentProjectId) {
+      if (!questId || !projectId) {
         throw new Error('Missing quest or project ID');
       }
-      console.log(`📤 Publishing quest ${currentQuestId}...`);
-      const result = await publishQuestUtils(currentQuestId, currentProjectId);
+      console.log(`📤 Publishing quest ${questId}...`);
+      const result = await publishQuestUtils(questId, projectId);
       return result;
     },
     onSuccess: async (result) => {
@@ -1265,24 +1247,24 @@ export default function NextGenAssetsView() {
 
         // Invalidate the quest query used by this component
         await queryClient.invalidateQueries({
-          queryKey: ['current-quest', 'offline', currentQuestId]
+          queryKey: ['current-quest', 'offline', questId]
         });
         await queryClient.invalidateQueries({
-          queryKey: ['current-quest', 'cloud', currentQuestId]
+          queryKey: ['current-quest', 'cloud', questId]
         });
 
         // Invalidate general quest queries
         await queryClient.invalidateQueries({
-          queryKey: ['quests', 'for-project', currentProjectId]
+          queryKey: ['quests', 'for-project', projectId]
         });
         await queryClient.invalidateQueries({
-          queryKey: ['quests', 'infinite', 'for-project', currentProjectId]
+          queryKey: ['quests', 'infinite', 'for-project', projectId]
         });
         await queryClient.invalidateQueries({
-          queryKey: ['quests', 'offline', 'for-project', currentProjectId]
+          queryKey: ['quests', 'offline', 'for-project', projectId]
         });
         await queryClient.invalidateQueries({
-          queryKey: ['quests', 'cloud', 'for-project', currentProjectId]
+          queryKey: ['quests', 'cloud', 'for-project', projectId]
         });
         await queryClient.invalidateQueries({
           queryKey: ['quests']
@@ -1333,7 +1315,7 @@ export default function NextGenAssetsView() {
     setIsOffloading(true);
     try {
       await offloadQuest({
-        questId: currentQuestId || '',
+        questId: questId || '',
         verifiedIds: verificationState.verifiedIds,
         onProgress: (progress, message) => {
           console.log(`🗑️ [Offload Progress] ${progress}%: ${message}`);
@@ -1348,16 +1330,16 @@ export default function NextGenAssetsView() {
 
       // Invalidate download status queries
       await queryClient.invalidateQueries({
-        queryKey: ['download-status', 'quest', currentQuestId]
+        queryKey: ['download-status', 'quest', questId]
       });
       await queryClient.invalidateQueries({
-        queryKey: ['download-status', 'project', currentProjectId]
+        queryKey: ['download-status', 'project', projectId]
       });
       await queryClient.invalidateQueries({
-        queryKey: ['quest-download-status', currentQuestId]
+        queryKey: ['quest-download-status', questId]
       });
       await queryClient.invalidateQueries({
-        queryKey: ['project-download-status', currentProjectId]
+        queryKey: ['project-download-status', projectId]
       });
       await queryClient.invalidateQueries({
         queryKey: ['download-status']
@@ -1365,16 +1347,16 @@ export default function NextGenAssetsView() {
 
       // Invalidate ALL quest queries (comprehensive like create quest)
       await queryClient.invalidateQueries({
-        queryKey: ['quests', 'for-project', currentProjectId]
+        queryKey: ['quests', 'for-project', projectId]
       });
       await queryClient.invalidateQueries({
-        queryKey: ['quests', 'infinite', 'for-project', currentProjectId]
+        queryKey: ['quests', 'infinite', 'for-project', projectId]
       });
       await queryClient.invalidateQueries({
-        queryKey: ['quests', 'offline', 'for-project', currentProjectId]
+        queryKey: ['quests', 'offline', 'for-project', projectId]
       });
       await queryClient.invalidateQueries({
-        queryKey: ['quests', 'cloud', 'for-project', currentProjectId]
+        queryKey: ['quests', 'cloud', 'for-project', projectId]
       });
       // Also invalidate generic quest queries
       await queryClient.invalidateQueries({
@@ -1393,7 +1375,7 @@ export default function NextGenAssetsView() {
 
       // Invalidate quest closure data
       await queryClient.invalidateQueries({
-        queryKey: ['quest-closure', currentQuestId]
+        queryKey: ['quest-closure', questId]
       });
 
       console.log('✅ [Offload] All queries invalidated');
@@ -1401,8 +1383,7 @@ export default function NextGenAssetsView() {
       RNAlert.alert(t('success'), t('offloadComplete'));
       setShowOffloadDrawer(false);
 
-      // Navigate back to project directory view (quests view)
-      goBack();
+      router.back();
     } catch (error) {
       console.error('Failed to offload quest:', error);
       RNAlert.alert(t('error'), t('offloadError'));
@@ -1438,14 +1419,14 @@ export default function NextGenAssetsView() {
       await audioContext.stopCurrentSound();
     }
 
-    if (!currentQuestId) {
+    if (!questId) {
       console.error('Cannot start recording without quest ID');
       return;
     }
 
     // Create recording session and navigate to RecordingView
     const recordingSessionId =
-      await createQuestRecordingSession(currentQuestId);
+      await createQuestRecordingSession(questId);
     const lastOrderIndex = assets.reduce<number | null>((maxOrder, asset) => {
       if (typeof asset.order_index !== 'number') {
         return maxOrder;
@@ -1462,20 +1443,15 @@ export default function NextGenAssetsView() {
           ? (Math.floor(lastOrderIndex / 1000) + 1) * 1000
           : DEFAULT_RECORDING_INITIAL_ORDER_INDEX;
 
-    navigate({
-      view: 'recording',
-      questId: currentQuestId,
-      projectId: currentProjectId,
-      recordingData: {
-        initialOrderIndex: initialOrderIndex,
-        recordingSession: recordingSessionId
-      }
+    goToRecording({
+      initialOrderIndex: initialOrderIndex,
+      recordingSession: recordingSessionId
     });
   }, [
     audioContext,
-    navigate,
-    currentQuestId,
-    currentProjectId,
+    goToRecording,
+    questId,
+    projectId,
     assets,
     selectedAssetForRecording
   ]);
@@ -1519,7 +1495,7 @@ export default function NextGenAssetsView() {
     };
   }, []);
 
-  if (!currentQuestId) {
+  if (!questId) {
     return (
       <View className="flex-1 items-center justify-center p-6">
         <Text>{t('noQuestSelected')}</Text>
@@ -1527,9 +1503,8 @@ export default function NextGenAssetsView() {
     );
   }
 
-  // Get project name for PrivateAccessGate - prefer route params, fallback to data object
-  const projectName =
-    navProjectName || (currentProjectData?.name as string) || '';
+  const { project: projectForName } = useProjectById(projectId);
+  const projectName = projectForName?.name || '';
 
   return (
     <View className="flex flex-1 flex-col gap-6 p-6 pt-0">
@@ -1595,10 +1570,10 @@ export default function NextGenAssetsView() {
                     <Icon as={CheckCheck} size={14} />
                   </View>
                 </Button>
-                {currentQuestId && currentProjectId && (
+                {questId && projectId && (
                   <ExportButton
-                    questId={currentQuestId}
-                    projectId={currentProjectId}
+                    questId={questId}
+                    projectId={projectId}
                     questName={selectedQuest?.name}
                     disabled={isPublishing || !isOnline}
                     membership={membership}
@@ -1637,7 +1612,7 @@ export default function NextGenAssetsView() {
                       return;
                     }
 
-                    if (!currentQuestId) {
+                    if (!questId) {
                       console.error('No current quest id');
                       return;
                     }
@@ -1685,10 +1660,10 @@ export default function NextGenAssetsView() {
                 >
                   <Icon as={PencilIcon} className="text-primary" />
                 </Button> */}
-                {currentQuestId && currentProjectId && (
+                {questId && projectId && (
                   <ExportButton
-                    questId={currentQuestId}
-                    projectId={currentProjectId || ''}
+                    questId={questId}
+                    projectId={projectId || ''}
                     questName={selectedQuest?.name}
                     disabled={isPublishing || !isOnline}
                     membership={membership}
@@ -1927,8 +1902,8 @@ export default function NextGenAssetsView() {
         <QuestSettingsModal
           isVisible={showSettingsModal}
           onClose={() => setShowSettingsModal(false)}
-          questId={currentQuestId}
-          projectId={currentProjectId || ''}
+          questId={questId}
+          projectId={projectId || ''}
         />
       )}
       {selectedQuest && (
@@ -1946,7 +1921,7 @@ export default function NextGenAssetsView() {
         <ReportModal
           isVisible={showReportModal}
           onClose={() => setShowReportModal(false)}
-          recordId={currentQuestId}
+          recordId={questId}
           recordTable="quest"
           hasAlreadyReported={hasReported}
           creatorId={selectedQuest?.creator_id ?? undefined}
@@ -1971,7 +1946,7 @@ export default function NextGenAssetsView() {
       {/* Private Access Gate Modal for Membership Requests */}
       {isPrivateProject && (
         <PrivateAccessGate
-          projectId={currentProjectId || ''}
+          projectId={projectId || ''}
           projectName={projectName as string}
           isPrivate={isPrivateProject as boolean}
           action="contribute"

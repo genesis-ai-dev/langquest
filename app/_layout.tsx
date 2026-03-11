@@ -133,7 +133,7 @@ function RootNavigator() {
       <Stack.Protected guard={appReady}>
         <Stack.Screen name="(app)" />
       </Stack.Protected>
-      <Stack.Screen name="reset-password" />a
+      <Stack.Screen name="reset-password" />
       <Stack.Protected guard={needsMigration}>
         <Stack.Screen name="migration" />
       </Stack.Protected>
