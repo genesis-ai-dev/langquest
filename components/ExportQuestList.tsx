@@ -6,24 +6,22 @@ import { useAssetsByQuest } from '@/hooks/db/useAssets';
 import { useQuestById } from '@/hooks/db/useQuests';
 import { useLocalization } from '@/hooks/useLocalization';
 import {
-    buildExportArtifacts,
-    downloadExport,
-    shareExport
+  buildExportArtifacts,
+  downloadExport,
+  shareExport
 } from '@/utils/exportUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { LegendList } from '@legendapp/list';
-import { Download, Share2Icon } from 'lucide-react-native';
+import { Download, Info, Share2Icon } from 'lucide-react-native';
 import React from 'react';
 import {
-    ActivityIndicator,
-    Modal,
-    Platform,
-    Pressable,
-    SafeAreaView,
-    View
+  ActivityIndicator,
+  Modal,
+  Platform,
+  Pressable,
+  View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
 
 interface ExportQuestListProps {
   isOpen: boolean;
@@ -154,14 +152,17 @@ export function ExportQuestList({
         questName: quest?.name || undefined,
         mergedFile: shareEnable ? true : mergedFile,
         includeCsvFile: shareEnable ? false : includeCsvFile,
-        zipFile: shareEnable ? false : zipFile,
+        zipFile: shareEnable ? false : zipFile
       });
 
       cleanup = artifacts.cleanup;
 
       let exportResult: 'completed' | 'cancelled' = 'completed';
       if (shareEnable) {
-        exportResult = await shareExport(artifacts, quest?.name || 'Quest Audio');
+        exportResult = await shareExport(
+          artifacts,
+          quest?.name || 'Quest Audio'
+        );
       } else {
         const result = await downloadExport(artifacts, {
           iosDialogTitle: quest?.name || 'Save export'
@@ -204,53 +205,48 @@ export function ExportQuestList({
   ]);
 
   return (
-    <Modal
-      visible={isOpen}
-      animationType="slide"
-      onRequestClose={onClose}
-    >
-      <SafeAreaView className="flex-1 bg-background">
-        <View
-          style={{ paddingTop: insets.top + 16 }}
-          className="border-b border-border px-6 pb-4 flex-row items-center justify-between"
-        >
-            <View className="flex-col">
-                <Text variant="h4">Export Quest</Text>
-                <Text className="text-sm text-muted-foreground">
-                    {quest?.name || '-'}
-                </Text>
-            </View>
-            <View>
-              {Platform.OS === 'android' && (
-                <ToggleButton
-                    value={shareEnable ? 'right' : 'left'}
-                    onValueChange={(next) => setShareEnable(next === 'right')}
-                    leftIcon={Download}
-                    rightIcon={Share2Icon}
-                    leftText="Download"
-                    rightText="Share"
-                />
-              )}
-            </View>
+    <Modal visible={isOpen} animationType="slide" onRequestClose={onClose}>
+      {/* <SafeAreaView className="flex-1 bg-background"> */}
+      <View
+        style={{ paddingTop: insets.top + 16 }}
+        className="flex-row items-center justify-between border-b border-border px-6 pb-4"
+      >
+        <View className="flex-col">
+          <Text variant="h4">Export Quest</Text>
+          <Text className="text-sm text-muted-foreground">
+            {quest?.name || '-'}
+          </Text>
         </View>
+        <View>
+          {Platform.OS === 'android' && (
+            <ToggleButton
+              value={shareEnable ? 'right' : 'left'}
+              onValueChange={(next) => setShareEnable(next === 'right')}
+              leftIcon={Download}
+              rightIcon={Share2Icon}
+              leftText="Download"
+              rightText="Share"
+            />
+          )}
+        </View>
+      </View>
 
-
-        { !shareEnable && (
-        <View className="mx-6 mt-4 flex-row items-center justify-between border-b border-border pb-2">
-          <View className="flex-row flex-wrap items-center justify-center gap-4 w-full">
+      {!shareEnable ? (
+        <View className="mx-6 mt-4 flex-col items-center justify-between border-b border-border pb-2">
+          <View className="w-full flex-row flex-wrap items-center justify-center gap-4">
             <View className="flex-row items-center gap-2">
               <Checkbox
                 checked={mergedFile}
                 onCheckedChange={(v) => setMergedFile(v === true)}
               />
-              <Text className="text-sm">Merged Audio</Text>
+              <Text className="text-xs">Merge Audio</Text>
             </View>
             <View className="flex-row items-center gap-2">
               <Checkbox
                 checked={includeCsvFile}
                 onCheckedChange={(v) => setIncludeCsvFile(v === true)}
               />
-              <Text className="text-sm">Include Text</Text>
+              <Text className="text-xs">Include Text</Text>
             </View>
             {Platform.OS === 'android' && (
               <View className="flex-row items-center gap-2">
@@ -258,91 +254,107 @@ export function ExportQuestList({
                   checked={zipFile}
                   onCheckedChange={(v) => setZipFile(v === true)}
                 />
-                <Text className="text-sm">Single Zip File</Text>
+                <Text className="text-xs">Single Zip</Text>
               </View>
             )}
           </View>
-        </View>
-        )}
-
-        <View className="mx-6 mt-4 flex-row items-center justify-between border-b border-border pb-2">
-          <View className="flex-row items-center gap-3">
-            <Checkbox
-              checked={isAllSelected}
-              onCheckedChange={handleToggleAll}
+          <View className="mt-3 flex-row gap-2">
+            <Info
+              className="h-2 w-2 rounded-full bg-muted-foreground text-muted-foreground"
+              size={16}
             />
-            <Text className="font-medium">Assets</Text>
+            <Text className="text-xs text-muted-foreground">
+              Translations and transcriptions are not included.
+            </Text>
           </View>
-          <Text className="text-sm text-muted-foreground">
-            {selectedCount}/{assets.length}
+        </View>
+      ) : (
+        <View className="mx-6 mt-4 flex-row items-center justify-center gap-2 border-b border-border pb-2">
+          <Info
+            className="h-2 w-2 rounded-full bg-muted-foreground text-primary-foreground"
+            size={16}
+          />
+          <Text className="text-xs text-muted-foreground">
+            Files will be merged and shared as a single file.
           </Text>
         </View>
+      )}
 
-        {/* ── Scrollable list (fills all remaining space) ── */}
-        <View className="flex-1 px-6 pt-3">
-          {isLoading && assets.length === 0 ? (
-            <View className="flex-1 items-center justify-center">
-              <ActivityIndicator />
-            </View>
-          ) : (
-            <LegendList
-              data={assets}
-              estimatedItemSize={56}
-              keyExtractor={(item) => item.id}
-              extraData={selectedAssetIds}
-              contentContainerStyle={{ paddingBottom: 8 }}
-              renderItem={({ item }) => {
-                const checked = selectedAssetIds.has(item.id);
-                return (
-                  <Pressable
-                    onPress={() => handleToggleAsset(item.id)}
-                    className="mb-2 flex-row items-center gap-3 rounded-lg border border-border px-3 py-3"
-                  >
-                    {/* pointerEvents="none" avoid double trigger */}
-                    <View pointerEvents="none">
-                      <Checkbox checked={checked} onCheckedChange={noop} />
-                    </View>
-                    <Text className="flex-1" numberOfLines={1}>
-                      {item.name || 'Untitled asset'}
-                    </Text>
-                  </Pressable>
-                );
-              }}
-              ListEmptyComponent={() => (
-                <View className="items-center justify-center py-16">
-                  <Text className="text-muted-foreground">
-                    No assets found for this quest.
-                  </Text>
-                </View>
-              )}
-              ListFooterComponent={() =>
-                isFetchingNextPage ? (
-                  <View className="py-3">
-                    <ActivityIndicator />
+      <View className="mx-6 mt-4 flex-row items-center justify-between border-b border-border pb-2">
+        <View className="flex-row items-center gap-3">
+          <Checkbox checked={isAllSelected} onCheckedChange={handleToggleAll} />
+          <Text className="font-medium">Assets</Text>
+        </View>
+        <Text className="text-sm text-muted-foreground">
+          {selectedCount}/{assets.length}
+        </Text>
+      </View>
+
+      {/* ── Scrollable list (fills all remaining space) ── */}
+      <View className="flex-1 px-6 pt-3">
+        {isLoading && assets.length === 0 ? (
+          <View className="flex-1 items-center justify-center">
+            <ActivityIndicator />
+          </View>
+        ) : (
+          <LegendList
+            data={assets}
+            estimatedItemSize={56}
+            keyExtractor={(item) => item.id}
+            extraData={selectedAssetIds}
+            contentContainerStyle={{ paddingBottom: 8 }}
+            renderItem={({ item }) => {
+              const checked = selectedAssetIds.has(item.id);
+              return (
+                <Pressable
+                  onPress={() => handleToggleAsset(item.id)}
+                  className="mb-2 flex-row items-center gap-3 rounded-lg border border-border px-3 py-3"
+                >
+                  {/* pointerEvents="none" avoid double trigger */}
+                  <View pointerEvents="none">
+                    <Checkbox checked={checked} onCheckedChange={noop} />
                   </View>
-                ) : null
-              }
-            />
-          )}
-        </View>
-
-        {/* ── Fixed footer ── */}
-        <View className="border-t border-border px-6 pb-4 pt-4">
-          <Button
-            onPress={handleExport}
-            disabled={isConcatenating || selectedCount === 0}
-          >
-            {isConcatenating ? (
-              <ActivityIndicator />
-            ) : (
-              <Text>{`${shareEnable || Platform.OS === 'ios' ? 'Share' : 'Download'}`}</Text>
+                  <Text className="flex-1" numberOfLines={1}>
+                    {item.name || 'Untitled asset'}
+                  </Text>
+                </Pressable>
+              );
+            }}
+            ListEmptyComponent={() => (
+              <View className="items-center justify-center py-16">
+                <Text className="text-muted-foreground">
+                  No assets found for this quest.
+                </Text>
+              </View>
             )}
-          </Button>
-          <Button onPress={onClose} variant="outline" className="mb-2">
-            <Text>Cancel</Text>
-          </Button>
-        </View>
-      </SafeAreaView>
+            ListFooterComponent={() =>
+              isFetchingNextPage ? (
+                <View className="py-3">
+                  <ActivityIndicator />
+                </View>
+              ) : null
+            }
+          />
+        )}
+      </View>
+
+      {/* ── Fixed footer ── */}
+      <View className="flex-col gap-1 border-t border-border px-6 pb-12 pt-4">
+        <Button
+          onPress={handleExport}
+          disabled={isConcatenating || selectedCount === 0}
+        >
+          {isConcatenating ? (
+            <ActivityIndicator />
+          ) : (
+            <Text>{`${shareEnable || Platform.OS === 'ios' ? 'Share' : 'Download'}`}</Text>
+          )}
+        </Button>
+        <Button onPress={onClose} variant="outline" className="mb-2">
+          <Text>Cancel</Text>
+        </Button>
+      </View>
+      {/* </SafeAreaView> */}
     </Modal>
   );
 }
