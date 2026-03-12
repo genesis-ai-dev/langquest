@@ -90,6 +90,28 @@ function getCacheUri(fileName: string): string {
   return joinUri(Paths.cache.uri, fileName);
 }
 
+function getUniqueFileName(
+  desiredName: string,
+  existingNames: Set<string>
+): string {
+  if (!existingNames.has(desiredName)) {
+    return desiredName;
+  }
+
+  const dotIndex = desiredName.lastIndexOf('.');
+  const hasExtension = dotIndex > 0;
+  const baseName = hasExtension ? desiredName.slice(0, dotIndex) : desiredName;
+  const extension = hasExtension ? desiredName.slice(dotIndex) : '';
+
+  let counter = 2;
+  let candidate = `${baseName} (${counter})${extension}`;
+  while (existingNames.has(candidate)) {
+    counter += 1;
+    candidate = `${baseName} (${counter})${extension}`;
+  }
+  return candidate;
+}
+
 async function deleteUriIfExists(uri: string): Promise<void> {
   const normalizedUri = normalizeFileSystemUri(uri);
   try {
@@ -643,20 +665,25 @@ export async function downloadExportAndroid(
 
   const savedFiles: AndroidDownloadResult['savedFiles'] = [];
   const targetDirectoryRef = new Directory(targetDirectory);
+  const existingNames = new Set(
+    targetDirectoryRef.list().map((entry) => entry.name)
+  );
 
   for (const file of artifacts.files) {
     const sourceFile = new File(normalizeFileSystemUri(file.uri));
     const fileBase64 = await sourceFile.base64();
-    const targetFile = new File(targetDirectoryRef, file.name);
-    if (targetFile.exists) {
-      targetFile.delete();
-    }
+    const safeTargetName = getUniqueFileName(file.name, existingNames);
+    const targetFile = targetDirectoryRef.createFile(
+      safeTargetName,
+      file.mimeType || 'application/octet-stream'
+    );
     targetFile.write(fileBase64, { encoding: 'base64' });
+    existingNames.add(safeTargetName);
 
     savedFiles.push({
       sourceUri: file.uri,
       targetUri: targetFile.uri,
-      name: file.name
+      name: safeTargetName
     });
   }
 
