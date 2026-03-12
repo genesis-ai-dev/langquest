@@ -38,8 +38,10 @@ import {
   TheaterIcon,
   UsersIcon
 } from 'lucide-react-native';
+import { useThemeColor } from '@/utils/styleUtils';
 import React from 'react';
-import { ActivityIndicator, Image, TouchableOpacity, View } from 'react-native';
+import { Image } from 'expo-image';
+import { ActivityIndicator, TouchableOpacity, View } from 'react-native';
 
 // --- Step config ---
 
@@ -540,7 +542,8 @@ function MediaItemDisplay({ item }: { item: FiaMediaItem }) {
               source={{ uri: asset.imageUrl }}
               className="w-full rounded-md"
               style={{ aspectRatio: 16 / 10 }}
-              resizeMode="cover"
+              contentFit="cover"
+              cachePolicy="none"
             />
           )}
           {asset.description ? (
@@ -569,7 +572,8 @@ function MapDisplay({ item }: { item: FiaMap }) {
         source={{ uri: item.imageUrl }}
         className="w-full rounded-md"
         style={{ aspectRatio: 4 / 3 }}
-        resizeMode="contain"
+        contentFit="contain"
+        cachePolicy="none"
       />
     </View>
   );
@@ -662,6 +666,7 @@ export function FiaStepDrawer({
   verseRange,
   persistedState
 }: FiaStepDrawerProps) {
+  const primaryColor = useThemeColor('primary');
   const saved = persistedState?.current;
   const [activeTab, setActiveTab] = React.useState<'guide' | 'bible'>(
     saved?.activeTab ?? 'guide'
@@ -846,7 +851,7 @@ export function FiaStepDrawer({
             />
           ) : isLoading ? (
             <View className="flex-1 items-center justify-center py-12">
-              <ActivityIndicator size="large" />
+              <ActivityIndicator size="large" color={primaryColor} />
               <Text className="mt-3 text-sm text-muted-foreground">
                 Loading steps...
               </Text>

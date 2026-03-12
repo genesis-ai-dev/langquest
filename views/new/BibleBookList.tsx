@@ -10,7 +10,8 @@ import { cn, useThemeColor } from '@/utils/styleUtils';
 import { LegendList } from '@legendapp/list';
 import { PlusCircleIcon } from 'lucide-react-native';
 import React from 'react';
-import { Dimensions, Image, View } from 'react-native';
+import { Image } from 'expo-image';
+import { Dimensions, View } from 'react-native';
 
 interface BibleBookListProps {
   projectId: string;
@@ -84,7 +85,7 @@ export function BibleBookList({
             height: 80,
             tintColor: testament === 'old' ? primaryColor : secondaryColor
           }}
-          resizeMode="contain"
+          contentFit="contain"
         />
         <View className="flex-col items-center gap-0.5">
           <Text className="text-xs font-bold" style={{ letterSpacing: 0.5 }}>

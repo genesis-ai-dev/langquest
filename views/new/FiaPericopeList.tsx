@@ -46,7 +46,8 @@ import {
   UserIcon
 } from 'lucide-react-native';
 import React from 'react';
-import { ActivityIndicator, Image, Pressable, View } from 'react-native';
+import { Image } from 'expo-image';
+import { ActivityIndicator, Pressable, View } from 'react-native';
 
 const FIA_TO_BIBLE_BOOK_ID: Record<string, string> = {
   mrk: 'mar',
@@ -170,6 +171,7 @@ function PericopeButton({
   const isCloudQuest = existingQuest?.source === 'cloud';
   const versionCount = group?.versions.length ?? 0;
 
+  const primaryColor = useThemeColor('primary');
   const isDownloaded = useQuestDownloadStatusLive(existingQuest?.id || null);
   const isOptimisticallyDownloading = Boolean(
     existingQuest?.id && downloadingQuestIds.has(existingQuest.id)
@@ -209,7 +211,7 @@ function PericopeButton({
         disabled={disabled || (!existingQuest && !canCreateNew)}
       >
         {isCreatingThis ? (
-          <ActivityIndicator size="small" />
+          <ActivityIndicator size="small" color={primaryColor} />
         ) : (
           <View className="flex-col items-center gap-1">
             <View className="flex-row items-center gap-1">
@@ -622,7 +624,7 @@ export function FiaPericopeList({
           <Image
             source={iconSource}
             style={{ width: 48, height: 48, tintColor: primaryColor }}
-            resizeMode="contain"
+            contentFit="contain"
           />
         ) : (
           <Icon as={BookOpenIcon} size={32} className="text-primary" />

@@ -42,6 +42,7 @@ import * as drizzleSchemaLocal from '../drizzleSchemaLocal';
 import { AppConfig } from '../supabase/AppConfig';
 import { SupabaseConnector } from '../supabase/SupabaseConnector';
 import { AbstractSharedAttachmentQueue } from './AbstractSharedAttachmentQueue';
+import { FiaAttachmentQueue } from './FiaAttachmentQueue';
 import { PermAttachmentQueue } from './PermAttachmentQueue';
 import { ATTACHMENT_QUEUE_LIMITS } from './constants';
 import { getDefaultOpMetadata } from './opMetadata';
@@ -81,6 +82,7 @@ export class System {
   supabaseConnector: SupabaseConnector;
   powersync: PowerSyncDatabaseNative | PowerSyncDatabaseWeb;
   permAttachmentQueue: PermAttachmentQueue | undefined = undefined;
+  fiaAttachmentQueue: FiaAttachmentQueue | undefined = undefined;
   // tempAttachmentQueue: TempAttachmentQueue | undefined = undefined;
   db: PowerSyncSQLiteDatabase<typeof drizzleSchema>;
   migrationDb: {
@@ -210,7 +212,8 @@ export class System {
         additionalColumns: [
           new Column({ name: 'storage_type', type: ColumnType.TEXT })
         ]
-      })
+      }),
+      new AttachmentTable({ name: 'fia_attachments' })
     ]);
 
     Logger.setLevel(Logger.DEBUG);
@@ -477,6 +480,11 @@ export class System {
       //   }
       // });
     }
+
+    this.fiaAttachmentQueue = new FiaAttachmentQueue({
+      powersync: this.powersync,
+      supabaseConnector: this.supabaseConnector
+    });
   }
 
   static getInstance(): System {
@@ -1389,6 +1397,10 @@ export class System {
         initPromises.push(this.permAttachmentQueue.init());
       }
 
+      if (this.fiaAttachmentQueue) {
+        initPromises.push(this.fiaAttachmentQueue.init());
+      }
+
       // if (this.tempAttachmentQueue && Platform.OS !== 'web') {
       //   initPromises.push(this.tempAttachmentQueue.init());
       // }
@@ -1495,6 +1507,16 @@ export class System {
           ).destroy?.();
         } catch (error) {
           console.warn('Error destroying permanent attachment queue:', error);
+        }
+      }
+
+      if (this.fiaAttachmentQueue) {
+        try {
+          (
+            this.fiaAttachmentQueue as unknown as { destroy?: () => void }
+          ).destroy?.();
+        } catch (error) {
+          console.warn('Error destroying FIA attachment queue:', error);
         }
       }
 
@@ -1884,7 +1906,10 @@ export const system = new Proxy({} as System, {
     // Authenticated users will see other errors if PowerSync isn't properly initialized
     if (
       !instance.isPowerSyncInitialized() &&
-      (prop === 'db' || prop === 'powersync' || prop === 'permAttachmentQueue')
+      (prop === 'db' ||
+        prop === 'powersync' ||
+        prop === 'permAttachmentQueue' ||
+        prop === 'fiaAttachmentQueue')
     ) {
       // Suppress warning - PowerSync not being initialized is expected for anonymous users
       // and will cause actual errors for authenticated users that need to be fixed anyway

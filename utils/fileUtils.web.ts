@@ -83,6 +83,38 @@ export async function writeFile(
   }
 }
 
+export async function readTextFile(fileURI: string): Promise<string> {
+  const handle = await getOPFSHandle(fileURI, 'file');
+  const file = await handle?.getFile();
+  if (!file) {
+    throw new Error(`File does not exist: ${fileURI}`);
+  }
+  return file.text();
+}
+
+export async function downloadFile(
+  remoteUrl: string,
+  destDir: string
+): Promise<string> {
+  await ensureDir(destDir);
+  const response = await fetch(remoteUrl);
+  const blob = await response.blob();
+
+  const urlPath = new URL(remoteUrl).pathname;
+  const filename = urlPath.split('/').pop() || 'download';
+  const filePath = destDir ? `${destDir}/${filename}` : filename;
+
+  const fileHandle = await getOPFSHandle(filePath, 'file', { create: true });
+  if (!fileHandle) {
+    throw new Error(`Failed to create file: ${filePath}`);
+  }
+  const writable = await fileHandle.createWritable();
+  await writable.write(blob);
+  await writable.close();
+
+  return filePath;
+}
+
 export async function readFile(
   _fileURI: string,
   _options?: { encoding?: 'utf8' | 'base64' }

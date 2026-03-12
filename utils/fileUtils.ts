@@ -49,17 +49,22 @@ export function getDirectory(uri: string) {
 }
 
 /**
- * Delete a file if it exists. No-ops if uri is falsy or file is missing.
+ * Delete a file or directory if it exists. No-ops if uri is falsy or path is missing.
  */
 export function deleteIfExists(uri: string | null | undefined) {
   if (!uri) return;
   try {
+    const dir = new Directory(uri);
+    if (dir.exists) {
+      dir.delete();
+      return;
+    }
     const file = new File(uri);
     if (file.exists) {
       file.delete();
     }
   } catch {
-    // Idempotent - ignore errors (file may not exist or be a directory)
+    // Idempotent - ignore errors
     try {
       const dir = new Directory(uri);
       if (dir.exists) {
@@ -115,8 +120,38 @@ export function fileExists(uri: string | null | undefined): boolean {
 export function ensureDir(uri: string) {
   const dir = new Directory(uri);
   if (!dir.exists) {
-    dir.create();
+    try {
+      dir.create();
+    } catch {
+      if (!dir.exists) throw new Error(`Failed to create directory: ${uri}`);
+    }
   }
+}
+
+export async function readTextFile(fileURI: string): Promise<string> {
+  const file = new File(fileURI);
+  if (!file.exists) {
+    throw new Error(`File does not exist: ${fileURI}`);
+  }
+  return file.text();
+}
+
+export async function downloadFile(
+  remoteUrl: string,
+  destDir: string,
+  filename?: string
+): Promise<string> {
+  ensureDir(destDir);
+  if (filename) {
+    const dest = new File(`${destDir}/${filename}`);
+    await File.downloadFileAsync(remoteUrl, dest);
+    return dest.uri;
+  }
+  const downloaded = await File.downloadFileAsync(
+    remoteUrl,
+    new Directory(destDir)
+  );
+  return downloaded.uri;
 }
 
 export function writeFile(

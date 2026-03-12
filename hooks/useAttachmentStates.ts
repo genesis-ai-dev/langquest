@@ -12,7 +12,8 @@ type QueryResult = QueryResultNative;
 
 export function useAttachmentStates(
   attachmentIds: string[] = [],
-  enabled = true
+  enabled = true,
+  tableName: string = ATTACHMENT_TABLE
 ) {
   const { isAuthenticated, isSystemReady } = useAuth();
   // Use reactive isSystemReady from AuthContext instead of non-reactive isPowerSyncInitialized
@@ -58,8 +59,8 @@ export function useAttachmentStates(
     // Filter out ARCHIVED attachments - they're not part of active sync progress
     const query =
       attachmentIds.length > 0
-        ? `SELECT * FROM ${ATTACHMENT_TABLE} WHERE id IN (${attachmentIds.map((id) => `'${id}'`).join(',')}) AND state < ${AttachmentState.ARCHIVED}`
-        : `SELECT * FROM ${ATTACHMENT_TABLE} WHERE state < ${AttachmentState.ARCHIVED}`;
+        ? `SELECT * FROM ${tableName} WHERE id IN (${attachmentIds.map((id) => `'${id}'`).join(',')}) AND state < ${AttachmentState.ARCHIVED}`
+        : `SELECT * FROM ${tableName} WHERE state < ${AttachmentState.ARCHIVED}`;
 
     system.powersync.watch(
       query,
@@ -113,7 +114,7 @@ export function useAttachmentStates(
         clearTimeout(debounceTimeoutRef.current);
       }
     };
-  }, [enabled, attachmentIds, isAuthenticated, isPowerSyncReady]);
+  }, [enabled, attachmentIds, isAuthenticated, isPowerSyncReady, tableName]);
 
   return { attachmentStates, isLoading };
 }

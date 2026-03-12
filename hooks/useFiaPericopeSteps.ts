@@ -1,8 +1,4 @@
-import { useAuth } from '@/contexts/AuthContext';
-import {
-  lookupFiaLanguageCode,
-  lookupSourceLanguoidId
-} from '@/utils/languoidLookups';
+import { getCachedFiaPericope } from '@/utils/fia-cache';
 import { useQuery } from '@tanstack/react-query';
 
 // --- Types matching the edge function response ---
@@ -59,50 +55,22 @@ export function useFiaPericopeSteps(
   projectId: string | undefined,
   pericopeId: string | undefined
 ) {
-  const { session } = useAuth();
-  const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-
   const { data, isLoading, error } = useQuery({
     queryKey: ['fia-pericope-steps', projectId, pericopeId],
     queryFn: async (): Promise<FiaPericopeStepsResponse | null> => {
       if (!projectId || !pericopeId) return null;
 
-      const sourceLanguoidId = await lookupSourceLanguoidId(projectId);
-      if (!sourceLanguoidId) {
-        throw new Error('Could not find source languoid for project');
-      }
+      const cached = await getCachedFiaPericope(pericopeId);
+      if (cached) return cached;
 
-      const fiaCode = await lookupFiaLanguageCode(sourceLanguoidId);
-      if (!fiaCode) {
-        throw new Error(
-          `No FIA language code found for languoid ${sourceLanguoidId}`
-        );
-      }
-
-      const response = await fetch(
-        `${supabaseUrl}/functions/v1/fia-pericope-steps`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${session?.access_token ?? process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY}`
-          },
-          body: JSON.stringify({ pericopeId, fiaLanguageCode: fiaCode })
-        }
-      );
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(
-          `FIA pericope steps request failed (${response.status}): ${errorText}`
-        );
-      }
-
-      return response.json();
+      // Cache not ready yet — the attachment queue is downloading in the background.
+      // Returning null lets react-query retry on the next refetchInterval tick.
+      return null;
     },
-    enabled: !!projectId && !!pericopeId && !!supabaseUrl,
+    enabled: !!projectId && !!pericopeId,
     staleTime: Infinity,
-    retry: 2
+    refetchInterval: (query) => (query.state.data ? false : 3_000),
+    retry: false
   });
 
   return {

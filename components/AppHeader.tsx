@@ -56,23 +56,28 @@ export default function AppHeader({
     uploadError
   } = useSyncState();
 
-  // Get attachment states to monitor download queue
+  // Get attachment states to monitor download queues
   const { attachmentStates } = useAttachmentStates([]);
+  const { attachmentStates: fiaAttachmentStates } = useAttachmentStates(
+    [],
+    true,
+    'fia_attachments'
+  );
 
-  // Calculate if there are downloads in progress
+  // Calculate if there are downloads in progress across both queues
   const hasDownloadsInProgress = useMemo(() => {
-    if (attachmentStates.size === 0) return false;
-
-    for (const record of attachmentStates.values()) {
-      if (
-        record.state === AttachmentState.QUEUED_DOWNLOAD ||
-        record.state === AttachmentState.QUEUED_SYNC
-      ) {
-        return true;
+    for (const states of [attachmentStates, fiaAttachmentStates]) {
+      for (const record of states.values()) {
+        if (
+          record.state === AttachmentState.QUEUED_DOWNLOAD ||
+          record.state === AttachmentState.QUEUED_SYNC
+        ) {
+          return true;
+        }
       }
     }
     return false;
-  }, [attachmentStates]);
+  }, [attachmentStates, fiaAttachmentStates]);
 
   const hasSyncError = !!(downloadError || uploadError);
   // Don't show syncing state if there's an error - prevents eternal syncing loop
