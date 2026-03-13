@@ -926,9 +926,6 @@ export async function concatenateAudioListToFile(
     );
   }
 
-  console.log('projectName', projectName);
-  console.log('languoidName', languoidName);
-
   // Check if native module is available
   if (!concatAudioFiles || !convertToM4a) {
     throw new Error(
