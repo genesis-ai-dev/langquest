@@ -42,11 +42,6 @@ export function useFiaBooks(sourceLanguoidId: string | null) {
     queryFn: async (): Promise<FiaBook[]> => {
       if (!sourceLanguoidId) return [];
 
-      console.log(
-        `[useFiaBooks] Looking up FIA language code for languoid ${sourceLanguoidId}`
-      );
-
-      // Step 1: Look up FIA language code
       const fiaCode = await lookupFiaLanguageCode(sourceLanguoidId);
       if (!fiaCode) {
         throw new Error(
@@ -54,11 +49,6 @@ export function useFiaBooks(sourceLanguoidId: string | null) {
         );
       }
 
-      console.log(
-        `[useFiaBooks] FIA code: ${fiaCode}, calling edge function at ${supabaseUrl}/functions/v1/fia-pericopes`
-      );
-
-      // Step 2: Call edge function
       const response = await fetch(
         `${supabaseUrl}/functions/v1/fia-pericopes`,
         {
@@ -71,22 +61,14 @@ export function useFiaBooks(sourceLanguoidId: string | null) {
         }
       );
 
-      console.log(
-        `[useFiaBooks] Edge function response status: ${response.status}`
-      );
-
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(`[useFiaBooks] Edge function error:`, errorText);
         throw new Error(
           `FIA API request failed (${response.status}): ${errorText}`
         );
       }
 
       const result: FiaPericopesResponse = await response.json();
-      console.log(
-        `[useFiaBooks] Got ${result.books.length} books from FIA API`
-      );
       return result.books;
     },
     enabled: !!sourceLanguoidId && !!supabaseUrl,

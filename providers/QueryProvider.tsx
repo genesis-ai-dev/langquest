@@ -1,6 +1,14 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient } from '@tanstack/react-query';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
+import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { ReactNode } from 'react';
 import { useMemo } from 'react';
+
+const persister = createAsyncStoragePersister({
+  storage: AsyncStorage,
+  key: 'bible-brain-cache'
+});
 
 export function QueryProvider({ children }: { children: ReactNode }) {
   const queryClient = useMemo(
@@ -31,6 +39,23 @@ export function QueryProvider({ children }: { children: ReactNode }) {
   );
 
   return (
-    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    <PersistQueryClientProvider
+      client={queryClient}
+      persistOptions={{
+        persister,
+        maxAge: 1000 * 60 * 60 * 24 * 30, // 30 days
+        dehydrateOptions: {
+          shouldDehydrateQuery: (query) => {
+            const queryKey = query.queryKey;
+            if (!Array.isArray(queryKey) || typeof queryKey[0] !== 'string')
+              return false;
+            const key = queryKey[0];
+            return key.startsWith('bible-brain-') || key === 'fia-books';
+          }
+        }
+      }}
+    >
+      {children}
+    </PersistQueryClientProvider>
   );
 }

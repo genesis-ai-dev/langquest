@@ -270,10 +270,12 @@ export function useHybridData<TOfflineData, TCloudData = TOfflineData>(
     data: combinedData,
     isOfflineLoading,
     isCloudLoading,
-    // For anonymous users, only cloud loading matters (offline is disabled)
-    // For authenticated users, show loading if either is loading
+    // Offline-first: for authenticated users, only offline loading blocks the UI.
+    // Cloud data is a background enhancement — its loading state should never
+    // prevent showing locally-available data (avoids infinite skeleton when
+    // a cloud fetch hangs on airplane mode).
     isLoading: shouldEnableOfflineQuery
-      ? isOfflineLoading || isCloudLoading
+      ? isOfflineLoading
       : isCloudLoading,
     isError: !!offlineError || !!cloudError,
     offlineError,
@@ -577,10 +579,12 @@ export function useHybridInfiniteData<TOfflineData, TCloudData = TOfflineData>(
       offlineQuery.isFetchingNextPage || cloudQuery.isFetchingNextPage,
     isFetchingPreviousPage:
       offlineQuery.isFetchingPreviousPage || cloudQuery.isFetchingPreviousPage,
-    // For anonymous users, only cloud loading matters (offline is disabled)
-    // For authenticated users, show loading if either is loading
+    // Offline-first: for authenticated users, only offline loading blocks the UI.
+    // Cloud data is a background enhancement — its loading state should never
+    // prevent showing locally-available data (avoids infinite skeleton when
+    // a cloud fetch hangs on airplane mode).
     isLoading: shouldEnableOfflineQuery
-      ? offlineQuery.isLoading || cloudQuery.isLoading
+      ? offlineQuery.isLoading
       : cloudQuery.isLoading,
     isOfflineLoading: offlineQuery.isLoading,
     isCloudLoading: shouldFetchCloud && cloudQuery.isLoading,
@@ -593,7 +597,7 @@ export function useHybridInfiniteData<TOfflineData, TCloudData = TOfflineData>(
       offlineQuery.isError || cloudQuery.isError
         ? 'error'
         : shouldEnableOfflineQuery
-          ? offlineQuery.isLoading || cloudQuery.isLoading
+          ? offlineQuery.isLoading
             ? 'pending'
             : 'success'
           : cloudQuery.isLoading

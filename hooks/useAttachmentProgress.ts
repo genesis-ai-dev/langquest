@@ -76,6 +76,8 @@ export function useAttachmentProgress(enabled = true): {
   // Get attachment states only when enabled
   const { attachmentStates, isLoading: attachmentStatesLoading } =
     useAttachmentStates([], enabled && isAuthenticated);
+  const { attachmentStates: fiaStates, isLoading: fiaStatesLoading } =
+    useAttachmentStates([], enabled && isAuthenticated, 'fia_attachments');
 
   // Stable empty progress object for anonymous users (never changes)
   const emptySyncProgress = useMemo(
@@ -145,40 +147,36 @@ export function useAttachmentProgress(enabled = true): {
     []
   );
 
-  // Calculate attachment progress stats
-  // useMemo will prevent recalculation when dependencies don't change
+  // Calculate attachment progress stats (both queues combined)
   const attachmentProgress = useMemo(() => {
-    // Short-circuit when disabled or not authenticated
-    if (!enabled || !isAuthenticated || attachmentStatesLoading) {
+    if (!enabled || !isAuthenticated || attachmentStatesLoading || fiaStatesLoading) {
       return emptyProgress;
     }
 
-    // Calculate counts efficiently in a single pass
-    // Note: ARCHIVED attachments are already filtered out by useAttachmentStates query
-    const total = attachmentStates.size;
+    let total = 0;
     let synced = 0;
     let downloading = 0;
     let uploading = 0;
     let queued = 0;
 
-    for (const record of attachmentStates.values()) {
-      if (record.state === AttachmentState.SYNCED) {
-        synced++;
-      } else if (record.state === AttachmentState.QUEUED_DOWNLOAD) {
-        downloading++;
-      } else if (record.state === AttachmentState.QUEUED_UPLOAD) {
-        uploading++;
-      } else if (record.state === AttachmentState.QUEUED_SYNC) {
-        // QUEUED_SYNC can be either download or upload, but we'll count it as queued
-        // The actual direction is determined by whether local_uri exists
-        queued++;
+    for (const states of [attachmentStates, fiaStates]) {
+      total += states.size;
+      for (const record of states.values()) {
+        if (record.state === AttachmentState.SYNCED) {
+          synced++;
+        } else if (record.state === AttachmentState.QUEUED_DOWNLOAD) {
+          downloading++;
+        } else if (record.state === AttachmentState.QUEUED_UPLOAD) {
+          uploading++;
+        } else if (record.state === AttachmentState.QUEUED_SYNC) {
+          queued++;
+        }
       }
     }
 
     const hasActivity = downloading > 0 || uploading > 0 || queued > 0;
     const unsynced = total - synced;
 
-    // Create new object - useMemo ensures this only happens when dependencies change
     return {
       total,
       synced,
@@ -192,7 +190,9 @@ export function useAttachmentProgress(enabled = true): {
     enabled,
     isAuthenticated,
     attachmentStatesLoading,
+    fiaStatesLoading,
     attachmentStates,
+    fiaStates,
     emptyProgress
   ]);
 
@@ -201,6 +201,6 @@ export function useAttachmentProgress(enabled = true): {
   return {
     progress: attachmentProgress,
     syncProgress,
-    isLoading: attachmentStatesLoading
+    isLoading: attachmentStatesLoading || fiaStatesLoading
   };
 }

@@ -1,3 +1,4 @@
+import { BibleDownloadButton, BibleOfflineIndicator } from '@/components/BibleDownloadButton';
 import { DrawerScrollView } from '@/components/ui/drawer';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
@@ -13,12 +14,15 @@ import {
   type BibleBrainAudioChapter,
   type BibleBrainVerse
 } from '@/hooks/useBibleBrainContent';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useLocalStore } from '@/store/localStore';
+import { isBibleAudioCached, isBibleTextCached } from '@/utils/bible-cache';
 import { getThemeColor } from '@/utils/styleUtils';
-import { Ionicons } from '@expo/vector-icons';
 import {
   BookOpenIcon,
   HeadphonesIcon,
+  PauseIcon,
+  PlayIcon,
   SearchIcon,
   TypeIcon
 } from 'lucide-react-native';
@@ -148,10 +152,10 @@ function BibleAudioPlayer({
           onPress={handlePlayPause}
           className="h-10 w-10 items-center justify-center rounded-full bg-primary"
         >
-          <Ionicons
-            name={isThisPlaying ? 'pause' : 'play'}
+          <Icon
+            as={isThisPlaying ? PauseIcon : PlayIcon}
             size={20}
-            color="white"
+            className="text-white"
           />
         </TouchableOpacity>
         <View className="flex-1">
@@ -187,33 +191,57 @@ interface DropdownItem {
   hasText: boolean;
   hasAudio: boolean;
   isRecent: boolean;
+  hasTextCached: boolean;
+  hasAudioCached: boolean;
 }
 
 function TranslationPicker({
   bibles,
   selectedId,
   onSelect,
-  recentIds
+  recentIds,
+  fiaBookId,
+  verseRange
 }: {
   bibles: BibleBrainBible[];
   selectedId: string | null;
   onSelect: (bible: BibleBrainBible) => void;
   recentIds: string[];
+  fiaBookId?: string;
+  verseRange?: string;
 }) {
   const [search, setSearch] = useState('');
+  const bookId = fiaBookId?.toUpperCase();
 
   const dropdownData = useMemo(() => {
     const recentSet = new Set(recentIds);
-    const items: DropdownItem[] = bibles.map((b) => ({
-      value: b.id,
-      label: formatBibleLabel(b),
-      hasText: b.hasText,
-      hasAudio: b.hasAudio,
-      isRecent: recentSet.has(b.id)
-    }));
+    const items: DropdownItem[] = bibles.map((b) => {
+      const hasTextCached =
+        bookId && verseRange && b.textFilesetId
+          ? isBibleTextCached(b.textFilesetId, bookId, verseRange)
+          : false;
+      const hasAudioCached =
+        bookId && verseRange && b.audioFilesetId
+          ? isBibleAudioCached(b.audioFilesetId, bookId, verseRange)
+          : false;
 
-    // Sort: recent first (in order), then the rest by name
+      return {
+        value: b.id,
+        label: formatBibleLabel(b),
+        hasText: b.hasText,
+        hasAudio: b.hasAudio,
+        isRecent: recentSet.has(b.id),
+        hasTextCached,
+        hasAudioCached
+      };
+    });
+
+    // Sort: cached first, then recent, then the rest by name
     items.sort((a, b) => {
+      const aCached = a.hasTextCached || a.hasAudioCached;
+      const bCached = b.hasTextCached || b.hasAudioCached;
+      if (aCached && !bCached) return -1;
+      if (!aCached && bCached) return 1;
       if (a.isRecent && !b.isRecent) return -1;
       if (!a.isRecent && b.isRecent) return 1;
       if (a.isRecent && b.isRecent) {
@@ -223,10 +251,10 @@ function TranslationPicker({
     });
 
     return items;
-  }, [bibles, recentIds]);
+  }, [bibles, recentIds, bookId, verseRange]);
 
   return (
-    <View className="px-4 py-2">
+    <View className="py-2">
       <Dropdown
         style={{
           height: 44,
@@ -308,17 +336,29 @@ function TranslationPicker({
             className={`flex-row items-center px-3 py-3 ${selected ? 'bg-accent' : ''}`}
           >
             <View className="flex-1">
-              <Text
-                className={`text-sm ${selected ? 'font-medium text-accent-foreground' : 'text-foreground'}`}
-                numberOfLines={2}
-              >
-                {item.label}
-              </Text>
+              <View className="flex-row items-center gap-1.5">
+                <Text
+                  className={`flex-1 text-sm ${selected ? 'font-medium text-accent-foreground' : 'text-foreground'}`}
+                  numberOfLines={2}
+                >
+                  {item.label}
+                </Text>
+                <BibleOfflineIndicator
+                  hasTextCached={item.hasTextCached}
+                  hasAudioCached={item.hasAudioCached}
+                />
+              </View>
               {item.isRecent && (
                 <Text className="text-xs text-muted-foreground">
                   Recently used
                 </Text>
               )}
+              {(item.hasTextCached || item.hasAudioCached) &&
+                !item.isRecent && (
+                  <Text className="text-xs text-green-600 dark:text-green-400">
+                    Available offline
+                  </Text>
+                )}
             </View>
             <View className="ml-2 flex-row gap-1">
               {item.hasText && (
@@ -373,7 +413,7 @@ function VerseDisplay({
   }
 
   return (
-    <View className="px-4 py-3">
+    <View className="py-3">
       {verses.map((v) => {
         const key = `${v.chapter}-${v.verseStart}`;
         const isActive = activeVerseKey === key;
@@ -409,6 +449,7 @@ export function BibleReaderContent({
   fiaBookId,
   verseRange
 }: BibleReaderContentProps) {
+  const isOnline = useNetworkStatus();
   const {
     bibles,
     isLoading: biblesLoading,
@@ -468,7 +509,10 @@ export function BibleReaderContent({
   const {
     data: content,
     isLoading: contentLoading,
-    error: contentError
+    error: contentError,
+    audioDownloadState,
+    downloadAudio,
+    cachedAudioUrls
   } = useBibleBrainContent(
     selectedBible?.textFilesetId,
     selectedBible?.audioFilesetId,
@@ -476,10 +520,10 @@ export function BibleReaderContent({
     verseRange
   );
 
-  const audioUrls = useMemo(
-    () => (content?.audio ?? []).map((a) => a.url).filter(Boolean),
-    [content?.audio]
-  );
+  const audioUrls = useMemo(() => {
+    if (cachedAudioUrls) return cachedAudioUrls;
+    return (content?.audio ?? []).map((a) => a.url).filter(Boolean);
+  }, [content?.audio, cachedAudioUrls]);
 
   const audioId = `bible-${selectedBible?.id}-${fiaBookId}-${verseRange}`;
 
@@ -557,7 +601,7 @@ export function BibleReaderContent({
   if (biblesLoading) {
     return (
       <View className="flex-1 items-center justify-center p-8">
-        <ActivityIndicator size="large" />
+        <ActivityIndicator size="large" color={getThemeColor('primary')} />
         <Text className="mt-3 text-muted-foreground">
           Loading translations...
         </Text>
@@ -595,6 +639,8 @@ export function BibleReaderContent({
         selectedId={selectedBible?.id ?? null}
         onSelect={handleSelectBible}
         recentIds={recentIds}
+        fiaBookId={fiaBookId}
+        verseRange={verseRange}
       />
 
       {selectedBible?.hasAudio && audioUrls.length > 0 && (
@@ -605,9 +651,21 @@ export function BibleReaderContent({
         />
       )}
 
+      {selectedBible?.hasAudio && (
+        <View className="px-1">
+          <BibleDownloadButton
+            state={audioDownloadState}
+            onDownload={downloadAudio}
+            hasAudio={selectedBible.hasAudio}
+            isOffline={!isOnline}
+            compact
+          />
+        </View>
+      )}
+
       {contentLoading ? (
         <View className="flex-1 items-center justify-center p-8">
-          <ActivityIndicator size="small" />
+          <ActivityIndicator size="small" color={getThemeColor('primary')} />
           <Text className="mt-2 text-sm text-muted-foreground">
             Loading passage...
           </Text>
@@ -615,8 +673,16 @@ export function BibleReaderContent({
       ) : contentError ? (
         <View className="flex-1 items-center justify-center p-8">
           <Text className="text-destructive">
-            Could not load passage content.
+            {isOnline
+              ? 'Could not load passage content.'
+              : 'No cached content available offline.'}
           </Text>
+          {!isOnline && (
+            <Text className="mt-1 text-center text-xs text-muted-foreground">
+              Connect to the internet and select a translation to cache it for
+              offline use.
+            </Text>
+          )}
         </View>
       ) : (
         <DrawerScrollView ref={scrollRef} style={{ flex: 1 }}>

@@ -64,7 +64,7 @@ export function useBibleBrainBibles(projectId: string | undefined) {
       return response.json();
     },
     enabled: !!projectId && !!supabaseUrl,
-    staleTime: Infinity,
+    staleTime: 1000 * 60 * 60 * 24, // 24 hours - allows updates when attachment queue changes
     retry: 2
   });
 

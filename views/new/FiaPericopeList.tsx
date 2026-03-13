@@ -5,6 +5,7 @@
  * When multiple versions exist for a pericope, shows a picker drawer.
  */
 
+import { BibleBookDownloadDrawer } from '@/components/BibleBookDownloadDrawer';
 import { DownloadConfirmationModal } from '@/components/DownloadConfirmationModal';
 import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { QuestDownloadDiscoveryDrawer } from '@/components/QuestDownloadDiscoveryDrawer';
@@ -41,6 +42,7 @@ import { LegendList } from '@legendapp/list';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   BookOpenIcon,
+  DownloadCloudIcon,
   HardDriveIcon,
   PlusCircleIcon,
   UserIcon
@@ -321,6 +323,9 @@ export function FiaPericopeList({
   React.useEffect(() => {
     onCloudLoadingChange?.(isLoadingCloud);
   }, [isLoadingCloud, onCloudLoadingChange]);
+
+  // Bible book download drawer
+  const [showBibleDownload, setShowBibleDownload] = React.useState(false);
 
   // Version picker state
   const [pickerPericopeId, setPickerPericopeId] = React.useState<string | null>(
@@ -629,12 +634,21 @@ export function FiaPericopeList({
         ) : (
           <Icon as={BookOpenIcon} size={32} className="text-primary" />
         )}
-        <View>
+        <View className="flex-1">
           <Text variant="h4">{book.title}</Text>
           <Text className="text-sm text-muted-foreground">
             {book.pericopes.length} pericopes
           </Text>
         </View>
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex-row items-center gap-1.5"
+          onPress={() => setShowBibleDownload(true)}
+        >
+          <Icon as={DownloadCloudIcon} size={16} className="text-primary" />
+          <Text className="text-xs font-medium">Bible</Text>
+        </Button>
       </View>
 
       <LegendList
@@ -743,6 +757,13 @@ export function FiaPericopeList({
           Tags: discoveryState.progressSharedValues.tags.value.count,
           Languages: discoveryState.progressSharedValues.languages.value.count
         }}
+      />
+
+      <BibleBookDownloadDrawer
+        open={showBibleDownload}
+        onOpenChange={setShowBibleDownload}
+        projectId={projectId}
+        book={book}
       />
     </View>
   );

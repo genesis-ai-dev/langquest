@@ -1,8 +1,5 @@
 import { BibleReaderContent } from '@/components/BibleReaderContent';
 import { FiaIcon } from '@/components/icons/FiaIcon';
-import { Icon } from '@/components/ui/icon';
-import { Slider } from '@/components/ui/slider';
-import { Text } from '@/components/ui/text';
 import {
   Collapsible,
   CollapsibleContent,
@@ -16,17 +13,21 @@ import {
   DrawerScrollView,
   DrawerTitle
 } from '@/components/ui/drawer';
+import { Icon } from '@/components/ui/icon';
+import { Slider } from '@/components/ui/slider';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Text } from '@/components/ui/text';
 import { useAudio } from '@/contexts/AudioContext';
 import type {
   FiaBlock,
   FiaMap,
   FiaMediaItem,
-  FiaPericopeStepsResponse,
   FiaStepData,
   FiaTerm
 } from '@/hooks/useFiaPericopeSteps';
 import { useFiaPericopeSteps } from '@/hooks/useFiaPericopeSteps';
-import { Ionicons } from '@expo/vector-icons';
+import { cn, useThemeColor } from '@/utils/styleUtils';
+import { Image } from 'expo-image';
 import {
   BookOpenIcon,
   CheckIcon,
@@ -34,13 +35,13 @@ import {
   ClapperboardIcon,
   HeartIcon,
   MessageCircleIcon,
+  PauseIcon,
+  PlayIcon,
   PuzzleIcon,
   TheaterIcon,
   UsersIcon
 } from 'lucide-react-native';
-import { useThemeColor } from '@/utils/styleUtils';
 import React from 'react';
-import { Image } from 'expo-image';
 import { ActivityIndicator, TouchableOpacity, View } from 'react-native';
 
 // --- Step config ---
@@ -136,10 +137,10 @@ function StepAudioPlayer({ audioUrl }: { audioUrl: string | null }) {
           onPress={handlePlayPause}
           className="h-10 w-10 items-center justify-center rounded-full bg-primary"
         >
-          <Ionicons
-            name={isThisPlaying ? 'pause' : 'play'}
+          <Icon
+            as={isThisPlaying ? PauseIcon : PlayIcon}
             size={20}
-            color="white"
+            className="text-white"
           />
         </TouchableOpacity>
         <View className="flex-1">
@@ -765,7 +766,7 @@ export function FiaStepDrawer({
       enableDynamicSizing={false}
     >
       <DrawerContent asChild>
-        <View style={{ flex: 1 }} className="bg-background px-6">
+        <View style={{ flex: 1 }} className="flex-col gap-3 bg-background px-6">
           <DrawerHeader className="pb-0">
             <View className="flex-row items-start justify-between">
               <View className="flex-1 flex-col gap-0.5">
@@ -789,187 +790,182 @@ export function FiaStepDrawer({
             </View>
           </DrawerHeader>
 
-          {/* Guide / Bible tab row */}
-          <View className="flex-row gap-2 border-b border-border px-2 pb-2">
-            <TouchableOpacity
-              onPress={() => setActiveTab('guide')}
-              className={`flex-1 flex-row items-center justify-center gap-2 rounded-lg py-2 ${
-                activeTab === 'guide' ? 'bg-primary' : 'bg-muted'
-              }`}
-            >
-              <Icon
-                as={FiaIcon}
-                size={16}
-                className={
-                  activeTab === 'guide'
-                    ? 'text-primary-foreground'
-                    : 'text-muted-foreground'
-                }
-              />
-              <Text
-                className={`text-sm font-semibold ${
-                  activeTab === 'guide'
-                    ? 'text-primary-foreground'
-                    : 'text-muted-foreground'
-                }`}
+          <Tabs
+            value={activeTab}
+            onValueChange={(value) =>
+              setActiveTab(value as FiaDrawerState['activeTab'])
+            }
+            className="flex-1"
+          >
+            <TabsList className="w-full rounded-xl border-border bg-accent p-0 px-1">
+              <TabsTrigger
+                value="guide"
+                className="h-10 min-w-0 flex-1 gap-2 rounded-lg px-0"
               >
-                Guide
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => setActiveTab('bible')}
-              className={`flex-1 flex-row items-center justify-center gap-2 rounded-lg py-2 ${
-                activeTab === 'bible' ? 'bg-primary' : 'bg-muted'
-              }`}
-            >
-              <Icon
-                as={BookOpenIcon}
-                size={16}
-                className={
-                  activeTab === 'bible'
-                    ? 'text-primary-foreground'
-                    : 'text-muted-foreground'
-                }
-              />
-              <Text
-                className={`text-sm font-semibold ${
-                  activeTab === 'bible'
-                    ? 'text-primary-foreground'
-                    : 'text-muted-foreground'
-                }`}
+                <Icon
+                  as={FiaIcon}
+                  size={16}
+                  className={cn(
+                    activeTab === 'guide'
+                      ? 'text-primary-foreground'
+                      : 'text-muted-foreground'
+                  )}
+                />
+                <Text className="text-sm font-semibold">Guide</Text>
+              </TabsTrigger>
+              <TabsTrigger
+                value="bible"
+                className="h-10 min-w-0 flex-1 gap-2 rounded-lg px-0"
               >
-                Bible
-              </Text>
-            </TouchableOpacity>
-          </View>
+                <Icon
+                  as={BookOpenIcon}
+                  size={16}
+                  className={cn(
+                    activeTab === 'bible'
+                      ? 'text-primary-foreground'
+                      : 'text-muted-foreground'
+                  )}
+                />
+                <Text className="text-sm font-semibold">Bible</Text>
+              </TabsTrigger>
+            </TabsList>
 
-          {activeTab === 'bible' ? (
-            <BibleReaderContent
-              projectId={projectId}
-              fiaBookId={fiaBookId}
-              verseRange={verseRange}
-            />
-          ) : isLoading ? (
-            <View className="flex-1 items-center justify-center py-12">
-              <ActivityIndicator size="large" color={primaryColor} />
-              <Text className="mt-3 text-sm text-muted-foreground">
-                Loading steps...
-              </Text>
-            </View>
-          ) : error ? (
-            <View className="flex-1 items-center justify-center px-6 py-12">
-              <Text className="text-center text-sm text-destructive">
-                Failed to load content. Please check your connection and try
-                again.
-              </Text>
-            </View>
-          ) : data ? (
-            <>
-              <View className="flex-row items-center justify-around border-b border-border py-2">
-                {STEP_CONFIG.map((cfg, idx) => {
-                  const isActive = activeStep === cfg.id;
-                  const hasStep = data.steps.some((s) => s.stepId === cfg.id);
-                  const isDone = completedSteps.has(cfg.id);
-                  return (
-                    <TouchableOpacity
-                      key={cfg.id}
-                      onPress={() => hasStep && setActiveStep(cfg.id)}
-                      disabled={!hasStep}
-                      className={`items-center rounded-lg px-2.5 py-1.5 ${
-                        isActive
-                          ? 'bg-primary'
-                          : hasStep
-                            ? 'bg-muted'
-                            : 'bg-muted/50 opacity-40'
-                      }`}
-                    >
-                      <View>
-                        <View className="flex-row items-center gap-1">
-                          <Text
-                            className={`text-xs font-bold ${
-                              isActive
-                                ? 'text-primary-foreground'
-                                : 'text-muted-foreground'
-                            }`}
-                          >
-                            {idx + 1}
-                          </Text>
-                          <Icon
-                            as={cfg.icon}
-                            size={16}
-                            className={
-                              isActive
-                                ? 'text-primary-foreground'
-                                : 'text-muted-foreground'
-                            }
-                          />
-                        </View>
-                        {isDone && (
-                          <View
-                            className="absolute -right-1.5 -top-1.5 items-center justify-center rounded-full bg-green-500"
-                            style={{ width: 14, height: 14 }}
-                          >
-                            <Icon
-                              as={CheckIcon}
-                              size={9}
-                              className="text-white"
-                            />
+            <TabsContent value="bible" className="flex-1">
+              <BibleReaderContent
+                projectId={projectId}
+                fiaBookId={fiaBookId}
+                verseRange={verseRange}
+              />
+            </TabsContent>
+
+            <TabsContent value="guide" className="flex-1">
+              {isLoading ? (
+                <View className="flex-1 items-center justify-center py-12">
+                  <ActivityIndicator size="large" color={primaryColor} />
+                  <Text className="mt-3 text-sm text-muted-foreground">
+                    Downloading guide content...
+                  </Text>
+                </View>
+              ) : error ? (
+                <View className="flex-1 items-center justify-center px-6 py-12">
+                  <Text className="text-center text-sm text-destructive">
+                    Failed to load content. Please check your connection and try
+                    again.
+                  </Text>
+                </View>
+              ) : data ? (
+                <>
+                  <View className="flex-row items-center justify-between border-b border-border px-1 py-2">
+                    {STEP_CONFIG.map((cfg, idx) => {
+                      const isActive = activeStep === cfg.id;
+                      const hasStep = data.steps.some(
+                        (s) => s.stepId === cfg.id
+                      );
+                      const isDone = completedSteps.has(cfg.id);
+                      return (
+                        <TouchableOpacity
+                          key={cfg.id}
+                          onPress={() => hasStep && setActiveStep(cfg.id)}
+                          disabled={!hasStep}
+                          className={`items-center rounded-lg px-2.5 py-1.5 ${
+                            isActive
+                              ? 'bg-primary'
+                              : hasStep
+                                ? 'bg-muted'
+                                : 'bg-muted/50 opacity-40'
+                          }`}
+                        >
+                          <View>
+                            <View className="flex-row items-center gap-1">
+                              <Text
+                                className={`text-xs font-bold ${
+                                  isActive
+                                    ? 'text-primary-foreground'
+                                    : 'text-muted-foreground'
+                                }`}
+                              >
+                                {idx + 1}
+                              </Text>
+                              <Icon
+                                as={cfg.icon}
+                                size={16}
+                                className={
+                                  isActive
+                                    ? 'text-primary-foreground'
+                                    : 'text-muted-foreground'
+                                }
+                              />
+                            </View>
+                            {isDone && (
+                              <View
+                                className="absolute -right-1.5 -top-1.5 items-center justify-center rounded-full bg-green-500"
+                                style={{ width: 14, height: 14 }}
+                              >
+                                <Icon
+                                  as={CheckIcon}
+                                  size={9}
+                                  className="text-white"
+                                />
+                              </View>
+                            )}
                           </View>
-                        )}
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-
-              <StepAudioPlayer audioUrl={audioUrl} />
-
-              <DrawerScrollView ref={scrollRef} style={{ flex: 1 }}>
-                {currentStep ? (
-                  <>
-                    <StepContent
-                      step={currentStep}
-                      mediaItems={data.mediaItems}
-                      terms={data.terms}
-                      maps={data.maps}
-                    />
-                    <View className="items-center gap-2 px-5 pb-8 pt-4">
-                      {isStepCompleted ? (
-                        <TouchableOpacity
-                          onPress={handleUndoDone}
-                          className="flex-row items-center gap-2 rounded-xl bg-green-500/20 px-6 py-3"
-                        >
-                          <Icon
-                            as={CheckIcon}
-                            size={18}
-                            className="text-green-600 dark:text-green-400"
-                          />
-                          <Text className="font-semibold text-green-600 dark:text-green-400">
-                            Done
-                          </Text>
                         </TouchableOpacity>
-                      ) : (
-                        <TouchableOpacity
-                          onPress={handleStepDone}
-                          className="flex-row items-center gap-2 rounded-xl bg-primary px-6 py-3"
-                        >
-                          <Text className="font-semibold text-primary-foreground">
-                            {isLastStep ? 'Complete' : 'Done \u2014 Next Step'}
-                          </Text>
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                  </>
-                ) : (
-                  <View className="items-center justify-center py-12">
-                    <Text className="text-center text-muted-foreground">
-                      Select a step to view its content.
-                    </Text>
+                      );
+                    })}
                   </View>
-                )}
-              </DrawerScrollView>
-            </>
-          ) : null}
+
+                  <StepAudioPlayer audioUrl={audioUrl} />
+
+                  <DrawerScrollView ref={scrollRef} style={{ flex: 1 }}>
+                    {currentStep ? (
+                      <>
+                        <StepContent
+                          step={currentStep}
+                          mediaItems={data.mediaItems}
+                          terms={data.terms}
+                          maps={data.maps}
+                        />
+                        <View className="items-center gap-2 px-5 pb-8 pt-4">
+                          {isStepCompleted ? (
+                            <TouchableOpacity
+                              onPress={handleUndoDone}
+                              className="flex-row items-center gap-2 rounded-xl bg-green-500/20 px-6 py-3"
+                            >
+                              <Icon
+                                as={CheckIcon}
+                                size={18}
+                                className="text-green-600 dark:text-green-400"
+                              />
+                              <Text className="font-semibold text-green-600 dark:text-green-400">
+                                Done
+                              </Text>
+                            </TouchableOpacity>
+                          ) : (
+                            <TouchableOpacity
+                              onPress={handleStepDone}
+                              className="flex-row items-center gap-2 rounded-xl bg-primary px-6 py-3"
+                            >
+                              <Text className="font-semibold text-primary-foreground">
+                                {isLastStep
+                                  ? 'Complete'
+                                  : 'Done \u2014 Next Step'}
+                              </Text>
+                            </TouchableOpacity>
+                          )}
+                        </View>
+                      </>
+                    ) : (
+                      <View className="items-center justify-center py-12">
+                        <Text className="text-center text-muted-foreground">
+                          Select a step to view its content.
+                        </Text>
+                      </View>
+                    )}
+                  </DrawerScrollView>
+                </>
+              ) : null}
+            </TabsContent>
+          </Tabs>
         </View>
       </DrawerContent>
     </Drawer>

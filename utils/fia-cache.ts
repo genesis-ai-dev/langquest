@@ -154,6 +154,10 @@ export async function fetchAndCacheFiaPericope(
   writeFile(getResponseJsonPath(pericopeId), JSON.stringify(rewritten));
 }
 
+export function isFiaPericopeCached(pericopeId: string): boolean {
+  return fileExists(getResponseJsonPath(pericopeId));
+}
+
 export async function getCachedFiaPericope(
   pericopeId: string
 ): Promise<FiaPericopeStepsResponse | null> {

@@ -1,5 +1,11 @@
-import { getCachedFiaPericope } from '@/utils/fia-cache';
-import { useQuery } from '@tanstack/react-query';
+import { system } from '@/db/powersync/system';
+import {
+  fetchAndCacheFiaPericope,
+  getCachedFiaPericope
+} from '@/utils/fia-cache';
+import { AttachmentState } from '@powersync/attachments';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
 
 // --- Types matching the edge function response ---
 
@@ -55,22 +61,51 @@ export function useFiaPericopeSteps(
   projectId: string | undefined,
   pericopeId: string | undefined
 ) {
+  const queryClient = useQueryClient();
+  const queryKey = ['fia-pericope-steps', projectId, pericopeId];
+
+  // Watch the fia_attachments table for this pericope's record becoming SYNCED.
+  // When the queue finishes downloading, this invalidates the query reactively
+  // instead of polling.
+  useEffect(() => {
+    if (!projectId || !pericopeId) return;
+
+    const attachmentId = `${projectId}__${pericopeId}`;
+    const abortController = new AbortController();
+
+    system.powersync.watch(
+      `SELECT state FROM fia_attachments WHERE id = ?`,
+      [attachmentId],
+      {
+        onResult: (result) => {
+          const row = result.rows?._array?.[0] as { state: number } | undefined;
+          if (row?.state === AttachmentState.SYNCED) {
+            void queryClient.invalidateQueries({ queryKey });
+          }
+        }
+      },
+      { signal: abortController.signal }
+    );
+
+    return () => abortController.abort();
+  }, [projectId, pericopeId, queryClient, queryKey]);
+
   const { data, isLoading, error } = useQuery({
-    queryKey: ['fia-pericope-steps', projectId, pericopeId],
-    queryFn: async (): Promise<FiaPericopeStepsResponse | null> => {
+    queryKey,
+    queryFn: async () => {
       if (!projectId || !pericopeId) return null;
 
       const cached = await getCachedFiaPericope(pericopeId);
       if (cached) return cached;
 
-      // Cache not ready yet — the attachment queue is downloading in the background.
-      // Returning null lets react-query retry on the next refetchInterval tick.
-      return null;
+      const session = await system.supabaseConnector.client.auth.getSession();
+      const token = session.data.session?.access_token;
+      await fetchAndCacheFiaPericope(projectId, pericopeId, token);
+      return await getCachedFiaPericope(pericopeId);
     },
     enabled: !!projectId && !!pericopeId,
     staleTime: Infinity,
-    refetchInterval: (query) => (query.state.data ? false : 3_000),
-    retry: false
+    retry: 1
   });
 
   return {
