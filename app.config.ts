@@ -107,7 +107,6 @@ export default ({ config }: ConfigContext): ExpoConfig =>
       favicon: iconLight
     },
     plugins: [
-      'expo-build-properties',
       'expo-font',
       'expo-router',
       // TODO: migrate existing localization to expo-localization

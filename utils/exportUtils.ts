@@ -11,7 +11,10 @@ import { Directory, File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { Share as NativeShare, Platform } from 'react-native';
 import { zip as zipArchive } from 'react-native-zip-archive';
-import { getFiaSequenceFromQuestMetadata } from './fiaUtils';
+import {
+  getFiaSequenceFromQuestMetadata,
+  parseMetadataObject
+} from './fiaUtils';
 
 export interface ExportArtifact {
   uri: string;
@@ -165,24 +168,7 @@ function formatCurrentDateTime(date: Date): string {
   return `${year}${month}${day}-${hours}${minutes}${seconds}`;
 }
 
-function parseMetadata(metadata: unknown): Record<string, unknown> | null {
-  if (!metadata) return null;
-  if (typeof metadata === 'string') {
-    try {
-      const parsed = JSON.parse(metadata);
-      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-        return parsed as Record<string, unknown>;
-      }
-      return null;
-    } catch {
-      return null;
-    }
-  }
-  if (typeof metadata === 'object') {
-    return metadata as Record<string, unknown>;
-  }
-  return null;
-}
+const parseMetadata = parseMetadataObject;
 
 function getVerseSuffix(metadata: unknown): string | null {
   const parsed = parseMetadata(metadata);

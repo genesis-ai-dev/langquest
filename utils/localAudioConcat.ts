@@ -925,10 +925,6 @@ export async function concatenateAudioListToFile(
       'Audio concatenation is not available on web. Please use a native device.'
     );
   }
-
-  console.log('projectName', projectName);
-  console.log('languoidName', languoidName);
-
   // Check if native module is available
   if (!concatAudioFiles || !convertToM4a) {
     throw new Error(

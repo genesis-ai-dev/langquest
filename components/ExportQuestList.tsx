@@ -201,6 +201,7 @@ export function ExportQuestList({
       setIsConcatenating(false);
     }
   }, [
+    currentProjectId,
     currentQuestId,
     includeCsvFile,
     mergedFile,
