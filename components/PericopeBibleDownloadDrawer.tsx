@@ -45,9 +45,7 @@ import {
 type DownloadPhase = 'idle' | 'downloading' | 'done' | 'error';
 
 function parseFiaVerseRange(verseRange: string) {
-  const match = verseRange.match(
-    /^(\d+):(\d+)[a-z]?-(?:(\d+):)?(\d+)[a-z]?$/
-  );
+  const match = verseRange.match(/^(\d+):(\d+)[a-z]?-(?:(\d+):)?(\d+)[a-z]?$/);
   if (!match) return null;
   return {
     startChapter: parseInt(match[1]!, 10),
@@ -71,14 +69,12 @@ function TranslationRow({
   verseRange: string;
 }) {
   const label = bible.vname || bible.name;
-  const hasTextCached =
-    bible.textFilesetId
-      ? isBibleTextCached(bible.textFilesetId, bookId, verseRange)
-      : false;
-  const hasAudioCached =
-    bible.audioFilesetId
-      ? isBibleAudioCached(bible.audioFilesetId, bookId, verseRange)
-      : false;
+  const hasTextCached = bible.textFilesetId
+    ? isBibleTextCached(bible.textFilesetId, bookId, verseRange)
+    : false;
+  const hasAudioCached = bible.audioFilesetId
+    ? isBibleAudioCached(bible.audioFilesetId, bookId, verseRange)
+    : false;
 
   return (
     <TouchableOpacity
@@ -171,10 +167,9 @@ export function PericopeBibleDownloadDrawer({
     setDownloadLabel('Downloading Bible content...');
 
     try {
-      const textCached =
-        bible.textFilesetId
-          ? isBibleTextCached(bible.textFilesetId, bookId, pericope.verseRange)
-          : false;
+      const textCached = bible.textFilesetId
+        ? isBibleTextCached(bible.textFilesetId, bookId, pericope.verseRange)
+        : false;
       const audioCached =
         includeAudio && bible.audioFilesetId
           ? isBibleAudioCached(
@@ -212,11 +207,7 @@ export function PericopeBibleDownloadDrawer({
         if (response.ok) {
           const data: BibleBrainContentResponse = await response.json();
 
-          if (
-            bible.textFilesetId &&
-            data.verses.length > 0 &&
-            !textCached
-          ) {
+          if (bible.textFilesetId && data.verses.length > 0 && !textCached) {
             await cacheBibleText(
               bible.textFilesetId,
               bookId,

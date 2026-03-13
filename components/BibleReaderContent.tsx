@@ -483,18 +483,9 @@ function TranslationDownloadButton({
         if (response.ok) {
           const data: BibleBrainContentResponse = await response.json();
           if (data.verses.length > 0) {
-            await cacheBibleText(
-              bible.textFilesetId,
-              bookId,
-              verseRange,
-              data
-            );
+            await cacheBibleText(bible.textFilesetId, bookId, verseRange, data);
           }
-          if (
-            bible.audioFilesetId &&
-            data.audio.length > 0 &&
-            !audioCached
-          ) {
+          if (bible.audioFilesetId && data.audio.length > 0 && !audioCached) {
             setState({ status: 'downloading', label: 'Downloading audio...' });
             await downloadBibleAudio(
               bible.audioFilesetId,
@@ -538,11 +529,9 @@ function TranslationDownloadButton({
 
   if (state.status === 'downloading') {
     return (
-      <View className="flex-row items-center gap-2 rounded-lg bg-primary/8 px-3 py-2">
+      <View className="bg-primary/8 flex-row items-center gap-2 rounded-lg px-3 py-2">
         <ActivityIndicator size="small" color={getThemeColor('primary')} />
-        <Text className="text-xs font-medium text-primary">
-          {state.label}
-        </Text>
+        <Text className="text-xs font-medium text-primary">{state.label}</Text>
       </View>
     );
   }
@@ -566,7 +555,7 @@ function TranslationDownloadButton({
   return (
     <TouchableOpacity
       onPress={handleDownload}
-      className="flex-row items-center gap-2 rounded-lg bg-primary/8 px-3 py-2"
+      className="bg-primary/8 flex-row items-center gap-2 rounded-lg px-3 py-2"
       activeOpacity={0.7}
     >
       <Icon as={DownloadCloudIcon} size={16} className="text-primary" />

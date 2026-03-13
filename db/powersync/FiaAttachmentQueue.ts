@@ -144,9 +144,7 @@ export class FiaAttachmentQueue extends AbstractAttachmentQueue {
     const parsed = {
       startChapter: parseInt(match[1]!, 10),
       startVerse: parseInt(match[2]!, 10),
-      endChapter: match[3]
-        ? parseInt(match[3], 10)
-        : parseInt(match[1]!, 10),
+      endChapter: match[3] ? parseInt(match[3], 10) : parseInt(match[1]!, 10),
       endVerse: parseInt(match[4]!, 10)
     };
 
@@ -215,8 +213,7 @@ export class FiaAttachmentQueue extends AbstractAttachmentQueue {
     if (cached) {
       // FIA guide is cached — still try to sync bible content
       try {
-        const session =
-          await this.supabaseConnector.client.auth.getSession();
+        const session = await this.supabaseConnector.client.auth.getSession();
         await this.syncBibleContent(
           projectId,
           pericopeId,
@@ -230,8 +227,7 @@ export class FiaAttachmentQueue extends AbstractAttachmentQueue {
     }
 
     try {
-      const session =
-        await this.supabaseConnector.client.auth.getSession();
+      const session = await this.supabaseConnector.client.auth.getSession();
       const token = session.data.session?.access_token;
 
       await fetchAndCacheFiaPericope(projectId, pericopeId, token);

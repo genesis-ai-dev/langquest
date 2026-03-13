@@ -564,9 +564,7 @@ export function FiaPericopeList({
   const navigateToVersion = async (version: FiaPericopeQuest) => {
     if (!currentUser?.id) return;
 
-    const pericope = book.pericopes.find(
-      (p) => p.id === version.pericopeId
-    );
+    const pericope = book.pericopes.find((p) => p.id === version.pericopeId);
 
     // Local versions can always be opened directly
     if (version.source === 'local') {
