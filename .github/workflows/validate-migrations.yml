@@ -58,16 +58,42 @@ jobs:
         with:
           version: latest
 
-      - name: Get Branch Environment Variables
+      - name: Get Base Branch Name
+        id: base-branch
         run: |
-          supabase --experimental branches get "$GITHUB_HEAD_REF" -o env >> $GITHUB_ENV
-          # Mask JWT secret in logs immediately after retrieval
+          # Get the base branch name (usually 'dev' or 'main')
+          BASE_BRANCH="${{ github.event.pull_request.base.ref }}"
+          echo "base_branch=${BASE_BRANCH}" >> $GITHUB_OUTPUT
+          echo "Comparing PR branch migrations against base branch: ${BASE_BRANCH}"
+
+      - name: Get Base Branch Database Environment Variables
+        run: |
+          # Get database connection info for the BASE branch (what's already merged)
+          # This represents the current state before this PR's migrations
+          BASE_BRANCH="${{ steps.base-branch.outputs.base_branch }}"
+          echo "Fetching database credentials for base branch: ${BASE_BRANCH}"
+          supabase --experimental branches get "$BASE_BRANCH" -o env >> $GITHUB_ENV || {
+            echo "⚠️  Could not get base branch database. Falling back to PR branch database."
+            supabase --experimental branches get "$GITHUB_HEAD_REF" -o env >> $GITHUB_ENV
+          }
+          # Mask all sensitive values immediately after retrieval
           if [ -n "$SUPABASE_JWT_SECRET" ]; then
             echo "::add-mask::${SUPABASE_JWT_SECRET}"
           fi
+          if [ -n "$POSTGRES_URL" ]; then
+            echo "::add-mask::${POSTGRES_URL}"
+          fi
+          if [ -n "$POSTGRES_URL_NON_POOLING" ]; then
+            echo "::add-mask::${POSTGRES_URL_NON_POOLING}"
+          fi
+          if [ -n "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "::add-mask::${SUPABASE_SERVICE_ROLE_KEY}"
+          fi
+          if [ -n "$SUPABASE_ANON_KEY" ]; then
+            echo "::add-mask::${SUPABASE_ANON_KEY}"
+          fi
 
-      - name: Get Migration History from Database
-        id: db-migrations
+      - name: Setup Database Connection
         run: |
           # Check if POSTGRES_URL is set
           if [ -z "$POSTGRES_URL" ]; then
@@ -81,21 +107,30 @@ jobs:
           # Result: postgresql://postgres.project_ref:password@pooler-host:5432/postgres
           DB_URL=$(echo "$POSTGRES_URL" | sed "s|:6543|:5432|g" | sed 's|?.*||' | sed 's|^"||' | sed 's|"$||')
 
-          # Mask password in logs for security
+          # Mask the full DB_URL in logs immediately
+          echo "::add-mask::${DB_URL}"
+          echo "DB_URL=${DB_URL}" >> $GITHUB_ENV
+
+          # Show masked version for logs
           DB_URL_MASKED=$(echo "$DB_URL" | sed 's|:[^:@]*@|:***@|g')
           echo "Using database URL: ${DB_URL_MASKED}"
 
-          # Get migration history from database
+      - name: Get Migration History from Base Branch Database
+        id: db-migrations
+        run: |
+          BASE_BRANCH="${{ steps.base-branch.outputs.base_branch }}"
+          echo "Getting migration history from base branch (${BASE_BRANCH}) database"
+          
+          # Get migration history from base branch database
           # The supabase_migrations.schema_migrations table stores applied migrations
           # Capture both stdout and stderr separately for better error reporting
-          # Use the same approach as sync-rules workflow - pass URL directly to psql
           PSQL_ERROR=$(mktemp)
           DB_MIGRATIONS=$(psql "$DB_URL" -t -A -c "SELECT version || '_' || name FROM supabase_migrations.schema_migrations ORDER BY version;" 2>"$PSQL_ERROR" || echo "")
           PSQL_ERROR_CONTENT=$(cat "$PSQL_ERROR")
           rm -f "$PSQL_ERROR"
 
           if [ -z "$DB_MIGRATIONS" ]; then
-            echo "⚠️  Could not query migration history from database"
+            echo "⚠️  Could not query migration history from base branch database"
             echo "This might mean migrations haven't been applied yet, or the database is not accessible"
             if [ -n "$PSQL_ERROR_CONTENT" ]; then
               echo "psql error: $PSQL_ERROR_CONTENT"
@@ -103,7 +138,7 @@ jobs:
             echo "db_migrations=" >> $GITHUB_OUTPUT
           else
             echo "$DB_MIGRATIONS" > db_migrations.txt
-            echo "✅ Retrieved migration history from database"
+            echo "✅ Retrieved migration history from base branch database"
             echo "db_migrations<<EOF" >> $GITHUB_OUTPUT
             echo "$DB_MIGRATIONS" >> $GITHUB_OUTPUT
             echo "EOF" >> $GITHUB_OUTPUT
@@ -130,66 +165,156 @@ jobs:
       - name: Compare Migration History
         id: compare
         run: |
-          # Install psql if not available
-          if ! command -v psql &> /dev/null; then
-            echo "Installing PostgreSQL client..."
-            sudo apt-get update && sudo apt-get install -y postgresql-client
-          fi
-
           # Read migration lists
           if [ -f db_migrations.txt ] && [ -f repo_migrations.txt ]; then
             DB_MIGRATIONS=$(cat db_migrations.txt)
             REPO_MIGRATIONS=$(cat repo_migrations.txt)
             
+            BASE_BRANCH="${{ steps.base-branch.outputs.base_branch }}"
             echo "=== Migration History Comparison ==="
             echo ""
-            echo "Migrations in database:"
-            echo "$DB_MIGRATIONS" | head -10
-            echo "..."
+            echo "Comparing: Base branch (${BASE_BRANCH}) database migrations vs PR branch migration files"
             echo ""
-            echo "Migration files in repository:"
-            echo "$REPO_MIGRATIONS" | head -10
-            echo "..."
+            echo "Migrations in base branch database:"
+            echo "$DB_MIGRATIONS" | tail -20
+            echo ""
+            echo "Migration files in PR branch:"
+            echo "$REPO_MIGRATIONS" | tail -20
+            echo ""
+            echo "DEBUG: Checking for renamed migrations..."
+            echo "Base branch DB migrations count: $(echo "$DB_FULL" | wc -l)"
+            echo "PR branch repo migrations count: $(echo "$REPO_FULL" | wc -l)"
             echo ""
             
-            # Convert to arrays for comparison
-            # Note: DB format is "version_name", repo format is "timestamp_name"
-            # We need to extract just the name part for comparison, or normalize formats
+            # Normalize formats: DB format is "version_name", repo format is "timestamp_name"
+            # Create maps for both full identifiers and names
+            DB_FULL=$(echo "$DB_MIGRATIONS" | sort)
+            REPO_FULL=$(echo "$REPO_MIGRATIONS" | sort)
             
-            # Extract just the migration names (without timestamp/version)
-            DB_NAMES=$(echo "$DB_MIGRATIONS" | sed 's/^[0-9_]*_//' | sort)
-            REPO_NAMES=$(echo "$REPO_MIGRATIONS" | sed 's/^[0-9_]*_//' | sort)
+            # Extract migration names (without timestamp/version) for name-based comparison
+            DB_NAMES=$(echo "$DB_MIGRATIONS" | sed 's/^[0-9_]*_//' | sort -u)
+            REPO_NAMES=$(echo "$REPO_MIGRATIONS" | sed 's/^[0-9_]*_//' | sort -u)
             
-            # Find migrations in DB but not in repo
-            MISSING_IN_REPO=$(comm -23 <(echo "$DB_NAMES") <(echo "$REPO_NAMES") || echo "")
+            # Find migrations in DB but not in repo (by full identifier)
+            MISSING_IN_REPO_FULL=$(comm -23 <(echo "$DB_FULL") <(echo "$REPO_FULL") || echo "")
             
-            # Find migrations in repo but not in DB
-            MISSING_IN_DB=$(comm -13 <(echo "$DB_NAMES") <(echo "$REPO_NAMES") || echo "")
+            # Find migrations in repo but not in DB (by full identifier)
+            MISSING_IN_DB_FULL=$(comm -13 <(echo "$DB_FULL") <(echo "$REPO_FULL") || echo "")
             
-            if [ -n "$MISSING_IN_REPO" ]; then
-              echo "❌ CRITICAL: Migrations in database history but NOT in repository files:"
-              echo "$MISSING_IN_REPO"
-              echo ""
-              echo "This means migration files were deleted but the migration history remains."
-              echo "This will cause merge conflicts!"
+            # Check for renamed migrations: same name exists with different version
+            RENAMED_MIGRATIONS=""
+            for db_migration in $DB_FULL; do
+              db_name=$(echo "$db_migration" | sed 's/^[0-9_]*_//')
+              db_version=$(echo "$db_migration" | sed 's/_.*$//')
+              
+              # Check if this name exists in repo with different version
+              repo_match=$(echo "$REPO_FULL" | grep "_${db_name}$" | head -1)
+              if [ -n "$repo_match" ]; then
+                repo_version=$(echo "$repo_match" | sed 's/_.*$//')
+                if [ "$db_version" != "$repo_version" ]; then
+                  RENAMED_MIGRATIONS="${RENAMED_MIGRATIONS}${db_migration} -> ${repo_match}\n"
+                fi
+              fi
+            done
+            
+            # Also check reverse: repo migrations that might be renamed versions of DB migrations
+            for repo_migration in $REPO_FULL; do
+              repo_name=$(echo "$repo_migration" | sed 's/^[0-9_]*_//')
+              repo_version=$(echo "$repo_migration" | sed 's/_.*$//')
+              
+              # Check if this name exists in DB with different version
+              db_match=$(echo "$DB_FULL" | grep "_${repo_name}$" | head -1)
+              if [ -n "$db_match" ]; then
+                db_version=$(echo "$db_match" | sed 's/_.*$//')
+                if [ "$repo_version" != "$db_version" ]; then
+                  # Only add if not already found in the forward check
+                  if ! echo "$RENAMED_MIGRATIONS" | grep -q "${db_match} -> ${repo_migration}"; then
+                    RENAMED_MIGRATIONS="${RENAMED_MIGRATIONS}${db_match} -> ${repo_migration}\n"
+                  fi
+                fi
+              fi
+            done
+            
+            # Check for chronological order violations
+            # If repo has migrations with timestamps before the last DB migration, flag as out-of-order
+            LAST_DB_VERSION=$(echo "$DB_FULL" | tail -1 | sed 's/_.*$//')
+            OUT_OF_ORDER=""
+            for repo_migration in $REPO_FULL; do
+              repo_version=$(echo "$repo_migration" | sed 's/_.*$//')
+              repo_name=$(echo "$repo_migration" | sed 's/^[0-9_]*_//')
+              
+              # Check if this migration is not in DB and has timestamp before last DB migration
+              if ! echo "$DB_FULL" | grep -q "^${repo_migration}$"; then
+                if [ "$repo_version" -lt "$LAST_DB_VERSION" ] 2>/dev/null; then
+                  OUT_OF_ORDER="${OUT_OF_ORDER}${repo_migration}\n"
+                fi
+              fi
+            done
+            
+            # Build error messages
+            ERRORS=""
+            WARNINGS=""
+            
+            # Check for renamed migrations first (more specific than missing)
+            if [ -n "$RENAMED_MIGRATIONS" ]; then
+              ERRORS="${ERRORS}❌ **CRITICAL**: Migrations were renamed (same name, different timestamp):\n\`\`\`\n$(echo -e "$RENAMED_MIGRATIONS")\`\`\`\n\n"
+              ERRORS="${ERRORS}This will cause migration history mismatches. You need to repair the migration history:\n"
+              ERRORS="${ERRORS}1. Mark old migration as reverted: \`npx supabase@beta migration repair --status reverted --version <old_version> --name <name>\`\n"
+              ERRORS="${ERRORS}2. Mark new migration as applied: \`npx supabase@beta migration repair --status applied --version <new_version> --name <name>\`\n\n"
+            fi
+            
+            # Check for missing migrations (but exclude ones that were renamed)
+            if [ -n "$MISSING_IN_REPO_FULL" ]; then
+              # Filter out migrations that are part of a rename
+              ACTUALLY_MISSING=""
+              for missing in $MISSING_IN_REPO_FULL; do
+                missing_name=$(echo "$missing" | sed 's/^[0-9_]*_//')
+                # Check if this is a renamed migration
+                is_renamed=false
+                if [ -n "$RENAMED_MIGRATIONS" ]; then
+                  if echo -e "$RENAMED_MIGRATIONS" | grep -q "^${missing} ->"; then
+                    is_renamed=true
+                  fi
+                fi
+                if [ "$is_renamed" = "false" ]; then
+                  ACTUALLY_MISSING="${ACTUALLY_MISSING}${missing}\n"
+                fi
+              done
+              
+              if [ -n "$ACTUALLY_MISSING" ]; then
+                ERRORS="${ERRORS}❌ **CRITICAL**: Migrations in database history but NOT in repository files:\n\`\`\`\n$(echo -e "$ACTUALLY_MISSING")\`\`\`\n\n"
+                ERRORS="${ERRORS}This means migration files were deleted but the migration history remains. This will cause merge conflicts!\n\n"
+              fi
+            fi
+            
+            if [ -n "$OUT_OF_ORDER" ]; then
+              WARNINGS="${WARNINGS}⚠️  **WARNING**: Migrations exist that would need to be inserted out of chronological order:\n\`\`\`\n${OUT_OF_ORDER}\`\`\`\n\n"
+              WARNINGS="${WARNINGS}These migrations have timestamps before the last applied migration. You'll need to use \`--include-all\` flag when applying:\n"
+              WARNINGS="${WARNINGS}\`supabase db push --include-all\`\n\n"
+            fi
+            
+            if [ -n "$MISSING_IN_DB_FULL" ]; then
+              WARNINGS="${WARNINGS}⚠️  **WARNING**: Migration files exist in repository but not in database history:\n\`\`\`\n${MISSING_IN_DB_FULL}\n\`\`\`\n\n"
+              WARNINGS="${WARNINGS}These migrations may not have been applied yet. Run \`supabase db push\` to apply them.\n\n"
+            fi
+            
+            # Set output status
+            if [ -n "$ERRORS" ]; then
+              echo -e "$ERRORS"
               echo "comparison_status=failed" >> $GITHUB_OUTPUT
-              echo "error_message=Migrations exist in database history but not in repository files" >> $GITHUB_OUTPUT
+              echo "error_message<<EOF" >> $GITHUB_OUTPUT
+              echo -e "$ERRORS" >> $GITHUB_OUTPUT
+              echo "EOF" >> $GITHUB_OUTPUT
               exit 1
-            fi
-            
-            if [ -n "$MISSING_IN_DB" ]; then
-              echo "⚠️  WARNING: Migration files exist in repository but not in database history:"
-              echo "$MISSING_IN_DB"
-              echo ""
-              echo "These migrations may not have been applied yet."
+            elif [ -n "$WARNINGS" ]; then
+              echo -e "$WARNINGS"
               echo "comparison_status=warning" >> $GITHUB_OUTPUT
-            fi
-            
-            if [ -z "$MISSING_IN_REPO" ] && [ -z "$MISSING_IN_DB" ]; then
+              echo "warning_message<<EOF" >> $GITHUB_OUTPUT
+              echo -e "$WARNINGS" >> $GITHUB_OUTPUT
+              echo "EOF" >> $GITHUB_OUTPUT
+            else
               echo "✅ Migration history matches repository files!"
               echo "comparison_status=success" >> $GITHUB_OUTPUT
-            else
-              echo "comparison_status=warning" >> $GITHUB_OUTPUT
             fi
           else
             echo "⚠️  Could not compare migrations - missing migration lists"
@@ -212,12 +337,11 @@ jobs:
 
             ${{ steps.compare.outputs.comparison_status == 'failed' && '❌ **FAILED**' || '⚠️ **WARNING**' }}
 
-            ${{ steps.compare.outputs.error_message || '' }}
-
-            ${{ steps.compare.outputs.comparison_status == 'failed' && 'This PR has migrations in the database history that do not exist in the migration files. This will cause merge conflicts when merging to main.' || '' }}
+            ${{ steps.compare.outputs.error_message || steps.compare.outputs.warning_message || '' }}
 
             **Next steps:**
             - Review the migration history comparison above
+            - If migrations were renamed, repair the migration history using the commands shown above
+            - If migrations need to be applied out of order, use `supabase db push --include-all`
             - Ensure all migrations in the database history have corresponding files in `supabase/migrations`
-            - If migrations were intentionally deleted, you may need to repair the migration history
           comment-tag: migration-validation
