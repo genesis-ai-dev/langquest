@@ -54,6 +54,17 @@ export interface AndroidDownloadResult {
 
 export type ExportActionResult = 'completed' | 'cancelled';
 
+function isUserCancellationError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const message = error.message.toLowerCase();
+  return (
+    message.includes('cancel') ||
+    message.includes('canceled') ||
+    message.includes('cancelled') ||
+    message.includes('aborted')
+  );
+}
+
 function getFileNameFromUri(uri: string, fallbackPrefix = 'export'): string {
   const rawName = uri.split('/').pop();
   if (!rawName) {
@@ -649,18 +660,25 @@ export async function shareExport(
 export async function downloadExportAndroid(
   artifacts: Pick<BuiltExportArtifacts, 'files'>,
   directoryUri?: string
-): Promise<AndroidDownloadResult> {
+): Promise<AndroidDownloadResult | ExportActionResult> {
   if (Platform.OS !== 'android') {
     throw new Error('downloadExportAndroid can only be called on Android.');
   }
 
   let targetDirectory = directoryUri;
   if (!targetDirectory) {
-    const pickedDirectory = await Directory.pickDirectoryAsync();
-    if (!pickedDirectory?.uri) {
-      throw new Error('Directory permission was not granted.');
+    try {
+      const pickedDirectory = await Directory.pickDirectoryAsync();
+      if (!pickedDirectory?.uri) {
+        return 'cancelled';
+      }
+      targetDirectory = pickedDirectory.uri;
+    } catch (error) {
+      if (isUserCancellationError(error)) {
+        return 'cancelled';
+      }
+      throw error;
     }
-    targetDirectory = pickedDirectory.uri;
   }
 
   const savedFiles: AndroidDownloadResult['savedFiles'] = [];

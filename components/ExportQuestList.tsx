@@ -28,6 +28,7 @@ interface ExportQuestListProps {
   onClose: () => void;
   currentProjectId: string;
   currentQuestId: string;
+  initialShareEnable?: boolean;
 }
 
 interface AssetItem {
@@ -40,7 +41,8 @@ export function ExportQuestList({
   isOpen,
   onClose,
   currentProjectId,
-  currentQuestId
+  currentQuestId,
+  initialShareEnable = false
 }: ExportQuestListProps) {
   const { t } = useLocalization();
   const { quest } = useQuestById(currentQuestId);
@@ -55,7 +57,7 @@ export function ExportQuestList({
   const [mergedFile, setMergedFile] = React.useState(true);
   const [includeCsvFile, setIncludeCsvFile] = React.useState(true);
   const [zipFile, setZipFile] = React.useState(false);
-  const [shareEnable, setShareEnable] = React.useState(false);
+  const [shareEnable, setShareEnable] = React.useState(initialShareEnable);
   const [isConcatenating, setIsConcatenating] = React.useState(false);
 
   const assets = React.useMemo(() => {
@@ -87,11 +89,16 @@ export function ExportQuestList({
   }, [assets, hasUserTouchedSelection]);
 
   React.useEffect(() => {
+    if (isOpen) {
+      setShareEnable(initialShareEnable);
+      return;
+    }
+
     if (!isOpen) {
       setHasUserTouchedSelection(false);
       setSelectedAssetIds(new Set());
     }
-  }, [isOpen, currentProjectId, currentQuestId]);
+  }, [isOpen, currentProjectId, currentQuestId, initialShareEnable]);
 
   const isAllSelected = React.useMemo(() => {
     if (assets.length === 0) return false;
@@ -161,11 +168,11 @@ export function ExportQuestList({
       if (shareEnable) {
         exportResult = await shareExport(
           artifacts,
-          quest?.name || 'Quest Audio'
+          quest?.name || t('questAudio')
         );
       } else {
         const result = await downloadExport(artifacts, {
-          iosDialogTitle: quest?.name || 'Save export'
+          iosDialogTitle: quest?.name || t('saveExport')
         });
         if (result === 'cancelled') {
           exportResult = result;
@@ -178,14 +185,12 @@ export function ExportQuestList({
 
       RNAlert.alert(
         t('success'),
-        shareEnable
-          ? t('contentShared') || 'Content shared successfully'
-          : t('downloaded') || 'Files downloaded successfully'
+        shareEnable ? t('contentShared') : t('filesDownloadedSuccessfully')
       );
     } catch (error) {
       RNAlert.alert(
         t('error'),
-        error instanceof Error ? error.message : 'Failed to export audio'
+        error instanceof Error ? error.message : t('failedToExportAudio')
       );
     } finally {
       if (cleanup) {
@@ -212,7 +217,7 @@ export function ExportQuestList({
         className="flex-row items-center justify-between border-b border-border px-6 pb-4"
       >
         <View className="flex-col">
-          <Text variant="h4">Export Quest</Text>
+          <Text variant="h4">{t('exportQuestTitle')}</Text>
           <Text className="text-sm text-muted-foreground">
             {quest?.name || '-'}
           </Text>
@@ -224,8 +229,8 @@ export function ExportQuestList({
               onValueChange={(next) => setShareEnable(next === 'right')}
               leftIcon={Download}
               rightIcon={Share2Icon}
-              leftText="Download"
-              rightText="Share"
+              leftText={t('download')}
+              rightText={t('share')}
             />
           )}
         </View>
@@ -239,14 +244,14 @@ export function ExportQuestList({
                 checked={mergedFile}
                 onCheckedChange={(v) => setMergedFile(v === true)}
               />
-              <Text className="text-xs">Merge Audio</Text>
+              <Text className="text-xs">{t('mergeAudio')}</Text>
             </View>
             <View className="flex-row items-center gap-2">
               <Checkbox
                 checked={includeCsvFile}
                 onCheckedChange={(v) => setIncludeCsvFile(v === true)}
               />
-              <Text className="text-xs">Include Text</Text>
+              <Text className="text-xs">{t('includeText')}</Text>
             </View>
             {Platform.OS === 'android' && (
               <View className="flex-row items-center gap-2">
@@ -254,7 +259,7 @@ export function ExportQuestList({
                   checked={zipFile}
                   onCheckedChange={(v) => setZipFile(v === true)}
                 />
-                <Text className="text-xs">Single Zip</Text>
+                <Text className="text-xs">{t('singleZip')}</Text>
               </View>
             )}
           </View>
@@ -264,7 +269,7 @@ export function ExportQuestList({
               size={16}
             />
             <Text className="text-xs text-muted-foreground">
-              Translations and transcriptions are not included.
+              {t('translationsAndTranscriptionsNotIncluded')}
             </Text>
           </View>
         </View>
@@ -275,7 +280,7 @@ export function ExportQuestList({
             size={16}
           />
           <Text className="text-xs text-muted-foreground">
-            Files will be merged and shared as a single file.
+            {t('filesMergedAndSharedSingleFile')}
           </Text>
         </View>
       )}
@@ -283,7 +288,7 @@ export function ExportQuestList({
       <View className="mx-6 mt-4 flex-row items-center justify-between border-b border-border pb-2">
         <View className="flex-row items-center gap-3">
           <Checkbox checked={isAllSelected} onCheckedChange={handleToggleAll} />
-          <Text className="font-medium">Assets</Text>
+          <Text className="font-medium">{t('assets')}</Text>
         </View>
         <Text className="text-sm text-muted-foreground">
           {selectedCount}/{assets.length}
@@ -315,7 +320,7 @@ export function ExportQuestList({
                     <Checkbox checked={checked} onCheckedChange={noop} />
                   </View>
                   <Text className="flex-1" numberOfLines={1}>
-                    {item.name || 'Untitled asset'}
+                    {item.name || t('untitledAsset')}
                   </Text>
                 </Pressable>
               );
@@ -323,7 +328,7 @@ export function ExportQuestList({
             ListEmptyComponent={() => (
               <View className="items-center justify-center py-16">
                 <Text className="text-muted-foreground">
-                  No assets found for this quest.
+                  {t('noAssetsFoundForQuest')}
                 </Text>
               </View>
             )}
@@ -347,11 +352,15 @@ export function ExportQuestList({
           {isConcatenating ? (
             <ActivityIndicator />
           ) : (
-            <Text>{`${shareEnable || Platform.OS === 'ios' ? 'Share' : 'Download'}`}</Text>
+            <Text>
+              {shareEnable || Platform.OS === 'ios'
+                ? t('share')
+                : t('download')}
+            </Text>
           )}
         </Button>
         <Button onPress={onClose} variant="outline" className="mb-2">
-          <Text>Cancel</Text>
+          <Text>{t('cancel')}</Text>
         </Button>
       </View>
       {/* </SafeAreaView> */}

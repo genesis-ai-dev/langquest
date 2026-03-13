@@ -1,25 +1,27 @@
-import { Button } from '@/components/ui/button';
-import { Icon } from '@/components/ui/icon';
+import {
+  SpeedDial,
+  SpeedDialItem,
+  SpeedDialItems,
+  SpeedDialTrigger
+} from '@/components/ui/speed-dial';
 import { shareExportLink, useChapterExport } from '@/hooks/useChapterExport';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useQuestPublishStatus } from '@/hooks/useQuestPublishStatus';
 import type { MembershipRole } from '@/hooks/useUserPermissions';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { concatenateAndShareQuestAudio } from '@/utils/localAudioConcat';
-import { useThemeColor } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
-import { Share2Icon } from 'lucide-react-native';
+import { DownloadIcon, HardDriveDownload, Share, Share2Icon } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
-import { ExportProgressModal } from './ExportProgressModal';
+import { View } from 'react-native';
 import { ExportQuestList } from './ExportQuestList';
-import { ExportTypeSelector } from './ExportTypeSelector';
 
 interface ExportButtonProps {
   questId: string;
   projectId: string;
   questName?: string;
   disabled?: boolean;
+  menuDirection?: 'up' | 'down';
   // Optional: pass membership from parent to avoid duplicate queries
   membership?: MembershipRole;
 }
@@ -29,10 +31,10 @@ export function ExportButton({
   projectId,
   questName,
   disabled,
+  menuDirection = 'down',
   membership: passedMembership
 }: ExportButtonProps) {
   const { t } = useLocalization();
-  const primaryColor = useThemeColor('primary');
   // Use passed membership if available, otherwise fetch it
   const { membership: fetchedMembership, isMembershipLoading } =
     useUserPermissions(projectId, 'open_project');
@@ -40,6 +42,7 @@ export function ExportButton({
   const exportMutation = useChapterExport();
   const [showTypeSelector, setShowTypeSelector] = useState(false);
   const [showExportQuestList, setShowExportQuestList] = useState(false);
+  const [initialShareEnable, setInitialShareEnable] = useState(false);
   const [currentExportId, setCurrentExportId] = useState<string | null>(null);
   const [isConcatenating, setIsConcatenating] = useState(false);
 
@@ -167,46 +170,83 @@ export function ExportButton({
     );
   };
 
+  const openExportList = (shareEnabledByDefault: boolean) => {
+    setInitialShareEnable(shareEnabledByDefault);
+    setShowExportQuestList(true);
+  };
+
   return (
-    <View>
-      <Button
-        variant="outline"
-        size="icon"
-        onPress={() => setShowExportQuestList(true)}
-        // onPress={() => setShowTypeSelector(true)}
-        disabled={disabled || exportMutation.isPending || isConcatenating}
-        className="border-[1.5px] border-primary"
-      >
-        {isConcatenating ? (
-          <ActivityIndicator size="small" color={primaryColor} />
-        ) : (
-          <Icon as={Share2Icon} className="text-primary" />
+    <View className="z-50" style={{ elevation: 50 }}>
+      <SpeedDial className="relative z-50 items-start">
+        {menuDirection === 'up' && (
+          <SpeedDialItems
+            className="absolute bottom-full z-50 mb-2"
+            style={{ elevation: 60 }}
+          >
+            <SpeedDialItem
+              icon={Share2Icon}
+              variant="outline"
+              size="icon"
+              className="rounded-md border border-input bg-background"
+              iconClassName="text-foreground"
+              onPress={() => openExportList(true)}
+            />
+            <SpeedDialItem
+              icon={DownloadIcon}
+              variant="outline"
+              size="icon"
+              className="rounded-md border border-input bg-background"
+              iconClassName="text-foreground"
+              onPress={() => openExportList(false)}
+            />
+          </SpeedDialItems>
         )}
-      </Button>
+
+        <SpeedDialTrigger
+          variant="outline"
+          size="icon"
+          iconClosed={Share}
+          iconOpen={undefined}
+          disableIconRotation
+          disabled={disabled || exportMutation.isPending || isConcatenating}
+          className="rounded-md border border-input bg-background"
+          openClassName="bg-accent border-input "
+          iconClassName="text-foreground"
+        />
+
+        {menuDirection === 'down' && (
+          <SpeedDialItems
+            className="absolute top-full z-50 mt-2"
+            style={{ elevation: 60 }}
+          >
+            <SpeedDialItem
+              icon={Share2Icon}
+              variant="outline"
+              size="icon"
+              className="rounded-md border border-input bg-background"
+              iconClassName="text-foreground"
+              onPress={() => openExportList(true)}
+            />
+            <SpeedDialItem
+              icon={HardDriveDownload}
+              variant="outline"
+              size="icon"
+              className="rounded-md border border-input bg-background"
+              iconClassName="text-foreground"
+              onPress={() => openExportList(false)}
+            />
+          </SpeedDialItems>
+        )}
+      </SpeedDial>
 
       <ExportQuestList
         isOpen={showExportQuestList}
         onClose={() => setShowExportQuestList(false)}
         currentProjectId={projectId}
         currentQuestId={questId}
+        initialShareEnable={initialShareEnable}
       />
 
-      <ExportTypeSelector
-        visible={showTypeSelector}
-        onClose={() => setShowTypeSelector(false)}
-        onSelect={handleExport}
-        showFeedbackExport={showFeedbackExport}
-        showDistributionExport={showDistributionExport}
-        questId={questId}
-      />
-
-      {currentExportId && (
-        <ExportProgressModal
-          exportId={currentExportId}
-          visible={!!currentExportId}
-          onClose={() => setCurrentExportId(null)}
-        />
-      )}
     </View>
   );
 }

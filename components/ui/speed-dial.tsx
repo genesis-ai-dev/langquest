@@ -63,11 +63,19 @@ SpeedDial.displayName = 'SpeedDial';
 interface TriggerProps extends Omit<ButtonProps, 'ref'> {
   iconClosed?: LucideIcon;
   iconOpen?: LucideIcon;
+  iconClassName?: string;
+  openClassName?: string;
+  closedClassName?: string;
+  disableIconRotation?: boolean;
 }
 
 function SpeedDialTrigger({
   iconClosed = EllipsisVerticalIcon,
   iconOpen = XIcon,
+  iconClassName,
+  openClassName,
+  closedClassName,
+  disableIconRotation = false,
   className,
   ...props
 }: TriggerProps) {
@@ -79,19 +87,23 @@ function SpeedDialTrigger({
       onPress={onPress}
       size="icon-xl"
       variant="outline"
-      className={cn('rounded-full border-0 bg-primary/95', className)}
+      className={cn(
+        'rounded-full border-0 bg-primary/95',
+        open ? openClassName : closedClassName,
+        className
+      )}
       {...props}
     >
       <MotiView
         from={{ rotate: '0deg' }}
-        animate={{ rotate: open ? '90deg' : '0deg' }}
+        animate={{ rotate: disableIconRotation ? '0deg' : open ? '90deg' : '0deg' }}
         transition={{ duration: 150, type: 'timing' }}
       >
         <Icon
           as={open ? iconOpen : iconClosed}
           strokeWidth={2.5}
           size={20}
-          className="text-secondary"
+          className={cn('text-secondary', iconClassName)}
         />
       </MotiView>
     </Button>
@@ -129,6 +141,8 @@ interface ItemProps {
   onPress: () => void;
   className?: string;
   variant?: React.ComponentProps<typeof Button>['variant'];
+  size?: React.ComponentProps<typeof Button>['size'];
+  iconClassName?: string;
 }
 
 // Internal-only props injected by SpeedDialItems
@@ -142,6 +156,8 @@ function SpeedDialItem({
   onPress,
   className,
   variant,
+  size,
+  iconClassName,
   _order = 0
 }: ItemProps & ItemInjectedProps) {
   const { setOpen, closeOnItemPress } = useSpeedDialContext();
@@ -180,7 +196,7 @@ function SpeedDialItem({
     >
       <Button
         onPress={handlePress}
-        size="icon-xl"
+        size={size ?? 'icon-xl'}
         variant={variant}
         className={cn('bg-primary/95', className)}
       >
@@ -188,7 +204,7 @@ function SpeedDialItem({
           as={icon}
           size={20}
           strokeWidth={2.5}
-          className="text-secondary"
+          className={cn('text-secondary', iconClassName)}
         />
       </Button>
     </MotiView>
