@@ -8,6 +8,7 @@
 import { BibleBookDownloadDrawer } from '@/components/BibleBookDownloadDrawer';
 import { DownloadConfirmationModal } from '@/components/DownloadConfirmationModal';
 import { DownloadIndicator } from '@/components/DownloadIndicator';
+import { PericopeBibleDownloadDrawer } from '@/components/PericopeBibleDownloadDrawer';
 import { QuestDownloadDiscoveryDrawer } from '@/components/QuestDownloadDiscoveryDrawer';
 import { Button } from '@/components/ui/button';
 import {
@@ -34,6 +35,8 @@ import { useQuestDownloadDiscovery } from '@/hooks/useQuestDownloadDiscovery';
 import { useQuestDownloadStatusLive } from '@/hooks/useQuestDownloadStatusLive';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { syncCallbackService } from '@/services/syncCallbackService';
+import { useLocalStore } from '@/store/localStore';
+import { isBibleTextCached } from '@/utils/bible-cache';
 import { BOOK_ICON_MAP } from '@/utils/BOOK_GRAPHICS';
 import { bulkDownloadQuest } from '@/utils/bulkDownload';
 import { formatRelativeDate } from '@/utils/dateUtils';
@@ -327,6 +330,17 @@ export function FiaPericopeList({
   // Bible book download drawer
   const [showBibleDownload, setShowBibleDownload] = React.useState(false);
 
+  // Pericope bible download drawer — shown before opening a pericope
+  const [pendingNav, setPendingNav] = React.useState<{
+    questId: string;
+    questName: string;
+    questData?: Record<string, unknown>;
+    pericope: FiaPericope;
+  } | null>(null);
+  const savedBible = useLocalStore(
+    (s) => s.bibleTranslationByProject[projectId]
+  );
+
   // Version picker state
   const [pickerPericopeId, setPickerPericopeId] = React.useState<string | null>(
     null
@@ -497,19 +511,81 @@ export function FiaPericopeList({
     setQuestIdToDownload(null);
   };
 
+  const checkBibleAndNavigate = (
+    questId: string,
+    questName: string,
+    questData: Record<string, unknown> | undefined,
+    pericope: FiaPericope
+  ) => {
+    const bookId = book.id.toUpperCase();
+    const hasCached = savedBible?.textFilesetId
+      ? isBibleTextCached(savedBible.textFilesetId, bookId, pericope.verseRange)
+      : false;
+
+    if (hasCached) {
+      goToQuest({
+        id: questId,
+        project_id: projectId,
+        name: questName,
+        projectData: project as Record<string, unknown>,
+        questData
+      });
+      return;
+    }
+
+    setPendingNav({ questId, questName, questData, pericope });
+  };
+
+  const handleBibleDownloadComplete = () => {
+    if (!pendingNav) return;
+    goToQuest({
+      id: pendingNav.questId,
+      project_id: projectId,
+      name: pendingNav.questName,
+      projectData: project as Record<string, unknown>,
+      questData: pendingNav.questData
+    });
+    setPendingNav(null);
+  };
+
+  const handleBibleDownloadSkip = () => {
+    if (!pendingNav) return;
+    goToQuest({
+      id: pendingNav.questId,
+      project_id: projectId,
+      name: pendingNav.questName,
+      projectData: project as Record<string, unknown>,
+      questData: pendingNav.questData
+    });
+    setPendingNav(null);
+  };
+
   // Navigate to a specific quest version (with download check)
   const navigateToVersion = async (version: FiaPericopeQuest) => {
     if (!currentUser?.id) return;
 
+    const pericope = book.pericopes.find(
+      (p) => p.id === version.pericopeId
+    );
+
     // Local versions can always be opened directly
     if (version.source === 'local') {
-      goToQuest({
-        id: version.id,
-        project_id: projectId,
-        name: version.name,
-        projectData: project as Record<string, unknown>,
-        questData: version as unknown as Record<string, unknown>
-      });
+      if (pericope) {
+        checkBibleAndNavigate(
+          version.id,
+          version.name,
+          version as unknown as Record<string, unknown>,
+          pericope
+        );
+      } else {
+        goToQuest({
+          id: version.id,
+          project_id: projectId,
+          name: version.name,
+          projectData: project as Record<string, unknown>,
+          questData: version as unknown as Record<string, unknown>
+        });
+      }
       setPickerPericopeId(null);
       return;
     }
@@ -535,13 +611,22 @@ export function FiaPericopeList({
       return;
     }
 
-    goToQuest({
-      id: version.id,
-      project_id: projectId,
-      name: version.name,
-      projectData: project as Record<string, unknown>,
-      questData: version as unknown as Record<string, unknown>
-    });
+    if (pericope) {
+      checkBibleAndNavigate(
+        version.id,
+        version.name,
+        version as unknown as Record<string, unknown>,
+        pericope
+      );
+    } else {
+      goToQuest({
+        id: version.id,
+        project_id: projectId,
+        name: version.name,
+        projectData: project as Record<string, unknown>,
+        questData: version as unknown as Record<string, unknown>
+      });
+    }
     setPickerPericopeId(null);
   };
 
@@ -561,12 +646,12 @@ export function FiaPericopeList({
         totalPericopesInBook: book.pericopes.length
       });
 
-      goToQuest({
-        id: result.questId,
-        project_id: projectId,
-        name: result.questName,
-        projectData: project as Record<string, unknown>
-      });
+      checkBibleAndNavigate(
+        result.questId,
+        result.questName,
+        undefined,
+        pericope
+      );
     } catch (error) {
       console.error('Failed to create pericope quest:', error);
     } finally {
@@ -764,6 +849,18 @@ export function FiaPericopeList({
         onOpenChange={setShowBibleDownload}
         projectId={projectId}
         book={book}
+      />
+
+      <PericopeBibleDownloadDrawer
+        open={!!pendingNav}
+        onOpenChange={(open) => {
+          if (!open) setPendingNav(null);
+        }}
+        projectId={projectId}
+        pericope={pendingNav?.pericope ?? null}
+        fiaBookId={book.id}
+        onComplete={handleBibleDownloadComplete}
+        onSkip={handleBibleDownloadSkip}
       />
     </View>
   );
