@@ -10740,6 +10740,26 @@ export const localizations = {
     thai: 'การส่งออกพร้อมแล้ว!',
     mandarin: '导出已就绪！'
   },
+  contentShared: {
+    english: 'Content shared successfully',
+    spanish: 'Contenido compartido con éxito',
+    brazilian_portuguese: 'Conteúdo compartilhado com sucesso',
+    tok_pisin: 'Konten i bin share gut',
+    indonesian: 'Konten berhasil dibagikan',
+    nepali: 'सामग्री सफलतापूर्वक साझा भयो'
+  },
+  download: {
+    english: 'Download',
+    spanish: 'Descargar',
+    brazilian_portuguese: 'Baixar',
+    tok_pisin: 'Download',
+    indonesian: 'Unduh',
+    nepali: 'डाउनलोड गर्नुहोस्',
+    hindi: 'डाउनलोड करें',
+    burmese: 'ဒေါင်းလုဒ်လုပ်ပါ',
+    thai: 'ดาวน์โหลด',
+    mandarin: '下载'
+  },
   share: {
     english: 'Share',
     spanish: 'Compartir',
@@ -10897,6 +10917,151 @@ export const localizations = {
       'မျှဝေရန်နှင့် ဖြန့်ဖြူးရန်အတွက် ကျမ်းစာ အခန်းများကို အသံဖိုင်များအဖြစ် တင်ပို့ပါ',
     thai: 'ส่งออกบทพระคัมภีร์เป็นไฟล์เสียงเพื่อแชร์และแจกจ่าย',
     mandarin: '将圣经章节导出为音频文件以供共享和分发'
+  },
+  exportQuestTitle: {
+    english: 'Export Quest',
+    spanish: 'Exportar misión',
+    brazilian_portuguese: 'Exportar missão',
+    tok_pisin: 'Exportim quest',
+    indonesian: 'Ekspor misi',
+    nepali: 'क्वेस्ट निर्यात गर्नुहोस्',
+    hindi: 'क्वेस्ट निर्यात करें',
+    burmese: 'Quest ကို တင်ပို့ပါ',
+    thai: 'ส่งออกเควสต์',
+    mandarin: '导出任务'
+  },
+  mergeAudio: {
+    english: 'Merge Audio',
+    spanish: 'Combinar audio',
+    brazilian_portuguese: 'Mesclar áudio',
+    tok_pisin: 'Joinim audio',
+    indonesian: 'Gabungkan audio',
+    nepali: 'अडियो मर्ज गर्नुहोस्',
+    hindi: 'ऑडियो मर्ज करें',
+    burmese: 'အသံဖိုင်များကို ပေါင်းပါ',
+    thai: 'รวมเสียง',
+    mandarin: '合并音频'
+  },
+  includeText: {
+    english: 'Include Text',
+    spanish: 'Incluir texto',
+    brazilian_portuguese: 'Incluir texto',
+    tok_pisin: 'Putim text tu',
+    indonesian: 'Sertakan teks',
+    nepali: 'पाठ समावेश गर्नुहोस्',
+    hindi: 'पाठ शामिल करें',
+    burmese: 'စာသားကို ထည့်သွင်းပါ',
+    thai: 'รวมข้อความ',
+    mandarin: '包含文本'
+  },
+  singleZip: {
+    english: 'Single Zip',
+    spanish: 'ZIP único',
+    brazilian_portuguese: 'ZIP único',
+    tok_pisin: 'Wanpela zip tasol',
+    indonesian: 'Satu ZIP',
+    nepali: 'एउटै ZIP',
+    hindi: 'एकल ZIP',
+    burmese: 'ZIP တစ်ခုတည်း',
+    thai: 'ไฟล์ ZIP เดียว',
+    mandarin: '单个 ZIP'
+  },
+  translationsAndTranscriptionsNotIncluded: {
+    english: 'Translations and transcriptions are not included.',
+    spanish: 'Las traducciones y transcripciones no están incluidas.',
+    brazilian_portuguese: 'Traduções e transcrições não estão incluídas.',
+    tok_pisin: 'Translation na transcription i no stap insait.',
+    indonesian: 'Terjemahan dan transkripsi tidak disertakan.',
+    nepali: 'अनुवाद र ट्रान्सक्रिप्सन समावेश गरिएको छैन।',
+    hindi: 'अनुवाद और प्रतिलेख शामिल नहीं हैं।',
+    burmese: 'ဘာသာပြန်ချက်များနှင့် စာသားကူးယူမှုများ မပါဝင်ပါ။',
+    thai: 'ไม่รวมคำแปลและคำถอดเสียง',
+    mandarin: '不包含翻译和转录内容。'
+  },
+  filesMergedAndSharedSingleFile: {
+    english: 'Files will be merged and shared as a single file.',
+    spanish: 'Los archivos se combinarán y compartirán como un solo archivo.',
+    brazilian_portuguese:
+      'Os arquivos serão mesclados e compartilhados como um único arquivo.',
+    tok_pisin: 'Ol fail bai join na share olsem wanpela fail tasol.',
+    indonesian: 'File akan digabungkan dan dibagikan sebagai satu file.',
+    nepali: 'फाइलहरू मर्ज भएर एकल फाइलको रूपमा साझा गरिनेछ।',
+    hindi: 'फ़ाइलें मर्ज होकर एक ही फ़ाइल के रूप में साझा की जाएंगी।',
+    burmese: 'ဖိုင်များကို ပေါင်းစည်းပြီး ဖိုင်တစ်ခုအဖြစ် မျှဝေမည်။',
+    thai: 'ไฟล์จะถูกรวมและแชร์เป็นไฟล์เดียว',
+    mandarin: '文件将合并并作为单个文件共享。'
+  },
+  untitledAsset: {
+    english: 'Untitled asset',
+    spanish: 'Recurso sin título',
+    brazilian_portuguese: 'Recurso sem título',
+    tok_pisin: 'Asset i no gat taitol',
+    indonesian: 'Aset tanpa judul',
+    nepali: 'शीर्षक नभएको एसेट',
+    hindi: 'बिना शीर्षक एसेट',
+    burmese: 'ခေါင်းစဉ်မရှိသော asset',
+    thai: 'สินทรัพย์ไม่มีชื่อ',
+    mandarin: '未命名资产'
+  },
+  noAssetsFoundForQuest: {
+    english: 'No assets found for this quest.',
+    spanish: 'No se encontraron recursos para esta misión.',
+    brazilian_portuguese: 'Nenhum recurso encontrado para esta missão.',
+    tok_pisin: 'No gat asset bilong dispela quest.',
+    indonesian: 'Tidak ada aset yang ditemukan untuk misi ini.',
+    nepali: 'यो क्वेस्टका लागि कुनै एसेट फेला परेन।',
+    hindi: 'इस क्वेस्ट के लिए कोई एसेट नहीं मिला।',
+    burmese: 'ဤ quest အတွက် asset မတွေ့ပါ။',
+    thai: 'ไม่พบสินทรัพย์สำหรับเควสต์นี้',
+    mandarin: '未找到此任务的资产。'
+  },
+  questAudio: {
+    english: 'Quest Audio',
+    spanish: 'Audio de misión',
+    brazilian_portuguese: 'Áudio da missão',
+    tok_pisin: 'Quest audio',
+    indonesian: 'Audio misi',
+    nepali: 'क्वेस्ट अडियो',
+    hindi: 'क्वेस्ट ऑडियो',
+    burmese: 'Quest အသံဖိုင်',
+    thai: 'เสียงเควสต์',
+    mandarin: '任务音频'
+  },
+  saveExport: {
+    english: 'Save export',
+    spanish: 'Guardar exportación',
+    brazilian_portuguese: 'Salvar exportação',
+    tok_pisin: 'Sevim export',
+    indonesian: 'Simpan ekspor',
+    nepali: 'निर्यात बचत गर्नुहोस्',
+    hindi: 'निर्यात सहेजें',
+    burmese: 'တင်ပို့မှုကို သိမ်းဆည်းပါ',
+    thai: 'บันทึกการส่งออก',
+    mandarin: '保存导出'
+  },
+  failedToExportAudio: {
+    english: 'Failed to export audio',
+    spanish: 'No se pudo exportar el audio',
+    brazilian_portuguese: 'Falha ao exportar áudio',
+    tok_pisin: 'No inap exportim audio',
+    indonesian: 'Gagal mengekspor audio',
+    nepali: 'अडियो निर्यात गर्न असफल भयो',
+    hindi: 'ऑडियो निर्यात करने में विफल',
+    burmese: 'အသံတင်ပို့ရာတွင် မအောင်မြင်ပါ',
+    thai: 'ส่งออกเสียงไม่สำเร็จ',
+    mandarin: '导出音频失败'
+  },
+  filesDownloadedSuccessfully: {
+    english: 'Files downloaded successfully',
+    spanish: 'Archivos descargados correctamente',
+    brazilian_portuguese: 'Arquivos baixados com sucesso',
+    tok_pisin: 'Ol fail i download gut',
+    indonesian: 'File berhasil diunduh',
+    nepali: 'फाइलहरू सफलतापूर्वक डाउनलोड भए',
+    hindi: 'फ़ाइलें सफलतापूर्वक डाउनलोड हुईं',
+    burmese: 'ဖိုင်များကို အောင်မြင်စွာ ဒေါင်းလုဒ်လုပ်ပြီးပါပြီ',
+    thai: 'ดาวน์โหลดไฟล์สำเร็จ',
+    mandarin: '文件下载成功'
   },
   transcription: {
     english: 'Transcription',

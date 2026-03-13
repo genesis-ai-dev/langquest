@@ -116,6 +116,14 @@ export default ({ config }: ConfigContext): ExpoConfig =>
       'expo-audio',
       'expo-image',
       [
+        'expo-build-properties',
+        {
+          ios: {
+            deploymentTarget: '15.5'
+          }
+        }
+      ],
+      [
         'expo-splash-screen',
         {
           image: iconLight,
