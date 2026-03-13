@@ -337,8 +337,8 @@ export function FiaPericopeList({
     questData?: Record<string, unknown>;
     pericope: FiaPericope;
   } | null>(null);
-  const savedBible = useLocalStore(
-    (s) => s.bibleTranslationByProject[projectId]
+  const savedDownloads = useLocalStore(
+    (s) => s.bibleDownloadTranslations[projectId] ?? []
   );
 
   // Version picker state
@@ -517,12 +517,19 @@ export function FiaPericopeList({
     questData: Record<string, unknown> | undefined,
     pericope: FiaPericope
   ) => {
-    const bookId = book.id.toUpperCase();
-    const hasCached = savedBible?.textFilesetId
-      ? isBibleTextCached(savedBible.textFilesetId, bookId, pericope.verseRange)
-      : false;
+    if (savedDownloads.length === 0) {
+      setPendingNav({ questId, questName, questData, pericope });
+      return;
+    }
 
-    if (hasCached) {
+    const bookId = book.id.toUpperCase();
+    const allCached = savedDownloads.every((b) =>
+      b.textFilesetId
+        ? isBibleTextCached(b.textFilesetId, bookId, pericope.verseRange)
+        : true
+    );
+
+    if (allCached) {
       goToQuest({
         id: questId,
         project_id: projectId,

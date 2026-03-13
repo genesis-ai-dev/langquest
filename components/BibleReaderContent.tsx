@@ -400,13 +400,7 @@ function formatBibleLabel(bible: BibleBrainBible): string {
   return bible.vname || bible.name;
 }
 
-// --- Translation download button for new translations in FIA drawer ---
-
-type TranslationDownloadState =
-  | { status: 'idle' }
-  | { status: 'downloading'; label: string }
-  | { status: 'done' }
-  | { status: 'error'; message: string };
+// --- Add/remove translation from download list (FIA drawer) ---
 
 function parseFiaVerseRange(vr: string) {
   const m = vr.match(/^(\d+):(\d+)[a-z]?-(?:(\d+):)?(\d+)[a-z]?$/);
@@ -419,13 +413,17 @@ function parseFiaVerseRange(vr: string) {
   };
 }
 
-function TranslationDownloadButton({
+type DlBtnState = 'idle' | 'downloading' | 'done' | 'error';
+
+function TranslationDownloadToggle({
   bible,
+  projectId,
   fiaBookId,
   verseRange,
   audioData
 }: {
   bible: BibleBrainBible;
+  projectId?: string;
   fiaBookId?: string;
   verseRange?: string;
   audioData?: BibleBrainAudioChapter[];
@@ -433,9 +431,14 @@ function TranslationDownloadButton({
   const { session } = useAuth();
   const isOnline = useNetworkStatus();
   const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-  const [state, setState] = useState<TranslationDownloadState>({
-    status: 'idle'
-  });
+
+  const savedDownloads = useLocalStore((s) =>
+    projectId ? (s.bibleDownloadTranslations[projectId] ?? []) : []
+  );
+  const addDownload = useLocalStore((s) => s.addBibleDownloadTranslation);
+  const removeDownload = useLocalStore((s) => s.removeBibleDownloadTranslation);
+
+  const isInDownloadList = savedDownloads.some((b) => b.bibleId === bible.id);
 
   const bookId = fiaBookId?.toUpperCase();
   const textCached =
@@ -446,17 +449,33 @@ function TranslationDownloadButton({
     bookId && verseRange && bible.audioFilesetId
       ? isBibleAudioCached(bible.audioFilesetId, bookId, verseRange)
       : false;
-
   const allCached =
     (textCached || !bible.hasText) && (audioCached || !bible.hasAudio);
 
-  const handleDownload = async () => {
-    if (!bookId || !verseRange || !supabaseUrl) return;
+  const [dlState, setDlState] = useState<DlBtnState>('idle');
+
+  const handleAdd = async () => {
+    if (!projectId || !bookId || !verseRange || !supabaseUrl) return;
+
+    addDownload(projectId, {
+      bibleId: bible.id,
+      name: bible.name,
+      vname: bible.vname,
+      textFilesetId: bible.textFilesetId,
+      audioFilesetId: bible.audioFilesetId,
+      hasText: bible.hasText,
+      hasAudio: bible.hasAudio
+    });
+
+    if (allCached) {
+      setDlState('done');
+      return;
+    }
+
     const parsed = parseFiaVerseRange(verseRange);
     if (!parsed) return;
 
-    setState({ status: 'downloading', label: 'Downloading text...' });
-
+    setDlState('downloading');
     try {
       if (!textCached && bible.textFilesetId) {
         const response = await fetch(
@@ -486,7 +505,6 @@ function TranslationDownloadButton({
             await cacheBibleText(bible.textFilesetId, bookId, verseRange, data);
           }
           if (bible.audioFilesetId && data.audio.length > 0 && !audioCached) {
-            setState({ status: 'downloading', label: 'Downloading audio...' });
             await downloadBibleAudio(
               bible.audioFilesetId,
               bookId,
@@ -496,7 +514,6 @@ function TranslationDownloadButton({
           }
         }
       } else if (!audioCached && bible.audioFilesetId && audioData?.length) {
-        setState({ status: 'downloading', label: 'Downloading audio...' });
         await downloadBibleAudio(
           bible.audioFilesetId,
           bookId,
@@ -504,47 +521,54 @@ function TranslationDownloadButton({
           audioData
         );
       }
-
-      setState({ status: 'done' });
-    } catch (e) {
-      setState({
-        status: 'error',
-        message: e instanceof Error ? e.message : 'Download failed'
-      });
+      setDlState('done');
+    } catch {
+      setDlState('error');
     }
   };
 
-  if (allCached || state.status === 'done') {
+  const handleRemove = () => {
+    if (!projectId) return;
+    removeDownload(projectId, bible.id);
+    setDlState('idle');
+  };
+
+  if (isInDownloadList && (allCached || dlState === 'done')) {
     return (
       <View className="flex-row items-center gap-2 rounded-lg bg-green-500/10 px-3 py-2">
         <View className="h-5 w-5 items-center justify-center rounded-full bg-green-500">
           <Icon as={CheckIcon} size={12} className="text-white" />
         </View>
-        <Text className="text-xs font-medium text-green-700 dark:text-green-400">
-          Available offline
+        <Text className="flex-1 text-xs font-medium text-green-700 dark:text-green-400">
+          Saved offline
         </Text>
+        <TouchableOpacity onPress={handleRemove} hitSlop={8}>
+          <Text className="text-xs text-muted-foreground underline">
+            Remove
+          </Text>
+        </TouchableOpacity>
       </View>
     );
   }
 
-  if (state.status === 'downloading') {
+  if (dlState === 'downloading') {
     return (
       <View className="bg-primary/8 flex-row items-center gap-2 rounded-lg px-3 py-2">
         <ActivityIndicator size="small" color={getThemeColor('primary')} />
-        <Text className="text-xs font-medium text-primary">{state.label}</Text>
+        <Text className="text-xs font-medium text-primary">Downloading...</Text>
       </View>
     );
   }
 
-  if (state.status === 'error') {
+  if (dlState === 'error') {
     return (
       <TouchableOpacity
-        onPress={handleDownload}
+        onPress={handleAdd}
         className="flex-row items-center gap-2 rounded-lg bg-destructive/10 px-3 py-2"
         activeOpacity={0.7}
       >
         <Text className="text-xs font-medium text-destructive">
-          Download failed — tap to retry
+          Failed — tap to retry
         </Text>
       </TouchableOpacity>
     );
@@ -554,13 +578,13 @@ function TranslationDownloadButton({
 
   return (
     <TouchableOpacity
-      onPress={handleDownload}
+      onPress={handleAdd}
       className="bg-primary/8 flex-row items-center gap-2 rounded-lg px-3 py-2"
       activeOpacity={0.7}
     >
       <Icon as={DownloadCloudIcon} size={16} className="text-primary" />
       <Text className="text-xs font-medium text-primary">
-        Download for offline
+        {isInDownloadList ? 'Re-download' : 'Add to offline'}
       </Text>
     </TouchableOpacity>
   );
@@ -825,9 +849,10 @@ export function BibleReaderContent({
       )}
 
       {selectedBible && (
-        <View className="flex-row items-center gap-2 px-1">
-          <TranslationDownloadButton
+        <View className="px-1">
+          <TranslationDownloadToggle
             bible={selectedBible}
+            projectId={projectId}
             fiaBookId={fiaBookId}
             verseRange={verseRange}
             audioData={content?.audio}
