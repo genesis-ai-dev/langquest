@@ -87,7 +87,13 @@ export default function ProfileView() {
 
   const formSchema = z
     .object({
-      selectedLanguoidId: z.uuid(t('selectLanguage')),
+      selectedLanguoidId: z
+        .string()
+        .refine(
+          (val) => !val || z.uuid().safeParse(val).success,
+          t('selectLanguage')
+        )
+        .optional(),
       currentPassword: z.string().trim().optional(),
       newPassword: z.string().trim().optional(),
       confirmPassword: z.string().trim().optional(),
@@ -156,7 +162,9 @@ export default function ProfileView() {
 
       const updatedUser = await profileService.updateProfile({
         id: currentUser.id,
-        ui_languoid_id: data.selectedLanguoidId,
+        ...(data.selectedLanguoidId
+          ? { ui_languoid_id: data.selectedLanguoidId }
+          : {}),
         ...(isOnline && data.newPassword
           ? { password: data.newPassword.trim() }
           : {}),
