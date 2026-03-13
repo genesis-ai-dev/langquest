@@ -1,10 +1,11 @@
-import { BibleDownloadButton, BibleOfflineIndicator } from '@/components/BibleDownloadButton';
+import { BibleOfflineIndicator } from '@/components/BibleDownloadButton';
 import { DrawerScrollView } from '@/components/ui/drawer';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { Slider } from '@/components/ui/slider';
 import { Text } from '@/components/ui/text';
 import { useAudio } from '@/contexts/AudioContext';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   useBibleBrainBibles,
   type BibleBrainBible
@@ -12,14 +13,22 @@ import {
 import {
   useBibleBrainContent,
   type BibleBrainAudioChapter,
+  type BibleBrainContentResponse,
   type BibleBrainVerse
 } from '@/hooks/useBibleBrainContent';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useLocalStore } from '@/store/localStore';
-import { isBibleAudioCached, isBibleTextCached } from '@/utils/bible-cache';
+import {
+  cacheBibleText,
+  downloadBibleAudio,
+  isBibleAudioCached,
+  isBibleTextCached
+} from '@/utils/bible-cache';
 import { getThemeColor } from '@/utils/styleUtils';
 import {
   BookOpenIcon,
+  CheckIcon,
+  DownloadCloudIcon,
   HeadphonesIcon,
   PauseIcon,
   PlayIcon,
@@ -391,6 +400,183 @@ function formatBibleLabel(bible: BibleBrainBible): string {
   return bible.vname || bible.name;
 }
 
+// --- Translation download button for new translations in FIA drawer ---
+
+type TranslationDownloadState =
+  | { status: 'idle' }
+  | { status: 'downloading'; label: string }
+  | { status: 'done' }
+  | { status: 'error'; message: string };
+
+function parseFiaVerseRange(vr: string) {
+  const m = vr.match(/^(\d+):(\d+)[a-z]?-(?:(\d+):)?(\d+)[a-z]?$/);
+  if (!m) return null;
+  return {
+    startChapter: parseInt(m[1]!, 10),
+    startVerse: parseInt(m[2]!, 10),
+    endChapter: m[3] ? parseInt(m[3], 10) : parseInt(m[1]!, 10),
+    endVerse: parseInt(m[4]!, 10)
+  };
+}
+
+function TranslationDownloadButton({
+  bible,
+  fiaBookId,
+  verseRange,
+  audioData
+}: {
+  bible: BibleBrainBible;
+  fiaBookId?: string;
+  verseRange?: string;
+  audioData?: BibleBrainAudioChapter[];
+}) {
+  const { session } = useAuth();
+  const isOnline = useNetworkStatus();
+  const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+  const [state, setState] = useState<TranslationDownloadState>({
+    status: 'idle'
+  });
+
+  const bookId = fiaBookId?.toUpperCase();
+  const textCached =
+    bookId && verseRange && bible.textFilesetId
+      ? isBibleTextCached(bible.textFilesetId, bookId, verseRange)
+      : false;
+  const audioCached =
+    bookId && verseRange && bible.audioFilesetId
+      ? isBibleAudioCached(bible.audioFilesetId, bookId, verseRange)
+      : false;
+
+  const allCached =
+    (textCached || !bible.hasText) && (audioCached || !bible.hasAudio);
+
+  const handleDownload = async () => {
+    if (!bookId || !verseRange || !supabaseUrl) return;
+    const parsed = parseFiaVerseRange(verseRange);
+    if (!parsed) return;
+
+    setState({ status: 'downloading', label: 'Downloading text...' });
+
+    try {
+      if (!textCached && bible.textFilesetId) {
+        const response = await fetch(
+          `${supabaseUrl}/functions/v1/bible-brain-content`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${session?.access_token ?? process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY}`
+            },
+            body: JSON.stringify({
+              action: 'get-content',
+              textFilesetId: bible.textFilesetId,
+              audioFilesetId: bible.audioFilesetId,
+              bookId,
+              startChapter: parsed.startChapter,
+              startVerse: parsed.startVerse,
+              endChapter: parsed.endChapter,
+              endVerse: parsed.endVerse
+            })
+          }
+        );
+
+        if (response.ok) {
+          const data: BibleBrainContentResponse = await response.json();
+          if (data.verses.length > 0) {
+            await cacheBibleText(
+              bible.textFilesetId,
+              bookId,
+              verseRange,
+              data
+            );
+          }
+          if (
+            bible.audioFilesetId &&
+            data.audio.length > 0 &&
+            !audioCached
+          ) {
+            setState({ status: 'downloading', label: 'Downloading audio...' });
+            await downloadBibleAudio(
+              bible.audioFilesetId,
+              bookId,
+              verseRange,
+              data.audio
+            );
+          }
+        }
+      } else if (!audioCached && bible.audioFilesetId && audioData?.length) {
+        setState({ status: 'downloading', label: 'Downloading audio...' });
+        await downloadBibleAudio(
+          bible.audioFilesetId,
+          bookId,
+          verseRange,
+          audioData
+        );
+      }
+
+      setState({ status: 'done' });
+    } catch (e) {
+      setState({
+        status: 'error',
+        message: e instanceof Error ? e.message : 'Download failed'
+      });
+    }
+  };
+
+  if (allCached || state.status === 'done') {
+    return (
+      <View className="flex-row items-center gap-2 rounded-lg bg-green-500/10 px-3 py-2">
+        <View className="h-5 w-5 items-center justify-center rounded-full bg-green-500">
+          <Icon as={CheckIcon} size={12} className="text-white" />
+        </View>
+        <Text className="text-xs font-medium text-green-700 dark:text-green-400">
+          Available offline
+        </Text>
+      </View>
+    );
+  }
+
+  if (state.status === 'downloading') {
+    return (
+      <View className="flex-row items-center gap-2 rounded-lg bg-primary/8 px-3 py-2">
+        <ActivityIndicator size="small" color={getThemeColor('primary')} />
+        <Text className="text-xs font-medium text-primary">
+          {state.label}
+        </Text>
+      </View>
+    );
+  }
+
+  if (state.status === 'error') {
+    return (
+      <TouchableOpacity
+        onPress={handleDownload}
+        className="flex-row items-center gap-2 rounded-lg bg-destructive/10 px-3 py-2"
+        activeOpacity={0.7}
+      >
+        <Text className="text-xs font-medium text-destructive">
+          Download failed — tap to retry
+        </Text>
+      </TouchableOpacity>
+    );
+  }
+
+  if (!isOnline) return null;
+
+  return (
+    <TouchableOpacity
+      onPress={handleDownload}
+      className="flex-row items-center gap-2 rounded-lg bg-primary/8 px-3 py-2"
+      activeOpacity={0.7}
+    >
+      <Icon as={DownloadCloudIcon} size={16} className="text-primary" />
+      <Text className="text-xs font-medium text-primary">
+        Download for offline
+      </Text>
+    </TouchableOpacity>
+  );
+}
+
 // --- Verse Display with highlighting + onLayout for auto-scroll ---
 
 function VerseDisplay({
@@ -510,8 +696,6 @@ export function BibleReaderContent({
     data: content,
     isLoading: contentLoading,
     error: contentError,
-    audioDownloadState,
-    downloadAudio,
     cachedAudioUrls
   } = useBibleBrainContent(
     selectedBible?.textFilesetId,
@@ -651,14 +835,13 @@ export function BibleReaderContent({
         />
       )}
 
-      {selectedBible?.hasAudio && (
-        <View className="px-1">
-          <BibleDownloadButton
-            state={audioDownloadState}
-            onDownload={downloadAudio}
-            hasAudio={selectedBible.hasAudio}
-            isOffline={!isOnline}
-            compact
+      {selectedBible && (
+        <View className="flex-row items-center gap-2 px-1">
+          <TranslationDownloadButton
+            bible={selectedBible}
+            fiaBookId={fiaBookId}
+            verseRange={verseRange}
+            audioData={content?.audio}
           />
         </View>
       )}
