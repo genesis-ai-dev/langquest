@@ -1,3 +1,10 @@
+import { useLocalStore } from '@/store/localStore';
+import {
+  cacheBibleText,
+  downloadBibleAudio,
+  isBibleAudioCached,
+  isBibleTextCached
+} from '@/utils/bible-cache';
 import {
   deleteFiaPericopeCache,
   fetchAndCacheFiaPericope,
@@ -89,6 +96,117 @@ export class FiaAttachmentQueue extends AbstractAttachmentQueue {
     };
   }
 
+  /**
+   * Syncs bible content for all of the user's saved download translations
+   * alongside FIA guide content. Reads the saved list from localStore
+   * and queries quest metadata for verse range.
+   */
+  private async syncBibleContent(
+    projectId: string,
+    pericopeId: string,
+    token: string | undefined
+  ): Promise<void> {
+    const savedBibles =
+      useLocalStore.getState().bibleDownloadTranslations[projectId];
+    if (!savedBibles?.length) return;
+
+    const questMeta = await this.powersync.getAll<{
+      verseRange: string;
+      bookId: string;
+    }>(
+      `SELECT json_extract(metadata, '$.fia.verseRange') as verseRange,
+              json_extract(metadata, '$.fia.bookId') as bookId
+       FROM quest_synced
+       WHERE json_extract(metadata, '$.fia.pericopeId') = ?
+       UNION
+       SELECT json_extract(metadata, '$.fia.verseRange') as verseRange,
+              json_extract(metadata, '$.fia.bookId') as bookId
+       FROM quest_local
+       WHERE json_extract(metadata, '$.fia.pericopeId') = ?
+       LIMIT 1`,
+      [pericopeId, pericopeId]
+    );
+
+    const meta = questMeta[0];
+    if (!meta?.verseRange || !meta?.bookId) return;
+
+    const bookId = meta.bookId.toUpperCase();
+    const verseRange = meta.verseRange;
+
+    const match = verseRange.match(
+      /^(\d+):(\d+)[a-z]?-(?:(\d+):)?(\d+)[a-z]?$/
+    );
+    if (!match) return;
+
+    const parsed = {
+      startChapter: parseInt(match[1]!, 10),
+      startVerse: parseInt(match[2]!, 10),
+      endChapter: match[3] ? parseInt(match[3], 10) : parseInt(match[1]!, 10),
+      endVerse: parseInt(match[4]!, 10)
+    };
+
+    const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+    if (!supabaseUrl) return;
+    const anonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+
+    for (const bible of savedBibles) {
+      if (!bible.textFilesetId) continue;
+      if (isBibleTextCached(bible.textFilesetId, bookId, verseRange)) continue;
+
+      try {
+        const response = await fetch(
+          `${supabaseUrl}/functions/v1/bible-brain-content`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token ?? anonKey}`
+            },
+            body: JSON.stringify({
+              action: 'get-content',
+              textFilesetId: bible.textFilesetId,
+              audioFilesetId: bible.audioFilesetId,
+              bookId,
+              startChapter: parsed.startChapter,
+              startVerse: parsed.startVerse,
+              endChapter: parsed.endChapter,
+              endVerse: parsed.endVerse
+            })
+          }
+        );
+
+        if (!response.ok) continue;
+        const data = await response.json();
+
+        if (bible.textFilesetId && data.verses?.length > 0) {
+          await cacheBibleText(bible.textFilesetId, bookId, verseRange, data);
+        }
+
+        if (
+          bible.audioFilesetId &&
+          data.audio?.length > 0 &&
+          !isBibleAudioCached(bible.audioFilesetId, bookId, verseRange)
+        ) {
+          await downloadBibleAudio(
+            bible.audioFilesetId,
+            bookId,
+            verseRange,
+            data.audio
+          );
+        }
+
+        console.log(
+          `[FIA Queue] Bible synced for ${pericopeId} (${bible.bibleId})`
+        );
+      } catch (e) {
+        console.warn(
+          `[FIA Queue] Bible sync failed for ${pericopeId}/${bible.bibleId}:`,
+          e
+        );
+      }
+    }
+  }
+
   async downloadRecord(record: AttachmentRecord): Promise<boolean> {
     const separatorIdx = record.id.indexOf('__');
     if (separatorIdx === -1) {
@@ -101,16 +219,34 @@ export class FiaAttachmentQueue extends AbstractAttachmentQueue {
 
     const cached = await getCachedFiaPericope(pericopeId);
     if (cached) {
+      // FIA guide is cached — still try to sync bible content
+      try {
+        const session = await this.supabaseConnector.client.auth.getSession();
+        await this.syncBibleContent(
+          projectId,
+          pericopeId,
+          session.data.session?.access_token
+        );
+      } catch (e) {
+        console.warn(`[FIA Queue] Bible sync failed for ${pericopeId}:`, e);
+      }
       await this.update({ ...record, state: AttachmentState.SYNCED });
       return true;
     }
 
     try {
-      const session =
-        await this.supabaseConnector.client.auth.getSession();
+      const session = await this.supabaseConnector.client.auth.getSession();
       const token = session.data.session?.access_token;
 
       await fetchAndCacheFiaPericope(projectId, pericopeId, token);
+
+      // Also download bible content for the user's saved translation
+      try {
+        await this.syncBibleContent(projectId, pericopeId, token);
+      } catch (e) {
+        console.warn(`[FIA Queue] Bible sync failed for ${pericopeId}:`, e);
+      }
+
       await this.update({ ...record, state: AttachmentState.SYNCED });
       console.log(`[FIA Queue] Downloaded: ${record.id}`);
       return true;

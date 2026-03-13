@@ -108,6 +108,16 @@ export interface RecentAsset {
   visitedAt: Date;
 }
 
+export interface BibleDownloadTranslation {
+  bibleId: string;
+  name: string;
+  vname: string | null;
+  textFilesetId: string | null;
+  audioFilesetId: string | null;
+  hasText: boolean;
+  hasAudio: boolean;
+}
+
 export interface LocalState {
   systemReady: boolean;
   setSystemReady: (ready: boolean) => void;
@@ -306,6 +316,18 @@ export interface LocalState {
   bibleRecentTranslations: Record<string, string[]>;
   bibleAudioPositions: Record<string, number>;
   setBibleAudioPosition: (key: string, positionMs: number) => void;
+
+  // Saved Bible download translations (multi-select per project)
+  bibleDownloadTranslations: Record<string, BibleDownloadTranslation[]>;
+  setBibleDownloadTranslations: (
+    projectId: string,
+    bibles: BibleDownloadTranslation[]
+  ) => void;
+  addBibleDownloadTranslation: (
+    projectId: string,
+    bible: BibleDownloadTranslation
+  ) => void;
+  removeBibleDownloadTranslation: (projectId: string, bibleId: string) => void;
 }
 
 export const useLocalStore = create<LocalState>()(
@@ -647,7 +669,38 @@ export const useLocalStore = create<LocalState>()(
             ...state.bibleAudioPositions,
             [key]: positionMs
           }
-        }))
+        })),
+
+      // Saved Bible download translations (multi-select per project)
+      bibleDownloadTranslations: {},
+      setBibleDownloadTranslations: (projectId, bibles) =>
+        set((state) => ({
+          bibleDownloadTranslations: {
+            ...state.bibleDownloadTranslations,
+            [projectId]: bibles
+          }
+        })),
+      addBibleDownloadTranslation: (projectId, bible) =>
+        set((state) => {
+          const existing = state.bibleDownloadTranslations[projectId] ?? [];
+          if (existing.some((b) => b.bibleId === bible.bibleId)) return state;
+          return {
+            bibleDownloadTranslations: {
+              ...state.bibleDownloadTranslations,
+              [projectId]: [...existing, bible]
+            }
+          };
+        }),
+      removeBibleDownloadTranslation: (projectId, bibleId) =>
+        set((state) => {
+          const existing = state.bibleDownloadTranslations[projectId] ?? [];
+          return {
+            bibleDownloadTranslations: {
+              ...state.bibleDownloadTranslations,
+              [projectId]: existing.filter((b) => b.bibleId !== bibleId)
+            }
+          };
+        })
     }),
     {
       name: 'local-store',
