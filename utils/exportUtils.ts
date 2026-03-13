@@ -224,7 +224,8 @@ function getFIAVerseSuffix(
 
   const fromLabel =
     from != null ? formatPericopeVerseLabel('', fiaSequence, from) : null;
-  const toLabel = to != null ? formatPericopeVerseLabel('', fiaSequence, to) : null;
+  const toLabel =
+    to != null ? formatPericopeVerseLabel('', fiaSequence, to) : null;
 
   if (fromLabel && toLabel) {
     const fromText = sanitizeNamePart(fromLabel);
@@ -288,7 +289,10 @@ async function compressFiles(options: {
     }`
   );
   const zipFileName = `${zipNameBase || 'export'}-${currentDateTime}.zip`;
-  const stagingDir = new Directory(Paths.cache, `export-zip-staging-${Date.now()}`);
+  const stagingDir = new Directory(
+    Paths.cache,
+    `export-zip-staging-${Date.now()}`
+  );
   const zipOutputPath = getCacheUri(zipFileName);
   if (!stagingDir.exists) {
     stagingDir.create({ intermediates: true });
@@ -371,7 +375,9 @@ function getMetadataVerseForFiaCsv(
   fiaSequence: ChapterVerse[] | null
 ): string {
   const assetParsed = parseMetadata(assetMetadata);
-  const verse = assetParsed?.verse as { from?: unknown; to?: unknown } | undefined;
+  const verse = assetParsed?.verse as
+    | { from?: unknown; to?: unknown }
+    | undefined;
   if (!verse) return '';
 
   const from = parseVersePosition(verse.from);
@@ -410,7 +416,6 @@ export async function generateExportAssetsCSVFile(
     'Languoid Name',
     'fileName'
   ].join(',');
-
 
   const rows = items.map((item) => {
     const metadataText =
@@ -465,7 +470,7 @@ export async function buildExportArtifacts({
   let files: ExportArtifact[] = [];
   let cleanupTargets: string[] = [];
   const currentDateTime = formatCurrentDateTime(new Date());
-  
+
   let fiaSequence: ChapterVerse[] | null = null;
   if (projectWithLanguoid?.project.template === 'fia' && questId) {
     const quest = (await questService.getQuestById(questId)) as
@@ -475,13 +480,14 @@ export async function buildExportArtifacts({
   }
 
   if (mergedFile) {
-    const { outputPath: audioUri, audioItems } = await concatenateAudioListToFile(
-      questId,
-      assetIds,
-      questName,
-      resolvedProjectName,
-      resolvedLanguoidName
-    );
+    const { outputPath: audioUri, audioItems } =
+      await concatenateAudioListToFile(
+        questId,
+        assetIds,
+        questName,
+        resolvedProjectName,
+        resolvedLanguoidName
+      );
     const fileName = getFileNameFromUri(audioUri, 'quest-audio');
 
     files = [
@@ -492,7 +498,7 @@ export async function buildExportArtifacts({
       }
     ];
 
-    if (includeCsvFile) {                 
+    if (includeCsvFile) {
       const csvFile = await generateExportAssetsCSVFile(
         audioItems,
         `${questName}-${resolvedProjectName}-${resolvedLanguoidName}`,
@@ -500,7 +506,7 @@ export async function buildExportArtifacts({
         fiaSequence
       );
       files.push(csvFile);
-    }   
+    }
     // Merged export generates a temporary artifact in cache.
     cleanupTargets = [audioUri];
   } else {
@@ -515,7 +521,10 @@ export async function buildExportArtifacts({
 
     files = audioItems.map((rawItem, index) => {
       const item = rawItem as AudioItemWithNewFileName;
-      const originalName = getFileNameFromUri(item.uri, `audio-${index + 1}.m4a`);
+      const originalName = getFileNameFromUri(
+        item.uri,
+        `audio-${index + 1}.m4a`
+      );
       const extRegex = /(\.[a-zA-Z0-9]+)$/;
       const extMatch = extRegex.exec(originalName);
       const ext = extMatch?.[1] ?? '.m4a';
@@ -527,7 +536,9 @@ export async function buildExportArtifacts({
       const safeLanguoidName = resolvedLanguoidName
         ? sanitizeNamePart(resolvedLanguoidName)
         : null;
-      const safeAssetName = sanitizeNamePart(item.assetName ?? `asset-${item.assetId}`);
+      const safeAssetName = sanitizeNamePart(
+        item.assetName ?? `asset-${item.assetId}`
+      );
       const verseSuffix =
         projectWithLanguoid?.project.template === 'fia'
           ? getFIAVerseSuffix(item.metadata, fiaSequence)
@@ -552,16 +563,15 @@ export async function buildExportArtifacts({
     });
 
     if (includeCsvFile) {
-        const csvFile = await generateExportAssetsCSVFile(
-          audioItems,
-          `${questName}-${resolvedProjectName}-${resolvedLanguoidName}`,
-          projectWithLanguoid?.project.template,
-          fiaSequence
-        );
-        files.push(csvFile);
+      const csvFile = await generateExportAssetsCSVFile(
+        audioItems,
+        `${questName}-${resolvedProjectName}-${resolvedLanguoidName}`,
+        projectWithLanguoid?.project.template,
+        fiaSequence
+      );
+      files.push(csvFile);
     }
   }
-
 
   files = ensureUniqueFileNames(files);
 
@@ -646,7 +656,8 @@ export async function shareExport(
 
     await Sharing.shareAsync(shareUri, {
       mimeType: firstFile.mimeType,
-      UTI: firstFile.mimeType === 'audio/mp4' ? 'com.apple.m4a-audio' : undefined,
+      UTI:
+        firstFile.mimeType === 'audio/mp4' ? 'com.apple.m4a-audio' : undefined,
       dialogTitle
     });
     return 'completed';

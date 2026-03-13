@@ -4,14 +4,17 @@ import {
   SpeedDialItems,
   SpeedDialTrigger
 } from '@/components/ui/speed-dial';
-import { shareExportLink, useChapterExport } from '@/hooks/useChapterExport';
+import { useChapterExport } from '@/hooks/useChapterExport';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useQuestPublishStatus } from '@/hooks/useQuestPublishStatus';
 import type { MembershipRole } from '@/hooks/useUserPermissions';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
-import { concatenateAndShareQuestAudio } from '@/utils/localAudioConcat';
-import RNAlert from '@blazejkustra/react-native-alert';
-import { DownloadIcon, HardDriveDownload, Share, Share2Icon } from 'lucide-react-native';
+import {
+  DownloadIcon,
+  HardDriveDownload,
+  Share,
+  Share2Icon
+} from 'lucide-react-native';
 import React, { useState } from 'react';
 import { View } from 'react-native';
 import { ExportQuestList } from './ExportQuestList';
@@ -97,8 +100,8 @@ export function ExportButton({
   //     return null;
   // }
 
-  // Allow export only for local content  
-  if(isQuestPublished) {
+  // Allow export only for local content
+  if (isQuestPublished) {
     return null;
   }
 
@@ -110,65 +113,6 @@ export function ExportButton({
   if (!canExport) {
     return null;
   }
-
-  const handleExport = async (
-    exportType: 'local' | 'feedback' | 'distribution'
-  ) => {
-    setShowTypeSelector(false);
-
-    // Handle local share
-    if (exportType === 'local') {
-      setIsConcatenating(true);
-      try {
-        await concatenateAndShareQuestAudio(questId, questName);
-        setIsConcatenating(false);
-      } catch (error) {
-        setIsConcatenating(false);
-        RNAlert.alert(
-          t('error'),
-          error instanceof Error ? error.message : 'Failed to share audio'
-        );
-      }
-      return;
-    }
-
-    exportMutation.mutate(
-      {
-        quest_id: questId,
-        export_type: exportType
-      },
-      {
-        onSuccess: (data) => {
-          // Only show share sheet if export is ready and has share_url
-          // Don't share immediately if still processing
-          if (data.status === 'ready' && data.share_url) {
-            // Show share sheet for feedback exports
-            shareExportLink(data.share_url).catch((error) => {
-              console.error('Failed to share:', error);
-            });
-          }
-
-          if (data.status === 'processing' || data.status === 'pending') {
-            setCurrentExportId(data.id);
-          } else if (data.status === 'ready') {
-            // Don't show alert if we're sharing (share sheet will show)
-            if (!data.share_url) {
-              RNAlert.alert(
-                t('success'),
-                t('exportReady') || 'Export is ready!'
-              );
-            }
-          }
-        },
-        onError: (error) => {
-          RNAlert.alert(
-            t('error'),
-            error.message || t('exportFailed') || 'Export failed'
-          );
-        }
-      }
-    );
-  };
 
   const openExportList = (shareEnabledByDefault: boolean) => {
     setInitialShareEnable(shareEnabledByDefault);
@@ -246,7 +190,6 @@ export function ExportButton({
         currentQuestId={questId}
         initialShareEnable={initialShareEnable}
       />
-
     </View>
   );
 }

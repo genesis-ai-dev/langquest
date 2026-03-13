@@ -27,7 +27,9 @@ export function parseFiaVerseRange(verseRange: string): {
   return { startChapter, startVerse, endChapter, endVerse };
 }
 
-function parseMetadataObject(metadata: unknown): Record<string, unknown> | null {
+function parseMetadataObject(
+  metadata: unknown
+): Record<string, unknown> | null {
   if (!metadata) return null;
   if (typeof metadata === 'string') {
     try {

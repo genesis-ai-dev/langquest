@@ -34,7 +34,6 @@ export class ProjectService {
       .where(eq(project.id, projectId))
       .limit(1);
 
-
     if (!projectRecord) {
       return null;
     }

@@ -96,7 +96,9 @@ function SpeedDialTrigger({
     >
       <MotiView
         from={{ rotate: '0deg' }}
-        animate={{ rotate: disableIconRotation ? '0deg' : open ? '90deg' : '0deg' }}
+        animate={{
+          rotate: disableIconRotation ? '0deg' : open ? '90deg' : '0deg'
+        }}
         transition={{ duration: 150, type: 'timing' }}
       >
         <Icon

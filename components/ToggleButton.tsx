@@ -66,7 +66,9 @@ function ToggleOption({
         <Icon
           as={icon}
           size={14}
-          className={selected ? 'text-primary-foreground' : 'text-muted-foreground'}
+          className={
+            selected ? 'text-primary-foreground' : 'text-muted-foreground'
+          }
         />
         <MotiView
           animate={{
@@ -77,7 +79,10 @@ function ToggleOption({
           transition={TRANSITION}
           style={{ overflow: 'hidden' }}
         >
-          <Text className="text-xs font-medium text-primary-foreground" numberOfLines={1}>
+          <Text
+            className="text-xs font-medium text-primary-foreground"
+            numberOfLines={1}
+          >
             {text}
           </Text>
         </MotiView>
@@ -130,4 +135,3 @@ export function ToggleButton({
 }
 
 export type { ToggleButtonProps, ToggleSide };
-
