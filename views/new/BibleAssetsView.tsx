@@ -3738,6 +3738,7 @@ export default function BibleAssetsView() {
                       questName={selectedQuest?.name}
                       disabled={isPublishing || !isOnline}
                       membership={membership}
+                      passedQuestPublished={isPublished}
                     />
                   )}
                 </>
@@ -3916,119 +3917,6 @@ export default function BibleAssetsView() {
             </Pressable>
           )}
         </View>
-
-        {/* Right side: Publish/Export buttons (isolated) */}
-        {/* <View className="flex flex-row items-center gap-2">
-          {isPublished ? (
-            // Show cloud badge and export button if user is creator, member, or owner
-            canSeePublishedBadge ? (
-              <>
-                <Button
-                  variant="outline"
-                  className="h-10 px-4 py-0"
-                  onPress={() => {
-                    RNAlert.alert(t('questSyncedToCloud'));
-                  }}
-                >
-                  <View className="flex-row items-center gap-0.5">
-                    <Icon as={CloudUpload} size={18} />
-                    <Icon as={CheckCheck} size={14} />
-                  </View>
-                </Button>
-                {currentQuestId && currentProjectId && (
-                  <ExportButton
-                    questId={currentQuestId}
-                    projectId={currentProjectId}
-                    questName={selectedQuest?.name}
-                    disabled={isPublishing || !isOnline}
-                    membership={membership}
-                  />
-                )}
-              </>
-            ) : (
-              // Show membership request button for non-members viewing published quest
-              isPrivateProject && (
-                <Button
-                  variant="default"
-                  size="sm"
-                  onPress={() => setShowPrivateAccessModal(true)}
-                >
-                  <Icon as={UserPlusIcon} size={16} />
-                  <Icon as={LockIcon} size={16} />
-                </Button>
-              )
-            )
-          ) : (
-            // Only show publish/export buttons for authenticated users
-            currentUser && (
-              <>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  disabled={isPublishing || !isOnline || !isMember}
-                  onPress={() => {
-                    if (!isOnline) {
-                      RNAlert.alert(t('error'), t('cannotPublishWhileOffline'));
-                      return;
-                    }
-
-                    if (!isMember) {
-                      RNAlert.alert(t('error'), t('membersOnlyPublish'));
-                      return;
-                    }
-
-                    if (!currentQuestId) {
-                      console.error('No current quest id');
-                      return;
-                    }
-
-                    // Use quest name if available, otherwise generic message
-                    const questName = selectedQuest?.name || 'this chapter';
-
-                    RNAlert.alert(
-                      t('publishChapter'),
-                      t('publishChapterMessage').replace(
-                        '{questName}',
-                        questName
-                      ),
-                      [
-                        {
-                          text: t('cancel'),
-                          style: 'cancel'
-                        },
-                        {
-                          text: t('publish'),
-                          style: 'default',
-                          onPress: () => {
-                            publishQuest();
-                          }
-                        }
-                      ]
-                    );
-                  }}
-                >
-                  {isPublishing ? (
-                    <ActivityIndicator
-                      size="small"
-                      color={getThemeColor('primary')}
-                    />
-                  ) : (
-                    <Icon as={CloudUpload} />
-                  )}
-                </Button>
-                {currentQuestId && currentProjectId && (
-                  <ExportButton
-                    questId={currentQuestId}
-                    projectId={currentProjectId}
-                    questName={selectedQuest?.name}
-                    disabled={isPublishing || !isOnline}
-                    membership={membership}
-                  />
-                )}
-              </>
-            )
-          )}
-        </View> */}
       </View>
 
       <Input
