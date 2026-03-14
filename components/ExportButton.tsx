@@ -27,15 +27,17 @@ interface ExportButtonProps {
   menuDirection?: 'up' | 'down';
   // Optional: pass membership from parent to avoid duplicate queries
   membership?: MembershipRole;
+  passedQuestPublished?: boolean;
 }
 
 export function ExportButton({
   questId,
   projectId,
-  questName,
+  // questName,
   disabled,
   menuDirection = 'down',
-  membership: passedMembership
+  membership: passedMembership,
+  passedQuestPublished = false
 }: ExportButtonProps) {
   const { t } = useLocalization();
   // Use passed membership if available, otherwise fetch it
@@ -43,11 +45,12 @@ export function ExportButton({
     useUserPermissions(projectId, 'open_project');
   const membership = passedMembership ?? fetchedMembership;
   const exportMutation = useChapterExport();
-  const [showTypeSelector, setShowTypeSelector] = useState(false);
+  // const [showTypeSelector, setShowTypeSelector] = useState(false);
   const [showExportQuestList, setShowExportQuestList] = useState(false);
   const [initialShareEnable, setInitialShareEnable] = useState(false);
-  const [currentExportId, setCurrentExportId] = useState<string | null>(null);
-  const [isConcatenating, setIsConcatenating] = useState(false);
+  // const [currentExportId, setCurrentExportId] = useState<string | null>(null);
+  // const [isConcatenating, setIsConcatenating] = useState(false);
+  const [isConcatenating] = useState(false);
 
   // Check feature flag
   // const enableQuestExport = useLocalStore((state) => state.enableQuestExport);
@@ -59,7 +62,7 @@ export function ExportButton({
   const canExportDistribution = membership === 'owner';
 
   // Determine visibility conditions
-  const showFeedbackExport = isQuestPublished;
+  // const showFeedbackExport = isQuestPublished;
   const showDistributionExport = canExportDistribution && isQuestPublished;
 
   // Debug logging (remove in production)
@@ -101,7 +104,7 @@ export function ExportButton({
   // }
 
   // Allow export only for local content
-  if (isQuestPublished) {
+  if (isQuestPublished || passedQuestPublished) {
     return null;
   }
 

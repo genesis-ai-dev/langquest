@@ -1626,6 +1626,7 @@ export default function NextGenAssetsView() {
                     questName={selectedQuest?.name}
                     disabled={isPublishing || !isOnline}
                     membership={membership}
+                    passedQuestPublished={isPublished}
                   />
                 )}
               </>
