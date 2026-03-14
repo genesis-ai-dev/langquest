@@ -37,6 +37,10 @@ function mapLanguoidNameToSupportedLanguage(
     'brazilian portuguese': 'brazilian_portuguese',
     'português brasileiro': 'brazilian_portuguese',
     'portugues brasileiro': 'brazilian_portuguese', // Without accent
+    // French names and endonyms
+    french: 'french',
+    français: 'french',
+    francais: 'french', // Without accent
     // Tok Pisin names
     'tok pisin': 'tok_pisin',
     // Indonesian names and endonyms

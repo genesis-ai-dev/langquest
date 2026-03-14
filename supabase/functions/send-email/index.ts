@@ -80,6 +80,7 @@ function mapLanguoidNameToLocale(
   const mapping: Record<string, string> = {
     english: 'en',
     spanish: 'es',
+    french: 'fr',
     'brazilian portuguese': 'pt-BR',
     'tok pisin': 'tpi-PG',
     'standard indonesian': 'id-ID',
