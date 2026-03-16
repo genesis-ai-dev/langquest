@@ -3099,7 +3099,11 @@ export default function BibleAssetsView() {
     togglePlayAll,
     stopPlayAll,
     stopAndResetPlayAll,
-    togglePlayPausePlayAll
+    togglePlayPausePlayAll,
+    nextPlayAllItem,
+    previousPlayAllItem,
+    rewindPlayAll,
+    forwardPlayAll
   } = usePlayAllAudioController({
       checkpointStore: playbackCheckpoint,
       onCurrentAssetChange: ({ assetId }) => {
@@ -4029,7 +4033,11 @@ export default function BibleAssetsView() {
           isPaused={isPlayAllPaused}
           positionShared={audioContext.positionShared}
           durationShared={audioContext.durationShared}
+          onPrevious={previousPlayAllItem}
+          onRewind={rewindPlayAll}
           onPlayPause={togglePlayPausePlayAll}
+          onForward={forwardPlayAll}
+          onNext={nextPlayAllItem}
           onStop={() => {
             stopAndResetPlayAll();
             setShowPlayAllControls(false);

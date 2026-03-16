@@ -40,8 +40,11 @@ type StatusPayload = {
   playlistLength: number;
 };
 
+type PlayAllSeekMode = 'boundary-jump' | 'carry-over';
+
 type UsePlayAllAudioControllerOptions = {
   checkpointStore: PlayAllCheckpointStore;
+  seekMode?: PlayAllSeekMode;
   onCurrentAssetChange?: (payload: CurrentAssetPayload) => void;
   onPlaybackStatusUpdate?: (
     status: PlaybackStatus,
@@ -64,8 +67,18 @@ type StopOptions = {
   persistPosition?: boolean;
 };
 
+type PlayAllJumpTarget = {
+  itemIndex: number;
+  uriIndex: number;
+  positionMs: number;
+};
+
+const DEFAULT_SEEK_STEP_MS = 5000;
+const SEEK_DEBOUNCE_MS = 500;
+
 export function usePlayAllAudioController({
   checkpointStore,
+  seekMode = 'boundary-jump',
   onCurrentAssetChange,
   onPlaybackStatusUpdate,
   onStopped,
@@ -85,8 +98,16 @@ export function usePlayAllAudioController({
     new Set()
   );
   const currentPlaylistKeyRef = React.useRef<string | null>(null);
+  const currentPlaylistRef = React.useRef<PlayAllPlaylistItem[]>([]);
   const currentItemIndexRef = React.useRef<number | null>(null);
   const currentUriIndexRef = React.useRef<number | null>(null);
+  const pendingJumpTargetRef = React.useRef<PlayAllJumpTarget | null>(null);
+  const segmentDurationMsMapRef = React.useRef<Map<string, number>>(new Map());
+  const lastSeekActionAtRef = React.useRef(0);
+  const lastSegmentPositionMsRef = React.useRef(0);
+  const lastSegmentDurationMsRef = React.useRef(0);
+  const lastStatusItemIndexRef = React.useRef<number | null>(null);
+  const lastStatusUriIndexRef = React.useRef<number | null>(null);
 
   const onCurrentAssetChangeRef = React.useRef(onCurrentAssetChange);
   const onPlaybackStatusUpdateRef = React.useRef(onPlaybackStatusUpdate);
@@ -186,8 +207,14 @@ export function usePlayAllAudioController({
       clearSeekTimeouts();
 
       currentPlaylistKeyRef.current = null;
+      currentPlaylistRef.current = [];
       currentItemIndexRef.current = null;
       currentUriIndexRef.current = null;
+      pendingJumpTargetRef.current = null;
+      lastSegmentPositionMsRef.current = 0;
+      lastSegmentDurationMsRef.current = 0;
+      lastStatusItemIndexRef.current = null;
+      lastStatusUriIndexRef.current = null;
 
       notifyCurrentAssetChange({ assetId: null, itemIndex: null });
 
@@ -265,6 +292,358 @@ export function usePlayAllAudioController({
     });
   }, [stopPlayAll]);
 
+  const navigateToItemIndex = React.useCallback(
+    (targetItemIndex: number) => {
+      if (
+        !isPlayAllRunningRef.current ||
+        !currentPlaylistKeyRef.current ||
+        currentPlaylistRef.current.length === 0
+      ) {
+        return;
+      }
+
+      const clampedTargetItemIndex = Math.max(
+        0,
+        Math.min(targetItemIndex, currentPlaylistRef.current.length - 1)
+      );
+      pendingJumpTargetRef.current = {
+        itemIndex: clampedTargetItemIndex,
+        uriIndex: 0,
+        positionMs: 0
+      };
+
+      checkpointStore.savePlayAllCheckpoint(
+        {
+          playlistKey: currentPlaylistKeyRef.current,
+          itemIndex: clampedTargetItemIndex,
+          uriIndex: 0,
+          positionMs: 0
+        },
+        { force: true }
+      );
+
+      isPlayAllPausedRef.current = false;
+      setIsPlayAllPaused(false);
+      releaseCurrentPlayer();
+      currentSegmentResolveRef.current?.();
+    },
+    [checkpointStore, releaseCurrentPlayer]
+  );
+
+  const seekInCurrentSegment = React.useCallback(
+    (deltaMs: number) => {
+      if (
+        !isPlayAllRunningRef.current ||
+        !currentPlaylistKeyRef.current ||
+        currentItemIndexRef.current === null ||
+        currentUriIndexRef.current === null ||
+        !currentPlayerRef.current ||
+        !currentPlayerRef.current.isLoaded
+      ) {
+        return;
+      }
+
+      const now = Date.now();
+      if (now - lastSeekActionAtRef.current < SEEK_DEBOUNCE_MS) {
+        return;
+      }
+      lastSeekActionAtRef.current = now;
+
+      const playlist = currentPlaylistRef.current;
+      if (playlist.length === 0) {
+        return;
+      }
+
+      const currentItemIndex = currentItemIndexRef.current;
+      const currentUriIndex = currentUriIndexRef.current;
+      const currentItem = playlist[currentItemIndex];
+      if (!currentItem || currentUriIndex >= currentItem.uris.length) {
+        return;
+      }
+
+      const rawPlayerCurrentTimeMs = currentPlayerRef.current.currentTime * 1000;
+      const rawPlayerDurationMs = currentPlayerRef.current.duration * 1000;
+      const playerPositionMs = Number.isFinite(rawPlayerCurrentTimeMs)
+        ? Math.max(0, rawPlayerCurrentTimeMs)
+        : 0;
+      const playerDurationMs = Number.isFinite(rawPlayerDurationMs)
+        ? Math.max(0, rawPlayerDurationMs)
+        : 0;
+      const hasStatusForCurrentSegment =
+        lastStatusItemIndexRef.current === currentItemIndex &&
+        lastStatusUriIndexRef.current === currentUriIndex;
+      const statusPositionMs = hasStatusForCurrentSegment
+        ? Math.max(0, lastSegmentPositionMsRef.current)
+        : 0;
+      const currentSegmentCacheKey = `${currentItemIndex}:${currentUriIndex}`;
+      const cachedCurrentDurationMs = Math.max(
+        0,
+        segmentDurationMsMapRef.current.get(currentSegmentCacheKey) ?? 0
+      );
+      const statusDurationMs = hasStatusForCurrentSegment
+        ? Math.max(0, lastSegmentDurationMsRef.current)
+        : 0;
+      // Use the most conservative "known good" values to avoid jumping segments due to stale 0s.
+      const currentPositionMs = Math.max(playerPositionMs, statusPositionMs);
+      const currentDurationMs = Math.max(
+        playerDurationMs,
+        cachedCurrentDurationMs,
+        statusDurationMs
+      );
+
+      const getSegmentDurationMs = (itemIndex: number, uriIndex: number) => {
+        const key = `${itemIndex}:${uriIndex}`;
+        const cached = segmentDurationMsMapRef.current.get(key);
+        if (typeof cached === 'number' && cached > 0) {
+          return cached;
+        }
+        if (itemIndex === currentItemIndex && uriIndex === currentUriIndex) {
+          return currentDurationMs > 0 ? currentDurationMs : null;
+        }
+        return null;
+      };
+
+      const jumpTo = (target: PlayAllJumpTarget) => {
+        if (!currentPlaylistKeyRef.current) {
+          return;
+        }
+        pendingJumpTargetRef.current = target;
+        checkpointStore.savePlayAllCheckpoint(
+          {
+            playlistKey: currentPlaylistKeyRef.current,
+            itemIndex: target.itemIndex,
+            uriIndex: target.uriIndex,
+            positionMs: target.positionMs
+          },
+          { force: true }
+        );
+        isPlayAllPausedRef.current = false;
+        setIsPlayAllPaused(false);
+        releaseCurrentPlayer();
+        currentSegmentResolveRef.current?.();
+      };
+
+      const applyLocalSeek = (positionMs: number) => {
+        const safeDurationMs = currentDurationMs > 0 ? currentDurationMs : positionMs;
+        const clampedPositionMs = Math.max(0, Math.min(positionMs, safeDurationMs));
+        currentPlayerRef.current?.seekTo(clampedPositionMs / 1000);
+        lastSegmentPositionMsRef.current = clampedPositionMs;
+        checkpointStore.savePlayAllCheckpoint(
+          {
+            playlistKey: currentPlaylistKeyRef.current!,
+            itemIndex: currentItemIndex,
+            uriIndex: currentUriIndex,
+            positionMs: clampedPositionMs
+          },
+          { force: true }
+        );
+      };
+
+      const resolveBoundaryJumpTarget = (): PlayAllJumpTarget | null => {
+        if (deltaMs < 0) {
+          const targetPosition = currentPositionMs + deltaMs;
+          if (targetPosition >= 0) {
+            applyLocalSeek(targetPosition);
+            return null;
+          }
+          if (currentUriIndex > 0) {
+            return {
+              itemIndex: currentItemIndex,
+              uriIndex: currentUriIndex - 1,
+              positionMs: 0
+            };
+          }
+          if (currentItemIndex > 0) {
+            const prevItemIndex = currentItemIndex - 1;
+            const prevItem = playlist[prevItemIndex];
+            const lastUriIndex = Math.max(0, (prevItem?.uris.length ?? 1) - 1);
+            return {
+              itemIndex: prevItemIndex,
+              uriIndex: lastUriIndex,
+              positionMs: 0
+            };
+          }
+          applyLocalSeek(0);
+          return null;
+        }
+
+        const targetPosition = currentPositionMs + deltaMs;
+        if (currentDurationMs <= 0) {
+          // When duration is unknown, prefer local seek to avoid accidental jumps.
+          applyLocalSeek(targetPosition);
+          return null;
+        }
+        if (targetPosition <= currentDurationMs) {
+          applyLocalSeek(targetPosition);
+          return null;
+        }
+        if (currentUriIndex < currentItem.uris.length - 1) {
+          return {
+            itemIndex: currentItemIndex,
+            uriIndex: currentUriIndex + 1,
+            positionMs: 0
+          };
+        }
+        if (currentItemIndex < playlist.length - 1) {
+          return {
+            itemIndex: currentItemIndex + 1,
+            uriIndex: 0,
+            positionMs: 0
+          };
+        }
+        applyLocalSeek(currentDurationMs);
+        return null;
+      };
+
+      const resolveCarryOverTarget = (): PlayAllJumpTarget | null => {
+        if (deltaMs === 0) {
+          return null;
+        }
+
+        if (deltaMs < 0) {
+          let remainingMs = Math.abs(deltaMs);
+          let probeItemIndex = currentItemIndex;
+          let probeUriIndex = currentUriIndex;
+          let probePositionMs = currentPositionMs;
+
+          while (remainingMs > 0) {
+            if (probePositionMs >= remainingMs) {
+              return {
+                itemIndex: probeItemIndex,
+                uriIndex: probeUriIndex,
+                positionMs: probePositionMs - remainingMs
+              };
+            }
+
+            remainingMs -= probePositionMs;
+            if (probeUriIndex > 0) {
+              probeUriIndex -= 1;
+            } else if (probeItemIndex > 0) {
+              probeItemIndex -= 1;
+              const prevItem = playlist[probeItemIndex];
+              probeUriIndex = Math.max(0, (prevItem?.uris.length ?? 1) - 1);
+            } else {
+              return {
+                itemIndex: 0,
+                uriIndex: 0,
+                positionMs: 0
+              };
+            }
+
+            const prevDurationMs = getSegmentDurationMs(probeItemIndex, probeUriIndex);
+            if (prevDurationMs === null) {
+              return {
+                itemIndex: probeItemIndex,
+                uriIndex: probeUriIndex,
+                positionMs: 0
+              };
+            }
+            probePositionMs = prevDurationMs;
+          }
+          return null;
+        }
+
+        let remainingMs = deltaMs;
+        let probeItemIndex = currentItemIndex;
+        let probeUriIndex = currentUriIndex;
+        let probePositionMs = currentPositionMs;
+
+        while (remainingMs > 0) {
+          const probeDurationMs = getSegmentDurationMs(probeItemIndex, probeUriIndex);
+          if (probeDurationMs === null) {
+            return {
+              itemIndex: probeItemIndex,
+              uriIndex: probeUriIndex,
+              positionMs: probePositionMs
+            };
+          }
+
+          const availableMs = Math.max(0, probeDurationMs - probePositionMs);
+          if (remainingMs <= availableMs) {
+            return {
+              itemIndex: probeItemIndex,
+              uriIndex: probeUriIndex,
+              positionMs: probePositionMs + remainingMs
+            };
+          }
+
+          remainingMs -= availableMs;
+          const probeItem = playlist[probeItemIndex];
+          if (probeUriIndex < (probeItem?.uris.length ?? 1) - 1) {
+            probeUriIndex += 1;
+          } else if (probeItemIndex < playlist.length - 1) {
+            probeItemIndex += 1;
+            probeUriIndex = 0;
+          } else {
+            return {
+              itemIndex: probeItemIndex,
+              uriIndex: probeUriIndex,
+              positionMs: probeDurationMs
+            };
+          }
+          probePositionMs = 0;
+        }
+        return null;
+      };
+
+      const target =
+        seekMode === 'carry-over'
+          ? resolveCarryOverTarget()
+          : resolveBoundaryJumpTarget();
+
+      if (!target) {
+        return;
+      }
+
+      if (target.itemIndex === currentItemIndex && target.uriIndex === currentUriIndex) {
+        applyLocalSeek(target.positionMs);
+        return;
+      }
+
+      jumpTo(target);
+    },
+    [checkpointStore, releaseCurrentPlayer, seekMode]
+  );
+
+  const rewindPlayAll = React.useCallback(() => {
+    seekInCurrentSegment(-DEFAULT_SEEK_STEP_MS);
+  }, [seekInCurrentSegment]);
+
+  const forwardPlayAll = React.useCallback(() => {
+    seekInCurrentSegment(DEFAULT_SEEK_STEP_MS);
+  }, [seekInCurrentSegment]);
+
+  const nextPlayAllItem = React.useCallback(() => {
+    if (
+      !isPlayAllRunningRef.current ||
+      currentItemIndexRef.current === null ||
+      currentPlaylistRef.current.length === 0
+    ) {
+      return;
+    }
+
+    const targetItemIndex = Math.min(
+      currentItemIndexRef.current + 1,
+      currentPlaylistRef.current.length - 1
+    );
+    if (targetItemIndex === currentItemIndexRef.current) {
+      return;
+    }
+    navigateToItemIndex(targetItemIndex);
+  }, [navigateToItemIndex]);
+
+  const previousPlayAllItem = React.useCallback(() => {
+    if (!isPlayAllRunningRef.current || currentItemIndexRef.current === null) {
+      return;
+    }
+
+    const targetItemIndex = Math.max(currentItemIndexRef.current - 1, 0);
+    if (targetItemIndex === currentItemIndexRef.current) {
+      return;
+    }
+    navigateToItemIndex(targetItemIndex);
+  }, [navigateToItemIndex]);
+
   const togglePlayAll = React.useCallback(
     async ({ playlist, startItemIndex = 0, playlistKey }: TogglePlayAllOptions) => {
       if (isPlayAllRunningRef.current) {
@@ -298,13 +677,13 @@ export function usePlayAllAudioController({
       setIsPlayAllRunning(true);
       setIsPlayAllPaused(false);
       currentPlaylistKeyRef.current = effectivePlaylistKey;
+      currentPlaylistRef.current = playlist;
+      pendingJumpTargetRef.current = null;
+
+      let shouldUseInitialCheckpoint = shouldResume;
 
       try {
-        for (
-          let itemIndex = resolvedStartItemIndex;
-          itemIndex < playlist.length;
-          itemIndex++
-        ) {
+        for (let itemIndex = resolvedStartItemIndex; itemIndex < playlist.length; ) {
           if (!isPlayAllRunningRef.current) {
             stopPlayAll('cancelled');
             return;
@@ -321,19 +700,33 @@ export function usePlayAllAudioController({
             metadata: item.metadata
           });
 
-          const startUriIndex =
-            shouldResume &&
-            savedCheckpoint &&
-            itemIndex === resolvedStartItemIndex &&
-            savedCheckpoint.uriIndex >= 0
-              ? Math.min(savedCheckpoint.uriIndex, item.uris.length - 1)
-              : 0;
+          const pendingJumpTargetForCurrentItem = (() => {
+            const value = pendingJumpTargetRef.current;
+            if (!value) {
+              return null;
+            }
+            const target = value as PlayAllJumpTarget;
+            if (target.itemIndex !== itemIndex) {
+              return null;
+            }
+            return target;
+          })();
 
-          for (
-            let uriIndex = startUriIndex;
-            uriIndex < item.uris.length;
-            uriIndex++
-          ) {
+          const startUriIndex =
+            pendingJumpTargetForCurrentItem
+              ? Math.min(
+                  pendingJumpTargetForCurrentItem.uriIndex,
+                  item.uris.length - 1
+                )
+              : shouldUseInitialCheckpoint &&
+                  savedCheckpoint &&
+                  itemIndex === resolvedStartItemIndex &&
+                  savedCheckpoint.uriIndex >= 0
+                ? Math.min(savedCheckpoint.uriIndex, item.uris.length - 1)
+                : 0;
+
+          let jumpedToAnotherItem = false;
+          for (let uriIndex = startUriIndex; uriIndex < item.uris.length; uriIndex++) {
             if (!isPlayAllRunningRef.current) {
               stopPlayAll('cancelled');
               return;
@@ -348,12 +741,18 @@ export function usePlayAllAudioController({
             currentUriIndexRef.current = uriIndex;
 
             const resumePositionMs =
-              shouldResume &&
-              savedCheckpoint &&
-              itemIndex === resolvedStartItemIndex &&
-              uriIndex === startUriIndex
-                ? Math.max(0, savedCheckpoint.positionMs)
-                : 0;
+              pendingJumpTargetForCurrentItem && uriIndex === startUriIndex
+                ? Math.max(0, pendingJumpTargetForCurrentItem.positionMs)
+                : shouldUseInitialCheckpoint &&
+                    savedCheckpoint &&
+                    itemIndex === resolvedStartItemIndex &&
+                    uriIndex === startUriIndex
+                  ? Math.max(0, savedCheckpoint.positionMs)
+                  : 0;
+
+            if (pendingJumpTargetForCurrentItem && uriIndex === startUriIndex) {
+              pendingJumpTargetRef.current = null;
+            }
 
             await new Promise<void>((resolve) => {
               let settled = false;
@@ -393,6 +792,20 @@ export function usePlayAllAudioController({
                   'playbackStatusUpdate',
                   (status) => {
                     const playbackStatus = status as PlaybackStatus;
+                    lastStatusItemIndexRef.current = itemIndex;
+                    lastStatusUriIndexRef.current = uriIndex;
+                    const statusCurrentTimeMs = playbackStatus.currentTime * 1000;
+                    if (Number.isFinite(statusCurrentTimeMs) && statusCurrentTimeMs >= 0) {
+                      lastSegmentPositionMsRef.current = statusCurrentTimeMs;
+                    }
+                    const statusDurationMs = playbackStatus.duration * 1000;
+                    if (Number.isFinite(statusDurationMs) && statusDurationMs > 0) {
+                      lastSegmentDurationMsRef.current = statusDurationMs;
+                      segmentDurationMsMapRef.current.set(
+                        `${itemIndex}:${uriIndex}`,
+                        statusDurationMs
+                      );
+                    }
 
                     onPlaybackStatusUpdateRef.current?.(playbackStatus, {
                       item,
@@ -443,7 +856,24 @@ export function usePlayAllAudioController({
                 settle();
               }
             });
+
+            const jumpTarget = pendingJumpTargetRef.current as PlayAllJumpTarget | null;
+            if (jumpTarget !== null) {
+              shouldUseInitialCheckpoint = false;
+              itemIndex = Math.max(
+                0,
+                Math.min(jumpTarget.itemIndex, playlist.length - 1)
+              );
+              jumpedToAnotherItem = true;
+              break;
+            }
           }
+
+          shouldUseInitialCheckpoint = false;
+          if (jumpedToAnotherItem) {
+            continue;
+          }
+          itemIndex++;
         }
 
         stopPlayAll('finished');
@@ -471,6 +901,10 @@ export function usePlayAllAudioController({
     stopAndResetPlayAll,
     pausePlayAll,
     resumePlayAll,
-    togglePlayPausePlayAll
+    togglePlayPausePlayAll,
+    nextPlayAllItem,
+    previousPlayAllItem,
+    rewindPlayAll,
+    forwardPlayAll
   };
 }
