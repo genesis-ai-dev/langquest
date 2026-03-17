@@ -258,6 +258,7 @@ function shapeMediaItems(mediaEdges: any[], lang: string): any[] {
 
       return {
         id: node.uniqueIdentifier || node.id,
+        nodeId: node.id,
         title: trans?.title || '',
         description: trans?.description || '',
         assets
@@ -294,6 +295,7 @@ function shapeMaps(mapEdges: any[], lang: string): any[] {
       if (!trans?.imageUrl1500) return null;
       return {
         id: node.uniqueIdentifier || node.id,
+        nodeId: node.id,
         title: trans.title || '',
         imageUrl: trans.imageUrl1500
       };

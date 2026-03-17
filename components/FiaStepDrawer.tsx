@@ -176,10 +176,11 @@ interface MediaContext {
   termIndex: React.MutableRefObject<number>;
 }
 
-function getCalloutText(block: FiaBlock): string {
+function getCalloutText(block: FiaBlock | string): string {
+  if (typeof block === 'string') return block;
   if (typeof block.content === 'string') return block.content;
   if (Array.isArray(block.content)) {
-    return block.content.map(getCalloutText).join(' ');
+    return block.content.map(getCalloutText).join('');
   }
   if (block.content && typeof block.content === 'object') {
     return getCalloutText(block.content as FiaBlock);
@@ -201,22 +202,88 @@ function isMediaInstruction(text: string): boolean {
   return false;
 }
 
-type MediaMatch =
+type SingleMatch =
   | { type: 'image'; item: FiaMediaItem }
   | { type: 'map'; item: FiaMap }
-  | { type: 'term'; item: FiaTerm }
-  | null;
+  | { type: 'term'; item: FiaTerm };
 
-function titleMatchScore(title: string, text: string): number {
-  const titleWords = title
-    .toLowerCase()
-    .split(/\s+/)
-    .filter((w) => w.length > 2);
-  const lower = text.toLowerCase();
-  return titleWords.filter((w) => lower.includes(w)).length;
+const STOP_WORDS = new Set([
+  'and', 'the', 'of', 'in', 'a', 'or', 'an', 'to', 'for', 'with'
+]);
+
+function significantWords(title: string): Set<string> {
+  return new Set(
+    title
+      .toLowerCase()
+      .split(/\s+/)
+      .filter((w) => w.length > 2 && !STOP_WORDS.has(w))
+  );
 }
 
-function matchMedia(text: string, ctx: MediaContext): MediaMatch {
+function titleMatchScore(title: string, text: string): number {
+  const words = significantWords(title);
+  const lower = text.toLowerCase();
+  let score = 0;
+  for (const w of words) {
+    if (lower.includes(w)) score++;
+  }
+  return score;
+}
+
+function findAnchorRefs(
+  block: FiaBlock | string
+): Array<{ url: string; text: string }> {
+  if (typeof block === 'string') return [];
+  const results: Array<{ url: string; text: string }> = [];
+  if (block.type === 'anchor' && typeof block.url === 'string') {
+    results.push({
+      url: block.url,
+      text: typeof block.content === 'string' ? block.content : ''
+    });
+  }
+  if (Array.isArray(block.content)) {
+    for (const child of block.content) {
+      results.push(...findAnchorRefs(child));
+    }
+  } else if (block.content && typeof block.content === 'object') {
+    results.push(...findAnchorRefs(block.content as FiaBlock));
+  }
+  return results;
+}
+
+function resolveAnchors(
+  block: FiaBlock,
+  ctx: MediaContext
+): SingleMatch[] {
+  const anchors = findAnchorRefs(block);
+  const results: SingleMatch[] = [];
+  for (const anchor of anchors) {
+    const mediaMatch = anchor.url.match(/^#m(\d+)$/);
+    if (mediaMatch) {
+      const nodeId = mediaMatch[1]!;
+      const item = ctx.mediaItems.find((m) => m.nodeId === nodeId);
+      if (item) results.push({ type: 'image', item });
+    }
+    const mapMatch = anchor.url.match(/^#c(\d+)$/);
+    if (mapMatch) {
+      const nodeId = mapMatch[1]!;
+      const item = ctx.maps.find((m) => m.nodeId === nodeId);
+      if (item) results.push({ type: 'map', item });
+    }
+  }
+  return results;
+}
+
+function matchMedia(
+  text: string,
+  ctx: MediaContext,
+  block?: FiaBlock
+): SingleMatch[] {
+  if (block) {
+    const anchorMatches = resolveAnchors(block, ctx);
+    if (anchorMatches.length > 0) return anchorMatches;
+  }
+
   const lower = text.toLowerCase();
 
   if (
@@ -228,11 +295,11 @@ function matchMedia(text: string, ctx: MediaContext): MediaMatch {
     const matched = ctx.terms.find(
       (t) => t.term && lower.includes(t.term.toLowerCase())
     );
-    if (matched) return { type: 'term', item: matched };
+    if (matched) return [{ type: 'term', item: matched }];
     const termIdx = ctx.termIndex.current;
     if (termIdx < ctx.terms.length) {
       ctx.termIndex.current = termIdx + 1;
-      return { type: 'term', item: ctx.terms[termIdx]! };
+      return [{ type: 'term', item: ctx.terms[termIdx]! }];
     }
   }
 
@@ -240,43 +307,48 @@ function matchMedia(text: string, ctx: MediaContext): MediaMatch {
     let bestMap: FiaMap | null = null;
     let bestScore = 0;
     for (const m of ctx.maps) {
+      const words = significantWords(m.title);
+      const threshold = Math.min(2, words.size);
       const score = titleMatchScore(m.title, text);
-      if (score > bestScore) {
+      if (score >= threshold && score > bestScore) {
         bestScore = score;
         bestMap = m;
       }
     }
-    if (bestMap) return { type: 'map', item: bestMap };
+    if (bestMap) return [{ type: 'map', item: bestMap }];
     const idx = ctx.mapIndex.current;
     if (idx < ctx.maps.length) {
       ctx.mapIndex.current = idx + 1;
-      return { type: 'map', item: ctx.maps[idx]! };
+      return [{ type: 'map', item: ctx.maps[idx]! }];
     }
   }
 
   if (
     lower.includes('picture') ||
     lower.includes('photo') ||
-    lower.includes('image')
+    lower.includes('image') ||
+    lower.includes('show')
   ) {
     let bestItem: FiaMediaItem | null = null;
     let bestScore = 0;
     for (const m of ctx.mediaItems) {
+      const words = significantWords(m.title);
+      const threshold = Math.min(2, words.size);
       const score = titleMatchScore(m.title, text);
-      if (score > bestScore) {
+      if (score >= threshold && score > bestScore) {
         bestScore = score;
         bestItem = m;
       }
     }
-    if (bestItem) return { type: 'image', item: bestItem };
+    if (bestItem) return [{ type: 'image', item: bestItem }];
     const idx = ctx.mediaIndex.current;
     if (idx < ctx.mediaItems.length) {
       ctx.mediaIndex.current = idx + 1;
-      return { type: 'image', item: ctx.mediaItems[idx]! };
+      return [{ type: 'image', item: ctx.mediaItems[idx]! }];
     }
   }
 
-  return null;
+  return [];
 }
 
 // --- Block renderer ---
@@ -494,9 +566,9 @@ function ActionCallout({
   displayText?: string;
 }) {
   const calloutText = displayText || getCalloutText(block);
-  const media = matchMedia(calloutText, mediaCtx);
+  const matches = matchMedia(calloutText, mediaCtx, block);
 
-  if (!media) {
+  if (matches.length === 0) {
     return (
       <View className="mb-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
         <Text className="text-sm italic leading-6 text-amber-800 dark:text-amber-300">
@@ -518,10 +590,14 @@ function ActionCallout({
           className="ml-2 text-amber-700 dark:text-amber-400"
         />
       </CollapsibleTrigger>
-      <CollapsibleContent className="px-3 pb-3">
-        {media.type === 'image' && <MediaItemDisplay item={media.item} />}
-        {media.type === 'map' && <MapDisplay item={media.item} />}
-        {media.type === 'term' && <TermDisplay item={media.item} />}
+      <CollapsibleContent className="px-3 pb-3 gap-4">
+        {matches.map((media, i) => (
+          <View key={i}>
+            {media.type === 'image' && <MediaItemDisplay item={media.item} />}
+            {media.type === 'map' && <MapDisplay item={media.item} />}
+            {media.type === 'term' && <TermDisplay item={media.item} />}
+          </View>
+        ))}
       </CollapsibleContent>
     </Collapsible>
   );
