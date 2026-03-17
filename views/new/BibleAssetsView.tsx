@@ -300,6 +300,7 @@ interface DraggableAssetItemProps {
   questId: string;
   isPublished: boolean;
   isPlaying: boolean;
+  playDisabled?: boolean;
   isSelected: boolean;
   isSelectionMode: boolean;
   isAssetSelectedForRecording: boolean;
@@ -321,6 +322,7 @@ const DraggableAssetItem = React.memo(function DraggableAssetItem({
   questId,
   isPublished,
   isPlaying,
+  playDisabled = false,
   isSelected,
   isSelectionMode,
   isAssetSelectedForRecording,
@@ -363,6 +365,7 @@ const DraggableAssetItem = React.memo(function DraggableAssetItem({
         questId={questId}
         isPublished={isPublished}
         isCurrentlyPlaying={isPlaying}
+        playDisabled={playDisabled}
         onPlay={onPlay}
         showDragHandle={showDragHandle}
         isDragFixed={isDragFixed}
@@ -2683,6 +2686,7 @@ export default function BibleAssetsView() {
           questId={currentQuestId || ''}
           isPublished={isPublished}
           isPlaying={isPlaying}
+          playDisabled={showPlayAllControls}
           isHighlighted={
             asset.metadata?.recordingSessionId ==
             selectedQuest?.metadata?.lastRecordingSessionId
