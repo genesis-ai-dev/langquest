@@ -55,6 +55,7 @@ import {
   RefreshCwIcon,
   SearchIcon,
   SettingsIcon,
+  SquareIcon,
   UserPlusIcon
 } from 'lucide-react-native';
 import React from 'react';
@@ -2558,8 +2559,14 @@ export default function BibleAssetsView() {
   );
 
   // Stable wrapper for onPlay callback (avoids creating new function in renderItem)
+  const blockIndividualPlayRef = React.useRef(false);
   const stableOnPlay = React.useCallback(
-    (assetId: string) => handlePlayAssetRef.current(assetId),
+    (assetId: string) => {
+      if (blockIndividualPlayRef.current) {
+        return;
+      }
+      handlePlayAssetRef.current(assetId);
+    },
     []
   );
 
@@ -3162,6 +3169,12 @@ export default function BibleAssetsView() {
     !!audioContext.currentAudioId &&
     audioContext.currentAudioId !== PLAY_ALL_AUDIO_ID &&
     (audioContext.isPlaying || audioContext.isPaused);
+  const isIndividualPlayerActive = showSingleControls;
+  const isPlayAllPlayerActive = showPlayAllControls || isPlayAllRunning;
+
+  React.useEffect(() => {
+    blockIndividualPlayRef.current = isPlayAllPlayerActive;
+  }, [isPlayAllPlayerActive]);
 
   // Ref to hold latest audioContext for cleanup (avoids stale closure)
   const audioContextCurrentRef = React.useRef(audioContext);
@@ -3202,6 +3215,10 @@ export default function BibleAssetsView() {
     async (
       selectedAsset?: { type: 'asset' | 'separator'; assetId?: string } | null
     ) => {
+      if (isIndividualPlayerActive) {
+        return;
+      }
+
       // Determine which assets to process based on selection state
       let assetsToProcess: AssetQuestLink[];
 
@@ -3240,7 +3257,13 @@ export default function BibleAssetsView() {
 
       await togglePlayAll({ playlist });
     },
-    [assets, getAssetAudioUris, selectedAssetIds, togglePlayAll]
+    [
+      assets,
+      getAssetAudioUris,
+      isIndividualPlayerActive,
+      selectedAssetIds,
+      togglePlayAll
+    ]
   );
 
   // Handle going to recording - stops any playing audio first
@@ -3798,7 +3821,13 @@ export default function BibleAssetsView() {
             <Button
               variant="ghost"
               size="icon"
+              disabled={isIndividualPlayerActive && !isPlayAllPlayerActive}
               onPress={() => {
+                if (isPlayAllPlayerActive) {
+                  stopAndResetPlayAll();
+                  setShowPlayAllControls(false);
+                  return;
+                }
                 if (!isPlayAllRunning) {
                   setShowPlayAllControls(true);
                   void handlePlayAll(selectedForRecording);
@@ -3807,7 +3836,7 @@ export default function BibleAssetsView() {
               className="h-10 w-10"
             >
               <Icon
-                as={ListVideo}
+                as={isPlayAllPlayerActive ? SquareIcon : ListVideo}
                 size={20}
                 className="text-primary"
               />

@@ -169,12 +169,87 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   };
 
   const setPosition = async (newPosition: number) => {
-    if (playerRef.current && (isPlaying || isPaused)) {
-      playerRef.current.seekTo(newPosition / 1000);
-      setPositionState(newPosition);
-      cumulativePositionSharedRef.current.value = newPosition;
-      positionSharedRef.current.value = newPosition;
+    if (!playerRef.current || (!isPlaying && !isPaused)) {
+      return;
     }
+
+    const clampedPosition = Math.max(0, Math.min(newPosition, duration));
+
+    const isSequence = sequenceQueue.current.length > 1;
+    if (!isSequence) {
+      playerRef.current.seekTo(clampedPosition / 1000);
+      setPositionState(clampedPosition);
+      cumulativePositionSharedRef.current.value = clampedPosition;
+      positionSharedRef.current.value = clampedPosition;
+      return;
+    }
+
+    let accumulated = 0;
+    let targetSegmentIndex = currentSequenceIndex.current;
+    let targetSegmentPositionMs = clampedPosition;
+
+    for (let idx = 0; idx < segmentDurations.current.length; idx++) {
+      const segDuration = Math.max(0, segmentDurations.current[idx] ?? 0);
+      const end = accumulated + segDuration;
+      if (clampedPosition <= end || idx === segmentDurations.current.length - 1) {
+        targetSegmentIndex = idx;
+        targetSegmentPositionMs = Math.max(
+          0,
+          Math.min(clampedPosition - accumulated, segDuration)
+        );
+        break;
+      }
+      accumulated = end;
+    }
+
+    setPositionState(clampedPosition);
+    cumulativePositionSharedRef.current.value = clampedPosition;
+    positionSharedRef.current.value = clampedPosition;
+
+    if (targetSegmentIndex === currentSequenceIndex.current) {
+      playerRef.current.seekTo(targetSegmentPositionMs / 1000);
+      return;
+    }
+
+    const wasPaused = isPaused;
+    clearPositionInterval();
+    playerListenerRef.current?.remove();
+    playerListenerRef.current = null;
+    playerRef.current.pause();
+    playerRef.current.release();
+    playerRef.current = null;
+
+    currentSequenceIndex.current = targetSegmentIndex;
+    const targetUri = sequenceQueue.current[targetSegmentIndex];
+    if (!targetUri) {
+      return;
+    }
+
+    await playSound(targetUri, currentAudioId || undefined, true);
+
+    if (playerRef.current?.isLoaded) {
+      playerRef.current.seekTo(targetSegmentPositionMs / 1000);
+    } else if (playerRef.current) {
+      const seekInterval = setInterval(() => {
+        if (!playerRef.current?.isLoaded) {
+          return;
+        }
+        clearInterval(seekInterval);
+        playerRef.current.seekTo(targetSegmentPositionMs / 1000);
+      }, 20);
+      setTimeout(() => clearInterval(seekInterval), 2500);
+    }
+
+    if (wasPaused && playerRef.current) {
+      playerRef.current.pause();
+      setIsPlaying(false);
+      setIsPaused(true);
+      clearPositionInterval();
+      isTrackingPositionRef.current.value = false;
+    }
+
+    cumulativePositionSharedRef.current.value = clampedPosition;
+    positionSharedRef.current.value = clampedPosition;
   };
 
   const playNextInSequence = async () => {
