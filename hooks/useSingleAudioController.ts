@@ -21,6 +21,7 @@ type AssetCheckpointStore = {
     durationMs?: number
   ) => void;
   getAssetCheckpoint: (assetId: string) => number;
+  clearAssetCheckpoint?: (assetId: string) => void;
 };
 
 type UseSingleAudioControllerOptions = {
@@ -33,6 +34,9 @@ type UseSingleAudioControllerOptions = {
   log?: (message: string, assetId: string) => void;
 };
 
+const SINGLE_SEEK_STEP_MS = 5000;
+const SINGLE_SEEK_DEBOUNCE_MS = 500;
+
 export function useSingleAudioController({
   audioContext,
   checkpointStore,
@@ -42,6 +46,8 @@ export function useSingleAudioController({
   onError,
   log
 }: UseSingleAudioControllerOptions) {
+  const lastSeekActionAtRef = React.useRef(0);
+
   const playAsset = React.useCallback(
     async (assetId: string) => {
       try {
@@ -58,7 +64,7 @@ export function useSingleAudioController({
             audioContext.duration
           );
           await audioContext.pauseSound();
-          onCurrentAssetChange?.(null);
+          onCurrentAssetChange?.(assetId);
           return;
         }
 
@@ -115,5 +121,83 @@ export function useSingleAudioController({
     ]
   );
 
-  return { playAsset };
+  const toggleCurrentAssetPlayPause = React.useCallback(async () => {
+    const currentAssetId = audioContext.currentAudioId;
+    if (!currentAssetId) {
+      return;
+    }
+
+    if (audioContext.isPlaying) {
+      checkpointStore.saveAssetCheckpoint(
+        currentAssetId,
+        audioContext.position,
+        audioContext.duration
+      );
+      await audioContext.pauseSound();
+      onCurrentAssetChange?.(currentAssetId);
+      return;
+    }
+
+    if (audioContext.isPaused) {
+      await audioContext.resumeSound();
+      onCurrentAssetChange?.(currentAssetId);
+    }
+  }, [
+    audioContext,
+    checkpointStore,
+    onCurrentAssetChange
+  ]);
+
+  const stopAndResetCurrentAsset = React.useCallback(async () => {
+    const currentAssetId = audioContext.currentAudioId;
+    if (!currentAssetId) {
+      return;
+    }
+
+    await audioContext.stopCurrentSound();
+    checkpointStore.clearAssetCheckpoint?.(currentAssetId);
+    onCurrentAssetChange?.(null);
+  }, [audioContext, checkpointStore, onCurrentAssetChange]);
+
+  const seekCurrentAssetBy = React.useCallback(
+    async (deltaMs: number) => {
+      const currentAssetId = audioContext.currentAudioId;
+      if (!currentAssetId || (!audioContext.isPlaying && !audioContext.isPaused)) {
+        return;
+      }
+
+      const now = Date.now();
+      if (now - lastSeekActionAtRef.current < SINGLE_SEEK_DEBOUNCE_MS) {
+        return;
+      }
+      lastSeekActionAtRef.current = now;
+
+      const safeDuration = Math.max(0, audioContext.duration);
+      const target = audioContext.position + deltaMs;
+      const nextPosition =
+        safeDuration > 0
+          ? Math.max(0, Math.min(target, safeDuration))
+          : Math.max(0, target);
+
+      await audioContext.setPosition(nextPosition);
+      checkpointStore.saveAssetCheckpoint(currentAssetId, nextPosition, safeDuration);
+    },
+    [audioContext, checkpointStore]
+  );
+
+  const rewindCurrentAsset = React.useCallback(async () => {
+    await seekCurrentAssetBy(-SINGLE_SEEK_STEP_MS);
+  }, [seekCurrentAssetBy]);
+
+  const forwardCurrentAsset = React.useCallback(async () => {
+    await seekCurrentAssetBy(SINGLE_SEEK_STEP_MS);
+  }, [seekCurrentAssetBy]);
+
+  return {
+    playAsset,
+    toggleCurrentAssetPlayPause,
+    stopAndResetCurrentAsset,
+    rewindCurrentAsset,
+    forwardCurrentAsset
+  };
 }

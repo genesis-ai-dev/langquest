@@ -3111,8 +3111,8 @@ export default function BibleAssetsView() {
       },
       onPlaybackStatusUpdate: (status, payload) => {
         if (status.playing) {
-          audioContext.positionShared.value = status.currentTime * 1000;
-          audioContext.durationShared.value = status.duration * 1000;
+          audioContext.positionShared.value = payload.assetPositionMs;
+          audioContext.durationShared.value = payload.assetDurationMs;
           setCurrentPlayAllSegmentIndex(payload.uriIndex + 1);
           setCurrentPlayAllTotalSegments(payload.item.uris.length);
         }
@@ -3148,6 +3148,20 @@ export default function BibleAssetsView() {
       assets.find((asset) => asset.id === currentlyPlayingAssetId)?.name ?? null
     );
   }, [assets, currentlyPlayingAssetId]);
+
+  const currentSingleAssetName = React.useMemo(() => {
+    const assetId = audioContext.currentAudioId;
+    if (!assetId) {
+      return null;
+    }
+    return assets.find((asset) => asset.id === assetId)?.name ?? null;
+  }, [assets, audioContext.currentAudioId]);
+
+  const showSingleControls =
+    !showPlayAllControls &&
+    !!audioContext.currentAudioId &&
+    audioContext.currentAudioId !== PLAY_ALL_AUDIO_ID &&
+    (audioContext.isPlaying || audioContext.isPaused);
 
   // Ref to hold latest audioContext for cleanup (avoids stale closure)
   const audioContextCurrentRef = React.useRef(audioContext);
@@ -3307,7 +3321,13 @@ export default function BibleAssetsView() {
     };
   }, [isPlayAllRunningRef, playbackCheckpoint, stopPlayAll]);
 
-  const { playAsset: handlePlayAsset } = useSingleAudioController({
+  const {
+    playAsset: handlePlayAsset,
+    toggleCurrentAssetPlayPause,
+    stopAndResetCurrentAsset,
+    rewindCurrentAsset,
+    forwardCurrentAsset
+  } = useSingleAudioController({
     audioContext,
     checkpointStore: playbackCheckpoint,
     getAssetAudioUris,
@@ -3971,6 +3991,7 @@ export default function BibleAssetsView() {
 
       {/* Sticky Record Button Footer - only show for authenticated users */}
       {!showPlayAllControls &&
+        !showSingleControls &&
         !isPublished &&
         currentUser &&
         (isSelectionMode ? (
@@ -4041,6 +4062,29 @@ export default function BibleAssetsView() {
           onStop={() => {
             stopAndResetPlayAll();
             setShowPlayAllControls(false);
+          }}
+        />
+      )}
+      {showSingleControls && (
+        <AudioPlayerControls
+          mode="individual"
+          position="footer"
+          currentAssetName={currentSingleAssetName}
+          isPlaying={audioContext.isPlaying}
+          isPaused={audioContext.isPaused}
+          positionShared={audioContext.positionShared}
+          durationShared={audioContext.durationShared}
+          onRewind={() => {
+            void rewindCurrentAsset();
+          }}
+          onPlayPause={() => {
+            void toggleCurrentAssetPlayPause();
+          }}
+          onStop={() => {
+            void stopAndResetCurrentAsset();
+          }}
+          onForward={() => {
+            void forwardCurrentAsset();
           }}
         />
       )}

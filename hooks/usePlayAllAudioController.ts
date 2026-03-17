@@ -38,6 +38,8 @@ type StatusPayload = {
   itemIndex: number;
   uriIndex: number;
   playlistLength: number;
+  assetPositionMs: number;
+  assetDurationMs: number;
 };
 
 type PlayAllSeekMode = 'boundary-jump' | 'carry-over';
@@ -75,6 +77,8 @@ type PlayAllJumpTarget = {
 
 const DEFAULT_SEEK_STEP_MS = 5000;
 const SEEK_DEBOUNCE_MS = 500;
+const PLAYER_LOAD_TIMEOUT_MS = 2500;
+const PLAYER_LOAD_POLL_INTERVAL_MS = 20;
 
 export function usePlayAllAudioController({
   checkpointStore,
@@ -103,6 +107,7 @@ export function usePlayAllAudioController({
   const currentUriIndexRef = React.useRef<number | null>(null);
   const pendingJumpTargetRef = React.useRef<PlayAllJumpTarget | null>(null);
   const segmentDurationMsMapRef = React.useRef<Map<string, number>>(new Map());
+  const itemSegmentDurationsRef = React.useRef<Map<number, number[]>>(new Map());
   const lastSeekActionAtRef = React.useRef(0);
   const lastSegmentPositionMsRef = React.useRef(0);
   const lastSegmentDurationMsRef = React.useRef(0);
@@ -215,6 +220,7 @@ export function usePlayAllAudioController({
       lastSegmentDurationMsRef.current = 0;
       lastStatusItemIndexRef.current = null;
       lastStatusUriIndexRef.current = null;
+      itemSegmentDurationsRef.current.clear();
 
       notifyCurrentAssetChange({ assetId: null, itemIndex: null });
 
@@ -391,18 +397,6 @@ export function usePlayAllAudioController({
         statusDurationMs
       );
 
-      const getSegmentDurationMs = (itemIndex: number, uriIndex: number) => {
-        const key = `${itemIndex}:${uriIndex}`;
-        const cached = segmentDurationMsMapRef.current.get(key);
-        if (typeof cached === 'number' && cached > 0) {
-          return cached;
-        }
-        if (itemIndex === currentItemIndex && uriIndex === currentUriIndex) {
-          return currentDurationMs > 0 ? currentDurationMs : null;
-        }
-        return null;
-      };
-
       const jumpTo = (target: PlayAllJumpTarget) => {
         if (!currentPlaylistKeyRef.current) {
           return;
@@ -439,157 +433,64 @@ export function usePlayAllAudioController({
         );
       };
 
-      const resolveBoundaryJumpTarget = (): PlayAllJumpTarget | null => {
-        if (deltaMs < 0) {
-          const targetPosition = currentPositionMs + deltaMs;
-          if (targetPosition >= 0) {
-            applyLocalSeek(targetPosition);
-            return null;
-          }
-          if (currentUriIndex > 0) {
-            return {
-              itemIndex: currentItemIndex,
-              uriIndex: currentUriIndex - 1,
-              positionMs: 0
-            };
-          }
-          if (currentItemIndex > 0) {
-            const prevItemIndex = currentItemIndex - 1;
-            const prevItem = playlist[prevItemIndex];
-            const lastUriIndex = Math.max(0, (prevItem?.uris.length ?? 1) - 1);
-            return {
-              itemIndex: prevItemIndex,
-              uriIndex: lastUriIndex,
-              positionMs: 0
-            };
-          }
-          applyLocalSeek(0);
-          return null;
-        }
+      const durationsFromCache = itemSegmentDurationsRef.current.get(currentItemIndex) ?? [];
+      const durations = currentItem.uris.map((_, idx) => {
+        const fromItemCache = durationsFromCache[idx] ?? 0;
+        const fromGlobalCache =
+          segmentDurationMsMapRef.current.get(`${currentItemIndex}:${idx}`) ?? 0;
+        return Math.max(0, fromItemCache, fromGlobalCache);
+      });
 
-        const targetPosition = currentPositionMs + deltaMs;
-        if (currentDurationMs <= 0) {
-          // When duration is unknown, prefer local seek to avoid accidental jumps.
-          applyLocalSeek(targetPosition);
-          return null;
+      if (currentDurationMs > 0) {
+        durations[currentUriIndex] = Math.max(durations[currentUriIndex] ?? 0, currentDurationMs);
+      }
+      itemSegmentDurationsRef.current.set(currentItemIndex, durations);
+
+      const totalDurationMs = durations.reduce((sum, d) => sum + d, 0);
+      if (totalDurationMs <= 0) {
+        applyLocalSeek(currentPositionMs + deltaMs);
+        return;
+      }
+
+      const elapsedBeforeCurrent = durations
+        .slice(0, currentUriIndex)
+        .reduce((sum, d) => sum + d, 0);
+      const maxCurrentSegmentPosition = Math.max(0, durations[currentUriIndex] ?? 0);
+      const normalizedCurrentPosition = Math.max(
+        0,
+        Math.min(currentPositionMs, maxCurrentSegmentPosition)
+      );
+      const currentAbsolutePosition = elapsedBeforeCurrent + normalizedCurrentPosition;
+      const targetAbsolutePosition = Math.max(
+        0,
+        Math.min(currentAbsolutePosition + deltaMs, totalDurationMs)
+      );
+
+      let accumulated = 0;
+      let targetUriIndex = currentUriIndex;
+      let targetPositionMs = normalizedCurrentPosition;
+      for (let idx = 0; idx < durations.length; idx++) {
+        const segmentDurationMs = Math.max(0, durations[idx] ?? 0);
+        const end = accumulated + segmentDurationMs;
+        if (
+          targetAbsolutePosition <= end ||
+          idx === durations.length - 1
+        ) {
+          targetUriIndex = idx;
+          targetPositionMs = Math.max(
+            0,
+            Math.min(targetAbsolutePosition - accumulated, segmentDurationMs)
+          );
+          break;
         }
-        if (targetPosition <= currentDurationMs) {
-          applyLocalSeek(targetPosition);
-          return null;
-        }
-        if (currentUriIndex < currentItem.uris.length - 1) {
-          return {
-            itemIndex: currentItemIndex,
-            uriIndex: currentUriIndex + 1,
-            positionMs: 0
-          };
-        }
-        if (currentItemIndex < playlist.length - 1) {
-          return {
-            itemIndex: currentItemIndex + 1,
-            uriIndex: 0,
-            positionMs: 0
-          };
-        }
-        applyLocalSeek(currentDurationMs);
-        return null;
+        accumulated = end;
+      }
+
+      const target: PlayAllJumpTarget = {
+        itemIndex: currentItemIndex,
+        uriIndex: targetUriIndex,
+        positionMs: targetPositionMs
       };
-
-      const resolveCarryOverTarget = (): PlayAllJumpTarget | null => {
-        if (deltaMs === 0) {
-          return null;
-        }
-
-        if (deltaMs < 0) {
-          let remainingMs = Math.abs(deltaMs);
-          let probeItemIndex = currentItemIndex;
-          let probeUriIndex = currentUriIndex;
-          let probePositionMs = currentPositionMs;
-
-          while (remainingMs > 0) {
-            if (probePositionMs >= remainingMs) {
-              return {
-                itemIndex: probeItemIndex,
-                uriIndex: probeUriIndex,
-                positionMs: probePositionMs - remainingMs
-              };
-            }
-
-            remainingMs -= probePositionMs;
-            if (probeUriIndex > 0) {
-              probeUriIndex -= 1;
-            } else if (probeItemIndex > 0) {
-              probeItemIndex -= 1;
-              const prevItem = playlist[probeItemIndex];
-              probeUriIndex = Math.max(0, (prevItem?.uris.length ?? 1) - 1);
-            } else {
-              return {
-                itemIndex: 0,
-                uriIndex: 0,
-                positionMs: 0
-              };
-            }
-
-            const prevDurationMs = getSegmentDurationMs(probeItemIndex, probeUriIndex);
-            if (prevDurationMs === null) {
-              return {
-                itemIndex: probeItemIndex,
-                uriIndex: probeUriIndex,
-                positionMs: 0
-              };
-            }
-            probePositionMs = prevDurationMs;
-          }
-          return null;
-        }
-
-        let remainingMs = deltaMs;
-        let probeItemIndex = currentItemIndex;
-        let probeUriIndex = currentUriIndex;
-        let probePositionMs = currentPositionMs;
-
-        while (remainingMs > 0) {
-          const probeDurationMs = getSegmentDurationMs(probeItemIndex, probeUriIndex);
-          if (probeDurationMs === null) {
-            return {
-              itemIndex: probeItemIndex,
-              uriIndex: probeUriIndex,
-              positionMs: probePositionMs
-            };
-          }
-
-          const availableMs = Math.max(0, probeDurationMs - probePositionMs);
-          if (remainingMs <= availableMs) {
-            return {
-              itemIndex: probeItemIndex,
-              uriIndex: probeUriIndex,
-              positionMs: probePositionMs + remainingMs
-            };
-          }
-
-          remainingMs -= availableMs;
-          const probeItem = playlist[probeItemIndex];
-          if (probeUriIndex < (probeItem?.uris.length ?? 1) - 1) {
-            probeUriIndex += 1;
-          } else if (probeItemIndex < playlist.length - 1) {
-            probeItemIndex += 1;
-            probeUriIndex = 0;
-          } else {
-            return {
-              itemIndex: probeItemIndex,
-              uriIndex: probeUriIndex,
-              positionMs: probeDurationMs
-            };
-          }
-          probePositionMs = 0;
-        }
-        return null;
-      };
-
-      const target =
-        seekMode === 'carry-over'
-          ? resolveCarryOverTarget()
-          : resolveBoundaryJumpTarget();
 
       if (!target) {
         return;
@@ -683,6 +584,74 @@ export function usePlayAllAudioController({
       let shouldUseInitialCheckpoint = shouldResume;
 
       try {
+        const waitForPlayerLoaded = async (player: AudioPlayer) => {
+          return await new Promise<boolean>((resolve) => {
+            if (player.isLoaded) {
+              resolve(true);
+              return;
+            }
+
+            const intervalId = setInterval(() => {
+              if (!player.isLoaded) {
+                return;
+              }
+              clearInterval(intervalId);
+              clearTimeout(timeoutId);
+              resolve(true);
+            }, PLAYER_LOAD_POLL_INTERVAL_MS);
+
+            const timeoutId = setTimeout(() => {
+              clearInterval(intervalId);
+              resolve(player.isLoaded);
+            }, PLAYER_LOAD_TIMEOUT_MS);
+          });
+        };
+
+        const preloadItemDurations = async (
+          item: PlayAllPlaylistItem,
+          itemIndex: number
+        ) => {
+          const cachedDurations = itemSegmentDurationsRef.current.get(itemIndex);
+          if (
+            cachedDurations &&
+            cachedDurations.length === item.uris.length &&
+            cachedDurations.every((duration) => duration > 0)
+          ) {
+            return;
+          }
+
+          const resolvedDurations = new Array<number>(item.uris.length).fill(0);
+          for (let idx = 0; idx < item.uris.length; idx++) {
+            const uri = item.uris[idx];
+            if (!uri) {
+              continue;
+            }
+            let tempPlayer: AudioPlayer | null = null;
+            try {
+              tempPlayer = createAudioPlayer(uri);
+              const isLoaded = await waitForPlayerLoaded(tempPlayer);
+              if (isLoaded && tempPlayer.isLoaded && tempPlayer.duration > 0) {
+                const durationMs = tempPlayer.duration * 1000;
+                resolvedDurations[idx] = durationMs;
+                segmentDurationMsMapRef.current.set(
+                  `${itemIndex}:${idx}`,
+                  durationMs
+                );
+              }
+            } catch {
+              // Ignore preload failure, runtime playback status can still fill duration.
+            } finally {
+              try {
+                tempPlayer?.release();
+              } catch {
+                // Ignore release failures for temporary preloading players.
+              }
+            }
+          }
+
+          itemSegmentDurationsRef.current.set(itemIndex, resolvedDurations);
+        };
+
         for (let itemIndex = resolvedStartItemIndex; itemIndex < playlist.length; ) {
           if (!isPlayAllRunningRef.current) {
             stopPlayAll('cancelled');
@@ -693,6 +662,8 @@ export function usePlayAllAudioController({
           if (!item || item.uris.length === 0) {
             continue;
           }
+
+          await preloadItemDurations(item, itemIndex);
 
           notifyCurrentAssetChange({
             assetId: item.assetId,
@@ -805,13 +776,39 @@ export function usePlayAllAudioController({
                         `${itemIndex}:${uriIndex}`,
                         statusDurationMs
                       );
+                      const existingDurations =
+                        itemSegmentDurationsRef.current.get(itemIndex) ??
+                        new Array<number>(item.uris.length).fill(0);
+                      existingDurations[uriIndex] = Math.max(
+                        existingDurations[uriIndex] ?? 0,
+                        statusDurationMs
+                      );
+                      itemSegmentDurationsRef.current.set(itemIndex, existingDurations);
                     }
+
+                    const itemDurations =
+                      itemSegmentDurationsRef.current.get(itemIndex) ??
+                      new Array<number>(item.uris.length).fill(0);
+                    const elapsedBeforeCurrentSegment = itemDurations
+                      .slice(0, uriIndex)
+                      .reduce((sum, duration) => sum + Math.max(0, duration), 0);
+                    const currentSegmentPositionMs = Number.isFinite(statusCurrentTimeMs)
+                      ? Math.max(0, statusCurrentTimeMs)
+                      : 0;
+                    const assetPositionMs =
+                      elapsedBeforeCurrentSegment + currentSegmentPositionMs;
+                    const assetDurationMs = itemDurations.reduce(
+                      (sum, duration) => sum + Math.max(0, duration),
+                      0
+                    );
 
                     onPlaybackStatusUpdateRef.current?.(playbackStatus, {
                       item,
                       itemIndex,
                       uriIndex,
-                      playlistLength: playlist.length
+                      playlistLength: playlist.length,
+                      assetPositionMs,
+                      assetDurationMs
                     });
 
                     if (playbackStatus.playing) {
