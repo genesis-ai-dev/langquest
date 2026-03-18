@@ -40,8 +40,16 @@ import {
   TheaterIcon,
   UsersIcon
 } from 'lucide-react-native';
-import React from 'react';
-import { ActivityIndicator, Image, TouchableOpacity, View } from 'react-native';
+import React, { useState } from 'react';
+import {
+  ActivityIndicator,
+  Image,
+  Modal,
+  TouchableOpacity,
+  useWindowDimensions,
+  View
+} from 'react-native';
+import { ReactNativeZoomableView } from '@openspacelabs/react-native-zoomable-view';
 
 // --- Step config ---
 
@@ -650,6 +658,85 @@ function ActionCallout({
   );
 }
 
+// --- Fullscreen image viewer with pinch-to-zoom and pan ---
+
+function ImageViewer({
+  uri,
+  visible,
+  onClose
+}: {
+  uri: string;
+  visible: boolean;
+  onClose: () => void;
+}) {
+  const { width: screenW, height: screenH } = useWindowDimensions();
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+      statusBarTranslucent
+    >
+      <View className="flex-1 bg-black">
+        <TouchableOpacity
+          onPress={onClose}
+          className="absolute right-4 top-14 z-10 h-10 w-10 items-center justify-center rounded-full bg-white/20"
+        >
+          <Ionicons name="close" size={24} color="white" />
+        </TouchableOpacity>
+
+        <ReactNativeZoomableView
+          maxZoom={8}
+          minZoom={1}
+          initialZoom={1}
+          bindToBorders
+          contentWidth={screenW}
+          contentHeight={screenH}
+          style={{ flex: 1 }}
+        >
+          <Image
+            source={{ uri }}
+            style={{ width: screenW, height: screenH * 0.8 }}
+            resizeMode="contain"
+          />
+        </ReactNativeZoomableView>
+      </View>
+    </Modal>
+  );
+}
+
+function TappableImage({
+  uri,
+  aspectRatio,
+  resizeMode = 'cover'
+}: {
+  uri: string;
+  aspectRatio: number;
+  resizeMode?: 'cover' | 'contain';
+}) {
+  const [viewerOpen, setViewerOpen] = useState(false);
+
+  return (
+    <>
+      <TouchableOpacity activeOpacity={0.85} onPress={() => setViewerOpen(true)}>
+        <Image
+          source={{ uri }}
+          className="w-full rounded-md"
+          style={{ aspectRatio }}
+          resizeMode={resizeMode}
+        />
+      </TouchableOpacity>
+      <ImageViewer
+        uri={uri}
+        visible={viewerOpen}
+        onClose={() => setViewerOpen(false)}
+      />
+    </>
+  );
+}
+
 function MediaItemDisplay({ item }: { item: FiaMediaItem }) {
   return (
     <View className="gap-2">
@@ -659,10 +746,9 @@ function MediaItemDisplay({ item }: { item: FiaMediaItem }) {
       {item.assets.map((asset, i) => (
         <View key={i}>
           {asset.imageUrl && (
-            <Image
-              source={{ uri: asset.imageUrl }}
-              className="w-full rounded-md"
-              style={{ aspectRatio: 16 / 10 }}
+            <TappableImage
+              uri={asset.imageUrl}
+              aspectRatio={16 / 10}
               resizeMode="cover"
             />
           )}
@@ -688,10 +774,9 @@ function MapDisplay({ item }: { item: FiaMap }) {
       {item.title ? (
         <Text className="text-sm font-semibold">{item.title}</Text>
       ) : null}
-      <Image
-        source={{ uri: item.imageUrl }}
-        className="w-full rounded-md"
-        style={{ aspectRatio: 4 / 3 }}
+      <TappableImage
+        uri={item.imageUrl}
+        aspectRatio={4 / 3}
         resizeMode="contain"
       />
     </View>
