@@ -194,6 +194,16 @@ function findTranslation(edges: any[], lang: string) {
 }
 
 // deno-lint-ignore no-explicit-any
+function findTranslationWithFallback(edges: any[], lang: string) {
+  return (
+    findTranslation(edges, lang) ??
+    findTranslation(edges, 'eng') ??
+    edges[0]?.node ??
+    null
+  );
+}
+
+// deno-lint-ignore no-explicit-any
 function shapeSteps(stepEdges: any[]): any[] {
   return STEP_ORDER.map((stepId) => {
     // deno-lint-ignore no-explicit-any
@@ -228,7 +238,7 @@ function shapeMediaItems(mediaEdges: any[], lang: string): any[] {
   return mediaEdges
     .map((me: any) => {
       const node = me.node;
-      const trans = findTranslation(
+      const trans = findTranslationWithFallback(
         node.mediaItemTranslations?.edges || [],
         lang
       );
@@ -244,7 +254,7 @@ function shapeMediaItems(mediaEdges: any[], lang: string): any[] {
         // deno-lint-ignore no-explicit-any
         .map((ae: any) => {
           const a = ae.node;
-          const aTrans = findTranslation(
+          const aTrans = findTranslationWithFallback(
             a.mediaAssetTranslations?.edges || [],
             lang
           );
@@ -273,10 +283,14 @@ function shapeTerms(termEdges: any[], lang: string): any[] {
   return termEdges
     .map((te: any) => {
       const node = te.node;
-      const trans = findTranslation(node.termTranslations?.edges || [], lang);
+      const trans = findTranslationWithFallback(
+        node.termTranslations?.edges || [],
+        lang
+      );
       if (!trans) return null;
       return {
         id: node.uniqueIdentifier || node.id,
+        nodeId: node.id,
         term: trans.translatedTerm || '',
         hint: trans.descriptionHint || '',
         definition: trans.textPlain || null
@@ -291,7 +305,10 @@ function shapeMaps(mapEdges: any[], lang: string): any[] {
   return mapEdges
     .map((me: any) => {
       const node = me.node;
-      const trans = findTranslation(node.mapTranslations?.edges || [], lang);
+      const trans = findTranslationWithFallback(
+        node.mapTranslations?.edges || [],
+        lang
+      );
       if (!trans?.imageUrl1500) return null;
       return {
         id: node.uniqueIdentifier || node.id,

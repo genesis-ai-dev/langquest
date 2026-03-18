@@ -39,6 +39,7 @@ export interface FiaMediaItem {
 
 export interface FiaTerm {
   id: string;
+  nodeId: string;
   term: string;
   hint: string;
   definition: string | null;
