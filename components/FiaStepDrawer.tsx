@@ -218,10 +218,7 @@ function findAnchorRefs(
   return results;
 }
 
-function resolveAnchors(
-  block: FiaBlock,
-  ctx: MediaContext
-): SingleMatch[] {
+function resolveAnchors(block: FiaBlock, ctx: MediaContext): SingleMatch[] {
   const anchors = findAnchorRefs(block);
   const results: SingleMatch[] = [];
   for (const anchor of anchors) {
@@ -246,7 +243,6 @@ function resolveAnchors(
   }
   return results;
 }
-
 
 // --- Inline markup processing ---
 // Handles [text]{.mark} patterns both within single strings
@@ -287,7 +283,7 @@ function preprocessMarkSpans(items: ContentItem[]): ContentItem[] {
   const result: ContentItem[] = [];
   let i = 0;
   while (i < items.length) {
-    const item = items[i];
+    const item = items[i]!;
     if (typeof item !== 'string') {
       result.push(item);
       i++;
@@ -330,10 +326,10 @@ function preprocessMarkSpans(items: ContentItem[]): ContentItem[] {
     markChildren.push(item.slice(openIdx + 1));
 
     for (let j = i + 1; j < closeElemIdx; j++) {
-      markChildren.push(items[j]);
+      markChildren.push(items[j]!);
     }
 
-    const closeStr = items[closeElemIdx] as string;
+    const closeStr = items[closeElemIdx]! as string;
     const closePos = closeStr.indexOf(']{.mark}');
     markChildren.push(closeStr.slice(0, closePos));
     const after = closeStr.slice(closePos + ']{.mark}'.length);
@@ -361,12 +357,18 @@ function FiaBlockRenderer({
   index?: number;
 }) {
   if (typeof block === 'string') {
-    return <Text className="text-base leading-7">{renderMarkedText(block)}</Text>;
+    return (
+      <Text className="text-base leading-7">{renderMarkedText(block)}</Text>
+    );
   }
 
-  const renderContent = (content: string | FiaBlock | FiaBlock[]) => {
+  const renderContent = (
+    content: string | FiaBlock | (string | FiaBlock)[]
+  ) => {
     if (typeof content === 'string') {
-      return <Text className="text-base leading-7">{renderMarkedText(content)}</Text>;
+      return (
+        <Text className="text-base leading-7">{renderMarkedText(content)}</Text>
+      );
     }
     if (Array.isArray(content)) {
       const processed = preprocessMarkSpans(content as ContentItem[]);
@@ -391,7 +393,9 @@ function FiaBlockRenderer({
       return (
         <View className="mb-3">
           {typeof block.content === 'string' ? (
-            <Text className="text-base leading-7">{renderMarkedText(block.content)}</Text>
+            <Text className="text-base leading-7">
+              {renderMarkedText(block.content)}
+            </Text>
           ) : (
             <Text className="text-base leading-7">
               {renderInlineContent(block.content)}
@@ -458,8 +462,14 @@ function FiaBlockRenderer({
                 {block.type === 'ordered-list' ? `${i + 1}.` : '\u2022'}
               </Text>
               <View className="flex-1">
-                {typeof item.content === 'string' ? (
-                  <Text className="text-base leading-7">{renderMarkedText(item.content)}</Text>
+                {typeof item === 'string' ? (
+                  <Text className="text-base leading-7">
+                    {renderMarkedText(item)}
+                  </Text>
+                ) : typeof item.content === 'string' ? (
+                  <Text className="text-base leading-7">
+                    {renderMarkedText(item.content)}
+                  </Text>
                 ) : (
                   renderContent(item.content)
                 )}
@@ -497,7 +507,7 @@ function FiaBlockRenderer({
 }
 
 function renderInlineContent(
-  content: string | FiaBlock | FiaBlock[]
+  content: string | FiaBlock | (string | FiaBlock)[]
 ): React.ReactNode {
   if (typeof content === 'string') return renderMarkedText(content);
   if (Array.isArray(content)) {
@@ -506,10 +516,7 @@ function renderInlineContent(
       if (typeof child === 'string') return renderMarkedText(child);
       if (child.type === 'mark') {
         return (
-          <Text
-            key={i}
-            className="bg-amber-200/40 dark:bg-amber-700/30"
-          >
+          <Text key={i} className="bg-amber-200/40 dark:bg-amber-700/30">
             {typeof child.content === 'string'
               ? child.content
               : renderInlineContent(child.content)}
@@ -534,7 +541,8 @@ function renderInlineContent(
           </Text>
         );
       }
-      if (typeof child.content === 'string') return renderMarkedText(child.content);
+      if (typeof child.content === 'string')
+        return renderMarkedText(child.content);
       if (child.content) return renderInlineContent(child.content);
       return null;
     });
@@ -567,7 +575,8 @@ function renderInlineContent(
         </Text>
       );
     }
-    if (typeof content.content === 'string') return renderMarkedText(content.content);
+    if (typeof content.content === 'string')
+      return renderMarkedText(content.content);
     if (content.content) return renderInlineContent(content.content);
   }
   return null;
@@ -628,7 +637,7 @@ function ActionCallout({
           className="ml-2 text-amber-700 dark:text-amber-400"
         />
       </CollapsibleTrigger>
-      <CollapsibleContent className="px-3 pb-3 gap-4">
+      <CollapsibleContent className="gap-4 px-3 pb-3">
         {matches.map((media, i) => (
           <View key={i}>
             {media.type === 'image' && <MediaItemDisplay item={media.item} />}
@@ -938,9 +947,7 @@ export function FiaStepDrawer({
                         activeTab === 'media' ? 'bg-primary' : 'bg-muted'
                       )}
                       onPress={() =>
-                        setActiveTab(
-                          activeTab === 'media' ? 'guide' : 'media'
-                        )
+                        setActiveTab(activeTab === 'media' ? 'guide' : 'media')
                       }
                     >
                       <Icon
