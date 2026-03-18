@@ -23,6 +23,17 @@
       "uiReady": true
     },
     {
+      "id": "lang-fra",
+      "rev": 1,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "lastUpdated": "2024-01-01T00:00:00Z",
+      "versionChainId": "lang-fra-chain",
+      "nativeName": "Français",
+      "englishName": "French",
+      "iso639_3": "fra",
+      "uiReady": true
+    },
+    {
       "id": "lang-mil",
       "rev": 1,
       "createdAt": "2024-01-01T00:00:00Z",
@@ -73,6 +84,18 @@
       "id": "lang-spa",
       "parent_id": null,
       "name": "Spanish",
+      "level": "language",
+      "ui_ready": true,
+      "active": true,
+      "download_profiles": null,
+      "created_at": "2024-01-01T00:00:00Z",
+      "last_updated": "2024-01-01T00:00:00Z",
+      "creator_id": null
+    },
+    {
+      "id": "lang-fra",
+      "parent_id": null,
+      "name": "French",
       "level": "language",
       "ui_ready": true,
       "active": true,
@@ -194,6 +217,19 @@
       "creator_id": null
     },
     {
+      "id": "alias-fra-endonym",
+      "subject_languoid_id": "lang-fra",
+      "label_languoid_id": "lang-fra",
+      "name": "Français",
+      "alias_type": "endonym",
+      "source_names": ["lexvo"],
+      "active": true,
+      "download_profiles": null,
+      "created_at": "2024-01-01T00:00:00Z",
+      "last_updated": "2024-01-01T00:00:00Z",
+      "creator_id": null
+    },
+    {
       "id": "alias-mil-native",
       "subject_languoid_id": "lang-mil",
       "label_languoid_id": "lang-mil",
@@ -305,6 +341,19 @@
       "version": null,
       "languoid_id": "lang-spa",
       "unique_identifier": "spa",
+      "url": null,
+      "active": true,
+      "download_profiles": null,
+      "created_at": "2024-01-01T00:00:00Z",
+      "last_updated": "2024-01-01T00:00:00Z",
+      "creator_id": null
+    },
+    {
+      "id": "lsrc-fra-iso",
+      "name": "iso639-3",
+      "version": null,
+      "languoid_id": "lang-fra",
+      "unique_identifier": "fra",
       "url": null,
       "active": true,
       "download_profiles": null,
