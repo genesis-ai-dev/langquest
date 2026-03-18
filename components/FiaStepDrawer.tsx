@@ -720,7 +720,10 @@ function TappableImage({
 
   return (
     <>
-      <TouchableOpacity activeOpacity={0.85} onPress={() => setViewerOpen(true)}>
+      <TouchableOpacity
+        activeOpacity={0.85}
+        onPress={() => setViewerOpen(true)}
+      >
         <Image
           source={{ uri }}
           className="w-full rounded-md"
