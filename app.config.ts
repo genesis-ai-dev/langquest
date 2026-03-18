@@ -28,7 +28,7 @@ function getAppName(variant: string) {
 function getBundleIdentifier(variant: string) {
   switch (variant) {
     case 'development':
-      return `${uniqueIdentifier}.dev`;
+      return `${uniqueIdentifier}.development`;
     case 'preview':
       return `${uniqueIdentifier}.preview`;
     default:
