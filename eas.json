@@ -10,10 +10,7 @@
       "distribution": "internal",
       "channel": "development",
       "environment": "development",
-      "developmentClient": true,
-      "ios": {
-        "simulator": true
-      }
+      "developmentClient": true
     },
     "preview": {
       "autoIncrement": true,
