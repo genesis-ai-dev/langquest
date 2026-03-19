@@ -31,8 +31,8 @@ import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useAudioPlaybackCheckpoint } from '@/hooks/useAudioPlaybackCheckpoint';
 import { useLocalization } from '@/hooks/useLocalization';
 import { usePlayAllAudioController } from '@/hooks/usePlayAllAudioController';
-import { useSingleAudioController } from '@/hooks/useSingleAudioController';
 import { useQuestDownloadStatusLive } from '@/hooks/useQuestDownloadStatusLive';
+import { useSingleAudioController } from '@/hooks/useSingleAudioController';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useLocalStore } from '@/store/localStore';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
@@ -51,7 +51,6 @@ import {
   ListVideo,
   LockIcon,
   MicIcon,
-  PauseIcon,
   RefreshCwIcon,
   SearchIcon,
   SettingsIcon,
@@ -3829,11 +3828,22 @@ export default function BibleAssetsView() {
               <Button
                 variant="ghost"
                 size="icon"
-                onPress={() => handlePlayAll(selectedForRecording)}
+                disabled={isIndividualPlayerActive && !isPlayAllPlayerActive}
+                onPress={() => {
+                  if (isPlayAllPlayerActive) {
+                    stopAndResetPlayAll();
+                    setShowPlayAllControls(false);
+                    return;
+                  }
+                  if (!isPlayAllRunning) {
+                    setShowPlayAllControls(true);
+                    void handlePlayAll(selectedForRecording);
+                  }
+                }}
                 className="h-10 w-10"
               >
                 <Icon
-                  as={isPlayAllRunning ? PauseIcon : ListVideo}
+                  as={isPlayAllPlayerActive ? SquareIcon : ListVideo}
                   size={20}
                   className="text-primary"
                 />
