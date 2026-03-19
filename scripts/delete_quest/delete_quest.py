@@ -3,6 +3,7 @@
 Delete a quest and all its child records, with full backup and restore capability.
 
 Usage:
+    python scripts/delete_quest.py inspect <quest_id>
     python scripts/delete_quest.py delete <quest_id> [--dry-run] [--backup-dir DIR]
     python scripts/delete_quest.py restore <backup_dir>
 
@@ -260,6 +261,173 @@ def write_report(backup_dir, quest_info, counts, backup_data, file_manifest, dry
     report_text = "\n".join(lines) + "\n"
     (backup_dir / "report.txt").write_text(report_text)
     print(report_text)
+
+
+# ---------------------------------------------------------------------------
+# Inspect
+# ---------------------------------------------------------------------------
+
+def cmd_inspect(args):
+    if args.db_password:
+        os.environ["SUPABASE_DB_PASSWORD"] = args.db_password
+    conn = pg_connect(args.supabase_url, args.db_url or None)
+    cur = conn.cursor()
+
+    try:
+        # Quest tree
+        cur.execute("""
+            WITH RECURSIVE tree AS (
+                SELECT id, name, parent_id, project_id, active, 0 AS depth
+                FROM quest WHERE id = %s
+                UNION ALL
+                SELECT q.id, q.name, q.parent_id, q.project_id, q.active, t.depth + 1
+                FROM quest q JOIN tree t ON q.parent_id = t.id
+            ) SELECT * FROM tree ORDER BY depth, name
+        """, (_uid(args.quest_id),))
+        quests = rows_to_dicts(cur)
+        if not quests:
+            print("Quest %s not found." % args.quest_id, file=sys.stderr)
+            sys.exit(1)
+
+        quest_ids = [q["id"] for q in quests]
+        q = _uuids(quest_ids)
+
+        # All assets linked to these quests (not just exclusive)
+        cur.execute("""
+            SELECT a.id, a.name, a.parent_id, a.images, a.content_type,
+                   a.metadata, qal.quest_id, a.active
+            FROM quest_asset_link qal
+            JOIN asset a ON a.id = qal.asset_id
+            WHERE qal.quest_id = ANY(%s)
+            ORDER BY a.name
+        """, (q,))
+        assets = rows_to_dicts(cur)
+        asset_ids = list({a["id"] for a in assets})
+
+        # Check which assets are shared
+        shared_assets = set()
+        if asset_ids:
+            cur.execute("""
+                SELECT DISTINCT asset_id FROM quest_asset_link
+                WHERE asset_id = ANY(%s) AND quest_id != ALL(%s)
+            """, (_uuids(asset_ids), q))
+            shared_assets = {r[0] for r in cur.fetchall()}
+
+        # Asset content links
+        acl_by_asset = {}
+        if asset_ids:
+            cur.execute("""
+                SELECT id, asset_id, text, audio, languoid_id, order_index
+                FROM asset_content_link
+                WHERE asset_id = ANY(%s)
+                ORDER BY asset_id, order_index
+            """, (_uuids(asset_ids),))
+            for row in rows_to_dicts(cur):
+                acl_by_asset.setdefault(row["asset_id"], []).append(row)
+
+        # Translations
+        trans_by_asset = {}
+        if asset_ids:
+            cur.execute("""
+                SELECT id, asset_id, text, audio, target_language_id
+                FROM translation
+                WHERE asset_id = ANY(%s)
+                ORDER BY asset_id
+            """, (_uuids(asset_ids),))
+            for row in rows_to_dicts(cur):
+                trans_by_asset.setdefault(row["asset_id"], []).append(row)
+
+        # Votes
+        vote_counts = {}
+        if asset_ids:
+            cur.execute("""
+                SELECT asset_id, count(*) FROM vote
+                WHERE asset_id = ANY(%s) GROUP BY asset_id
+            """, (_uuids(asset_ids),))
+            vote_counts = {r[0]: r[1] for r in cur.fetchall()}
+
+        # Print tree
+        bucket = args.bucket
+        for quest in quests:
+            indent = "  " * quest["depth"]
+            shared_count = sum(1 for a in assets if a["quest_id"] == quest["id"] and a["id"] in shared_assets)
+            exclusive_count = sum(1 for a in assets if a["quest_id"] == quest["id"] and a["id"] not in shared_assets)
+            print("%s%s Quest: %s [%s]" % (indent, _tree_icon(quest == quests[-1]), quest["name"] or "(unnamed)", quest["id"]))
+            print("%s  project: %s  active: %s" % (indent, quest["project_id"], quest["active"]))
+            print("%s  assets: %d exclusive, %d shared" % (indent, exclusive_count, shared_count))
+
+            quest_assets = [a for a in assets if a["quest_id"] == quest["id"]]
+            for ai, asset in enumerate(quest_assets):
+                is_last_asset = ai == len(quest_assets) - 1
+                a_prefix = "%s  %s" % (indent, _tree_icon(is_last_asset))
+                a_cont = "%s  %s" % (indent, "   " if is_last_asset else "|  ")
+                shared_tag = " (SHARED)" if asset["id"] in shared_assets else ""
+                print("%sAsset: %s [%s]%s" % (a_prefix, asset["name"] or "(unnamed)", asset["id"], shared_tag))
+                if asset.get("metadata"):
+                    print("%s  metadata: %s" % (a_cont, asset["metadata"]))
+
+                # Images
+                if asset.get("images"):
+                    for img in asset["images"]:
+                        print("%s%s image: %s/%s" % (a_cont, _tree_icon(False), bucket, img))
+
+                # Content links
+                acls = acl_by_asset.get(asset["id"], [])
+                for ci, acl in enumerate(acls):
+                    is_last_acl = ci == len(acls) - 1 and not trans_by_asset.get(asset["id"]) and not vote_counts.get(asset["id"])
+                    c_prefix = "%s%s" % (a_cont, _tree_icon(is_last_acl))
+                    text_preview = (str(acl["text"])[:50] + "...") if acl.get("text") and len(str(acl["text"])) > 50 else (acl.get("text") or "")
+                    print("%sACL: %s [%s]" % (c_prefix, text_preview, acl["id"]))
+                    # ACL audio
+                    audio = acl.get("audio")
+                    if audio:
+                        audio_list = audio if isinstance(audio, list) else [audio]
+                        c_cont = "%s%s" % (a_cont, "   " if is_last_acl else "|  ")
+                        for af in audio_list:
+                            if af:
+                                print("%s   audio: %s/%s" % (c_cont, bucket, af))
+
+                # Translations
+                trans = trans_by_asset.get(asset["id"], [])
+                for ti, t in enumerate(trans):
+                    is_last_t = ti == len(trans) - 1 and not vote_counts.get(asset["id"])
+                    t_prefix = "%s%s" % (a_cont, _tree_icon(is_last_t))
+                    text_preview = (str(t["text"])[:50] + "...") if t.get("text") and len(str(t["text"])) > 50 else (t.get("text") or "")
+                    print("%sTranslation: %s [%s]" % (t_prefix, text_preview, t["id"]))
+                    if t.get("audio"):
+                        t_cont = "%s%s" % (a_cont, "   " if is_last_t else "|  ")
+                        print("%s   audio: %s/%s" % (t_cont, bucket, t["audio"]))
+
+                # Vote count
+                vc = vote_counts.get(asset["id"], 0)
+                if vc:
+                    print("%s%s%d vote(s)" % (a_cont, _tree_icon(True), vc))
+
+        # Summary
+        total_acls = sum(len(v) for v in acl_by_asset.values())
+        total_trans = sum(len(v) for v in trans_by_asset.values())
+        total_votes = sum(vote_counts.values())
+        audio_count = sum(
+            len(acl.get("audio", []) if isinstance(acl.get("audio"), list) else [acl.get("audio")])
+            for acls in acl_by_asset.values() for acl in acls if acl.get("audio")
+        ) + sum(1 for ts in trans_by_asset.values() for t in ts if t.get("audio"))
+        image_count = sum(len(a.get("images") or []) for a in assets)
+
+        print("\n--- Summary ---")
+        print("  Quests:             %d" % len(quests))
+        print("  Assets:             %d (%d exclusive, %d shared)" % (len(asset_ids), len(asset_ids) - len(shared_assets), len(shared_assets)))
+        print("  Asset content links: %d" % total_acls)
+        print("  Translations:       %d" % total_trans)
+        print("  Votes:              %d" % total_votes)
+        print("  Media files:        %d (%d audio, %d images)" % (audio_count + image_count, audio_count, image_count))
+
+    finally:
+        cur.close()
+        conn.close()
+
+
+def _tree_icon(is_last):
+    return "└─ " if is_last else "├─ "
 
 
 # ---------------------------------------------------------------------------
@@ -611,6 +779,11 @@ def main():
                         help="Postgres password for remote Supabase")
     sub = parser.add_subparsers(dest="command", required=True)
 
+    p_ins = sub.add_parser("inspect", help="Show tree of all records under a quest")
+    p_ins.add_argument("quest_id", help="UUID of the quest to inspect")
+    p_ins.add_argument("--bucket", default=os.environ.get("EXPO_PUBLIC_SUPABASE_BUCKET", "local"),
+                        help="Storage bucket name for display")
+
     p_del = sub.add_parser("delete", help="Delete a quest and back up all removed data")
     p_del.add_argument("quest_id", help="UUID of the quest to delete")
     p_del.add_argument("--dry-run", action="store_true", help="Preview without making changes")
@@ -623,7 +796,9 @@ def main():
     p_res.add_argument("--dry-run", action="store_true", help="Preview without making changes")
 
     args = parser.parse_args()
-    if args.command == "delete":
+    if args.command == "inspect":
+        cmd_inspect(args)
+    elif args.command == "delete":
         cmd_delete(args)
     elif args.command == "restore":
         cmd_restore(args)
