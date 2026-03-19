@@ -1042,10 +1042,7 @@ export default function ProjectDirectoryView() {
             <Text className="text-center text-muted-foreground">
               {t('enableFiaPrompt')}
             </Text>
-            <Button
-              variant="default"
-              onPress={() => setEnableFia(true)}
-            >
+            <Button variant="default" onPress={() => setEnableFia(true)}>
               <Text>{t('enable')}</Text>
             </Button>
           </View>

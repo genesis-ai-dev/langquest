@@ -311,9 +311,7 @@ export function OnboardingFlow({ visible, onClose }: OnboardingFlowProps) {
     setStep('create-project');
   };
 
-  const handleProjectTypeSelect = async (
-    type: 'bible' | 'unstructured'
-  ) => {
+  const handleProjectTypeSelect = async (type: 'bible' | 'unstructured') => {
     if (!selectedLanguageId) return;
     setProjectType(type);
     try {
@@ -690,7 +688,6 @@ export function OnboardingFlow({ visible, onClose }: OnboardingFlowProps) {
                     </View>
                   </Pressable>
                 </Card>
-
               </View>
             </View>
           )}

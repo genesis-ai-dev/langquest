@@ -1082,14 +1082,14 @@ export default function NextGenProjectsView() {
                         }}
                       >
                         {templateOptions.map((option) => (
-                            <RadioGroupItem
-                              key={option}
-                              value={option}
-                              label={t(option)}
-                            >
-                              <Text className="capitalize">{t(option)}</Text>
-                            </RadioGroupItem>
-                          ))}
+                          <RadioGroupItem
+                            key={option}
+                            value={option}
+                            label={t(option)}
+                          >
+                            <Text className="capitalize">{t(option)}</Text>
+                          </RadioGroupItem>
+                        ))}
                       </RadioGroup>
                     </FormControl>
                     <FormMessage />
