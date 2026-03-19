@@ -1012,7 +1012,7 @@ export default function ProjectDirectoryView() {
         <View className="flex flex-1 flex-col items-start justify-start gap-2 px-4 pb-10">
           <Button variant="ghost" size="sm" onPress={goBack}>
             <Icon as={ArrowLeftIcon} />
-            <Text>Back</Text>
+            <Text>{t('back')}</Text>
           </Button>
           <View className="w-full flex-1">
             <BibleChapterList
@@ -1090,7 +1090,7 @@ export default function ProjectDirectoryView() {
           <View className="flex flex-1 flex-col items-start justify-start gap-2 px-4 pb-10">
             <Button variant="ghost" size="sm" onPress={goBack}>
               <Icon as={ArrowLeftIcon} />
-              <Text>Back</Text>
+              <Text>{t('back')}</Text>
             </Button>
             <View className="flex-1 items-center justify-center">
               <ActivityIndicator size="large" />
@@ -1103,7 +1103,7 @@ export default function ProjectDirectoryView() {
         <View className="flex flex-1 flex-col items-start justify-start gap-2 px-4 pb-10">
           <Button variant="ghost" size="sm" onPress={goBack}>
             <Icon as={ArrowLeftIcon} />
-            <Text>Back</Text>
+            <Text>{t('back')}</Text>
           </Button>
           <View className="w-full flex-1">
             <FiaPericopeList

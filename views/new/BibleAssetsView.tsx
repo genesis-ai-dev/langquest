@@ -3837,7 +3837,11 @@ export default function BibleAssetsView() {
         <View className="flex w-full flex-row items-center justify-between gap-2">
           <View className="flex flex-col">
             {selectedQuest?.name && (
-              <Text className="text-base font-semibold">
+              <Text
+                className="text-base font-semibold"
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
                 {selectedQuest.name.length > 25
                   ? `${selectedQuest.name.slice(0, 25)}...`
                   : selectedQuest.name}
@@ -4094,7 +4098,7 @@ export default function BibleAssetsView() {
             <Pressable
               //variant="destructive"
               // size="lg"
-              className="ml-14 w-full flex-row items-center justify-around gap-2 rounded-lg bg-primary p-2 px-3"
+              className="ml-14 w-full flex-row items-center justify-around gap-2 rounded-lg bg-primary p-2 px-2"
               onPress={() => void handleGoToRecording()}
             >
               <Icon as={MicIcon} size={24} className="text-secondary" />
