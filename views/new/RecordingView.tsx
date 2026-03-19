@@ -3293,11 +3293,12 @@ const RecordingView = () => {
       )}
 
       {/* Header */}
-      <View className="flex-row items-center justify-between p-4">
+      <View className="flex-row items-center justify-between px-4 pb-2">
         <View className="flex-row items-center gap-3">
           <Button
             variant="ghost"
-            size="icon"
+            size="sm"
+            className="self-start p-0"
             onPress={async () => {
               // Normalize order_index for recorded verses before navigating back
               const recordedVerses = Array.from(recordedVersesRef.current);
@@ -3320,15 +3321,22 @@ const RecordingView = () => {
             }}
           >
             <Icon as={ArrowLeft} />
+            <Text>{t('back')}</Text>
           </Button>
-          <Text className="text-2xl font-bold text-foreground">
-            {bookChapterLabelFull || bookChapterLabel}
-          </Text>
-          {/* <Text className="text-xl font-bold text-foreground">
-            {t('doRecord')}
-          </Text> */}
         </View>
-        <View className="flex-row items-center gap-3">
+      </View>
+      <View className="flex-row items-center justify-between px-4 pb-2">
+        <View className="flex-col">
+          <Text className="text-base font-semibold text-foreground">
+            {(bookChapterLabelFull || bookChapterLabel).length > 25
+              ? `${(bookChapterLabelFull || bookChapterLabel).slice(0, 25)}...`
+              : bookChapterLabelFull || bookChapterLabel}
+          </Text>
+          <Text className="text-sm font-medium text-muted-foreground">
+            {assets.length} {t('assets').toLowerCase()}
+          </Text>
+        </View>
+        <View className="flex-row items-center justify-end gap-3">
           {assets.length > 0 && (
             <Button
               variant="ghost"
@@ -3343,7 +3351,7 @@ const RecordingView = () => {
               />
             </Button>
           )}
-          {fiaPericopeId ? (
+          {fiaPericopeId && (
             <Pressable
               className="h-10 w-10 items-center justify-center rounded-full bg-primary shadow-sm"
               onPress={() => setShowFiaTextDrawer(true)}
@@ -3354,10 +3362,6 @@ const RecordingView = () => {
                 className="text-primary-foreground"
               />
             </Pressable>
-          ) : (
-            <Text className="text-base font-semibold text-muted-foreground">
-              {assets.length} {t('assets').toLowerCase()}
-            </Text>
           )}
         </View>
       </View>

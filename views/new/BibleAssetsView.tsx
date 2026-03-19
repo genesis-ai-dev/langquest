@@ -3707,11 +3707,11 @@ export default function BibleAssetsView() {
         <Button
           variant="ghost"
           size="sm"
-          className="self-start"
+          className="self-start p-0"
           onPress={goBack}
         >
           <Icon as={ArrowLeftIcon} />
-          <Text>Back</Text>
+          <Text>{t('back')}</Text>
         </Button>
         <View className="flex flex-row items-center gap-2">
           <View className="flex flex-row items-center gap-2">
@@ -3832,90 +3832,95 @@ export default function BibleAssetsView() {
           </View>
         </View>
       </View>
-      <View className="flex flex-row items-center justify-between">
+      <View className="flex w-full flex-row items-center justify-between">
         {/* Left side: Quest name + action buttons */}
-        <View className="flex flex-row items-center gap-2">
+        <View className="flex w-full flex-row items-center justify-between gap-2">
           <View className="flex flex-col">
             {selectedQuest?.name && (
-              <Text className="text-xl font-semibold">
+              <Text
+                className="text-base font-semibold"
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
                 {selectedQuest.name.length > 25
                   ? `${selectedQuest.name.slice(0, 25)}...`
                   : selectedQuest.name}
               </Text>
             )}
-            <Text className="text-lg font-medium text-muted-foreground">
+            <Text className="text-sm font-medium text-muted-foreground">
               {t('assets')}
             </Text>
           </View>
-
-          {/* Action buttons close to title: Refresh, PlayAll, AddLabel */}
-          <Button
-            variant="ghost"
-            size="icon"
-            disabled={isRefreshing}
-            onPress={async () => {
-              setIsRefreshing(true);
-              console.log('🔄 Manually refreshing assets queries...');
-              await queryClient.invalidateQueries({
-                queryKey: ['assets']
-              });
-              void refetch();
-              console.log('🔄 Assets queries invalidated');
-              // Stop animation after a brief delay
-              setTimeout(() => {
-                setIsRefreshing(false);
-              }, 500);
-            }}
-          >
-            <Animated.View style={spinStyle}>
-              <Icon as={RefreshCwIcon} size={18} className="text-primary" />
-            </Animated.View>
-          </Button>
-          {assets.length > 0 && (
+          <View className="flex-row items-center gap-1">
+            {/* Action buttons close to title: Refresh, PlayAll, AddLabel */}
             <Button
               variant="ghost"
               size="icon"
-              onPress={() => handlePlayAll(selectedForRecording)}
-              className="h-10 w-10"
-            >
-              <Icon
-                as={isPlayAllRunning ? PauseIcon : ListVideo}
-                size={20}
-                className="text-primary"
-              />
-            </Button>
-          )}
-          {!isPublished && currentUser && (
-            <Button
-              variant="ghost"
-              size="icon"
-              // className="border-[1.5px] border-primary"
-              onPress={() => {
-                setNewLabelSelectorState({
-                  isOpen: true
+              disabled={isRefreshing}
+              onPress={async () => {
+                setIsRefreshing(true);
+                console.log('🔄 Manually refreshing assets queries...');
+                await queryClient.invalidateQueries({
+                  queryKey: ['assets']
                 });
+                void refetch();
+                console.log('🔄 Assets queries invalidated');
+                // Stop animation after a brief delay
+                setTimeout(() => {
+                  setIsRefreshing(false);
+                }, 500);
               }}
-              disabled={
-                !isOnline ||
-                verseCount === 0 ||
-                getAvailableVerses().length === 0
-              }
             >
-              <Icon as={BookmarkPlusIcon} className="text-primary" />
+              <Animated.View style={spinStyle}>
+                <Icon as={RefreshCwIcon} size={18} className="text-primary" />
+              </Animated.View>
             </Button>
-          )}
-          {fiaPericopeId && (
-            <Pressable
-              className="h-10 w-10 items-center justify-center rounded-full bg-primary shadow-sm"
-              onPress={() => setShowFiaTextDrawer(true)}
-            >
-              <Icon
-                as={BookOpenIcon}
-                size={20}
-                className="text-primary-foreground"
-              />
-            </Pressable>
-          )}
+            {assets.length > 0 && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onPress={() => handlePlayAll(selectedForRecording)}
+                className="h-10 w-10"
+              >
+                <Icon
+                  as={isPlayAllRunning ? PauseIcon : ListVideo}
+                  size={20}
+                  className="text-primary"
+                />
+              </Button>
+            )}
+            {!isPublished && currentUser && (
+              <Button
+                variant="ghost"
+                size="icon"
+                // className="border-[1.5px] border-primary"
+                onPress={() => {
+                  setNewLabelSelectorState({
+                    isOpen: true
+                  });
+                }}
+                disabled={
+                  !isOnline ||
+                  verseCount === 0 ||
+                  getAvailableVerses().length === 0
+                }
+              >
+                <Icon as={BookmarkPlusIcon} className="text-primary" />
+              </Button>
+            )}
+            {fiaPericopeId && (
+              <Pressable
+                className="h-10 w-10 items-center justify-center rounded-full bg-primary shadow-sm"
+                onPress={() => setShowFiaTextDrawer(true)}
+              >
+                <Icon
+                  as={BookOpenIcon}
+                  size={20}
+                  className="text-primary-foreground"
+                />
+              </Pressable>
+            )}
+          </View>
         </View>
       </View>
 
@@ -4093,11 +4098,11 @@ export default function BibleAssetsView() {
             <Pressable
               //variant="destructive"
               // size="lg"
-              className="ml-14 w-full flex-row items-center justify-around gap-2 rounded-lg bg-primary p-2 px-4"
+              className="ml-14 w-full flex-row items-center justify-around gap-2 rounded-lg bg-primary p-2 px-2"
               onPress={() => void handleGoToRecording()}
             >
               <Icon as={MicIcon} size={24} className="text-secondary" />
-              <View className="ml-2 flex-col items-start justify-start gap-0">
+              <View className="ml-1 flex-col items-start justify-start gap-0">
                 <Text className="text-center text-base font-semibold text-secondary">
                   {t('startRecordingSession')}
                 </Text>

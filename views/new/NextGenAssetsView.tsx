@@ -1910,11 +1910,11 @@ export default function NextGenAssetsView() {
             className="px-2"
           >
             <Pressable
-              className="ml-14 w-full flex-row items-center justify-around gap-2 rounded-lg bg-primary p-2 px-4"
+              className="ml-14 w-full flex-row items-center justify-around gap-2 rounded-lg bg-primary p-2 px-2"
               onPress={() => void handleGoToRecording()}
             >
               <Icon as={MicIcon} size={24} className="text-secondary" />
-              <View className="ml-2 flex-col items-start justify-start gap-0">
+              <View className="ml-1 flex-col items-start justify-start gap-0">
                 <Text className="text-center text-base font-semibold text-secondary">
                   {t('startRecordingSession')}
                 </Text>
