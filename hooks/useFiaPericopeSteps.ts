@@ -9,10 +9,11 @@ import { useQuery } from '@tanstack/react-query';
 
 export interface FiaBlock {
   type: string;
-  content: string | FiaBlock | FiaBlock[];
+  content: string | FiaBlock | (string | FiaBlock)[];
   style?: string;
   title?: string | null;
   level?: number;
+  url?: string;
 }
 
 export interface FiaStepData {
@@ -25,6 +26,7 @@ export interface FiaStepData {
 
 export interface FiaMediaItem {
   id: string;
+  nodeId: string;
   title: string;
   description: string;
   assets: Array<{
@@ -37,6 +39,7 @@ export interface FiaMediaItem {
 
 export interface FiaTerm {
   id: string;
+  nodeId: string;
   term: string;
   hint: string;
   definition: string | null;
@@ -44,6 +47,7 @@ export interface FiaTerm {
 
 export interface FiaMap {
   id: string;
+  nodeId: string;
   title: string;
   imageUrl: string;
 }

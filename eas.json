@@ -10,10 +10,10 @@
       "distribution": "internal",
       "channel": "development",
       "environment": "development",
-      "developmentClient": true,
       "ios": {
-        "simulator": true
-      }
+        "distribution": "store"
+      },
+      "developmentClient": true
     },
     "preview": {
       "autoIncrement": true,
@@ -53,9 +53,14 @@
     }
   },
   "submit": {
+    "development": {
+      "ios": {
+        "ascAppId": "6760738068"
+      }
+    },
     "preview": {
       "ios": {
-        "ascAppId": "6752446665"
+        "ascAppId": "6755611094"
       }
     },
     "production": {
