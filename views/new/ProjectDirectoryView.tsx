@@ -415,6 +415,7 @@ export default function ProjectDirectoryView() {
 
   const _showHiddenContent = useLocalStore((state) => state.showHiddenContent);
   const enableFia = useLocalStore((state) => state.enableFia);
+  const setEnableFia = useLocalStore((state) => state.setEnableFia);
 
   // Query existing books for Bible projects (after isMember is defined)
   const { books: existingBooks = [], isCloudLoading: booksCloudLoading } =
@@ -1039,11 +1040,13 @@ export default function ProjectDirectoryView() {
               {t('fiaExperimentalTitle')}
             </Text>
             <Text className="text-center text-muted-foreground">
-              {t('fiaExperimentalDescription')}
+              {t('enableFiaPrompt')}
             </Text>
-            <Button variant="default" onPress={goToSettings}>
-              <Icon as={SettingsIcon} size={16} />
-              <Text>{t('openSettings')}</Text>
+            <Button
+              variant="default"
+              onPress={() => setEnableFia(true)}
+            >
+              <Text>{t('enable')}</Text>
             </Button>
           </View>
         );

@@ -12591,6 +12591,41 @@ export const localizations = {
     burmese: 'ဆက်တင်များကို ဖွင့်ပါ',
     thai: 'เปิดการตั้งค่า',
     mandarin: '打开设置'
+  },
+  enable: {
+    english: 'Enable',
+    french: 'Activer',
+    spanish: 'Habilitar',
+    brazilian_portuguese: 'Ativar',
+    tok_pisin: 'Openim',
+    indonesian: 'Aktifkan',
+    nepali: 'सक्षम गर्नुहोस्',
+    hindi: 'सक्षम करें',
+    burmese: 'ဖွင့်ပါ',
+    thai: 'เปิดใช้งาน',
+    mandarin: '启用'
+  },
+  enableFiaPrompt: {
+    english:
+      'FIA is an experimental project type under active development. Would you like to enable it?',
+    french:
+      "FIA est un type de projet expérimental en développement actif. Voulez-vous l'activer ?",
+    spanish:
+      'FIA es un tipo de proyecto experimental en desarrollo activo. ¿Desea habilitarlo?',
+    brazilian_portuguese:
+      'FIA é um tipo de projeto experimental em desenvolvimento ativo. Deseja ativá-lo?',
+    tok_pisin:
+      'FIA em i wanpela kain projek eksperimental we ol i wok long developim yet. Yu laik openim?',
+    indonesian:
+      'FIA adalah jenis proyek eksperimental yang sedang dalam pengembangan aktif. Apakah Anda ingin mengaktifkannya?',
+    nepali:
+      'FIA सक्रिय विकासमा रहेको प्रयोगात्मक परियोजना प्रकार हो। के तपाईं यसलाई सक्षम गर्न चाहनुहुन्छ?',
+    hindi:
+      'FIA सक्रिय विकास के तहत एक प्रयोगात्मक परियोजना प्रकार है। क्या आप इसे सक्षम करना चाहते हैं?',
+    burmese:
+      'FIA သည် တက်ကြွစွာ ဖွံ့ဖြိုးတိုးတက်နေသော စမ်းသပ်မှု စီမံကိန်း အမျိုးအစားတစ်ခု ဖြစ်သည်။ ၎င်းကို ဖွင့်လိုပါသလား?',
+    thai: 'FIA เป็นประเภทโครงการทดลองที่อยู่ระหว่างการพัฒนาอย่างต่อเนื่อง คุณต้องการเปิดใช้งานหรือไม่?',
+    mandarin: 'FIA是一个正在积极开发中的实验性项目类型。您想要启用它吗？'
   }
 } as const;
 
