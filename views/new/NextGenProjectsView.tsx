@@ -34,6 +34,7 @@ import {
   SearchIcon,
   UserIcon
 } from 'lucide-react-native';
+import RNAlert from '@blazejkustra/react-native-alert';
 import React, { useEffect } from 'react';
 import { ActivityIndicator, useWindowDimensions, View } from 'react-native';
 import { Dropdown } from 'react-native-element-dropdown';
@@ -293,6 +294,7 @@ export default function NextGenProjectsView() {
   }, [form, savedLanguage, currentUser?.id]);
 
   const enableFia = useLocalStore((state) => state.enableFia);
+  const setEnableFia = useLocalStore((state) => state.setEnableFia);
   const showInvisibleContent = useLocalStore(
     (state) => state.showHiddenContent
   );
@@ -1056,24 +1058,38 @@ export default function NextGenProjectsView() {
                       <RadioGroup
                         value={field.value}
                         onValueChange={(value) => {
+                          if (value === 'fia' && !enableFia) {
+                            RNAlert.alert(
+                              t('fiaExperimentalTitle'),
+                              t('enableFiaPrompt'),
+                              [
+                                { text: t('cancel'), style: 'cancel' },
+                                {
+                                  text: t('enable'),
+                                  onPress: () => {
+                                    setEnableFia(true);
+                                    field.onChange(value);
+                                  }
+                                }
+                              ]
+                            );
+                            return;
+                          }
                           field.onChange(value);
-                          // Clear source_languoid_id when switching away from FIA
                           if (value !== 'fia') {
                             form.setValue('source_languoid_id', undefined);
                           }
                         }}
                       >
-                        {templateOptions
-                          .filter((o) => o !== 'fia' || enableFia)
-                          .map((option) => (
-                            <RadioGroupItem
-                              key={option}
-                              value={option}
-                              label={t(option)}
-                            >
-                              <Text className="capitalize">{t(option)}</Text>
-                            </RadioGroupItem>
-                          ))}
+                        {templateOptions.map((option) => (
+                          <RadioGroupItem
+                            key={option}
+                            value={option}
+                            label={t(option)}
+                          >
+                            <Text className="capitalize">{t(option)}</Text>
+                          </RadioGroupItem>
+                        ))}
                       </RadioGroup>
                     </FormControl>
                     <FormMessage />

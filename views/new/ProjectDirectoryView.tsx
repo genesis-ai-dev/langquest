@@ -415,6 +415,7 @@ export default function ProjectDirectoryView() {
 
   const _showHiddenContent = useLocalStore((state) => state.showHiddenContent);
   const enableFia = useLocalStore((state) => state.enableFia);
+  const setEnableFia = useLocalStore((state) => state.setEnableFia);
 
   // Query existing books for Bible projects (after isMember is defined)
   const { books: existingBooks = [], isCloudLoading: booksCloudLoading } =
@@ -1012,7 +1013,7 @@ export default function ProjectDirectoryView() {
         <View className="flex flex-1 flex-col items-start justify-start gap-2 px-4 pb-10">
           <Button variant="ghost" size="sm" onPress={goBack}>
             <Icon as={ArrowLeftIcon} />
-            <Text>Back</Text>
+            <Text>{t('back')}</Text>
           </Button>
           <View className="w-full flex-1">
             <BibleChapterList
@@ -1039,11 +1040,10 @@ export default function ProjectDirectoryView() {
               {t('fiaExperimentalTitle')}
             </Text>
             <Text className="text-center text-muted-foreground">
-              {t('fiaExperimentalDescription')}
+              {t('enableFiaPrompt')}
             </Text>
-            <Button variant="default" onPress={goToSettings}>
-              <Icon as={SettingsIcon} size={16} />
-              <Text>{t('openSettings')}</Text>
+            <Button variant="default" onPress={() => setEnableFia(true)}>
+              <Text>{t('enable')}</Text>
             </Button>
           </View>
         );
@@ -1090,7 +1090,7 @@ export default function ProjectDirectoryView() {
           <View className="flex flex-1 flex-col items-start justify-start gap-2 px-4 pb-10">
             <Button variant="ghost" size="sm" onPress={goBack}>
               <Icon as={ArrowLeftIcon} />
-              <Text>Back</Text>
+              <Text>{t('back')}</Text>
             </Button>
             <View className="flex-1 items-center justify-center">
               <ActivityIndicator size="large" />
@@ -1103,7 +1103,7 @@ export default function ProjectDirectoryView() {
         <View className="flex flex-1 flex-col items-start justify-start gap-2 px-4 pb-10">
           <Button variant="ghost" size="sm" onPress={goBack}>
             <Icon as={ArrowLeftIcon} />
-            <Text>Back</Text>
+            <Text>{t('back')}</Text>
           </Button>
           <View className="w-full flex-1">
             <FiaPericopeList
