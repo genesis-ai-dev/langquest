@@ -80,11 +80,13 @@ import {
   SearchIcon,
   SettingsIcon,
   UserPlusIcon,
+  ExternalLinkIcon,
   UsersIcon
 } from 'lucide-react-native';
+import { openApplication } from 'expo-intent-launcher';
 import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, Alert, Linking, Platform, View } from 'react-native';
 import Animated, {
   cancelAnimation,
   Easing,
@@ -171,6 +173,7 @@ export default function ProjectDirectoryView() {
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showReportModal, setShowReportModal] = React.useState(false);
   const [showPrivateAccessModal, setShowPrivateAccessModal] = useState(false);
+  const [showDeeplinkDrawer, setShowDeeplinkDrawer] = useState(false);
   const { findOrCreateBook } = useBibleBookCreation();
 
   // Discovery drawer state for quest downloads
@@ -1357,6 +1360,14 @@ export default function ProjectDirectoryView() {
                   )}
               </>
             ) : null}
+            {/* Deeplink test button for FIA projects */}
+            {template === 'fia' && (
+              <SpeedDialItem
+                icon={ExternalLinkIcon}
+                variant="outline"
+                onPress={() => setShowDeeplinkDrawer(true)}
+              />
+            )}
             {/* Info button always visible */}
             <SpeedDialItem
               icon={InfoIcon}
@@ -1455,6 +1466,81 @@ export default function ProjectDirectoryView() {
         verificationState={verificationState}
         isOffloading={isOffloading}
       />
+
+      {/* FCBH Deeplink Test Drawer */}
+      <Drawer
+        open={showDeeplinkDrawer}
+        onOpenChange={setShowDeeplinkDrawer}
+      >
+        <DrawerContent>
+          <DrawerHeader>
+            <DrawerTitle>FCBH Deeplink Test</DrawerTitle>
+          </DrawerHeader>
+          <View className="gap-3 px-4 pb-2">
+            {Platform.OS === 'android' && (
+              <Button
+                variant="outline"
+                onPress={async () => {
+                  const pkg = 'com.faithcomesbyhearing.android.bibleis';
+                  try {
+                    await openApplication(pkg);
+                  } catch {
+                    await Linking.openURL(
+                      `market://details?id=${pkg}`
+                    ).catch(() =>
+                      Linking.openURL(
+                        `https://play.google.com/store/apps/details?id=${pkg}`
+                      )
+                    );
+                  }
+                }}
+              >
+                <Text>Open FCBH App</Text>
+              </Button>
+            )}
+            {Platform.OS === 'ios' && (
+              <Button
+                variant="outline"
+                onPress={async () => {
+                  try {
+                    await Linking.openURL(
+                      'https://apps.apple.com/app/bible-is-audio-bibles/id378075859'
+                    );
+                  } catch (e: unknown) {
+                    const msg =
+                      e instanceof Error ? e.message : 'Unknown error';
+                    Alert.alert('Failed', msg);
+                  }
+                }}
+              >
+                <Text>Open FCBH App</Text>
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              onPress={async () => {
+                try {
+                  await Linking.openURL(
+                    'https://live.bible.is/bible/ENGESV/MAT/1'
+                  );
+                } catch (e: unknown) {
+                  const msg = e instanceof Error ? e.message : 'Unknown error';
+                  Alert.alert('Failed', msg);
+                }
+              }}
+            >
+              <Text>Open Passage in Browser</Text>
+            </Button>
+          </View>
+          <DrawerFooter>
+            <DrawerClose asChild>
+              <Button variant="secondary">
+                <Text>Close</Text>
+              </Button>
+            </DrawerClose>
+          </DrawerFooter>
+        </DrawerContent>
+      </Drawer>
     </>
   );
 }

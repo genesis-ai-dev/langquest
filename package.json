@@ -124,6 +124,7 @@
     "expo-font": "~55.0.3",
     "expo-haptics": "~55.0.8",
     "expo-image": "~55.0.6",
+    "expo-intent-launcher": "~55.0.9",
     "expo-linear-gradient": "~55.0.8",
     "expo-linking": "~55.0.7",
     "expo-localization": "~55.0.8",
