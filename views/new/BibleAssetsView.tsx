@@ -3649,6 +3649,14 @@ export default function BibleAssetsView() {
   // Get project name for PrivateAccessGate
   // Note: queriedProjectData doesn't include name, so we only use currentProjectData
   const projectName = currentProjectData?.name || '';
+  const hasFloatingPlayer = showPlayAllControls || showSingleControls;
+  const hasFloatingSelectionControls =
+    isSelectionMode && !isPublished && !!currentUser;
+  const listBottomSpacerHeight = hasFloatingPlayer
+    ? insets.bottom + 96
+    : hasFloatingSelectionControls
+      ? insets.bottom + 96
+      : 0;
 
   return (
     <View className="flex flex-1 flex-col gap-4 px-6 pb-6 pt-1">
@@ -3957,6 +3965,9 @@ export default function BibleAssetsView() {
                 <View className="items-center justify-center py-4">
                   <Text className="text-sm text-muted-foreground">•••</Text>
                 </View>
+              )}
+              {listBottomSpacerHeight > 0 && (
+                <View style={{ height: listBottomSpacerHeight }} />
               )}
             </>
           }
