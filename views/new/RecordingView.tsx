@@ -6,6 +6,7 @@ import {
 import { RecordingHelpDialog } from '@/components/RecordingHelpDialog';
 import type { RecordingSelectionListHandle } from '@/components/RecordingSelectionList';
 import RecordingSelectionList from '@/components/RecordingSelectionList';
+import { AudioPlayerControls } from '@/components/AudioPlayerControls';
 import { VersePill } from '@/components/VersePill';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
@@ -56,7 +57,8 @@ import {
   Ellipsis,
   ListVideo,
   PauseIcon,
-  Plus
+  Plus,
+  SquareIcon
 } from 'lucide-react-native';
 import React, { useMemo } from 'react';
 import { InteractionManager, Pressable, View } from 'react-native';
@@ -167,6 +169,7 @@ interface AssetListRowProps {
   isHighlighted: boolean;
   isSelectionMode: boolean;
   isPlaying: boolean;
+  playDisabled?: boolean;
   hideButtons: boolean;
   duration?: number;
   canMergeDown: boolean;
@@ -187,6 +190,7 @@ const AssetListRow = React.memo(function AssetListRow({
   isHighlighted,
   isSelectionMode,
   isPlaying,
+  playDisabled = false,
   hideButtons,
   duration,
   canMergeDown,
@@ -209,6 +213,7 @@ const AssetListRow = React.memo(function AssetListRow({
         isHighlighted={isHighlighted}
         isSelectionMode={isSelectionMode}
         isPlaying={isPlaying}
+        playDisabled={playDisabled}
         hideButtons={hideButtons}
         duration={duration}
         canMergeDown={canMergeDown}
@@ -501,6 +506,11 @@ const RecordingView = () => {
   const [currentlyPlayingAssetId, setCurrentlyPlayingAssetId] = React.useState<
     string | null
   >(null);
+  const [showPlayAllControls, setShowPlayAllControls] = React.useState(false);
+  const [currentPlayAllSegmentIndex, setCurrentPlayAllSegmentIndex] =
+    React.useState<number | null>(null);
+  const [currentPlayAllTotalSegments, setCurrentPlayAllTotalSegments] =
+    React.useState<number | null>(null);
   const playbackCheckpoint = useAudioPlaybackCheckpoint();
 
   // Track setTimeout IDs for cleanup
@@ -526,8 +536,19 @@ const RecordingView = () => {
     audioContext.positionShared.value = 0;
     audioContext.durationShared.value = 0;
   }, [audioContext.durationShared, audioContext.positionShared]);
-  const { isPlayAllRunning, isPlayAllRunningRef, togglePlayAll, stopPlayAll } =
-    usePlayAllAudioController({
+  const {
+    isPlayAllRunning,
+    isPlayAllPaused,
+    isPlayAllRunningRef,
+    togglePlayAll,
+    stopPlayAll,
+    stopAndResetPlayAll,
+    togglePlayPausePlayAll,
+    nextPlayAllItem,
+    previousPlayAllItem,
+    rewindPlayAll,
+    forwardPlayAll
+  } = usePlayAllAudioController({
       checkpointStore: playbackCheckpoint,
       onCurrentAssetChange: ({ assetId, metadata }) => {
         setCurrentlyPlayingAssetId(assetId);
@@ -535,16 +556,31 @@ const RecordingView = () => {
           listRef.current.scrollToIndex(metadata.listIndex - 1, true);
         }
       },
-      onPlaybackStatusUpdate: (status) => {
+      onPlaybackStatusUpdate: (status, payload) => {
         if (status.playing) {
-          audioContext.positionShared.value = status.currentTime * 1000;
-          audioContext.durationShared.value = status.duration * 1000;
+          audioContext.positionShared.value = payload.assetPositionMs;
+          audioContext.durationShared.value = payload.assetDurationMs;
+          setCurrentPlayAllSegmentIndex(payload.uriIndex + 1);
+          setCurrentPlayAllTotalSegments(payload.item.uris.length);
         }
       },
-      onStopped: resetPlayAllSharedProgress,
-      onFinished: resetPlayAllSharedProgress,
+      onStopped: () => {
+        resetPlayAllSharedProgress();
+        setCurrentPlayAllSegmentIndex(null);
+        setCurrentPlayAllTotalSegments(null);
+        setShowPlayAllControls(false);
+      },
+      onFinished: () => {
+        resetPlayAllSharedProgress();
+        setCurrentPlayAllSegmentIndex(null);
+        setCurrentPlayAllTotalSegments(null);
+        setShowPlayAllControls(false);
+      },
       onError: () => {
         resetPlayAllSharedProgress();
+        setCurrentPlayAllSegmentIndex(null);
+        setCurrentPlayAllTotalSegments(null);
+        setShowPlayAllControls(false);
       }
     });
 
@@ -1443,7 +1479,13 @@ const RecordingView = () => {
     []
   );
 
-  const { playAsset: handlePlayAsset } = useSingleAudioController({
+  const {
+    playAsset: handlePlayAsset,
+    toggleCurrentAssetPlayPause,
+    stopAndResetCurrentAsset,
+    rewindCurrentAsset,
+    forwardCurrentAsset
+  } = useSingleAudioController({
     audioContext,
     checkpointStore: playbackCheckpoint,
     getAssetAudioUris,
@@ -1464,8 +1506,38 @@ const RecordingView = () => {
     }
   });
 
+  const currentPlayAllAssetName = React.useMemo(() => {
+    if (!currentlyPlayingAssetId) {
+      return null;
+    }
+    const matched = sessionItems.find(
+      (item) => isAsset(item) && item.id === currentlyPlayingAssetId
+    );
+    return matched && isAsset(matched) ? matched.name : null;
+  }, [currentlyPlayingAssetId, sessionItems]);
+
+  const currentSingleAssetName = React.useMemo(() => {
+    const assetId = audioContext.currentAudioId;
+    if (!assetId) {
+      return null;
+    }
+    const matched = sessionItems.find((item) => isAsset(item) && item.id === assetId);
+    return matched && isAsset(matched) ? matched.name : null;
+  }, [audioContext.currentAudioId, sessionItems]);
+
+  const showSingleControls =
+    !showPlayAllControls &&
+    !!audioContext.currentAudioId &&
+    (audioContext.isPlaying || audioContext.isPaused);
+  const isIndividualPlayerActive = showSingleControls;
+  const isPlayAllPlayerActive = showPlayAllControls || isPlayAllRunning;
+
   // Handle play all assets - optimized version with direct control
   const handlePlayAll = React.useCallback(async () => {
+    if (isIndividualPlayerActive) {
+      return;
+    }
+
     if (sessionItems.length === 0) {
       console.warn('⚠️ No items to play');
       return;
@@ -1515,6 +1587,7 @@ const RecordingView = () => {
     );
 
     try {
+      setShowPlayAllControls(true);
       await togglePlayAll({
         playlist,
         startItemIndex: startPlaylistIndex,
@@ -1523,7 +1596,13 @@ const RecordingView = () => {
     } catch (error) {
       console.error('❌ Failed to play all assets:', error);
     }
-  }, [getAssetAudioUris, insertionIndex, sessionItems, togglePlayAll]);
+  }, [
+    getAssetAudioUris,
+    insertionIndex,
+    isIndividualPlayerActive,
+    sessionItems,
+    togglePlayAll
+  ]);
 
   // ============================================================================
   // RECORDING HANDLERS
@@ -2782,6 +2861,10 @@ const RecordingView = () => {
   React.useEffect(() => {
     handlePlayAssetRef.current = handlePlayAsset;
   }, [handlePlayAsset]);
+  const blockIndividualPlayRef = React.useRef(false);
+  React.useEffect(() => {
+    blockIndividualPlayRef.current = isPlayAllPlayerActive;
+  }, [isPlayAllPlayerActive]);
 
   const toggleSelectRef = React.useRef(toggleSelect);
   React.useEffect(() => {
@@ -2848,6 +2931,9 @@ const RecordingView = () => {
         }
       },
       onPlay: () => {
+        if (blockIndividualPlayRef.current) {
+          return;
+        }
         void handlePlayAssetRef.current(assetId);
       }
     }),
@@ -2985,7 +3071,10 @@ const RecordingView = () => {
           isHighlighted={isHighlighted}
           isSelectionMode={isSelectionMode}
           isPlaying={isThisAssetPlaying}
-          hideButtons={isRecording || isVADActive}
+          playDisabled={
+            isPlayAllPlayerActive || isRecording || isVADRecording || isVADActive
+          }
+          hideButtons={isRecording || isVADRecording || isVADActive}
           duration={duration}
           canMergeDown={canMergeDown}
           showSkeleton={isHighlighted && !isReplacing}
@@ -3005,6 +3094,7 @@ const RecordingView = () => {
       selectedAssetIds,
       isSelectionMode,
       insertionIndex,
+      isPlayAllPlayerActive,
       canMergeDownById,
       assetCallbacksMap,
       pillCallbacksMap,
@@ -3015,6 +3105,7 @@ const RecordingView = () => {
       isReplacing,
       stableHandleActionTypeChange,
       isRecording,
+      isVADRecording,
       isVADActive
     ]
   );
@@ -3234,11 +3325,24 @@ const RecordingView = () => {
             <Button
               variant="ghost"
               size="icon"
-              onPress={handlePlayAll}
+              disabled={
+                isRecording ||
+                isVADRecording ||
+                isVADActive ||
+                (isIndividualPlayerActive && !isPlayAllPlayerActive)
+              }
+              onPress={() => {
+                if (isPlayAllPlayerActive) {
+                  stopAndResetPlayAll();
+                  setShowPlayAllControls(false);
+                  return;
+                }
+                void handlePlayAll();
+              }}
               className="h-10 w-10"
             >
               <Icon
-                as={isPlayAllRunning ? PauseIcon : ListVideo}
+                as={isPlayAllPlayerActive ? SquareIcon : ListVideo}
                 size={20}
                 className="text-primary"
               />
@@ -3314,6 +3418,49 @@ const RecordingView = () => {
               showMerge={enableMerge}
             />
           </View>
+        ) : showPlayAllControls ? (
+          <AudioPlayerControls
+            mode="playAll"
+            position="footer"
+            currentAssetName={currentPlayAllAssetName}
+            currentSegmentIndex={currentPlayAllSegmentIndex}
+            totalSegments={currentPlayAllTotalSegments}
+            isPlaying={isPlayAllRunning && !isPlayAllPaused}
+            isPaused={isPlayAllPaused}
+            positionShared={audioContext.positionShared}
+            durationShared={audioContext.durationShared}
+            onPrevious={previousPlayAllItem}
+            onRewind={rewindPlayAll}
+            onPlayPause={togglePlayPausePlayAll}
+            onStop={() => {
+              stopAndResetPlayAll();
+              setShowPlayAllControls(false);
+            }}
+            onForward={forwardPlayAll}
+            onNext={nextPlayAllItem}
+          />
+        ) : showSingleControls ? (
+          <AudioPlayerControls
+            mode="individual"
+            position="footer"
+            currentAssetName={currentSingleAssetName}
+            isPlaying={audioContext.isPlaying}
+            isPaused={audioContext.isPaused}
+            positionShared={audioContext.positionShared}
+            durationShared={audioContext.durationShared}
+            onRewind={() => {
+              void rewindCurrentAsset();
+            }}
+            onPlayPause={() => {
+              void toggleCurrentAssetPlayPause();
+            }}
+            onStop={() => {
+              void stopAndResetCurrentAsset();
+            }}
+            onForward={() => {
+              void forwardCurrentAsset();
+            }}
+          />
         ) : (
           <RecordingControls
             isRecording={isRecording || isVADRecording}
