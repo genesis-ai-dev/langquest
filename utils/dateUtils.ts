@@ -36,7 +36,14 @@ export function shouldHideInvitation(
 }
 
 export function formatRelativeDate(dateString: string): string {
-  const date = new Date(dateString);
+  // SQLite CURRENT_TIMESTAMP produces UTC strings without a timezone suffix
+  // (e.g. "2026-03-20 14:30:00"). new Date() would misinterpret those as
+  // local time, so append 'Z' when no timezone indicator is present.
+  const normalized =
+    /[Z+\-]\d{0,4}$/.test(dateString) || dateString.endsWith('Z')
+      ? dateString
+      : dateString + 'Z';
+  const date = new Date(normalized);
   const now = new Date();
   const diffTime = Math.abs(now.getTime() - date.getTime());
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));

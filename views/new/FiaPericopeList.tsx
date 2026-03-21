@@ -41,9 +41,9 @@ import { LegendList } from '@legendapp/list';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   BookOpenIcon,
+  FileStackIcon,
   HardDriveIcon,
-  PlusCircleIcon,
-  UserIcon
+  PlusCircleIcon
 } from 'lucide-react-native';
 import React from 'react';
 import { ActivityIndicator, Image, Pressable, View } from 'react-native';
@@ -247,8 +247,8 @@ function PericopeButton({
               {versionCount > 1 && (
                 <View className="flex-row items-center gap-0.5">
                   <Icon
-                    as={UserIcon}
-                    size={10}
+                    as={FileStackIcon}
+                    size={12}
                     className={
                       hasSyncedCopy || hasLocalCopy
                         ? 'text-secondary/70'
@@ -578,21 +578,16 @@ export function FiaPericopeList({
       return;
     }
 
-    const hasCloudContent = group.versions.some(
-      (v) => v.hasSyncedCopy || v.source === 'cloud'
-    );
-
-    if (hasCloudContent) {
-      setPickerPericopeId(pericope.id);
-      return;
-    }
-
-    // Only local versions exist — navigate directly to the user's own
-    const ownVersion = group.versions.find(
+    // Single local-only version owned by the current user — navigate directly
+    const ownVersions = group.versions.filter(
       (v) => v.creator_id === currentUser.id
     );
-    if (ownVersion) {
-      await navigateToVersion(ownVersion);
+    if (
+      group.versions.length === 1 &&
+      ownVersions.length === 1 &&
+      ownVersions[0]!.source === 'local'
+    ) {
+      await navigateToVersion(ownVersions[0]!);
       return;
     }
 
@@ -609,11 +604,6 @@ export function FiaPericopeList({
       isCreatingThis: creatingPericopeId === pericope.id
     };
   });
-
-  // Check if the current user already has any version in the picker group
-  const userVersion = pickerGroup?.versions.find(
-    (v) => v.creator_id === currentUser?.id
-  );
 
   return (
     <View className="flex-1">
@@ -690,7 +680,7 @@ export function FiaPericopeList({
             />
           ))}
 
-          {canCreateNew && !userVersion && pickerPericope && (
+          {canCreateNew && pickerPericope && (
             <Pressable
               onPress={() => createNewVersion(pickerPericope)}
               className="flex-row items-center gap-3 rounded-lg border border-dashed border-border p-4 active:opacity-70"
@@ -700,7 +690,7 @@ export function FiaPericopeList({
               </View>
               <View className="flex-1">
                 <Text className="font-semibold text-primary">
-                  Create your own version
+                  Create new version
                 </Text>
                 <Text className="text-sm text-muted-foreground">
                   Start a new recording for this pericope
