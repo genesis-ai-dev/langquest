@@ -89,7 +89,8 @@ function VersionCard({
       onPress={needsDownload ? () => onDownloadClick(version.id) : onPress}
       className={cn(
         'flex-row items-center gap-3 rounded-lg border border-border bg-card p-4 active:opacity-70',
-        needsDownload && 'opacity-60'
+        needsDownload && 'opacity-60',
+        !version.visible && 'opacity-50'
       )}
     >
       <View
