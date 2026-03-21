@@ -3159,18 +3159,21 @@ export default function BibleAssetsView() {
     );
   }, [assets, currentlyPlayingAssetId]);
 
-  const currentSingleAssetName = React.useMemo(() => {
+  const currentSingleAsset = React.useMemo(() => {
     const assetId = audioContext.currentAudioId;
     if (!assetId) {
       return null;
     }
-    return assets.find((asset) => asset.id === assetId)?.name ?? null;
+    return assets.find((asset) => asset.id === assetId) ?? null;
   }, [assets, audioContext.currentAudioId]);
+
+  const currentSingleAssetName = currentSingleAsset?.name ?? null;
 
   const showSingleControls =
     !showPlayAllControls &&
     !!audioContext.currentAudioId &&
     audioContext.currentAudioId !== PLAY_ALL_AUDIO_ID &&
+    !!currentSingleAsset &&
     (audioContext.isPlaying || audioContext.isPaused);
   const isIndividualPlayerActive = showSingleControls;
   const isPlayAllPlayerActive = showPlayAllControls || isPlayAllRunning;

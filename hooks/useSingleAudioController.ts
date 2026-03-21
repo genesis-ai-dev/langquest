@@ -28,6 +28,7 @@ type UseSingleAudioControllerOptions = {
   audioContext: AudioContextLike;
   checkpointStore: AssetCheckpointStore;
   getAssetAudioUris: (assetId: string) => Promise<string[]>;
+  seekStepMs?: number;
   onCurrentAssetChange?: (assetId: string | null) => void;
   onNoAudioFound?: (assetId: string) => void;
   onError?: (error: unknown, assetId: string) => void;
@@ -41,12 +42,17 @@ export function useSingleAudioController({
   audioContext,
   checkpointStore,
   getAssetAudioUris,
+  seekStepMs,
   onCurrentAssetChange,
   onNoAudioFound,
   onError,
   log
 }: UseSingleAudioControllerOptions) {
   const lastSeekActionAtRef = React.useRef(0);
+  const effectiveSeekStepMs =
+    typeof seekStepMs === 'number' && Number.isFinite(seekStepMs) && seekStepMs > 0
+      ? seekStepMs
+      : SINGLE_SEEK_STEP_MS;
 
   const playAsset = React.useCallback(
     async (assetId: string) => {
@@ -185,13 +191,27 @@ export function useSingleAudioController({
     [audioContext, checkpointStore]
   );
 
-  const rewindCurrentAsset = React.useCallback(async () => {
-    await seekCurrentAssetBy(-SINGLE_SEEK_STEP_MS);
-  }, [seekCurrentAssetBy]);
+  const rewindCurrentAsset = React.useCallback(
+    async (stepMs?: number) => {
+      const effectiveStep =
+        typeof stepMs === 'number' && Number.isFinite(stepMs) && stepMs > 0
+          ? stepMs
+          : effectiveSeekStepMs;
+      await seekCurrentAssetBy(-effectiveStep);
+    },
+    [effectiveSeekStepMs, seekCurrentAssetBy]
+  );
 
-  const forwardCurrentAsset = React.useCallback(async () => {
-    await seekCurrentAssetBy(SINGLE_SEEK_STEP_MS);
-  }, [seekCurrentAssetBy]);
+  const forwardCurrentAsset = React.useCallback(
+    async (stepMs?: number) => {
+      const effectiveStep =
+        typeof stepMs === 'number' && Number.isFinite(stepMs) && stepMs > 0
+          ? stepMs
+          : effectiveSeekStepMs;
+      await seekCurrentAssetBy(effectiveStep);
+    },
+    [effectiveSeekStepMs, seekCurrentAssetBy]
+  );
 
   return {
     playAsset,
