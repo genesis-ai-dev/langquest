@@ -43,10 +43,10 @@ import {
   TheaterIcon,
   UsersIcon
 } from 'lucide-react-native';
+import { Image } from 'expo-image';
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
-  Image,
   Modal,
   useWindowDimensions,
   View
@@ -706,7 +706,7 @@ function ImageViewer({
           <Image
             source={{ uri }}
             style={{ width: screenW, height: screenH * 0.8 }}
-            resizeMode="contain"
+            contentFit="contain"
           />
         </ReactNativeZoomableView>
       </View>
@@ -717,11 +717,11 @@ function ImageViewer({
 function TappableImage({
   uri,
   aspectRatio,
-  resizeMode = 'cover'
+  contentFit = 'cover'
 }: {
   uri: string;
   aspectRatio: number;
-  resizeMode?: 'cover' | 'contain';
+  contentFit?: 'cover' | 'contain';
 }) {
   const [viewerOpen, setViewerOpen] = useState(false);
 
@@ -735,9 +735,8 @@ function TappableImage({
       >
         <Image
           source={{ uri }}
-          className="w-full rounded-md"
-          style={{ aspectRatio }}
-          resizeMode={resizeMode}
+          style={{ width: '100%', borderRadius: 6, aspectRatio }}
+          contentFit={contentFit}
         />
       </Button>
       <ImageViewer
@@ -761,7 +760,7 @@ function MediaItemDisplay({ item }: { item: FiaMediaItem }) {
             <TappableImage
               uri={asset.imageUrl}
               aspectRatio={16 / 10}
-              resizeMode="cover"
+              contentFit="cover"
             />
           )}
           {asset.description ? (
@@ -789,7 +788,7 @@ function MapDisplay({ item }: { item: FiaMap }) {
       <TappableImage
         uri={item.imageUrl}
         aspectRatio={4 / 3}
-        resizeMode="contain"
+        contentFit="contain"
       />
     </View>
   );
@@ -942,6 +941,22 @@ export function FiaStepDrawer({
     pericopeId ? projectId : undefined,
     pericopeId ?? undefined
   );
+
+  React.useEffect(() => {
+    if (!data) return;
+    const urls: string[] = [];
+    for (const item of data.mediaItems) {
+      for (const asset of item.assets) {
+        if (asset.imageUrl) urls.push(asset.imageUrl);
+      }
+    }
+    for (const map of data.maps) {
+      if (map.imageUrl) urls.push(map.imageUrl);
+    }
+    if (urls.length > 0) {
+      Image.prefetch(urls);
+    }
+  }, [data]);
 
   const currentStep = data?.steps.find((s) => s.stepId === activeStep);
   const audioUrl = currentStep?.audioUrl ?? null;
