@@ -130,7 +130,7 @@ function VersionCard({
         {!isLocal && (
           <DownloadIndicator
             isFlaggedForDownload={isDownloaded}
-            isLoading={isDownloading}
+            isLoading={isDownloading && !isDownloaded}
             onPress={() => onDownloadClick(version.id)}
             size={18}
           />
@@ -417,7 +417,7 @@ export function FiaPericopeList({
       if (questIdToDownload) {
         const questIdsToClear = discoveryState.discoveredIds.questIds;
 
-        syncCallbackService.registerCallback(questIdToDownload, async () => {
+        const clearAndInvalidate = async () => {
           setDownloadingQuestIds((prev) => {
             const next = new Set(prev);
             questIdsToClear.forEach((id) => next.delete(id));
@@ -431,7 +431,12 @@ export function FiaPericopeList({
             queryKey: ['fia-pericope-quests', 'cloud', projectId, book.id]
           });
           await queryClient.invalidateQueries({ queryKey: ['assets'] });
-        });
+        };
+
+        syncCallbackService.registerCallback(
+          questIdToDownload,
+          clearAndInvalidate
+        );
       }
     }
   });
@@ -576,19 +581,6 @@ export function FiaPericopeList({
     if (!group || group.versions.length === 0) {
       if (!canCreateNew) return;
       await createNewVersion(pericope);
-      return;
-    }
-
-    // Single local-only version owned by the current user — navigate directly
-    const ownVersions = group.versions.filter(
-      (v) => v.creator_id === currentUser.id
-    );
-    if (
-      group.versions.length === 1 &&
-      ownVersions.length === 1 &&
-      ownVersions[0]!.source === 'local'
-    ) {
-      await navigateToVersion(ownVersions[0]!);
       return;
     }
 

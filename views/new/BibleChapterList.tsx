@@ -119,7 +119,7 @@ function VersionCard({
         {!isLocal && (
           <DownloadIndicator
             isFlaggedForDownload={isDownloaded}
-            isLoading={isDownloading}
+            isLoading={isDownloading && !isDownloaded}
             onPress={() => onDownloadClick(version.id)}
             size={18}
           />
@@ -391,7 +391,7 @@ export function BibleChapterList({
       if (questIdToDownload) {
         const questIdsToClear = discoveryState.discoveredIds.questIds;
 
-        syncCallbackService.registerCallback(questIdToDownload, async () => {
+        const clearAndInvalidate = async () => {
           setDownloadingQuestIds((prev) => {
             const next = new Set(prev);
             questIdsToClear.forEach((id) => next.delete(id));
@@ -405,7 +405,12 @@ export function BibleChapterList({
             queryKey: ['bible-chapters', 'cloud', projectId, bookId]
           });
           await queryClient.invalidateQueries({ queryKey: ['assets'] });
-        });
+        };
+
+        syncCallbackService.registerCallback(
+          questIdToDownload,
+          clearAndInvalidate
+        );
       }
     }
   });
@@ -563,19 +568,6 @@ export function BibleChapterList({
           onPress: () => void createNewVersion(chapterNum)
         }
       ]);
-      return;
-    }
-
-    // Single local-only version owned by the current user — navigate directly
-    const ownVersions = group.versions.filter(
-      (v) => v.creator_id === currentUser.id
-    );
-    if (
-      group.versions.length === 1 &&
-      ownVersions.length === 1 &&
-      ownVersions[0]!.source === 'local'
-    ) {
-      void navigateToVersion(ownVersions[0]!);
       return;
     }
 
