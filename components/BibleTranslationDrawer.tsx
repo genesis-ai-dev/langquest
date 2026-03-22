@@ -175,12 +175,15 @@ interface BibleTranslationDrawerProps {
   projectId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Called after the user confirms translation selection (before this drawer closes). */
+  onTranslationsConfirmed?: () => void;
 }
 
 export function BibleTranslationDrawer({
   projectId,
   open,
-  onOpenChange
+  onOpenChange,
+  onTranslationsConfirmed
 }: BibleTranslationDrawerProps) {
   const primaryColor = useThemeColor('primary');
 
@@ -297,6 +300,7 @@ export function BibleTranslationDrawer({
       });
     }
 
+    onTranslationsConfirmed?.();
     onOpenChange(false);
   };
 

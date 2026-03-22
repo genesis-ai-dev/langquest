@@ -1,11 +1,9 @@
-// Import SVG components
-import type { ImageSourcePropType } from 'react-native';
+import type { ImageSource } from 'expo-image';
 
-// Book SVG icons mapping
 import { BIBLE_BOOKS } from '../constants/bibleStructure';
 
 /* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-unsafe-assignment */
-export const BOOK_ICON_MAP: Record<string, ImageSourcePropType> = {
+export const BOOK_ICON_MAP: Record<string, ImageSource> = {
   gen: require('../assets/book-icons/gen.webp'),
   exo: require('../assets/book-icons/exo.webp'),
   lev: require('../assets/book-icons/lev.webp'),
@@ -75,11 +73,10 @@ export const BOOK_ICON_MAP: Record<string, ImageSourcePropType> = {
 };
 /* eslint-enable @typescript-eslint/no-require-imports, @typescript-eslint/no-unsafe-assignment */
 
-// Build the BOOK_GRAPHICS map using the book IDs from bibleStructure.ts
-export const BOOK_GRAPHICS: Record<string, ImageSourcePropType> =
+export const BOOK_GRAPHICS: Record<string, ImageSource> =
   Object.fromEntries(
     BIBLE_BOOKS.map((book) => [book.id, BOOK_ICON_MAP[book.id]]).filter(
-      (entry): entry is [string, ImageSourcePropType] => entry[1] !== undefined
+      (entry): entry is [string, ImageSource] => entry[1] !== undefined
     )
   );
 

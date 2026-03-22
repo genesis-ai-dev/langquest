@@ -28,6 +28,11 @@ import type {
   FiaTerm
 } from '@/hooks/useFiaPericopeSteps';
 import { useFiaPericopeSteps } from '@/hooks/useFiaPericopeSteps';
+import {
+  enqueue as enqueueFiaAttachment,
+  isFiaPericopeCached,
+  resolveImageUri
+} from '@/services/FiaAttachmentQueue';
 import { cn } from '@/utils/styleUtils';
 import { Ionicons } from '@expo/vector-icons';
 import { ReactNativeZoomableView } from '@openspacelabs/react-native-zoomable-view';
@@ -758,7 +763,7 @@ function MediaItemDisplay({ item }: { item: FiaMediaItem }) {
         <View key={i}>
           {asset.imageUrl && (
             <TappableImage
-              uri={asset.imageUrl}
+              uri={resolveImageUri(asset.imageUrl)}
               aspectRatio={16 / 10}
               contentFit="cover"
             />
@@ -786,7 +791,7 @@ function MapDisplay({ item }: { item: FiaMap }) {
         <Text className="text-sm font-semibold">{item.title}</Text>
       ) : null}
       <TappableImage
-        uri={item.imageUrl}
+        uri={resolveImageUri(item.imageUrl)}
         aspectRatio={4 / 3}
         contentFit="contain"
       />
@@ -943,20 +948,10 @@ export function FiaStepDrawer({
   );
 
   React.useEffect(() => {
-    if (!data) return;
-    const urls: string[] = [];
-    for (const item of data.mediaItems) {
-      for (const asset of item.assets) {
-        if (asset.imageUrl) urls.push(asset.imageUrl);
-      }
+    if (open && pericopeId && projectId && !isFiaPericopeCached(pericopeId)) {
+      enqueueFiaAttachment(pericopeId, projectId);
     }
-    for (const map of data.maps) {
-      if (map.imageUrl) urls.push(map.imageUrl);
-    }
-    if (urls.length > 0) {
-      Image.prefetch(urls);
-    }
-  }, [data]);
+  }, [open, pericopeId, projectId]);
 
   const currentStep = data?.steps.find((s) => s.stepId === activeStep);
   const audioUrl = currentStep?.audioUrl ?? null;
@@ -1262,6 +1257,7 @@ export function FiaStepDrawer({
           projectId={projectId}
           open={translationDrawerOpen}
           onOpenChange={setTranslationDrawerOpen}
+          onTranslationsConfirmed={() => onOpenChange(true)}
         />
       )}
     </>

@@ -13,8 +13,11 @@ import {
   type BibleBrainAudioChapter,
   type BibleBrainVerse
 } from '@/hooks/useBibleBrainContent';
-import { useLocalStore } from '@/store/localStore';
-import { cn, getThemeColor } from '@/utils/styleUtils';
+import {
+  type BibleDownloadTranslation,
+  useLocalStore
+} from '@/store/localStore';
+import { cn, getThemeColor, useThemeColor } from '@/utils/styleUtils';
 import { Ionicons } from '@expo/vector-icons';
 import {
   BookOpenIcon,
@@ -34,7 +37,7 @@ import { ActivityIndicator, TouchableOpacity, View } from 'react-native';
 import { Dropdown } from 'react-native-element-dropdown';
 
 const EMPTY_STRING_ARRAY: string[] = [];
-const EMPTY_TRANSLATIONS: BibleBrainBible[] = [];
+const EMPTY_DOWNLOAD_TRANSLATIONS: BibleDownloadTranslation[] = [];
 
 // --- Verse highlighting from timestamps ---
 
@@ -475,7 +478,9 @@ export function BibleReaderContent({
   );
   // Saved translations from the store (user-curated list)
   const savedDownloads = useLocalStore((s) =>
-    projectId ? (s.bibleDownloadTranslations[projectId] ?? []) : []
+    projectId
+      ? (s.bibleDownloadTranslations[projectId] ?? EMPTY_DOWNLOAD_TRANSLATIONS)
+      : EMPTY_DOWNLOAD_TRANSLATIONS
   );
 
   // When the user has curated translations, show those; otherwise show all API bibles
@@ -516,7 +521,9 @@ export function BibleReaderContent({
         (b) => b.id === savedTranslation.bibleId
       );
       if (saved) {
-        setSelectedBible(saved);
+        if (saved.id !== selectedBible?.id) {
+          setSelectedBible(saved);
+        }
         return;
       }
     }
@@ -527,7 +534,9 @@ export function BibleReaderContent({
     ) {
       const best =
         displayBibles.find((b) => b.hasText && b.hasAudio) ?? displayBibles[0]!;
-      setSelectedBible(best);
+      if (best.id !== selectedBible?.id) {
+        setSelectedBible(best);
+      }
     }
   }, [displayBibles, selectedBible, savedTranslation]);
 
@@ -552,6 +561,8 @@ export function BibleReaderContent({
     isLoading: contentLoading,
     error: contentError
   } = useBibleBrainContent(selectedBible?.id, fiaBookId, verseRange);
+
+  const passageLoadingColor = useThemeColor('primary');
 
   const audioUrls = useMemo(
     () => (content?.audio ?? []).map((a) => a.url).filter(Boolean),
@@ -694,7 +705,7 @@ export function BibleReaderContent({
 
       {contentLoading ? (
         <View className="flex-1 items-center justify-center p-8">
-          <ActivityIndicator size="small" />
+          <ActivityIndicator color={passageLoadingColor} size="small" />
           <Text className="mt-2 text-sm text-muted-foreground">
             Loading passage...
           </Text>

@@ -48,6 +48,7 @@ import { getDefaultOpMetadata } from './opMetadata';
 
 import { posthog } from '@/services/posthog';
 import { useLocalStore } from '@/store/localStore';
+import { useNetworkStore } from '@/store/networkStore';
 import { resetDatabase } from '@/utils/dbUtils';
 import type { InferInsertModel } from 'drizzle-orm';
 
@@ -489,6 +490,7 @@ export class System {
   private initialized = false;
   private connecting = false;
   private connectionPromise: Promise<void> | null = null;
+  private networkSyncUnsubscribe: (() => void) | null = null;
 
   async init() {
     // If already connecting, wait for the existing connection
@@ -708,6 +710,43 @@ export class System {
     }
   }
 
+  private ensurePowerSyncNetworkSubscription(): void {
+    if (this.networkSyncUnsubscribe) return;
+    this.networkSyncUnsubscribe = useNetworkStore.subscribe((state) => {
+      void this.applyPowerSyncNetworkState(state.isConnected);
+    });
+  }
+
+  private async applyPowerSyncNetworkState(isConnected: boolean): Promise<void> {
+    if (!this.initialized) return;
+
+    if (!isConnected) {
+      if (!this.powersync.connected) return;
+      try {
+        await this.powersync.disconnect();
+        console.log('[System] PowerSync disconnected (device offline)');
+      } catch (error) {
+        console.warn(
+          '[System] PowerSync disconnect while offline failed:',
+          error instanceof Error ? error.message : error
+        );
+      }
+      return;
+    }
+
+    if (this.powersync.connected) return;
+
+    try {
+      await this.powersync.connect(this.supabaseConnector);
+      console.log('[System] ✓ PowerSync sync connection established');
+    } catch (error) {
+      console.warn(
+        '[System] PowerSync connection failed (will auto-retry when online):',
+        error instanceof Error ? error.message : error
+      );
+    }
+  }
+
   /**
    * Starts PowerSync sync and attachment queue initialization in the background.
    * This is non-blocking to support offline-first usage - the app can render
@@ -715,23 +754,14 @@ export class System {
    *
    * PowerSync handles reconnection automatically with exponential backoff,
    * so we don't need to implement our own retry logic.
+   *
+   * When the app reports offline (NetInfo / network store), we disconnect so the
+   * SDK does not immediately open a WebSocket and spam errors; we connect again
+   * when the network store reports online.
    */
   private connectAndInitializeInBackground(): void {
-    // Start PowerSync connection (non-blocking by design)
-    // PowerSync's connect() initiates the sync stream and handles retries internally
-    this.powersync
-      .connect(this.supabaseConnector)
-      .then(() => {
-        console.log('[System] ✓ PowerSync sync connection established');
-      })
-      .catch((error) => {
-        // Connection failed - PowerSync will auto-retry with backoff
-        // This is expected when offline or with expired tokens
-        console.warn(
-          '[System] PowerSync connection failed (will auto-retry):',
-          error instanceof Error ? error.message : error
-        );
-      });
+    this.ensurePowerSyncNetworkSubscription();
+    void this.applyPowerSyncNetworkState(useNetworkStore.getState().isConnected);
 
     // Initialize attachment queues in background
     // These are needed for audio uploads but not for basic app functionality
@@ -1512,6 +1542,11 @@ export class System {
       // Disconnect PowerSync
       if (this.powersync.connected) {
         await this.powersync.disconnect();
+      }
+
+      if (this.networkSyncUnsubscribe) {
+        this.networkSyncUnsubscribe();
+        this.networkSyncUnsubscribe = null;
       }
 
       this.initialized = false;

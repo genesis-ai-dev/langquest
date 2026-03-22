@@ -32,6 +32,7 @@ import {
 import { useQuestDownloadDiscovery } from '@/hooks/useQuestDownloadDiscovery';
 import { useQuestDownloadStatusLive } from '@/hooks/useQuestDownloadStatusLive';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
+import { enqueue as enqueueFiaAttachment } from '@/services/FiaAttachmentQueue';
 import { syncCallbackService } from '@/services/syncCallbackService';
 import { BOOK_ICON_MAP } from '@/utils/BOOK_GRAPHICS';
 import { bulkDownloadQuest } from '@/utils/bulkDownload';
@@ -46,8 +47,9 @@ import {
   PlusCircleIcon,
   UserIcon
 } from 'lucide-react-native';
+import { Image } from 'expo-image';
 import React from 'react';
-import { ActivityIndicator, Image, Pressable, View } from 'react-native';
+import { ActivityIndicator, Pressable, View } from 'react-native';
 
 const FIA_TO_BIBLE_BOOK_ID: Record<string, string> = {
   mrk: 'mar',
@@ -611,6 +613,8 @@ export function FiaPericopeList({
         totalPericopesInBook: book.pericopes.length
       });
 
+      enqueueFiaAttachment(pericope.id, projectId);
+
       goToQuest({
         id: result.questId,
         project_id: projectId,
@@ -656,7 +660,7 @@ export function FiaPericopeList({
           <Image
             source={iconSource}
             style={{ width: 48, height: 48, tintColor: primaryColor }}
-            resizeMode="contain"
+            contentFit="contain"
           />
         ) : (
           <Icon as={BookOpenIcon} size={32} className="text-primary" />

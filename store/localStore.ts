@@ -67,6 +67,21 @@ export interface BibleDownloadTranslation {
   languageName: string;
 }
 
+export type FiaAttachmentStatus =
+  | 'pending'
+  | 'downloading'
+  | 'completed'
+  | 'failed';
+
+export interface FiaAttachmentQueueItem {
+  pericopeId: string;
+  projectId: string;
+  status: FiaAttachmentStatus;
+  error?: string;
+  enqueuedAt: number;
+  completedAt?: number;
+}
+
 // AsyncStorage keys for user preferences
 export const OFFLINE_UNDOWNLOAD_WARNING_KEY = '@offline_undownload_warning';
 
@@ -336,6 +351,19 @@ export interface LocalState {
     projectId: string,
     bibleId: string
   ) => void;
+
+  // FIA attachment queue state
+  fiaAttachmentQueue: FiaAttachmentQueueItem[];
+  enqueueFiaAttachment: (item: {
+    pericopeId: string;
+    projectId: string;
+  }) => void;
+  updateFiaAttachment: (
+    pericopeId: string,
+    update: Partial<FiaAttachmentQueueItem>
+  ) => void;
+  removeFiaAttachment: (pericopeId: string) => void;
+  clearCompletedFiaAttachments: () => void;
 }
 
 export const useLocalStore = create<LocalState>()(
@@ -731,7 +759,44 @@ export const useLocalStore = create<LocalState>()(
               [projectId]: existing.filter((t) => t.bibleId !== bibleId)
             }
           };
-        })
+        }),
+
+      // FIA attachment queue
+      fiaAttachmentQueue: [],
+      enqueueFiaAttachment: ({ pericopeId, projectId }) =>
+        set((state) => {
+          if (state.fiaAttachmentQueue.some((i) => i.pericopeId === pericopeId))
+            return state;
+          return {
+            fiaAttachmentQueue: [
+              ...state.fiaAttachmentQueue,
+              {
+                pericopeId,
+                projectId,
+                status: 'pending' as const,
+                enqueuedAt: Date.now()
+              }
+            ]
+          };
+        }),
+      updateFiaAttachment: (pericopeId, update) =>
+        set((state) => ({
+          fiaAttachmentQueue: state.fiaAttachmentQueue.map((item) =>
+            item.pericopeId === pericopeId ? { ...item, ...update } : item
+          )
+        })),
+      removeFiaAttachment: (pericopeId) =>
+        set((state) => ({
+          fiaAttachmentQueue: state.fiaAttachmentQueue.filter(
+            (i) => i.pericopeId !== pericopeId
+          )
+        })),
+      clearCompletedFiaAttachments: () =>
+        set((state) => ({
+          fiaAttachmentQueue: state.fiaAttachmentQueue.filter(
+            (i) => i.status !== 'completed'
+          )
+        }))
     }),
     {
       name: 'local-store',

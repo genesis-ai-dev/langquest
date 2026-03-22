@@ -14,13 +14,13 @@ export const FIA_BIBLE_QUERY_ASYNC_STORAGE_KEY =
   'tanstack-query-fia-bible-api-cache';
 
 const PERSISTED_ROOT_KEYS = new Set<string>([
-  'fia-books',
-  'fia-pericope-steps',
-  'fia-pericope-text',
   'bible-brain-content',
   'bible-brain-bibles',
   'bible-brain-bibles-by-iso',
-  'bible-brain-languages'
+  'bible-brain-languages',
+  'fia-books',
+  'fia-book-quests',
+  'fia-pericope-quests'
 ]);
 
 export function isFiaBibleApiPersistedQueryKey(queryKey: QueryKey): boolean {

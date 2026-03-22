@@ -1,9 +1,7 @@
-import { useAuth } from '@/contexts/AuthContext';
-import { fiaBibleApiQueryOptions } from '@/utils/fiaBibleQueryCache';
 import {
-  lookupFiaLanguageCode,
-  lookupSourceLanguoidId
-} from '@/utils/languoidLookups';
+  getCachedFiaPericope,
+  useFiaAttachmentStatus
+} from '@/services/FiaAttachmentQueue';
 import { useQuery } from '@tanstack/react-query';
 
 // --- Types matching the edge function response ---
@@ -64,55 +62,33 @@ export function useFiaPericopeSteps(
   projectId: string | undefined,
   pericopeId: string | undefined
 ) {
-  const { session } = useAuth();
-  const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+  const attachmentStatus = useFiaAttachmentStatus(pericopeId);
+
+  // completedAt changes when the queue finishes, causing the query to re-run
+  // and pick up the freshly-cached file
+  const cacheVersion = attachmentStatus?.completedAt ?? 0;
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['fia-pericope-steps', projectId, pericopeId],
-    queryFn: async (): Promise<FiaPericopeStepsResponse | null> => {
-      if (!projectId || !pericopeId) return null;
-
-      const sourceLanguoidId = await lookupSourceLanguoidId(projectId);
-      if (!sourceLanguoidId) {
-        throw new Error('Could not find source languoid for project');
-      }
-
-      const fiaCode = await lookupFiaLanguageCode(sourceLanguoidId);
-      if (!fiaCode) {
-        throw new Error(
-          `No FIA language code found for languoid ${sourceLanguoidId}`
-        );
-      }
-
-      const response = await fetch(
-        `${supabaseUrl}/functions/v1/fia-pericope-steps`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${session?.access_token ?? process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY}`
-          },
-          body: JSON.stringify({ pericopeId, fiaLanguageCode: fiaCode })
-        }
-      );
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(
-          `FIA pericope steps request failed (${response.status}): ${errorText}`
-        );
-      }
-
-      return response.json();
+    queryKey: ['fia-pericope-steps', projectId, pericopeId, cacheVersion],
+    queryFn: (): FiaPericopeStepsResponse | null => {
+      if (!pericopeId) return null;
+      return getCachedFiaPericope(pericopeId);
     },
-    enabled: !!projectId && !!pericopeId && !!supabaseUrl,
-    ...fiaBibleApiQueryOptions,
-    retry: 2
+    enabled: !!projectId && !!pericopeId,
+    staleTime: Infinity,
+    gcTime: 1000 * 60 * 60,
+    refetchInterval: false,
+    refetchOnMount: true,
+    retry: false
   });
+
+  const isQueueProcessing =
+    attachmentStatus?.status === 'pending' ||
+    attachmentStatus?.status === 'downloading';
 
   return {
     data: data ?? null,
-    isLoading,
+    isLoading: isLoading || isQueueProcessing,
     error
   };
 }

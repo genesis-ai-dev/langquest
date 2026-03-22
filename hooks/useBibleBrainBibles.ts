@@ -22,6 +22,8 @@ interface ListBiblesResponse {
   bibles: BibleBrainBible[];
 }
 
+const EMPTY_BIBLES: BibleBrainBible[] = [];
+
 export function useBibleBrainBibles(projectId: string | undefined) {
   const { session } = useAuth();
   const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
@@ -70,7 +72,7 @@ export function useBibleBrainBibles(projectId: string | undefined) {
   });
 
   return {
-    bibles: data?.bibles ?? [],
+    bibles: data?.bibles ?? EMPTY_BIBLES,
     isLoading,
     error
   };
