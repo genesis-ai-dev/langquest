@@ -43,7 +43,7 @@ interface QuestWithMetadata {
   quest_download_profiles: string[] | null;
   quest_creator_id: string | null;
   quest_visible: boolean;
-  chapter_number: number | null;
+  chapter_number: number;
 }
 
 interface BibleMetadata {
