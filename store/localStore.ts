@@ -57,6 +57,16 @@ export interface NavigationStackItem {
 export type Language = typeof language.$inferSelect;
 export type Theme = 'light' | 'dark' | 'system';
 
+export interface BibleDownloadTranslation {
+  bibleId: string;
+  name: string;
+  vname: string | null;
+  hasText: boolean;
+  hasAudio: boolean;
+  iso: string;
+  languageName: string;
+}
+
 // AsyncStorage keys for user preferences
 export const OFFLINE_UNDOWNLOAD_WARNING_KEY = '@offline_undownload_warning';
 
@@ -285,8 +295,6 @@ export interface LocalState {
       bibleId: string;
       name: string;
       vname: string | null;
-      textFilesetId: string | null;
-      audioFilesetId: string | null;
       hasText: boolean;
       hasAudio: boolean;
     }
@@ -297,8 +305,6 @@ export interface LocalState {
       bibleId: string;
       name: string;
       vname: string | null;
-      textFilesetId: string | null;
-      audioFilesetId: string | null;
       hasText: boolean;
       hasAudio: boolean;
     }
@@ -306,6 +312,30 @@ export interface LocalState {
   bibleRecentTranslations: Record<string, string[]>;
   bibleAudioPositions: Record<string, number>;
   setBibleAudioPosition: (key: string, positionMs: number) => void;
+
+  // Audio file cache manifest (URL → local filename + download timestamp)
+  audioCacheEntries: Record<string, { filename: string; downloadedAt: number }>;
+  setAudioCacheEntry: (
+    url: string,
+    entry: { filename: string; downloadedAt: number }
+  ) => void;
+  removeAudioCacheEntries: (urls: string[]) => void;
+  clearAudioCacheEntries: () => void;
+
+  // Saved bible translations per project (controls what appears in the dropdown)
+  bibleDownloadTranslations: Record<string, BibleDownloadTranslation[]>;
+  setBibleDownloadTranslations: (
+    projectId: string,
+    translations: BibleDownloadTranslation[]
+  ) => void;
+  addBibleDownloadTranslation: (
+    projectId: string,
+    translation: BibleDownloadTranslation
+  ) => void;
+  removeBibleDownloadTranslation: (
+    projectId: string,
+    bibleId: string
+  ) => void;
 }
 
 export const useLocalStore = create<LocalState>()(
@@ -647,7 +677,61 @@ export const useLocalStore = create<LocalState>()(
             ...state.bibleAudioPositions,
             [key]: positionMs
           }
-        }))
+        })),
+
+      // Audio file cache manifest
+      audioCacheEntries: {},
+      setAudioCacheEntry: (url, entry) =>
+        set((state) => ({
+          audioCacheEntries: {
+            ...state.audioCacheEntries,
+            [url]: entry
+          }
+        })),
+      removeAudioCacheEntries: (urls) =>
+        set((state) => {
+          const next = { ...state.audioCacheEntries };
+          for (const url of urls) {
+            delete next[url];
+          }
+          return { audioCacheEntries: next };
+        }),
+      clearAudioCacheEntries: () => set({ audioCacheEntries: {} }),
+
+      // Saved bible translations per project
+      bibleDownloadTranslations: {},
+      setBibleDownloadTranslations: (projectId, translations) =>
+        set((state) => ({
+          bibleDownloadTranslations: {
+            ...state.bibleDownloadTranslations,
+            [projectId]: translations
+          }
+        })),
+      addBibleDownloadTranslation: (projectId, translation) =>
+        set((state) => {
+          const existing =
+            state.bibleDownloadTranslations[projectId] ?? [];
+          if (existing.some((t) => t.bibleId === translation.bibleId)) {
+            return state;
+          }
+          return {
+            bibleDownloadTranslations: {
+              ...state.bibleDownloadTranslations,
+              [projectId]: [...existing, translation]
+            }
+          };
+        }),
+      removeBibleDownloadTranslation: (projectId, bibleId) =>
+        set((state) => {
+          const existing =
+            state.bibleDownloadTranslations[projectId] ?? [];
+          return {
+            bibleDownloadTranslations: {
+              ...state.bibleDownloadTranslations,
+              [projectId]: existing.filter((t) => t.bibleId !== bibleId)
+            }
+          };
+        })
     }),
     {
       name: 'local-store',

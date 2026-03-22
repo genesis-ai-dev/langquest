@@ -154,6 +154,7 @@ export function ExportButton({
           size="icon"
           iconClosed={Share}
           iconOpen={undefined}
+          iconSize={16}
           disableIconRotation
           disabled={disabled || exportMutation.isPending || isConcatenating}
           className="rounded-md border border-input bg-background"

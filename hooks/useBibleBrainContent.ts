@@ -1,4 +1,5 @@
 import { useAuth } from '@/contexts/AuthContext';
+import { fiaBibleApiQueryOptions } from '@/utils/fiaBibleQueryCache';
 import { useQuery } from '@tanstack/react-query';
 
 // --- Types matching the edge function response ---
@@ -42,28 +43,20 @@ function parseFiaVerseRange(verseRange: string): {
 // --- Hook ---
 
 export function useBibleBrainContent(
-  textFilesetId: string | null | undefined,
-  audioFilesetId: string | null | undefined,
+  bibleId: string | null | undefined,
   fiaBookId: string | undefined,
   verseRange: string | undefined
 ) {
   const { session } = useAuth();
   const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
 
-  const hasFileset = !!textFilesetId || !!audioFilesetId;
   const parsed = verseRange ? parseFiaVerseRange(verseRange) : null;
   const bookId = fiaBookId?.toUpperCase();
 
   const { data, isLoading, error } = useQuery({
-    queryKey: [
-      'bible-brain-content',
-      textFilesetId,
-      audioFilesetId,
-      bookId,
-      verseRange
-    ],
+    queryKey: ['bible-brain-content', bibleId, bookId, verseRange],
     queryFn: async (): Promise<BibleBrainContentResponse | null> => {
-      if (!hasFileset || !parsed || !bookId) return null;
+      if (!bibleId || !parsed || !bookId) return null;
 
       const response = await fetch(
         `${supabaseUrl}/functions/v1/bible-brain-content`,
@@ -75,8 +68,7 @@ export function useBibleBrainContent(
           },
           body: JSON.stringify({
             action: 'get-content',
-            textFilesetId: textFilesetId ?? null,
-            audioFilesetId: audioFilesetId ?? null,
+            bibleId,
             bookId,
             startChapter: parsed.startChapter,
             startVerse: parsed.startVerse,
@@ -95,8 +87,8 @@ export function useBibleBrainContent(
 
       return response.json();
     },
-    enabled: hasFileset && !!parsed && !!bookId && !!supabaseUrl,
-    staleTime: 5 * 60 * 1000,
+    enabled: !!bibleId && !!parsed && !!bookId && !!supabaseUrl,
+    ...fiaBibleApiQueryOptions,
     retry: 2
   });
 

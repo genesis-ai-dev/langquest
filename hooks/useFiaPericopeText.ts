@@ -4,6 +4,7 @@
  */
 
 import { useAuth } from '@/contexts/AuthContext';
+import { fiaBibleApiQueryOptions } from '@/utils/fiaBibleQueryCache';
 import {
   lookupFiaLanguageCode,
   lookupSourceLanguoidId
@@ -67,7 +68,7 @@ export function useFiaPericopeText(
       return response.json();
     },
     enabled: !!projectId && !!pericopeId && !!supabaseUrl,
-    staleTime: Infinity, // Text won't change during a session
+    ...fiaBibleApiQueryOptions,
     retry: 2
   });
 

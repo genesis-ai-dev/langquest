@@ -18,10 +18,14 @@ interface ListBiblesRequest {
   iso639_3: string;
 }
 
+interface ListLanguagesRequest {
+  action: 'list-languages';
+  search: string;
+}
+
 interface GetContentRequest {
   action: 'get-content';
-  textFilesetId: string | null;
-  audioFilesetId: string | null;
+  bibleId: string;
   bookId: string;
   startChapter: number;
   startVerse: number;
@@ -29,7 +33,7 @@ interface GetContentRequest {
   endVerse: number;
 }
 
-type RequestBody = ListBiblesRequest | GetContentRequest;
+type RequestBody = ListBiblesRequest | ListLanguagesRequest | GetContentRequest;
 
 interface BibleEntry {
   id: string;
@@ -37,8 +41,8 @@ interface BibleEntry {
   vname: string | null;
   hasText: boolean;
   hasAudio: boolean;
-  textFilesetId: string | null;
-  audioFilesetId: string | null;
+  iso: string;
+  languageName: string;
 }
 
 // --- Bible Brain API helpers ---
@@ -132,14 +136,23 @@ function pickBestFileset(
 // --- Action: list-bibles ---
 
 async function handleListBibles(iso639_3: string): Promise<Response> {
+  // Fetch bibles and language info in parallel so we always have a name
+  const [biblesData, langData] = await Promise.all([
+    // deno-lint-ignore no-explicit-any
+    bbFetch<any>('/bibles', { language_code: iso639_3, limit: '50' }),
+    // deno-lint-ignore no-explicit-any
+    bbFetch<any>('/languages', { language_code: iso639_3 }).catch(() => ({
+      data: []
+    }))
+  ]);
+
+  const langEntries = langData.data ?? [];
   // deno-lint-ignore no-explicit-any
-  const data: any = await bbFetch('/bibles', {
-    language_code: iso639_3,
-    limit: '50'
-  });
+  const langName =
+    langEntries[0]?.name || langEntries[0]?.autonym || '';
 
   // deno-lint-ignore no-explicit-any
-  const bibles: BibleEntry[] = (data.data ?? []).map((b: any) => {
+  const bibles: BibleEntry[] = (biblesData.data ?? []).map((b: any) => {
     const filesets = b.filesets?.['dbp-prod'] ?? [];
     const textId = pickBestFileset(filesets, TEXT_TYPES);
     const audioId = pickBestFileset(filesets, AUDIO_TYPES);
@@ -150,8 +163,8 @@ async function handleListBibles(iso639_3: string): Promise<Response> {
       vname: b.vname ?? null,
       hasText: textId !== null,
       hasAudio: audioId !== null,
-      textFilesetId: textId,
-      audioFilesetId: audioId
+      iso: b.iso ?? iso639_3,
+      languageName: b.language || b.autonym || langName || b.iso || iso639_3
     };
   });
 
@@ -164,27 +177,42 @@ async function handleListBibles(iso639_3: string): Promise<Response> {
   return jsonResponse({ bibles });
 }
 
+// --- Action: list-languages ---
+
+async function handleListLanguages(search: string): Promise<Response> {
+  // deno-lint-ignore no-explicit-any
+  const data: any = await bbFetch(`/languages/search/${encodeURIComponent(search)}`);
+  const items = data.data ?? [];
+
+  // deno-lint-ignore no-explicit-any
+  const languages = items.map((l: any) => ({
+    iso: l.iso ?? '',
+    name: l.name ?? '',
+    autonym: l.autonym ?? ''
+  }));
+
+  return jsonResponse({ languages });
+}
+
 // --- Action: get-content ---
 
 async function handleGetContent(body: GetContentRequest): Promise<Response> {
-  const {
-    textFilesetId,
-    audioFilesetId,
-    bookId,
-    startChapter,
-    startVerse,
-    endChapter,
-    endVerse
-  } = body;
+  const { bibleId, bookId, startChapter, startVerse, endChapter, endVerse } =
+    body;
   const book = bookId.toUpperCase();
 
-  // Build chapter list
+  // Resolve filesets server-side from the bible's metadata
+  // deno-lint-ignore no-explicit-any
+  const bibleData: any = await bbFetch(`/bibles/${bibleId}`);
+  const filesets = bibleData?.data?.filesets?.['dbp-prod'] ?? [];
+  const textFilesetId = pickBestFileset(filesets, TEXT_TYPES, book);
+  const audioFilesetId = pickBestFileset(filesets, AUDIO_TYPES, book);
+
   const chapters: number[] = [];
   for (let c = startChapter; c <= endChapter; c++) {
     chapters.push(c);
   }
 
-  // Fetch text for each chapter in parallel
   // deno-lint-ignore no-explicit-any
   let verses: any[] = [];
   if (textFilesetId) {
@@ -229,7 +257,6 @@ async function handleGetContent(body: GetContentRequest): Promise<Response> {
     }
   }
 
-  // Fetch audio + timestamps for each chapter in parallel
   interface AudioChapter {
     chapter: number;
     url: string;
@@ -256,7 +283,6 @@ async function handleGetContent(body: GetContentRequest): Promise<Response> {
             duration: item.duration ?? 0
           };
 
-          // Try to get timestamps
           try {
             // deno-lint-ignore no-explicit-any
             const tsRes: any = await bbFetch(
@@ -339,12 +365,16 @@ Deno.serve(async (req) => {
       return await handleListBibles(body.iso639_3);
     }
 
+    if (body.action === 'list-languages') {
+      if (!body.search || body.search.length < 2) {
+        return errorResponse('Search query must be at least 2 characters', 400);
+      }
+      return await handleListLanguages(body.search);
+    }
+
     if (body.action === 'get-content') {
-      if (!body.textFilesetId && !body.audioFilesetId) {
-        return errorResponse(
-          'At least one of textFilesetId or audioFilesetId is required',
-          400
-        );
+      if (!body.bibleId) {
+        return errorResponse('Missing required field: bibleId', 400);
       }
       if (!body.bookId || !body.startChapter || !body.endChapter) {
         return errorResponse(

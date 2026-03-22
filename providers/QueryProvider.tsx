@@ -1,6 +1,16 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { QueryClient } from '@tanstack/react-query';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
+import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
 import type { ReactNode } from 'react';
 import { useMemo } from 'react';
+
+import {
+  FIA_BIBLE_API_QUERY_CACHE_MS,
+  FIA_BIBLE_QUERY_ASYNC_STORAGE_KEY,
+  FIA_BIBLE_QUERY_PERSIST_BUSTER,
+  shouldDehydrateFiaBibleApiQuery
+} from '@/utils/fiaBibleQueryCache';
 
 export function QueryProvider({ children }: { children: ReactNode }) {
   const queryClient = useMemo(
@@ -30,7 +40,29 @@ export function QueryProvider({ children }: { children: ReactNode }) {
     []
   );
 
+  const persister = useMemo(
+    () =>
+      createAsyncStoragePersister({
+        storage: AsyncStorage,
+        key: FIA_BIBLE_QUERY_ASYNC_STORAGE_KEY,
+        throttleTime: 3000
+      }),
+    []
+  );
+
   return (
-    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    <PersistQueryClientProvider
+      client={queryClient}
+      persistOptions={{
+        persister,
+        maxAge: FIA_BIBLE_API_QUERY_CACHE_MS,
+        buster: FIA_BIBLE_QUERY_PERSIST_BUSTER,
+        dehydrateOptions: {
+          shouldDehydrateQuery: shouldDehydrateFiaBibleApiQuery
+        }
+      }}
+    >
+      {children}
+    </PersistQueryClientProvider>
   );
 }

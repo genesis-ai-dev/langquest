@@ -196,6 +196,8 @@ function PericopeButton({
     return 'text-muted-foreground';
   };
 
+  const primaryColor = useThemeColor('primary');
+
   return (
     <View className="relative w-full flex-col gap-1">
       <Button
@@ -208,68 +210,81 @@ function PericopeButton({
         onPress={onPress}
         disabled={disabled || (!existingQuest && !canCreateNew)}
       >
-        {isCreatingThis ? (
-          <ActivityIndicator size="small" />
-        ) : (
-          <View className="flex-col items-center gap-1">
-            <View className="flex-row items-center gap-1">
-              {hasLocalCopy && (
-                <Icon as={HardDriveIcon} size={14} className="text-secondary" />
-              )}
-              {exists && (hasSyncedCopy || isCloudQuest) && (
-                <View pointerEvents="none">
-                  <DownloadIndicator
-                    isFlaggedForDownload={isDownloaded}
-                    isLoading={Boolean(isOptimisticallyDownloading)}
-                    onPress={handleDownloadToggle}
-                    size={16}
-                    iconColor={
-                      hasSyncedCopy || hasLocalCopy
-                        ? 'text-secondary'
-                        : 'text-foreground'
-                    }
-                  />
+        <View className="w-full flex-col items-center gap-1">
+          <View className="min-h-8 w-full items-center justify-center">
+            {isCreatingThis ? (
+              <ActivityIndicator size="small" color={primaryColor} />
+            ) : (
+              <View className="flex-row items-center justify-center gap-1">
+                <View className="h-5 min-w-0 flex-row items-center justify-center gap-0.5">
+                  {hasLocalCopy && (
+                    <Icon
+                      as={HardDriveIcon}
+                      size={14}
+                      className="text-secondary"
+                    />
+                  )}
+                  {exists && (hasSyncedCopy || isCloudQuest) && (
+                    <View pointerEvents="none">
+                      <DownloadIndicator
+                        isFlaggedForDownload={isDownloaded}
+                        isLoading={Boolean(isOptimisticallyDownloading)}
+                        onPress={handleDownloadToggle}
+                        size={16}
+                        iconColor={
+                          hasSyncedCopy || hasLocalCopy
+                            ? 'text-secondary'
+                            : 'text-foreground'
+                        }
+                      />
+                    </View>
+                  )}
                 </View>
-              )}
-              <Text className={cn('text-base font-bold', getTextColor())}>
-                {pericope.verseRange}
-              </Text>
-            </View>
-            <View className="flex-row items-center gap-1">
-              <Text
-                className={cn(
-                  'text-xxs',
-                  exists ? 'text-card-foreground/70' : 'text-muted-foreground'
-                )}
-              >
-                p{index + 1}
-              </Text>
-              {versionCount > 1 && (
-                <View className="flex-row items-center gap-0.5">
-                  <Icon
-                    as={UserIcon}
-                    size={10}
-                    className={
-                      hasSyncedCopy || hasLocalCopy
-                        ? 'text-secondary/70'
-                        : 'text-muted-foreground'
-                    }
-                  />
-                  <Text
-                    className={cn(
-                      'text-xxs',
-                      hasSyncedCopy || hasLocalCopy
-                        ? 'text-secondary/70'
-                        : 'text-muted-foreground'
-                    )}
-                  >
-                    {versionCount}
-                  </Text>
-                </View>
-              )}
-            </View>
+                <Text className={cn('text-base font-bold', getTextColor())}>
+                  {pericope.verseRange}
+                </Text>
+              </View>
+            )}
           </View>
-        )}
+          <View
+            className={cn(
+              'flex-row items-center gap-1',
+              isCreatingThis && 'opacity-50'
+            )}
+          >
+            <Text
+              className={cn(
+                'text-xxs',
+                exists ? 'text-card-foreground/70' : 'text-muted-foreground'
+              )}
+            >
+              p{index + 1}
+            </Text>
+            {versionCount > 1 && (
+              <View className="flex-row items-center gap-0.5">
+                <Icon
+                  as={UserIcon}
+                  size={10}
+                  className={
+                    hasSyncedCopy || hasLocalCopy
+                      ? 'text-secondary/70'
+                      : 'text-muted-foreground'
+                  }
+                />
+                <Text
+                  className={cn(
+                    'text-xxs',
+                    hasSyncedCopy || hasLocalCopy
+                      ? 'text-secondary/70'
+                      : 'text-muted-foreground'
+                  )}
+                >
+                  {versionCount}
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
       </Button>
 
       {/* Download overlay removed — downloads are handled via the version picker drawer */}
