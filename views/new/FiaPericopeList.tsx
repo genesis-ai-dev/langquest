@@ -41,6 +41,7 @@ import { LegendList } from '@legendapp/list';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   BookOpenIcon,
+  FileStackIcon,
   HardDriveIcon,
   PlusCircleIcon,
   UserIcon
@@ -89,7 +90,8 @@ function VersionCard({
       onPress={needsDownload ? () => onDownloadClick(version.id) : onPress}
       className={cn(
         'flex-row items-center gap-3 rounded-lg border border-border bg-card p-4 active:opacity-70',
-        needsDownload && 'opacity-60'
+        needsDownload && 'opacity-60',
+        !version.visible && 'opacity-50'
       )}
     >
       <View
@@ -129,7 +131,7 @@ function VersionCard({
         {!isLocal && (
           <DownloadIndicator
             isFlaggedForDownload={isDownloaded}
-            isLoading={isDownloading}
+            isLoading={isDownloading && !isDownloaded}
             onPress={() => onDownloadClick(version.id)}
             size={18}
           />
@@ -215,35 +217,70 @@ function PericopeButton({
             {isCreatingThis ? (
               <ActivityIndicator size="small" color={primaryColor} />
             ) : (
-              <View className="flex-row items-center justify-center gap-1">
-                <View className="h-5 min-w-0 flex-row items-center justify-center gap-0.5">
-                  {hasLocalCopy && (
-                    <Icon
-                      as={HardDriveIcon}
-                      size={14}
-                      className="text-secondary"
-                    />
-                  )}
-                  {exists && (hasSyncedCopy || isCloudQuest) && (
-                    <View pointerEvents="none">
-                      <DownloadIndicator
-                        isFlaggedForDownload={isDownloaded}
-                        isLoading={Boolean(isOptimisticallyDownloading)}
-                        onPress={handleDownloadToggle}
-                        size={16}
-                        iconColor={
-                          hasSyncedCopy || hasLocalCopy
-                            ? 'text-secondary'
-                            : 'text-foreground'
-                        }
+              <>
+                <View className="flex-row items-center justify-center gap-1">
+                  <View className="h-5 min-w-0 flex-row items-center justify-center gap-0.5">
+                    {hasLocalCopy && (
+                      <Icon
+                        as={HardDriveIcon}
+                        size={14}
+                        className="text-secondary"
                       />
-                    </View>
-                  )}
+                    )}
+                    {exists && (hasSyncedCopy || isCloudQuest) && (
+                      <View pointerEvents="none">
+                        <DownloadIndicator
+                          isFlaggedForDownload={isDownloaded}
+                          isLoading={Boolean(isOptimisticallyDownloading)}
+                          onPress={handleDownloadToggle}
+                          size={16}
+                          iconColor={
+                            hasSyncedCopy || hasLocalCopy
+                              ? 'text-secondary'
+                              : 'text-foreground'
+                          }
+                        />
+                      </View>
+                    )}
+                  </View>
                 </View>
                 <Text className={cn('text-base font-bold', getTextColor())}>
                   {pericope.verseRange}
                 </Text>
-              </View>
+                <View className="flex-row items-center gap-1">
+              <Text
+                className={cn(
+                  'text-xxs',
+                  exists ? 'text-card-foreground/70' : 'text-muted-foreground'
+                )}
+              >
+                p{index + 1}
+              </Text>
+              {versionCount > 1 && (
+                <View className="flex-row items-center gap-0.5">
+                  <Icon
+                    as={FileStackIcon}
+                    size={12}
+                    className={
+                      hasSyncedCopy || hasLocalCopy
+                        ? 'text-secondary/70'
+                        : 'text-muted-foreground'
+                    }
+                  />
+                  <Text
+                    className={cn(
+                      'text-xxs',
+                      hasSyncedCopy || hasLocalCopy
+                        ? 'text-secondary/70'
+                        : 'text-muted-foreground'
+                    )}
+                  >
+                    {versionCount}
+                  </Text>
+                </View>
+              )}
+            </View>
+              </>
             )}
           </View>
           <View
@@ -431,7 +468,7 @@ export function FiaPericopeList({
       if (questIdToDownload) {
         const questIdsToClear = discoveryState.discoveredIds.questIds;
 
-        syncCallbackService.registerCallback(questIdToDownload, async () => {
+        const clearAndInvalidate = async () => {
           setDownloadingQuestIds((prev) => {
             const next = new Set(prev);
             questIdsToClear.forEach((id) => next.delete(id));
@@ -445,7 +482,12 @@ export function FiaPericopeList({
             queryKey: ['fia-pericope-quests', 'cloud', projectId, book.id]
           });
           await queryClient.invalidateQueries({ queryKey: ['assets'] });
-        });
+        };
+
+        syncCallbackService.registerCallback(
+          questIdToDownload,
+          clearAndInvalidate
+        );
       }
     }
   });
@@ -593,24 +635,6 @@ export function FiaPericopeList({
       return;
     }
 
-    const hasCloudContent = group.versions.some(
-      (v) => v.hasSyncedCopy || v.source === 'cloud'
-    );
-
-    if (hasCloudContent) {
-      setPickerPericopeId(pericope.id);
-      return;
-    }
-
-    // Only local versions exist — navigate directly to the user's own
-    const ownVersion = group.versions.find(
-      (v) => v.creator_id === currentUser.id
-    );
-    if (ownVersion) {
-      await navigateToVersion(ownVersion);
-      return;
-    }
-
     setPickerPericopeId(pericope.id);
   };
 
@@ -624,11 +648,6 @@ export function FiaPericopeList({
       isCreatingThis: creatingPericopeId === pericope.id
     };
   });
-
-  // Check if the current user already has any version in the picker group
-  const userVersion = pickerGroup?.versions.find(
-    (v) => v.creator_id === currentUser?.id
-  );
 
   return (
     <View className="flex-1">
@@ -705,7 +724,7 @@ export function FiaPericopeList({
             />
           ))}
 
-          {canCreateNew && !userVersion && pickerPericope && (
+          {canCreateNew && pickerPericope && (
             <Pressable
               onPress={() => createNewVersion(pickerPericope)}
               className="flex-row items-center gap-3 rounded-lg border border-dashed border-border p-4 active:opacity-70"
@@ -715,7 +734,7 @@ export function FiaPericopeList({
               </View>
               <View className="flex-1">
                 <Text className="font-semibold text-primary">
-                  Create your own version
+                  Create new version
                 </Text>
                 <Text className="text-sm text-muted-foreground">
                   Start a new recording for this pericope

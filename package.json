@@ -22,6 +22,7 @@
     "clean-rebuild:ios": "npm run clean-install && npx expo prebuild --platform ios --clean",
     "clean-rebuild": "npm run clean-install && npx expo prebuild --clean",
     "android": "expo run:android --variant debugOptimized --device",
+    "android:memory": "NODE_OPTIONS=--max-old-space-size=8192 expo run:android --variant debugOptimized --device",
     "android:multi": "npm run start",
     "android:device": "expo run:android --device --no-bundler",
     "android:preview": "npx cross-env EXPO_PUBLIC_APP_VARIANT=preview expo run:android --device --variant release",

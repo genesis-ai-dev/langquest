@@ -4,6 +4,7 @@ import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from 'lucide-react-native';
 import { MotiView } from 'moti';
 import * as React from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
+import { ScrollView as GHScrollView } from 'react-native-gesture-handler';
 import { Icon } from './icon';
 
 export function getOptionFromValue(value?: string | null): Option {
@@ -143,7 +144,13 @@ const SelectContent = React.forwardRef<
                     'h-[var(--radix-select-trigger-height)] w-full min-w-[var(--radix-select-trigger-width)]'
                 )}
               >
-                {children}
+                {Platform.OS === 'web' ? (
+                  children
+                ) : (
+                  <GHScrollView style={{ maxHeight: 300 }} nestedScrollEnabled>
+                    {children}
+                  </GHScrollView>
+                )}
               </SelectPrimitive.Viewport>
               <SelectScrollDownButton />
             </SelectPrimitive.Content>
