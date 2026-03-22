@@ -191,6 +191,29 @@ export function useSingleAudioController({
     [audioContext, checkpointStore]
   );
 
+  const seekCurrentAssetTo = React.useCallback(
+    async (positionMs: number) => {
+      const currentAssetId = audioContext.currentAudioId;
+      if (
+        !currentAssetId ||
+        (!audioContext.isPlaying && !audioContext.isPaused) ||
+        !Number.isFinite(positionMs)
+      ) {
+        return;
+      }
+
+      const safeDuration = Math.max(0, audioContext.duration);
+      const nextPosition =
+        safeDuration > 0
+          ? Math.max(0, Math.min(Math.floor(positionMs), safeDuration))
+          : Math.max(0, Math.floor(positionMs));
+
+      await audioContext.setPosition(nextPosition);
+      checkpointStore.saveAssetCheckpoint(currentAssetId, nextPosition, safeDuration);
+    },
+    [audioContext, checkpointStore]
+  );
+
   const rewindCurrentAsset = React.useCallback(
     async (stepMs?: number) => {
       const effectiveStep =
@@ -217,6 +240,7 @@ export function useSingleAudioController({
     playAsset,
     toggleCurrentAssetPlayPause,
     stopAndResetCurrentAsset,
+    seekCurrentAssetTo,
     rewindCurrentAsset,
     forwardCurrentAsset
   };

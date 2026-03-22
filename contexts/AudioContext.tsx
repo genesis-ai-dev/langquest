@@ -169,11 +169,12 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   };
 
   const setPosition = async (newPosition: number) => {
-    if (!playerRef.current || (!isPlaying && !isPaused)) {
+    if (!playerRef.current?.isLoaded) {
       return;
     }
 
-    const clampedPosition = Math.max(0, Math.min(newPosition, duration));
+    const currentDuration = durationSharedRef.current.value;
+    const clampedPosition = Math.max(0, Math.min(newPosition, currentDuration));
 
     const isSequence = sequenceQueue.current.length > 1;
     if (!isSequence) {
@@ -211,7 +212,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const wasPaused = isPaused;
+    const wasPaused = playerRef.current?.paused ?? false;
     clearPositionInterval();
     playerListenerRef.current?.remove();
     playerListenerRef.current = null;
@@ -227,21 +228,23 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
     await playSound(targetUri, currentAudioId || undefined, true);
 
-    if (playerRef.current?.isLoaded) {
-      playerRef.current.seekTo(targetSegmentPositionMs / 1000);
-    } else if (playerRef.current) {
+    // playSound re-assigns playerRef.current; cast to break TS narrowing from the null assignment above.
+    const newPlayer = playerRef.current as AudioPlayer | null;
+    if (newPlayer?.isLoaded) {
+      newPlayer.seekTo(targetSegmentPositionMs / 1000);
+    } else if (newPlayer) {
       const seekInterval = setInterval(() => {
-        if (!playerRef.current?.isLoaded) {
+        if (!newPlayer.isLoaded) {
           return;
         }
         clearInterval(seekInterval);
-        playerRef.current.seekTo(targetSegmentPositionMs / 1000);
+        newPlayer.seekTo(targetSegmentPositionMs / 1000);
       }, 20);
       setTimeout(() => clearInterval(seekInterval), 2500);
     }
 
-    if (wasPaused && playerRef.current) {
-      playerRef.current.pause();
+    if (wasPaused && newPlayer) {
+      newPlayer.pause();
       setIsPlaying(false);
       setIsPaused(true);
       clearPositionInterval();
