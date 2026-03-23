@@ -4,18 +4,18 @@ import {
   downloadFile,
   ensureDir,
   fileExists,
-  getCacheDirectory,
+  getDocumentDirectory,
   getFileSize
 } from '@/utils/fileUtils';
 
 const CACHE_DIR_NAME = 'audio_cache';
-const CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 14; // 14 days
+const CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 365; // 1 year
 
 let cacheDirUri: string | null = null;
 
 function getCacheDirUri(): string {
   if (!cacheDirUri) {
-    cacheDirUri = `${getCacheDirectory()}/${CACHE_DIR_NAME}`;
+    cacheDirUri = `${getDocumentDirectory()}/${CACHE_DIR_NAME}`;
     ensureDir(cacheDirUri);
   }
   return cacheDirUri;
@@ -94,7 +94,7 @@ export async function getCachedAudioUri(remoteUrl: string): Promise<string> {
 }
 
 /**
- * Removes cached entries older than 14 days and deletes their files.
+ * Removes cached entries older than 1 year and deletes their files.
  * Safe to call at any time.
  */
 export function expireAudioCache(): void {

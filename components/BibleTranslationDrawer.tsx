@@ -76,17 +76,29 @@ function TranslationCheckboxRow({
       </View>
       <View className="flex-row items-center gap-1.5">
         {bible.hasText && (
-          <View className="rounded-full bg-secondary/50 px-1.5 py-0.5">
+          <View className="flex-row items-center gap-0.5 rounded-full bg-secondary/50 px-1.5 py-0.5">
             <Icon as={TypeIcon} size={10} className="text-muted-foreground" />
+            {bible.textTestaments &&
+              bible.textTestaments.length === 1 && (
+                <Text className="text-[9px] text-muted-foreground">
+                  {bible.textTestaments[0]}
+                </Text>
+              )}
           </View>
         )}
         {bible.hasAudio && (
-          <View className="rounded-full bg-secondary/50 px-1.5 py-0.5">
+          <View className="flex-row items-center gap-0.5 rounded-full bg-secondary/50 px-1.5 py-0.5">
             <Icon
               as={HeadphonesIcon}
               size={10}
               className="text-muted-foreground"
             />
+            {bible.audioTestaments &&
+              bible.audioTestaments.length === 1 && (
+                <Text className="text-[9px] text-muted-foreground">
+                  {bible.audioTestaments[0]}
+                </Text>
+              )}
           </View>
         )}
       </View>
@@ -254,6 +266,8 @@ export function BibleTranslationDrawer({
             vname: saved.vname,
             hasText: saved.hasText,
             hasAudio: saved.hasAudio,
+            textTestaments: saved.textTestaments ?? [],
+            audioTestaments: saved.audioTestaments ?? [],
             iso: saved.iso,
             languageName: saved.languageName
           });
@@ -284,6 +298,8 @@ export function BibleTranslationDrawer({
       vname: b.vname,
       hasText: b.hasText,
       hasAudio: b.hasAudio,
+      textTestaments: b.textTestaments,
+      audioTestaments: b.audioTestaments,
       iso: b.iso,
       languageName: b.languageName
     }));

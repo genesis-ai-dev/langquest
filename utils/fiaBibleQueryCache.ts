@@ -2,7 +2,7 @@ import { defaultShouldDehydrateQuery } from '@tanstack/query-core';
 import type { Query, QueryKey } from '@tanstack/query-core';
 
 /** Disk + in-memory cache window for FIA / Bible Brain API text & audio payloads */
-export const FIA_BIBLE_API_QUERY_CACHE_MS = 1000 * 60 * 60 * 24 * 14;
+export const FIA_BIBLE_API_QUERY_CACHE_MS = 1000 * 60 * 60 * 24 * 365;
 
 /** Keep in memory slightly longer than `maxAge` so hydration is not immediately GC'd */
 const FIA_BIBLE_API_GC_BUFFER_MS = 1000 * 60 * 60;

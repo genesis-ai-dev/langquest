@@ -57,12 +57,16 @@ export interface NavigationStackItem {
 export type Language = typeof language.$inferSelect;
 export type Theme = 'light' | 'dark' | 'system';
 
+export type Testament = 'OT' | 'NT';
+
 export interface BibleDownloadTranslation {
   bibleId: string;
   name: string;
   vname: string | null;
   hasText: boolean;
   hasAudio: boolean;
+  textTestaments: Testament[];
+  audioTestaments: Testament[];
   iso: string;
   languageName: string;
 }

@@ -39,6 +39,16 @@ import { Dropdown } from 'react-native-element-dropdown';
 const EMPTY_STRING_ARRAY: string[] = [];
 const EMPTY_DOWNLOAD_TRANSLATIONS: BibleDownloadTranslation[] = [];
 
+const NT_BOOKS = new Set([
+  'MAT', 'MRK', 'LUK', 'JHN', 'ACT', 'ROM', '1CO', '2CO', 'GAL', 'EPH',
+  'PHP', 'COL', '1TH', '2TH', '1TI', '2TI', 'TIT', 'PHM', 'HEB', 'JAS',
+  '1PE', '2PE', '1JN', '2JN', '3JN', 'JUD', 'REV',
+]);
+
+function guessTestament(bookId: string): 'OT' | 'NT' {
+  return NT_BOOKS.has(bookId.toUpperCase()) ? 'NT' : 'OT';
+}
+
 // --- Verse highlighting from timestamps ---
 
 function verseKeyFromTimestamps(
@@ -191,6 +201,8 @@ interface DropdownItem {
   label: string;
   hasText: boolean;
   hasAudio: boolean;
+  textTestaments: string[];
+  audioTestaments: string[];
   isRecent: boolean;
   languageName: string;
 }
@@ -217,6 +229,8 @@ function TranslationPicker({
       label: formatBibleLabel(b),
       hasText: b.hasText,
       hasAudio: b.hasAudio,
+      textTestaments: b.textTestaments ?? [],
+      audioTestaments: b.audioTestaments ?? [],
       isRecent: recentSet.has(b.id),
       languageName: b.languageName || b.iso
     }));
@@ -370,21 +384,31 @@ function TranslationPicker({
                 </View>
                 <View className="ml-2 flex-row gap-1">
                   {item.hasText && (
-                    <View className="rounded-full bg-secondary/50 px-1.5 py-0.5">
+                    <View className="flex-row items-center gap-0.5 rounded-full bg-secondary/50 px-1.5 py-0.5">
                       <Icon
                         as={TypeIcon}
                         size={10}
                         className="text-muted-foreground"
                       />
+                      {item.textTestaments.length === 1 && (
+                        <Text className="text-[9px] text-muted-foreground">
+                          {item.textTestaments[0]}
+                        </Text>
+                      )}
                     </View>
                   )}
                   {item.hasAudio && (
-                    <View className="rounded-full bg-secondary/50 px-1.5 py-0.5">
+                    <View className="flex-row items-center gap-0.5 rounded-full bg-secondary/50 px-1.5 py-0.5">
                       <Icon
                         as={HeadphonesIcon}
                         size={10}
                         className="text-muted-foreground"
                       />
+                      {item.audioTestaments.length === 1 && (
+                        <Text className="text-[9px] text-muted-foreground">
+                          {item.audioTestaments[0]}
+                        </Text>
+                      )}
                     </View>
                   )}
                 </View>
@@ -492,6 +516,8 @@ export function BibleReaderContent({
         vname: t.vname,
         hasText: t.hasText,
         hasAudio: t.hasAudio,
+        textTestaments: t.textTestaments ?? [],
+        audioTestaments: t.audioTestaments ?? [],
         iso: t.iso,
         languageName: t.languageName
       }));
@@ -724,16 +750,34 @@ export function BibleReaderContent({
               activeVerseKey={activeVerseKey}
               onVerseLayout={handleVerseLayout}
             />
-          ) : selectedBible?.hasText ? (
-            <View className="items-center justify-center p-8">
-              <Text className="text-muted-foreground">
-                No text found for this passage.
-              </Text>
-            </View>
           ) : (
             <View className="items-center justify-center p-8">
-              <Text className="text-muted-foreground">
-                This translation has audio only.
+              <Text className="text-center text-muted-foreground">
+                {(() => {
+                  const testament = fiaBookId ? guessTestament(fiaBookId) : null;
+                  const testaments = selectedBible?.textTestaments ?? [];
+                  if (
+                    testament &&
+                    testaments.length > 0 &&
+                    !testaments.includes(testament)
+                  ) {
+                    const available = testaments.join(' & ');
+                    return `This translation only has text for the ${available === 'OT' ? 'Old' : available === 'NT' ? 'New' : available} Testament.`;
+                  }
+                  if (!selectedBible?.hasText) {
+                    const audioTs = selectedBible?.audioTestaments ?? [];
+                    if (
+                      testament &&
+                      audioTs.length > 0 &&
+                      !audioTs.includes(testament)
+                    ) {
+                      const available = audioTs.join(' & ');
+                      return `This translation only has audio for the ${available === 'OT' ? 'Old' : available === 'NT' ? 'New' : available} Testament.`;
+                    }
+                    return 'This translation has audio only.';
+                  }
+                  return 'No text found for this passage.';
+                })()}
               </Text>
             </View>
           )}

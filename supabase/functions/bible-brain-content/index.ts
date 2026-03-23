@@ -35,12 +35,16 @@ interface GetContentRequest {
 
 type RequestBody = ListBiblesRequest | ListLanguagesRequest | GetContentRequest;
 
+type Testament = 'OT' | 'NT';
+
 interface BibleEntry {
   id: string;
   name: string;
   vname: string | null;
   hasText: boolean;
   hasAudio: boolean;
+  textTestaments: Testament[];
+  audioTestaments: Testament[];
   iso: string;
   languageName: string;
 }
@@ -133,6 +137,20 @@ function pickBestFileset(
   return null;
 }
 
+// deno-lint-ignore no-explicit-any
+function coveredTestaments(filesets: any[], types: string[]): Testament[] {
+  const result: Testament[] = [];
+  for (const testament of ['OT', 'NT'] as const) {
+    const valid = TESTAMENT_SIZES[testament];
+    const has = types.some((t) =>
+      // deno-lint-ignore no-explicit-any
+      filesets.some((f: any) => f.type === t && valid.includes(f.size))
+    );
+    if (has) result.push(testament);
+  }
+  return result;
+}
+
 // --- Action: list-bibles ---
 
 async function handleListBibles(iso639_3: string): Promise<Response> {
@@ -153,15 +171,17 @@ async function handleListBibles(iso639_3: string): Promise<Response> {
   // deno-lint-ignore no-explicit-any
   const bibles: BibleEntry[] = (biblesData.data ?? []).map((b: any) => {
     const filesets = b.filesets?.['dbp-prod'] ?? [];
-    const textId = pickBestFileset(filesets, TEXT_TYPES);
-    const audioId = pickBestFileset(filesets, AUDIO_TYPES);
+    const textTestaments = coveredTestaments(filesets, TEXT_TYPES);
+    const audioTestaments = coveredTestaments(filesets, AUDIO_TYPES);
 
     return {
       id: b.abbr,
       name: b.name ?? '',
       vname: b.vname ?? null,
-      hasText: textId !== null,
-      hasAudio: audioId !== null,
+      hasText: textTestaments.length > 0,
+      hasAudio: audioTestaments.length > 0,
+      textTestaments,
+      audioTestaments,
       iso: b.iso ?? iso639_3,
       languageName: b.language || b.autonym || langName || b.iso || iso639_3
     };

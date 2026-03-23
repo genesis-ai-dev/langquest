@@ -8,12 +8,16 @@ import { useQuery } from '@tanstack/react-query';
 
 // --- Types matching the edge function response ---
 
+export type Testament = 'OT' | 'NT';
+
 export interface BibleBrainBible {
   id: string;
   name: string;
   vname: string | null;
   hasText: boolean;
   hasAudio: boolean;
+  textTestaments: Testament[];
+  audioTestaments: Testament[];
   iso: string;
   languageName: string;
 }
