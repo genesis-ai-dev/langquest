@@ -17,6 +17,20 @@ export async function lookupSourceLanguoidId(
   projectId: string
 ): Promise<string | null> {
   try {
+    const row = await system.db.query.project_language_link.findFirst({
+      where: and(
+        eq(project_language_link.project_id, projectId),
+        eq(project_language_link.language_type, 'source'),
+        eq(project_language_link.active, true)
+      ),
+      columns: { languoid_id: true }
+    });
+    if (row?.languoid_id) return row.languoid_id;
+  } catch {
+    // Fall through to cloud
+  }
+
+  try {
     const { data, error } = await system.supabaseConnector.client
       .from('project_language_link')
       .select('languoid_id')
@@ -27,20 +41,6 @@ export async function lookupSourceLanguoidId(
       .maybeSingle();
 
     if (!error && data) return data.languoid_id;
-  } catch {
-    // Fall through to local
-  }
-
-  try {
-    const row = await system.db.query.project_language_link.findFirst({
-      where: and(
-        eq(project_language_link.project_id, projectId),
-        eq(project_language_link.language_type, 'source'),
-        eq(project_language_link.active, true)
-      ),
-      columns: { languoid_id: true }
-    });
-    if (row?.languoid_id) return row.languoid_id;
   } catch {
     // No result
   }
