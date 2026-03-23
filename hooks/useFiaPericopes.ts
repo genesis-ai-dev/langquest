@@ -4,8 +4,10 @@
  * Preserves ALL distinct quest versions per pericope (different creators).
  */
 
+import { useAuth } from '@/contexts/AuthContext';
 import { profile, quest } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
+import { useLocalStore } from '@/store/localStore';
 import { normalizeUuid } from '@/utils/uuidUtils';
 import type { HybridDataSource } from '@/views/new/useHybridData';
 import { useQuery } from '@tanstack/react-query';
@@ -24,6 +26,7 @@ export interface FiaPericopeQuest {
   creator_id: string | null;
   created_at: string;
   creatorName?: string;
+  visible: boolean;
 }
 
 export interface FiaPericopeGroup {
@@ -39,6 +42,7 @@ interface QuestWithPericopeMeta {
   quest_created_at: string;
   quest_download_profiles: string[] | null;
   quest_creator_id: string | null;
+  quest_visible: boolean;
   pericope_id: string;
 }
 
@@ -78,7 +82,8 @@ async function fetchLocalPericopes(
       created_at: true,
       download_profiles: true,
       metadata: true,
-      creator_id: true
+      creator_id: true,
+      visible: true
     }
   });
 
@@ -119,6 +124,7 @@ async function fetchLocalPericopes(
         quest_created_at: createdAt,
         quest_download_profiles: parsedProfiles,
         quest_creator_id: q.creator_id ?? null,
+        quest_visible: q.visible ?? true,
         pericope_id: meta.fia.pericopeId
       } satisfies QuestWithPericopeMeta;
     })
@@ -132,7 +138,9 @@ async function fetchCloudPericopes(
   try {
     const { data, error } = await system.supabaseConnector.client
       .from('quest')
-      .select('id, name, created_at, download_profiles, metadata, creator_id')
+      .select(
+        'id, name, created_at, download_profiles, metadata, creator_id, visible'
+      )
       .eq('project_id', projectId)
       .not('metadata', 'is', null);
 
@@ -150,6 +158,7 @@ async function fetchCloudPericopes(
         quest_created_at: row.created_at ?? new Date().toISOString(),
         quest_download_profiles: row.download_profiles as string[] | null,
         quest_creator_id: (row.creator_id as string) ?? null,
+        quest_visible: (row.visible as boolean) ?? true,
         pericope_id: meta.fia.pericopeId
       });
     }
@@ -194,18 +203,21 @@ interface DeduplicatedVersion {
   download_profiles?: string[] | null;
   created_at: string;
   creator_id: string | null;
+  visible: boolean;
 }
 
 /**
  * Groups quest results by pericopeId, keeping all distinct quest IDs.
  * Same quest ID appearing from both local and cloud = one entry with merged sources.
+ * Filters out invisible versions when showHiddenContent is false.
  */
 function processPericopeResults(
-  questResults: QuestWithPericopeMeta[]
+  questResults: QuestWithPericopeMeta[],
+  showHiddenContent: boolean,
+  currentUserId: string | null
 ): FiaPericopeGroup[] {
   if (questResults.length === 0) return [];
 
-  // First: dedup by normalized quest ID (merge sources for same quest)
   const questMap = new Map<string, DeduplicatedVersion>();
 
   for (const q of questResults) {
@@ -220,11 +232,11 @@ function processPericopeResults(
         sources: new Set([q.quest_source]),
         download_profiles: q.quest_download_profiles,
         created_at: q.quest_created_at,
-        creator_id: q.quest_creator_id
+        creator_id: q.quest_creator_id,
+        visible: q.quest_visible
       });
     } else {
       existing.sources.add(q.quest_source);
-      // Prefer synced/local download_profiles over cloud
       if (
         getSourcePriority(q.quest_source) >
         Math.max(...Array.from(existing.sources).map(getSourcePriority))
@@ -234,7 +246,6 @@ function processPericopeResults(
     }
   }
 
-  // Second: group by pericopeId
   const pericopeGroups = new Map<string, DeduplicatedVersion[]>();
 
   for (const v of questMap.values()) {
@@ -243,41 +254,51 @@ function processPericopeResults(
     pericopeGroups.set(v.pericopeId, group);
   }
 
-  // Third: build output groups, sorting versions by priority then date
-  return Array.from(pericopeGroups.entries()).map(([pericopeId, versions]) => {
-    const mapped: FiaPericopeQuest[] = versions
-      .map((v) => ({
-        id: v.id,
-        name: v.name,
-        pericopeId: v.pericopeId,
-        source: (v.sources.has('synced')
-          ? 'synced'
-          : v.sources.has('local')
-            ? 'local'
-            : 'cloud') as HybridDataSource,
-        hasLocalCopy: v.sources.has('local'),
-        hasSyncedCopy: v.sources.has('synced'),
-        download_profiles: v.download_profiles,
-        creator_id: v.creator_id,
-        created_at: v.created_at
-      }))
-      .sort((a, b) => {
-        const aPriority = getSourcePriority(a.source);
-        const bPriority = getSourcePriority(b.source);
-        if (aPriority !== bPriority) return bPriority - aPriority;
-        return b.created_at.localeCompare(a.created_at);
-      });
+  return Array.from(pericopeGroups.entries())
+    .map(([pericopeId, versions]) => {
+      const mapped: FiaPericopeQuest[] = versions
+        .filter(
+          (v) =>
+            showHiddenContent || v.visible || v.creator_id === currentUserId
+        )
+        .map((v) => ({
+          id: v.id,
+          name: v.name,
+          pericopeId: v.pericopeId,
+          source: (v.sources.has('synced')
+            ? 'synced'
+            : v.sources.has('local')
+              ? 'local'
+              : 'cloud') as HybridDataSource,
+          hasLocalCopy: v.sources.has('local'),
+          hasSyncedCopy: v.sources.has('synced'),
+          download_profiles: v.download_profiles,
+          creator_id: v.creator_id,
+          created_at: v.created_at,
+          visible: v.visible
+        }))
+        .sort((a, b) => {
+          const aPriority = getSourcePriority(a.source);
+          const bPriority = getSourcePriority(b.source);
+          if (aPriority !== bPriority) return bPriority - aPriority;
+          return b.created_at.localeCompare(a.created_at);
+        });
 
-    return {
-      pericopeId,
-      versions: mapped,
-      primary: mapped[0]!
-    };
-  });
+      if (mapped.length === 0) return null;
+
+      return {
+        pericopeId,
+        versions: mapped,
+        primary: mapped[0]!
+      };
+    })
+    .filter((g): g is FiaPericopeGroup => g !== null);
 }
 
 export function useFiaPericopes(projectId: string, bookId: string) {
   const isOnline = useNetworkStatus();
+  const showHiddenContent = useLocalStore((s) => s.showHiddenContent);
+  const { currentUser } = useAuth();
 
   const {
     data: localResults = [],
@@ -297,11 +318,14 @@ export function useFiaPericopes(projectId: string, bookId: string) {
     staleTime: 60000
   });
 
-  // Process quest results into grouped pericopes, then attach creator names
   const pericopeGroups = React.useMemo(() => {
     const allResults = [...localResults, ...cloudResults];
-    return processPericopeResults(allResults);
-  }, [localResults, cloudResults]);
+    return processPericopeResults(
+      allResults,
+      showHiddenContent,
+      currentUser?.id ?? null
+    );
+  }, [localResults, cloudResults, showHiddenContent, currentUser?.id]);
 
   // Batch-fetch creator names
   const creatorIds = React.useMemo(() => {
