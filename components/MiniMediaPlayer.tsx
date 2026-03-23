@@ -53,11 +53,17 @@ export const MiniMediaPlayer = React.memo(function MiniMediaPlayer({
 }: MiniMediaPlayerProps) {
   const isActive = isPlaying || isPaused;
   const assetName = currentAssetName?.trim() || 'No audio selected';
+  const hasKnownDuration = durationMs > 0;
   const maxDuration = durationMs > 0 ? durationMs : 1;
   const clampedPosition = Math.max(0, Math.min(positionMs, maxDuration));
 
   const [dragPosition, setDragPosition] = React.useState<number | null>(null);
   const displayPosition = dragPosition ?? clampedPosition;
+  const displayPositionLabel =
+    !hasKnownDuration && !isActive ? '--:--' : formatTime(displayPosition);
+  const displayDurationLabel = hasKnownDuration
+    ? formatTime(durationMs)
+    : '--:--';
 
   return (
     <View
@@ -85,10 +91,10 @@ export const MiniMediaPlayer = React.memo(function MiniMediaPlayer({
 
       <View className="mt-1 flex-row items-center justify-between">
         <Text className="text-xs text-muted-foreground">
-          {formatTime(displayPosition)}
+          {displayPositionLabel}
         </Text>
         <Text className="text-xs text-muted-foreground">
-          {formatTime(durationMs)}
+          {displayDurationLabel}
         </Text>
       </View>
 

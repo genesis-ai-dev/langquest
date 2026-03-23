@@ -1528,6 +1528,7 @@ const RecordingView = () => {
   const showSingleControls =
     !showPlayAllControls &&
     !!audioContext.currentAudioId &&
+    !!currentSingleAssetName &&
     (audioContext.isPlaying || audioContext.isPaused);
   const isIndividualPlayerActive = showSingleControls;
   const isPlayAllPlayerActive = showPlayAllControls || isPlayAllRunning;
@@ -3351,7 +3352,9 @@ const RecordingView = () => {
           {fiaPericopeId && (
             <Pressable
               className="h-10 w-10 items-center justify-center rounded-full bg-primary shadow-sm"
+              disabled={isPlayAllPlayerActive}
               onPress={() => setShowFiaTextDrawer(true)}
+              style={isPlayAllPlayerActive ? { opacity: 0.5 } : undefined}
             >
               <Icon
                 as={BookOpenIcon}

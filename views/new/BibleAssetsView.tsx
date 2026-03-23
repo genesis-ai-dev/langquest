@@ -3816,7 +3816,7 @@ export default function BibleAssetsView() {
             <Button
               variant="ghost"
               size="icon"
-              disabled={isRefreshing}
+              disabled={isRefreshing || isPlayAllPlayerActive}
               onPress={async () => {
                 setIsRefreshing(true);
                 console.log('🔄 Manually refreshing assets queries...');
@@ -3864,13 +3864,13 @@ export default function BibleAssetsView() {
               <Button
                 variant="ghost"
                 size="icon"
-                // className="border-[1.5px] border-primary"
                 onPress={() => {
                   setNewLabelSelectorState({
                     isOpen: true
                   });
                 }}
                 disabled={
+                  isPlayAllPlayerActive ||
                   !isOnline ||
                   verseCount === 0 ||
                   getAvailableVerses().length === 0
@@ -3882,7 +3882,9 @@ export default function BibleAssetsView() {
             {fiaPericopeId && (
               <Pressable
                 className="h-10 w-10 items-center justify-center rounded-full bg-primary shadow-sm"
+                disabled={isPlayAllPlayerActive}
                 onPress={() => setShowFiaTextDrawer(true)}
+                style={isPlayAllPlayerActive ? { opacity: 0.5 } : undefined}
               >
                 <Icon
                   as={BookOpenIcon}

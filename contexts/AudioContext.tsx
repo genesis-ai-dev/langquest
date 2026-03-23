@@ -192,7 +192,10 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     for (let idx = 0; idx < segmentDurations.current.length; idx++) {
       const segDuration = Math.max(0, segmentDurations.current[idx] ?? 0);
       const end = accumulated + segDuration;
-      if (clampedPosition <= end || idx === segmentDurations.current.length - 1) {
+      if (
+        clampedPosition <= end ||
+        idx === segmentDurations.current.length - 1
+      ) {
         targetSegmentIndex = idx;
         targetSegmentPositionMs = Math.max(
           0,

@@ -54,7 +54,9 @@ export function CheckpointMediaPlayer({
       getAssetCheckpoint: (assetId: string) => {
         const { bibleAudioPositions } = useLocalStore.getState();
         const position = bibleAudioPositions[assetId] ?? 0;
-        return Number.isFinite(position) ? Math.max(0, Math.floor(position)) : 0;
+        return Number.isFinite(position)
+          ? Math.max(0, Math.floor(position))
+          : 0;
       },
       clearAssetCheckpoint: (assetId: string) => {
         const { setBibleAudioPosition } = useLocalStore.getState();
@@ -96,7 +98,10 @@ export function CheckpointMediaPlayer({
   const lastPersistPositionRef = React.useRef(0);
 
   const persistSnapshot = React.useCallback(
-    (reason: 'unmount' | 'app-background' | 'autosave' | 'pause', force = false) => {
+    (
+      reason: 'unmount' | 'app-background' | 'autosave' | 'pause',
+      force = false
+    ) => {
       if (!checkpointKey) return;
 
       const snapshot = playbackSnapshotRef.current;
@@ -110,7 +115,8 @@ export function CheckpointMediaPlayer({
         const movedEnough =
           Math.abs(snapshot.position - lastPersistPositionRef.current) >= 1000;
         const now = Date.now();
-        const waitedEnough = now - lastPersistAtRef.current >= CHECKPOINT_AUTOSAVE_MS;
+        const waitedEnough =
+          now - lastPersistAtRef.current >= CHECKPOINT_AUTOSAVE_MS;
         if (!movedEnough || !waitedEnough) return;
       }
 

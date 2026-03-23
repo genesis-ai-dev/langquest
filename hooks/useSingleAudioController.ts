@@ -50,7 +50,9 @@ export function useSingleAudioController({
 }: UseSingleAudioControllerOptions) {
   const lastSeekActionAtRef = React.useRef(0);
   const effectiveSeekStepMs =
-    typeof seekStepMs === 'number' && Number.isFinite(seekStepMs) && seekStepMs > 0
+    typeof seekStepMs === 'number' &&
+    Number.isFinite(seekStepMs) &&
+    seekStepMs > 0
       ? seekStepMs
       : SINGLE_SEEK_STEP_MS;
 
@@ -148,11 +150,7 @@ export function useSingleAudioController({
       await audioContext.resumeSound();
       onCurrentAssetChange?.(currentAssetId);
     }
-  }, [
-    audioContext,
-    checkpointStore,
-    onCurrentAssetChange
-  ]);
+  }, [audioContext, checkpointStore, onCurrentAssetChange]);
 
   const stopAndResetCurrentAsset = React.useCallback(async () => {
     const currentAssetId = audioContext.currentAudioId;
@@ -168,7 +166,10 @@ export function useSingleAudioController({
   const seekCurrentAssetBy = React.useCallback(
     async (deltaMs: number) => {
       const currentAssetId = audioContext.currentAudioId;
-      if (!currentAssetId || (!audioContext.isPlaying && !audioContext.isPaused)) {
+      if (
+        !currentAssetId ||
+        (!audioContext.isPlaying && !audioContext.isPaused)
+      ) {
         return;
       }
 
@@ -186,7 +187,11 @@ export function useSingleAudioController({
           : Math.max(0, target);
 
       await audioContext.setPosition(nextPosition);
-      checkpointStore.saveAssetCheckpoint(currentAssetId, nextPosition, safeDuration);
+      checkpointStore.saveAssetCheckpoint(
+        currentAssetId,
+        nextPosition,
+        safeDuration
+      );
     },
     [audioContext, checkpointStore]
   );
@@ -209,7 +214,11 @@ export function useSingleAudioController({
           : Math.max(0, Math.floor(positionMs));
 
       await audioContext.setPosition(nextPosition);
-      checkpointStore.saveAssetCheckpoint(currentAssetId, nextPosition, safeDuration);
+      checkpointStore.saveAssetCheckpoint(
+        currentAssetId,
+        nextPosition,
+        safeDuration
+      );
     },
     [audioContext, checkpointStore]
   );
