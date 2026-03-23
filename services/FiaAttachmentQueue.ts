@@ -177,6 +177,8 @@ async function processItem(item: FiaAttachmentQueueItem) {
   console.log(`[FiaAttachmentQueue] Processing ${pericopeId}...`);
 
   try {
+    ensureDir(`${getDocumentDirectory()}/${FIA_DIR}`);
+
     const data = await fetchPericopeSteps(projectId, pericopeId);
     if (!data) throw new Error('Empty response from edge function');
 
@@ -277,6 +279,7 @@ async function fetchPericopeSteps(
 }
 
 async function downloadImages(urls: string[]) {
+  ensureDir(`${getDocumentDirectory()}/${FIA_DIR}`);
   ensureDir(`${getDocumentDirectory()}/${IMAGES_DIR}`);
   const queue = [...urls];
   const active: Promise<void>[] = [];
