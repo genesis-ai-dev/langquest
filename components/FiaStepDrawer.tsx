@@ -32,7 +32,8 @@ import { useFiaPericopeSteps } from '@/hooks/useFiaPericopeSteps';
 import {
   enqueue as enqueueFiaAttachment,
   isFiaPericopeCached,
-  resolveImageUri
+  resolveImageUri,
+  useFiaAttachmentStatus
 } from '@/services/FiaAttachmentQueue';
 import { cn } from '@/utils/styleUtils';
 import { Ionicons } from '@expo/vector-icons';
@@ -103,11 +104,13 @@ const AUDIO_SEEK_STEP_MS = 10000;
 function StepAudioPlayer({
   audioUrl,
   checkpointKey,
-  title
+  title,
+  isDownloading
 }: {
   audioUrl: string | null;
   checkpointKey: string | null;
   title?: string;
+  isDownloading?: boolean;
 }) {
   return (
     <CheckpointMediaPlayer
@@ -116,6 +119,7 @@ function StepAudioPlayer({
       checkpointKey={checkpointKey}
       audioUris={audioUrl ? [audioUrl] : []}
       seekStepMs={AUDIO_SEEK_STEP_MS}
+      loading={isDownloading}
     />
   );
 }
@@ -884,6 +888,11 @@ export function FiaStepDrawer({
     pericopeId ?? undefined
   );
 
+  const attachmentStatus = useFiaAttachmentStatus(pericopeId);
+  const isAudioDownloading =
+    attachmentStatus?.status === 'pending' ||
+    attachmentStatus?.status === 'downloading';
+
   React.useEffect(() => {
     if (open && pericopeId && projectId && !isFiaPericopeCached(pericopeId)) {
       enqueueFiaAttachment(pericopeId, projectId);
@@ -1141,6 +1150,7 @@ export function FiaStepDrawer({
                       audioUrl={audioUrl}
                       checkpointKey={stepAudioCheckpointKey}
                       title={currentStep?.title}
+                      isDownloading={isAudioDownloading}
                     />
 
                     <DrawerScrollView ref={scrollRef} style={{ flex: 1 }}>

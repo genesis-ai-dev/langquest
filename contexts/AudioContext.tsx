@@ -135,8 +135,12 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     if (playerRef.current) {
       playerListenerRef.current?.remove();
       playerListenerRef.current = null;
-      playerRef.current.pause();
-      playerRef.current.release();
+      try {
+        playerRef.current.pause();
+        playerRef.current.release();
+      } catch {
+        // Native shared object may already be deallocated
+      }
       playerRef.current = null;
     }
 

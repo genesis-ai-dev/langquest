@@ -16,6 +16,7 @@ interface CheckpointMediaPlayerProps {
   seekStepMs?: number;
   className?: string;
   disabled?: boolean;
+  loading?: boolean;
 }
 
 export function CheckpointMediaPlayer({
@@ -24,9 +25,11 @@ export function CheckpointMediaPlayer({
   title,
   seekStepMs,
   className,
-  disabled = false
+  disabled = false,
+  loading: externalLoading = false
 }: CheckpointMediaPlayerProps) {
   const audioContext = useAudio({ stopOnUnmount: false });
+  const [isLoadingAudio, setIsLoadingAudio] = React.useState(false);
 
   const checkpointStore = React.useMemo(
     () => ({
@@ -86,6 +89,19 @@ export function CheckpointMediaPlayer({
     !!checkpointKey &&
     (audioContext.isPlaying || audioContext.isPaused) &&
     audioContext.currentAudioId === checkpointKey;
+
+  React.useEffect(() => {
+    if (isThisActive) {
+      setIsLoadingAudio(false);
+    }
+  }, [isThisActive]);
+
+  const handlePlayPause = React.useCallback(() => {
+    if (!isThisActive) {
+      setIsLoadingAudio(true);
+    }
+    void playAsset(checkpointKey!);
+  }, [isThisActive, playAsset, checkpointKey]);
 
   const playbackSnapshotRef = React.useRef({
     isPlaying: false,
@@ -200,11 +216,12 @@ export function CheckpointMediaPlayer({
       currentAssetName={title ?? 'Audio'}
       isPlaying={isThisActive && audioContext.isPlaying}
       isPaused={isThisActive && audioContext.isPaused}
+      loading={externalLoading || isLoadingAudio}
       positionMs={isThisActive ? audioContext.position : 0}
       durationMs={isThisActive ? audioContext.duration : 0}
       onSeek={(ms) => void seekCurrentAssetTo(ms)}
       onRewind={() => void rewindCurrentAsset()}
-      onPlayPause={() => void playAsset(checkpointKey)}
+      onPlayPause={handlePlayPause}
       onStop={() => void stopAndResetCurrentAsset()}
       onForward={() => void forwardCurrentAsset()}
       disabled={disabled}
