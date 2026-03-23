@@ -1,11 +1,9 @@
 import { getBibleBook } from '@/constants/bibleStructure';
 import { useAuth } from '@/contexts/AuthContext';
-import { quest } from '@/db/drizzleSchema';
 import type { QuestMetadata } from '@/db/drizzleSchemaColumns';
 import { system } from '@/db/powersync/system';
 import { resolveTable } from '@/utils/dbUtils';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { and, eq } from 'drizzle-orm';
 import { useBibleBookCreation } from './useBibleBookCreation';
 
 interface CreateChapterParams {
@@ -49,37 +47,6 @@ export function useBibleChapterCreation() {
       return await system.db.transaction(async (tx) => {
         const questName = `${book.name} ${chapter}`;
 
-        // Check if quest already exists in BOTH tables (more thorough)
-        // This prevents creating duplicates if chapter was published
-        const [existing] = await tx
-          .select()
-          .from(quest)
-          .where(
-            and(
-              eq(quest.project_id, projectId),
-              eq(quest.name, questName),
-              eq(quest.parent_id, bookQuestId)
-            )
-          )
-          .limit(1);
-
-        if (existing) {
-          console.log(`⚠️ Chapter already exists, returning: ${existing.id}`);
-          return {
-            questId: existing.id,
-            questName: existing.name,
-            assetCount: 0,
-            projectId,
-            bookId: bookId
-          };
-        }
-
-        // Create chapter quest with proper parent_id and Bible metadata
-        console.log(
-          `📖 Creating chapter quest: ${questName} (parent: ${bookQuestId})`
-        );
-
-        // Create metadata for Bible chapter identification
         const metadata: QuestMetadata = {
           bible: {
             book: bookId,

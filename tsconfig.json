@@ -4,11 +4,9 @@
     "strict": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./*"],
-      "expo-file-system/next": ["node_modules/expo-file-system/build/next"]
+      "@/*": ["./*"]
     },
-    "noUncheckedIndexedAccess": true,
-    "moduleResolution": "Bundler"
+    "noUncheckedIndexedAccess": true
   },
   "include": [
     "**/*.ts",
@@ -22,6 +20,6 @@
     "llm_supp_files",
     "node_modules",
     "supabase/functions/**/*",
-    "maestro/**/*"
+    ".maestro/**/*"
   ]
 }

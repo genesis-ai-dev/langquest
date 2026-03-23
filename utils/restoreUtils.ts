@@ -1,6 +1,5 @@
 import RNAlert from '@blazejkustra/react-native-alert';
-import * as FileSystem from 'expo-file-system';
-import { StorageAccessFramework } from 'expo-file-system';
+import { Directory, File, Paths } from 'expo-file-system';
 import { Platform } from 'react-native';
 // import * as SQLite from 'expo-sqlite/legacy'; // Removed SQLite import
 import type { System } from '@/db/powersync/system'; // actual System instance type
@@ -140,9 +139,11 @@ async function restoreFromBackup(
   // let backupDb: SQLite.WebSQLDatabase | null = null;
 
   try {
-    // Read available files first
-    const fileUris =
-      await StorageAccessFramework.readDirectoryAsync(backupDirectoryUri);
+    // Read available files first using new Directory API
+    const backupDir = new Directory(backupDirectoryUri);
+    const dirEntries = backupDir.list();
+    // Get file URIs for backward compatibility with rest of the function
+    const fileUris = dirEntries.map((entry) => entry.uri);
     console.log(
       `[restoreFromBackup] Files in backup directory: ${fileUris.join(', ')}`
     );
@@ -164,13 +165,13 @@ async function restoreFromBackup(
     if (options.restoreAudio) {
       // This will always be true now
       console.log('[restoreFromBackup] Starting audio file restore');
-      const localAttachmentsDir =
-        (FileSystem.documentDirectory ?? '') +
-        `${AbstractSharedAttachmentQueue.SHARED_DIRECTORY}/`; // Target shared_attachments
+      const docDir = Paths.document.uri;
+      const localAttachmentsDir = `${docDir}/${AbstractSharedAttachmentQueue.SHARED_DIRECTORY}/`; // Target shared_attachments
       try {
-        await FileSystem.makeDirectoryAsync(localAttachmentsDir, {
-          intermediates: true
-        });
+        const attachmentsDirectory = new Directory(localAttachmentsDir);
+        if (!attachmentsDirectory.exists) {
+          attachmentsDirectory.create({ intermediates: true });
+        }
       } catch (e) {
         console.warn(
           '[restoreFromBackup] Failed to ensure attachments directory, may already exist:',
@@ -184,13 +185,9 @@ async function restoreFromBackup(
       // Report initial progress
       callbacks?.onProgress?.(0, totalFiles);
 
-      for (const [index, fileUri] of fileUris.entries()) {
-        const encoded = fileUri.split('/').pop()!;
-        const decodedSegment = decodeURIComponent(encoded);
-        // Extract the actual filename after the last '/' if present
-        const fileName = decodedSegment.includes('/')
-          ? decodedSegment.substring(decodedSegment.lastIndexOf('/') + 1)
-          : decodedSegment;
+      for (const [index, entry] of dirEntries.entries()) {
+        const fileUri = entry.uri;
+        const fileName = entry.name;
 
         // 1. Extract Asset ID (first 36 chars, should be a UUID)
         if (fileName.length < 36 + 1 + 1 + 1) {
@@ -308,16 +305,10 @@ async function restoreFromBackup(
           }
           const targetLanguageId = projectRecord.target_language_id;
 
-          const contentBase64 = await StorageAccessFramework.readAsStringAsync(
-            fileUri,
-            {
-              encoding: FileSystem.EncodingType.Base64
-            }
-          );
-          const tempFileUri = (FileSystem.cacheDirectory ?? '') + fileName;
-          await FileSystem.writeAsStringAsync(tempFileUri, contentBase64, {
-            encoding: FileSystem.EncodingType.Base64
-          });
+          const sourceFile = new File(fileUri);
+          const tempFile = new File(Paths.cache, fileName);
+          sourceFile.copy(tempFile);
+          const tempFileUri = tempFile.uri;
           // Ensure attachment queues are ready before saving audio
           await system.ensureAttachmentQueuesReady();
           if (!system.permAttachmentQueue) {

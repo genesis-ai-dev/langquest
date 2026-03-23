@@ -22,6 +22,7 @@ interface SliderProps {
   value?: number;
   step?: number;
   onValueChange?: (value: number) => void;
+  onSlidingComplete?: (value: number) => void;
   // Tint color props for compatibility
   minimumTrackTintColor?: string;
   maximumTrackTintColor?: string;
@@ -48,6 +49,7 @@ function Slider({
   value: valueProp,
   step,
   onValueChange,
+  onSlidingComplete,
   minimumTrackTintColor,
   maximumTrackTintColor,
   thumbTintColor,
@@ -121,7 +123,6 @@ function Slider({
 
       let finalValue = newValue;
       if (step && step > 0) {
-        // Use integer arithmetic for step snapping to avoid precision issues
         const stepIndex = Math.round((newValue - min) / step);
         finalValue = stepIndex * step + min;
       }
@@ -133,16 +134,42 @@ function Slider({
     [min, max, step, onValueChange]
   );
 
-  // Stable callback wrapper to call onValueChange from worklets via runOnJS
-  // The ref is accessed on JS thread (inside callOnValueChange), not in the worklet
-  // This avoids Reanimated serialization warnings from modifying ref.current after capture
+  const handleSlidingComplete = React.useCallback(
+    (newValue: number) => {
+      if (!isFinite(newValue)) return;
+
+      let finalValue = newValue;
+      if (step && step > 0) {
+        const stepIndex = Math.round((newValue - min) / step);
+        finalValue = stepIndex * step + min;
+      }
+      const clamped = Math.max(min, Math.min(max, finalValue));
+      if (isFinite(clamped)) {
+        onSlidingComplete?.(clamped);
+      }
+    },
+    [min, max, step, onSlidingComplete]
+  );
+
+  // Stable callback wrappers to call from worklets via runOnJS.
+  // The refs are accessed on JS thread, not in the worklet,
+  // avoiding Reanimated serialization warnings.
   const onValueChangeRef = React.useRef(handleValueChange);
   React.useEffect(() => {
     onValueChangeRef.current = handleValueChange;
   }, [handleValueChange]);
 
+  const onSlidingCompleteRef = React.useRef(handleSlidingComplete);
+  React.useEffect(() => {
+    onSlidingCompleteRef.current = handleSlidingComplete;
+  }, [handleSlidingComplete]);
+
   const callOnValueChange = React.useCallback((value: number) => {
     onValueChangeRef.current(value);
+  }, []);
+
+  const callOnSlidingComplete = React.useCallback((value: number) => {
+    onSlidingCompleteRef.current(value);
   }, []);
 
   // Pan gesture for dragging thumb
@@ -198,7 +225,6 @@ function Slider({
     .onEnd(() => {
       'worklet';
       isDragging.value = false;
-      // Snap to final value (with optional spring animation)
       let finalValue = dragValue.value;
       if (stepShared.value > 0) {
         const stepIndex = Math.round(
@@ -214,6 +240,7 @@ function Slider({
         ? withSpring(finalValue, { overshootClamping: true })
         : finalValue;
       runOnJS(callOnValueChange)(finalValue);
+      runOnJS(callOnSlidingComplete)(finalValue);
     })
     .onFinalize(() => {
       'worklet';
@@ -257,6 +284,7 @@ function Slider({
         ? withSpring(newValue, { overshootClamping: true })
         : newValue;
       runOnJS(callOnValueChange)(newValue);
+      runOnJS(callOnSlidingComplete)(newValue);
     });
 
   // Combined gesture (tap on track, pan on thumb)

@@ -79,7 +79,7 @@ function getBackupDir(): string {
  */
 function getDbPath(): string {
   const docDir = getDocumentDirectory() ?? '';
-  return `${docDir}${DB_FILENAME}`;
+  return `${docDir}/${DB_FILENAME}`;
 }
 
 /**
@@ -422,7 +422,7 @@ export async function restoreFromBackup(
  * Read directory contents (platform-specific)
  * Returns empty array on web since OPFS directory listing would require additional setup
  */
-async function readBackupDirectory(): Promise<string[]> {
+function readBackupDirectory(): string[] {
   if (Platform.OS === 'web') {
     // Web OPFS directory listing not implemented - return empty
     // This means cleanup/recovery functions won't work on web,
@@ -433,16 +433,18 @@ async function readBackupDirectory(): Promise<string[]> {
     return [];
   }
 
-  // Dynamic import for native platforms
-  const FileSystem = await import('expo-file-system');
+  // Use the new expo-file-system API
+  const { Directory } =
+    require('expo-file-system') as typeof import('expo-file-system');
   const backupDir = getBackupDir();
-  const dirInfo = await FileSystem.getInfoAsync(backupDir);
+  const dir = new Directory(backupDir);
 
-  if (!dirInfo.exists) {
+  if (!dir.exists) {
     return [];
   }
 
-  return FileSystem.readDirectoryAsync(backupDir);
+  // dir.list() returns File and Directory instances, extract names
+  return dir.list().map((item) => item.name);
 }
 
 /**
@@ -460,7 +462,7 @@ export async function cleanupOldBackups(
   console.log('[MigrationBackup] Cleaning up old backups...');
 
   try {
-    const files = await readBackupDirectory();
+    const files = readBackupDirectory();
 
     if (files.length === 0) {
       console.log('[MigrationBackup] No backup files to clean');
@@ -496,7 +498,7 @@ export async function cleanupOldBackups(
         file.startsWith(LOCAL_STORE_BACKUP_PREFIX)
       ) {
         try {
-          await deleteIfExists(`${backupDir}${file}`);
+          deleteIfExists(`${backupDir}${file}`);
           deletedCount++;
         } catch (error) {
           console.warn(
@@ -507,7 +509,7 @@ export async function cleanupOldBackups(
       }
     }
 
-    console.log(`[MigrationBackup] ✓ Cleaned up ${deletedCount} old backup(s)`);
+    console.log(`[MigrationBackup] Cleaned up ${deletedCount} old backup(s)`);
   } catch (error) {
     console.warn('[MigrationBackup] Error cleaning up backups:', error);
     // Don't throw - cleanup failure shouldn't break the app
@@ -547,7 +549,7 @@ export async function deleteBackup(backupInfo: BackupInfo): Promise<void> {
  */
 export async function hasValidBackup(): Promise<boolean> {
   try {
-    const files = await readBackupDirectory();
+    const files = readBackupDirectory();
 
     if (files.length === 0) {
       return false;
@@ -573,7 +575,7 @@ export async function hasValidBackup(): Promise<boolean> {
  */
 export async function getMostRecentBackup(): Promise<BackupInfo | null> {
   try {
-    const files = await readBackupDirectory();
+    const files = readBackupDirectory();
 
     if (files.length === 0) {
       return null;

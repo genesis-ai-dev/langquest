@@ -7,7 +7,7 @@ import type { AppView, NavigationStackItem } from '@/store/localStore';
 import { useLocalStore } from '@/store/localStore';
 import { profiler } from '@/utils/profiler';
 import { useCallback, useMemo } from 'react';
-import { useLocalization } from './useLocalization';
+import { useLocalization } from '@/hooks/useLocalization';
 
 export interface NavigationState {
   view: AppView;

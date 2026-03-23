@@ -55,6 +55,7 @@ interface AssetCardProps {
   isHighlighted: boolean; // Visual highlight (recording insertion point)
   isSelectionMode: boolean;
   isPlaying: boolean;
+  playDisabled?: boolean;
   hideButtons?: boolean; // Hide action buttons
   // progress removed - now calculated from SharedValues for 0 re-renders!
   duration?: number; // Duration in milliseconds
@@ -124,6 +125,7 @@ function RecordAssetCardInternal({
   isHighlighted,
   isSelectionMode,
   isPlaying,
+  playDisabled = false,
   hideButtons,
   duration,
   segmentCount,
@@ -287,11 +289,12 @@ function RecordAssetCardInternal({
           </View>
           {/* Play/Pause Button */}
           <TouchableOpacity
+            disabled={playDisabled}
             onPress={handlePlayPress}
             className={cn(
               'ml-2 flex h-7 w-7 items-center justify-center rounded-full',
               themeColors.playButtonBg,
-              themeColors.playButtonActive
+              playDisabled ? 'opacity-40' : themeColors.playButtonActive
             )}
             activeOpacity={0.7}
           >
@@ -399,6 +402,7 @@ export const RecordAssetCard = React.memo(
       prev.isHighlighted === next.isHighlighted &&
       prev.isSelectionMode === next.isSelectionMode &&
       prev.isPlaying === next.isPlaying &&
+      prev.playDisabled === next.playDisabled &&
       prev.hideButtons === next.hideButtons &&
       // prev.progress removed - uses SharedValues now!
       prev.duration === next.duration &&

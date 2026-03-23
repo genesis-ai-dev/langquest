@@ -83,6 +83,7 @@ export default function CorruptedAttachmentsView() {
           {
             text: t('clean'),
             style: 'destructive',
+            isPreferred: true,
             onPress: async () => {
               try {
                 setCleaningIds((prev) => new Set(prev).add(attachmentId));
@@ -137,6 +138,7 @@ export default function CorruptedAttachmentsView() {
       {
         text: t('clean'),
         style: 'destructive',
+        isPreferred: true,
         onPress: async () => {
           try {
             setCleaningAll(true);

@@ -10,11 +10,10 @@
       "distribution": "internal",
       "channel": "development",
       "environment": "development",
-      "developmentClient": true,
       "ios": {
-        "simulator": true,
         "distribution": "store"
-      }
+      },
+      "developmentClient": true
     },
     "preview": {
       "autoIncrement": true,
@@ -27,7 +26,6 @@
     },
     "preview-simulator": {
       "extends": "preview",
-      "withoutCredentials": true,
       "ios": {
         "simulator": true,
         "distribution": "internal"
@@ -40,17 +38,29 @@
     },
     "production-simulator": {
       "extends": "production",
-      "withoutCredentials": true,
       "distribution": "internal",
       "ios": {
         "simulator": true
       }
+    },
+    "development-simulator": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "ios": {
+        "simulator": true
+      },
+      "environment": "development"
     }
   },
   "submit": {
+    "development": {
+      "ios": {
+        "ascAppId": "6760738068"
+      }
+    },
     "preview": {
       "ios": {
-        "ascAppId": "6752446665"
+        "ascAppId": "6755611094"
       }
     },
     "production": {
