@@ -620,9 +620,7 @@ export default function AppDrawer({
                   )}
                 />
                 <View className="flex-1 flex-row items-center gap-1.5">
-                  <Text className="text-xs text-foreground">
-                    FIA content
-                  </Text>
+                  <Text className="text-xs text-foreground">FIA content</Text>
                   {fiaQueueSummary.hasActivity ? (
                     <View className="flex-row items-center gap-1">
                       <ActivityIndicator size={10} color={primaryColor} />

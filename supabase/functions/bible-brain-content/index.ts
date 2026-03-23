@@ -148,8 +148,7 @@ async function handleListBibles(iso639_3: string): Promise<Response> {
 
   const langEntries = langData.data ?? [];
   // deno-lint-ignore no-explicit-any
-  const langName =
-    langEntries[0]?.name || langEntries[0]?.autonym || '';
+  const langName = langEntries[0]?.name || langEntries[0]?.autonym || '';
 
   // deno-lint-ignore no-explicit-any
   const bibles: BibleEntry[] = (biblesData.data ?? []).map((b: any) => {
@@ -181,7 +180,9 @@ async function handleListBibles(iso639_3: string): Promise<Response> {
 
 async function handleListLanguages(search: string): Promise<Response> {
   // deno-lint-ignore no-explicit-any
-  const data: any = await bbFetch(`/languages/search/${encodeURIComponent(search)}`);
+  const data: any = await bbFetch(
+    `/languages/search/${encodeURIComponent(search)}`
+  );
   const items = data.data ?? [];
 
   // deno-lint-ignore no-explicit-any

@@ -717,7 +717,9 @@ export class System {
     });
   }
 
-  private async applyPowerSyncNetworkState(isConnected: boolean): Promise<void> {
+  private async applyPowerSyncNetworkState(
+    isConnected: boolean
+  ): Promise<void> {
     if (!this.initialized) return;
 
     if (!isConnected) {
@@ -761,7 +763,9 @@ export class System {
    */
   private connectAndInitializeInBackground(): void {
     this.ensurePowerSyncNetworkSubscription();
-    void this.applyPowerSyncNetworkState(useNetworkStore.getState().isConnected);
+    void this.applyPowerSyncNetworkState(
+      useNetworkStore.getState().isConnected
+    );
 
     // Initialize attachment queues in background
     // These are needed for audio uploads but not for basic app functionality

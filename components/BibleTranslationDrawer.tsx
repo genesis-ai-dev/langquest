@@ -485,8 +485,7 @@ export function BibleTranslationDrawer({
 
                     {selectedNonProjectLanguages
                       .filter(
-                        (g) =>
-                          !searchedLanguages.some((l) => l.name === g.name)
+                        (g) => !searchedLanguages.some((l) => l.name === g.name)
                       )
                       .map((group) => {
                         const langSelectedCount = countSelectedForLanguage(

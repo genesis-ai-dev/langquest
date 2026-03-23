@@ -250,38 +250,40 @@ function PericopeButton({
                   {pericope.verseRange}
                 </Text>
                 <View className="flex-row items-center gap-1">
-              <Text
-                className={cn(
-                  'text-xxs',
-                  exists ? 'text-card-foreground/70' : 'text-muted-foreground'
-                )}
-              >
-                p{index + 1}
-              </Text>
-              {versionCount > 1 && (
-                <View className="flex-row items-center gap-0.5">
-                  <Icon
-                    as={FileStackIcon}
-                    size={12}
-                    className={
-                      hasSyncedCopy || hasLocalCopy
-                        ? 'text-secondary/70'
-                        : 'text-muted-foreground'
-                    }
-                  />
                   <Text
                     className={cn(
                       'text-xxs',
-                      hasSyncedCopy || hasLocalCopy
-                        ? 'text-secondary/70'
+                      exists
+                        ? 'text-card-foreground/70'
                         : 'text-muted-foreground'
                     )}
                   >
-                    {versionCount}
+                    p{index + 1}
                   </Text>
+                  {versionCount > 1 && (
+                    <View className="flex-row items-center gap-0.5">
+                      <Icon
+                        as={FileStackIcon}
+                        size={12}
+                        className={
+                          hasSyncedCopy || hasLocalCopy
+                            ? 'text-secondary/70'
+                            : 'text-muted-foreground'
+                        }
+                      />
+                      <Text
+                        className={cn(
+                          'text-xxs',
+                          hasSyncedCopy || hasLocalCopy
+                            ? 'text-secondary/70'
+                            : 'text-muted-foreground'
+                        )}
+                      >
+                        {versionCount}
+                      </Text>
+                    </View>
+                  )}
                 </View>
-              )}
-            </View>
               </>
             )}
           </View>

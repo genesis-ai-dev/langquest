@@ -347,10 +347,7 @@ export interface LocalState {
     projectId: string,
     translation: BibleDownloadTranslation
   ) => void;
-  removeBibleDownloadTranslation: (
-    projectId: string,
-    bibleId: string
-  ) => void;
+  removeBibleDownloadTranslation: (projectId: string, bibleId: string) => void;
 
   // FIA attachment queue state
   fiaAttachmentQueue: FiaAttachmentQueueItem[];
@@ -737,8 +734,7 @@ export const useLocalStore = create<LocalState>()(
         })),
       addBibleDownloadTranslation: (projectId, translation) =>
         set((state) => {
-          const existing =
-            state.bibleDownloadTranslations[projectId] ?? [];
+          const existing = state.bibleDownloadTranslations[projectId] ?? [];
           if (existing.some((t) => t.bibleId === translation.bibleId)) {
             return state;
           }
@@ -751,8 +747,7 @@ export const useLocalStore = create<LocalState>()(
         }),
       removeBibleDownloadTranslation: (projectId, bibleId) =>
         set((state) => {
-          const existing =
-            state.bibleDownloadTranslations[projectId] ?? [];
+          const existing = state.bibleDownloadTranslations[projectId] ?? [];
           return {
             bibleDownloadTranslations: {
               ...state.bibleDownloadTranslations,
