@@ -78,12 +78,11 @@ function TranslationCheckboxRow({
         {bible.hasText && (
           <View className="flex-row items-center gap-0.5 rounded-full bg-secondary/50 px-1.5 py-0.5">
             <Icon as={TypeIcon} size={10} className="text-muted-foreground" />
-            {bible.textTestaments &&
-              bible.textTestaments.length === 1 && (
-                <Text className="text-[9px] text-muted-foreground">
-                  {bible.textTestaments[0]}
-                </Text>
-              )}
+            {bible.textTestaments && bible.textTestaments.length === 1 && (
+              <Text className="text-[9px] text-muted-foreground">
+                {bible.textTestaments[0]}
+              </Text>
+            )}
           </View>
         )}
         {bible.hasAudio && (
@@ -93,12 +92,11 @@ function TranslationCheckboxRow({
               size={10}
               className="text-muted-foreground"
             />
-            {bible.audioTestaments &&
-              bible.audioTestaments.length === 1 && (
-                <Text className="text-[9px] text-muted-foreground">
-                  {bible.audioTestaments[0]}
-                </Text>
-              )}
+            {bible.audioTestaments && bible.audioTestaments.length === 1 && (
+              <Text className="text-[9px] text-muted-foreground">
+                {bible.audioTestaments[0]}
+              </Text>
+            )}
           </View>
         )}
       </View>

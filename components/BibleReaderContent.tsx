@@ -40,9 +40,33 @@ const EMPTY_STRING_ARRAY: string[] = [];
 const EMPTY_DOWNLOAD_TRANSLATIONS: BibleDownloadTranslation[] = [];
 
 const NT_BOOKS = new Set([
-  'MAT', 'MRK', 'LUK', 'JHN', 'ACT', 'ROM', '1CO', '2CO', 'GAL', 'EPH',
-  'PHP', 'COL', '1TH', '2TH', '1TI', '2TI', 'TIT', 'PHM', 'HEB', 'JAS',
-  '1PE', '2PE', '1JN', '2JN', '3JN', 'JUD', 'REV',
+  'MAT',
+  'MRK',
+  'LUK',
+  'JHN',
+  'ACT',
+  'ROM',
+  '1CO',
+  '2CO',
+  'GAL',
+  'EPH',
+  'PHP',
+  'COL',
+  '1TH',
+  '2TH',
+  '1TI',
+  '2TI',
+  'TIT',
+  'PHM',
+  'HEB',
+  'JAS',
+  '1PE',
+  '2PE',
+  '1JN',
+  '2JN',
+  '3JN',
+  'JUD',
+  'REV'
 ]);
 
 function guessTestament(bookId: string): 'OT' | 'NT' {
@@ -754,7 +778,9 @@ export function BibleReaderContent({
             <View className="items-center justify-center p-8">
               <Text className="text-center text-muted-foreground">
                 {(() => {
-                  const testament = fiaBookId ? guessTestament(fiaBookId) : null;
+                  const testament = fiaBookId
+                    ? guessTestament(fiaBookId)
+                    : null;
                   const testaments = selectedBible?.textTestaments ?? [];
                   if (
                     testament &&
