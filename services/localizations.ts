@@ -2842,17 +2842,17 @@ export const localizations = {
     mandarin: '需要验证'
   },
   agreeToTerms: {
-    english: 'I have read and agree to the {link}',
-    french: "J'ai lu et j'accepte le {link}",
-    spanish: 'He leído y acepto los {link}',
-    brazilian_portuguese: 'Eu li e concordo com os {link}',
-    tok_pisin: 'Mi ridim na agri long {link}',
-    indonesian: 'Saya telah membaca dan menyetujui {link}',
-    nepali: 'मैले {link} पढेको छु र स्वीकार गर्छु',
-    hindi: 'मैंने {link} पढ़ ली है और सहमत हूं',
-    burmese: 'ကျွန်ုပ်သည် {link} ကို ဖတ်ရှုပြီး သဘောတူပါသည်',
-    thai: 'ฉันได้อ่านและยอมรับ{link}แล้ว',
-    mandarin: '我已阅读并同意{link}'
+    english: 'I agree to the {link}',
+    french: "J'accepte le {link}",
+    spanish: 'Acepto los {link}',
+    brazilian_portuguese: 'Eu concordo com os {link}',
+    tok_pisin: 'Mi agri long {link}',
+    indonesian: 'Saya menyetujui {link}',
+    nepali: 'म {link} स्वीकार गर्छु',
+    hindi: 'मैं {link} से सहमत हूं',
+    burmese: 'ကျွန်ုပ် {link} ကို သဘောတူပါသည်',
+    thai: 'ฉันยอมรับ{link}',
+    mandarin: '我同意{link}'
   },
   termsAndPrivacyLink: {
     english: 'Terms & Privacy',
