@@ -637,6 +637,9 @@ export default function AppDrawer({
                   {fiaQueueSummary.failed > 0 && (
                     <Text className="text-xs text-destructive">
                       {fiaQueueSummary.failed} failed
+                      {fiaQueueSummary.lastError
+                        ? `: ${fiaQueueSummary.lastError}`
+                        : ''}
                     </Text>
                   )}
                   {!fiaQueueSummary.hasActivity &&
