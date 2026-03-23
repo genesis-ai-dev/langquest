@@ -1,7 +1,7 @@
+import { CheckpointMediaPlayer } from '@/components/CheckpointMediaPlayer';
 import { DrawerScrollView } from '@/components/ui/drawer';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
-import { Slider } from '@/components/ui/slider';
 import { Text } from '@/components/ui/text';
 import { useAudio } from '@/contexts/AudioContext';
 import {
@@ -15,7 +15,6 @@ import {
 } from '@/hooks/useBibleBrainContent';
 import { useLocalStore } from '@/store/localStore';
 import { getThemeColor } from '@/utils/styleUtils';
-import { Ionicons } from '@expo/vector-icons';
 import {
   BookOpenIcon,
   HeadphonesIcon,
@@ -29,10 +28,12 @@ import React, {
   useRef,
   useState
 } from 'react';
-import { ActivityIndicator, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 import { Dropdown } from 'react-native-element-dropdown';
 
 const EMPTY_STRING_ARRAY: string[] = [];
+
+const AUDIO_SEEK_STEP_MS = 10000;
 
 // --- Verse highlighting from timestamps ---
 
@@ -76,107 +77,6 @@ function getActiveVerseKey(
   const last = audioChapters[audioChapters.length - 1]!;
   const localSec = (positionMs - (cumulativeMs - last.duration * 1000)) / 1000;
   return verseKeyFromTimestamps(last, localSec);
-}
-
-// --- Audio Player ---
-
-function BibleAudioPlayer({
-  audioUrls,
-  audioId,
-  savedPositionMs
-}: {
-  audioUrls: string[];
-  audioId: string;
-  savedPositionMs?: number;
-}) {
-  const {
-    playSound,
-    playSoundSequence,
-    pauseSound,
-    resumeSound,
-    isPlaying,
-    isPaused,
-    currentAudioId,
-    position,
-    duration,
-    setPosition
-  } = useAudio();
-
-  const isThisPlaying = isPlaying && currentAudioId === audioId;
-  const isThisPaused = isPaused && currentAudioId === audioId;
-  const isThisActive = isThisPlaying || isThisPaused;
-
-  const handlePlayPause = async () => {
-    if (audioUrls.length === 0) return;
-    if (isThisPlaying) {
-      await pauseSound();
-    } else if (isThisPaused) {
-      await resumeSound();
-    } else if (audioUrls.length === 1) {
-      await playSound(audioUrls[0]!, audioId);
-      if (savedPositionMs && savedPositionMs > 0) {
-        await setPosition(savedPositionMs);
-      }
-    } else {
-      await playSoundSequence(audioUrls, audioId);
-      if (savedPositionMs && savedPositionMs > 0) {
-        await setPosition(savedPositionMs);
-      }
-    }
-  };
-
-  const handleSeek = (ms: number) => {
-    void setPosition(ms);
-  };
-
-  const formatTime = (ms: number) => {
-    const totalSeconds = Math.floor(ms / 1000);
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-  };
-
-  if (audioUrls.length === 0) return null;
-
-  const currentPos = isThisActive ? position : 0;
-  const currentDur = isThisActive ? duration : 0;
-
-  return (
-    <View className="gap-1 border-b border-border bg-card px-4 py-2">
-      <View className="flex-row items-center gap-3">
-        <TouchableOpacity
-          onPress={handlePlayPause}
-          className="h-10 w-10 items-center justify-center rounded-full bg-primary"
-        >
-          <Ionicons
-            name={isThisPlaying ? 'pause' : 'play'}
-            size={20}
-            color="white"
-          />
-        </TouchableOpacity>
-        <View className="flex-1">
-          <Slider
-            minimumValue={0}
-            maximumValue={currentDur || 1}
-            value={currentPos}
-            onValueChange={handleSeek}
-            disabled={!isThisActive}
-            animated={false}
-          />
-        </View>
-      </View>
-      <View className="flex-row justify-between px-1">
-        <Text className="text-xs text-muted-foreground">
-          {formatTime(currentPos)}
-        </Text>
-        {currentDur > 0 ? (
-          <Text className="text-xs text-muted-foreground">
-            {formatTime(currentDur)}
-          </Text>
-        ) : null}
-      </View>
-    </View>
-  );
 }
 
 // --- Translation Picker (searchable Dropdown) ---
@@ -400,12 +300,14 @@ function VerseDisplay({
 
 interface BibleReaderContentProps {
   projectId: string | undefined;
+  pericopeId: string | undefined;
   fiaBookId: string | undefined;
   verseRange: string | undefined;
 }
 
 export function BibleReaderContent({
   projectId,
+  pericopeId,
   fiaBookId,
   verseRange
 }: BibleReaderContentProps) {
@@ -428,8 +330,6 @@ export function BibleReaderContent({
       : EMPTY_STRING_ARRAY
   );
   const setBibleTranslation = useLocalStore((s) => s.setBibleTranslation);
-  const bibleAudioPositions = useLocalStore((s) => s.bibleAudioPositions);
-  const setBibleAudioPosition = useLocalStore((s) => s.setBibleAudioPosition);
 
   // Auto-select: saved translation > best match > first
   useEffect(() => {
@@ -481,15 +381,22 @@ export function BibleReaderContent({
     [content?.audio]
   );
 
-  const audioId = `bible-${selectedBible?.id}-${fiaBookId}-${verseRange}`;
+  const bibleModelKeyPart = selectedBible?.id
+    ? `bible-model:${selectedBible.id}`
+    : 'bible-model:default';
+  const bibleAudioCheckpointKey =
+    projectId && pericopeId
+      ? `${projectId}:${pericopeId}:${bibleModelKeyPart}`
+      : null;
 
-  // --- Audio state (single call) ---
-  const { isPlaying, isPaused, currentAudioId, position } = useAudio({
+  const audioContext = useAudio({
     stopOnUnmount: false
   });
 
+  const { isPlaying, isPaused, currentAudioId, position } = audioContext;
+
   const isThisAudioActive =
-    (isPlaying || isPaused) && currentAudioId === audioId;
+    (isPlaying || isPaused) && currentAudioId === bibleAudioCheckpointKey;
 
   // --- Verse highlighting ---
   const activeVerseKey = useMemo(() => {
@@ -517,41 +424,6 @@ export function BibleReaderContent({
       scrollRef.current?.scrollTo?.({ y: Math.max(0, y - 40), animated: true });
     }
   }, [activeVerseKey]);
-
-  // --- Audio position persistence ---
-  const positionKey = `${selectedBible?.id}:${fiaBookId}:${verseRange}`;
-  const savedPosition = bibleAudioPositions[positionKey];
-
-  const prevPlayingRef = useRef(false);
-
-  useEffect(() => {
-    const wasPlaying = prevPlayingRef.current;
-    const nowPaused = isPaused && currentAudioId === audioId;
-    prevPlayingRef.current = isPlaying && currentAudioId === audioId;
-
-    if (wasPlaying && nowPaused && position > 0) {
-      setBibleAudioPosition(positionKey, position);
-    }
-  }, [
-    isPaused,
-    isPlaying,
-    currentAudioId,
-    audioId,
-    position,
-    positionKey,
-    setBibleAudioPosition
-  ]);
-
-  // Save position on unmount
-  useEffect(() => {
-    return () => {
-      const pos = prevPlayingRef.current ? position : 0;
-      if (pos > 0) {
-        setBibleAudioPosition(positionKey, pos);
-      }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [positionKey]);
 
   // Loading states
   if (biblesLoading) {
@@ -598,10 +470,12 @@ export function BibleReaderContent({
       />
 
       {selectedBible?.hasAudio && audioUrls.length > 0 && (
-        <BibleAudioPlayer
-          audioUrls={audioUrls}
-          audioId={audioId}
-          savedPositionMs={savedPosition}
+        <CheckpointMediaPlayer
+          className="rounded-none border-0 border-b border-border bg-card px-4 py-2"
+          title={formatBibleLabel(selectedBible)}
+          checkpointKey={bibleAudioCheckpointKey}
+          audioUris={audioUrls}
+          seekStepMs={AUDIO_SEEK_STEP_MS}
         />
       )}
 
