@@ -43,6 +43,7 @@ import Animated, {
   useSharedValue,
   withTiming
 } from 'react-native-reanimated';
+import { blue } from 'tailwindcss/colors';
 import { Badge } from './ui/badge';
 
 interface DrawerItemType {
@@ -598,56 +599,59 @@ export default function AppDrawer({
                         />
                       )}
                     </View>
-                  </View>
-                </View>
-              </View>
-            </View>
-          )}
-
-          {/* FIA Content Queue */}
-          {drawerIsVisible && fiaQueueSummary.total > 0 && (
-            <View className="rounded-md bg-muted p-2">
-              <View className="flex-row items-center gap-2">
-                <Icon
-                  as={BookOpenIcon}
-                  size={14}
-                  className={cn(
-                    fiaQueueSummary.hasActivity
-                      ? 'text-blue-500'
-                      : fiaQueueSummary.failed > 0
-                        ? 'text-destructive'
-                        : 'text-muted-foreground'
-                  )}
-                />
-                <View className="flex-1 flex-row flex-wrap items-center gap-1.5">
-                  <Text className="text-xs text-foreground">FIA content</Text>
-                  {fiaQueueSummary.downloading > 0 && (
-                    <View className="flex-row items-center gap-1">
-                      <ActivityIndicator size={10} color={primaryColor} />
-                      <Text className="text-xs text-blue-500">
-                        {fiaQueueSummary.downloading} downloading
-                      </Text>
-                    </View>
-                  )}
-                  {fiaQueueSummary.pending > 0 && (
-                    <Text className="text-xs text-muted-foreground">
-                      {fiaQueueSummary.pending} queued
-                    </Text>
-                  )}
-                  {fiaQueueSummary.failed > 0 && (
-                    <Text className="text-xs text-destructive">
-                      {fiaQueueSummary.failed} failed
-                      {fiaQueueSummary.lastError
-                        ? `: ${fiaQueueSummary.lastError}`
-                        : ''}
-                    </Text>
-                  )}
-                  {!fiaQueueSummary.hasActivity &&
-                    fiaQueueSummary.failed === 0 && (
-                      <Text className="text-xs text-muted-foreground">
-                        {fiaQueueSummary.completed} cached
-                      </Text>
+                    {/* FIA Content Queue — aligned with progress bar */}
+                    {fiaQueueSummary.total > 0 && (
+                      <View className="mt-1.5 flex-row flex-wrap items-center gap-1.5">
+                        <View className="flex-row items-center gap-1">
+                          <Icon
+                            as={BookOpenIcon}
+                            size={10}
+                            className={cn(
+                              fiaQueueSummary.hasActivity
+                                ? 'text-blue-500'
+                                : fiaQueueSummary.failed > 0
+                                  ? 'text-destructive'
+                                  : 'text-muted-foreground'
+                            )}
+                          />
+                          <Text className="text-xs text-foreground">
+                            FIA content
+                          </Text>
+                        </View>
+                        {fiaQueueSummary.downloading > 0 && (
+                          <View className="flex-row items-center gap-1">
+                            <ActivityIndicator
+                              size={10}
+                              color={blue[500]}
+                              style={{ transform: [{ scale: 0.7 }] }}
+                            />
+                            <Text className="text-xs text-blue-500">
+                              {fiaQueueSummary.downloading} downloading
+                            </Text>
+                          </View>
+                        )}
+                        {fiaQueueSummary.pending > 0 && (
+                          <Text className="text-xs text-muted-foreground">
+                            {fiaQueueSummary.pending} queued
+                          </Text>
+                        )}
+                        {fiaQueueSummary.failed > 0 && (
+                          <Text className="text-xs text-destructive">
+                            {fiaQueueSummary.failed} failed
+                            {fiaQueueSummary.lastError
+                              ? `: ${fiaQueueSummary.lastError}`
+                              : ''}
+                          </Text>
+                        )}
+                        {!fiaQueueSummary.hasActivity &&
+                          fiaQueueSummary.failed === 0 && (
+                            <Text className="text-xs text-muted-foreground">
+                              {fiaQueueSummary.completed} cached
+                            </Text>
+                          )}
+                      </View>
                     )}
+                  </View>
                 </View>
               </View>
             </View>
