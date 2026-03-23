@@ -2562,15 +2562,12 @@ export default function BibleAssetsView() {
 
   // Stable wrapper for onPlay callback (avoids creating new function in renderItem)
   const blockIndividualPlayRef = React.useRef(false);
-  const stableOnPlay = React.useCallback(
-    (assetId: string) => {
-      if (blockIndividualPlayRef.current) {
-        return;
-      }
-      handlePlayAssetRef.current(assetId);
-    },
-    []
-  );
+  const stableOnPlay = React.useCallback((assetId: string) => {
+    if (blockIndividualPlayRef.current) {
+      return;
+    }
+    handlePlayAssetRef.current(assetId);
+  }, []);
 
   // Stable callbacks for DraggableAssetItem (to prevent recreation on each render)
   const handleAddVersePressRef = React.useRef<
@@ -3115,40 +3112,40 @@ export default function BibleAssetsView() {
     rewindPlayAll,
     forwardPlayAll
   } = usePlayAllAudioController({
-      checkpointStore: playbackCheckpoint,
-      onCurrentAssetChange: ({ assetId }) => {
-        setCurrentlyPlayingAssetId(assetId);
-      },
-      onPlaybackStatusUpdate: (status, payload) => {
-        if (status.playing) {
-          audioContext.positionShared.value = payload.assetPositionMs;
-          audioContext.durationShared.value = payload.assetDurationMs;
-          setCurrentPlayAllSegmentIndex(payload.uriIndex + 1);
-          setCurrentPlayAllTotalSegments(payload.item.uris.length);
-        }
-      },
-      onStopped: () => {
-        audioContext.positionShared.value = 0;
-        audioContext.durationShared.value = 0;
-        setCurrentPlayAllSegmentIndex(null);
-        setCurrentPlayAllTotalSegments(null);
-        setShowPlayAllControls(false);
-      },
-      onFinished: () => {
-        audioContext.positionShared.value = 0;
-        audioContext.durationShared.value = 0;
-        setCurrentPlayAllSegmentIndex(null);
-        setCurrentPlayAllTotalSegments(null);
-        setShowPlayAllControls(false);
-      },
-      onError: () => {
-        audioContext.positionShared.value = 0;
-        audioContext.durationShared.value = 0;
-        setCurrentPlayAllSegmentIndex(null);
-        setCurrentPlayAllTotalSegments(null);
-        setShowPlayAllControls(false);
+    checkpointStore: playbackCheckpoint,
+    onCurrentAssetChange: ({ assetId }) => {
+      setCurrentlyPlayingAssetId(assetId);
+    },
+    onPlaybackStatusUpdate: (status, payload) => {
+      if (status.playing) {
+        audioContext.positionShared.value = payload.assetPositionMs;
+        audioContext.durationShared.value = payload.assetDurationMs;
+        setCurrentPlayAllSegmentIndex(payload.uriIndex + 1);
+        setCurrentPlayAllTotalSegments(payload.item.uris.length);
       }
-    });
+    },
+    onStopped: () => {
+      audioContext.positionShared.value = 0;
+      audioContext.durationShared.value = 0;
+      setCurrentPlayAllSegmentIndex(null);
+      setCurrentPlayAllTotalSegments(null);
+      setShowPlayAllControls(false);
+    },
+    onFinished: () => {
+      audioContext.positionShared.value = 0;
+      audioContext.durationShared.value = 0;
+      setCurrentPlayAllSegmentIndex(null);
+      setCurrentPlayAllTotalSegments(null);
+      setShowPlayAllControls(false);
+    },
+    onError: () => {
+      audioContext.positionShared.value = 0;
+      audioContext.durationShared.value = 0;
+      setCurrentPlayAllSegmentIndex(null);
+      setCurrentPlayAllTotalSegments(null);
+      setShowPlayAllControls(false);
+    }
+  });
 
   const currentPlayAllAssetName = React.useMemo(() => {
     if (!currentlyPlayingAssetId) {
@@ -3232,7 +3229,8 @@ export default function BibleAssetsView() {
         const selectedIndex = assets.findIndex(
           (a) => a.id === selectedAsset.assetId
         );
-        assetsToProcess = selectedIndex >= 0 ? assets.slice(selectedIndex) : assets;
+        assetsToProcess =
+          selectedIndex >= 0 ? assets.slice(selectedIndex) : assets;
       } else if (selectedAssetIds.size > 0) {
         const firstSelectedIndex = assets.findIndex((a) =>
           selectedAssetIds.has(a.id)

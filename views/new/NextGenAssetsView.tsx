@@ -176,40 +176,40 @@ export default function NextGenAssetsView() {
     rewindPlayAll,
     forwardPlayAll
   } = usePlayAllAudioController({
-      checkpointStore: playbackCheckpoint,
-      onCurrentAssetChange: ({ assetId }) => {
-        setCurrentlyPlayingAssetId(assetId);
-      },
-      onPlaybackStatusUpdate: (status, payload) => {
-        if (status.playing) {
-          audioContext.positionShared.value = payload.assetPositionMs;
-          audioContext.durationShared.value = payload.assetDurationMs;
-          setCurrentPlayAllSegmentIndex(payload.uriIndex + 1);
-          setCurrentPlayAllTotalSegments(payload.item.uris.length);
-        }
-      },
-      onStopped: () => {
-        audioContext.positionShared.value = 0;
-        audioContext.durationShared.value = 0;
-        setCurrentPlayAllSegmentIndex(null);
-        setCurrentPlayAllTotalSegments(null);
-        setShowPlayAllControls(false);
-      },
-      onFinished: () => {
-        audioContext.positionShared.value = 0;
-        audioContext.durationShared.value = 0;
-        setCurrentPlayAllSegmentIndex(null);
-        setCurrentPlayAllTotalSegments(null);
-        setShowPlayAllControls(false);
-      },
-      onError: () => {
-        audioContext.positionShared.value = 0;
-        audioContext.durationShared.value = 0;
-        setCurrentPlayAllSegmentIndex(null);
-        setCurrentPlayAllTotalSegments(null);
-        setShowPlayAllControls(false);
+    checkpointStore: playbackCheckpoint,
+    onCurrentAssetChange: ({ assetId }) => {
+      setCurrentlyPlayingAssetId(assetId);
+    },
+    onPlaybackStatusUpdate: (status, payload) => {
+      if (status.playing) {
+        audioContext.positionShared.value = payload.assetPositionMs;
+        audioContext.durationShared.value = payload.assetDurationMs;
+        setCurrentPlayAllSegmentIndex(payload.uriIndex + 1);
+        setCurrentPlayAllTotalSegments(payload.item.uris.length);
       }
-    });
+    },
+    onStopped: () => {
+      audioContext.positionShared.value = 0;
+      audioContext.durationShared.value = 0;
+      setCurrentPlayAllSegmentIndex(null);
+      setCurrentPlayAllTotalSegments(null);
+      setShowPlayAllControls(false);
+    },
+    onFinished: () => {
+      audioContext.positionShared.value = 0;
+      audioContext.durationShared.value = 0;
+      setCurrentPlayAllSegmentIndex(null);
+      setCurrentPlayAllTotalSegments(null);
+      setShowPlayAllControls(false);
+    },
+    onError: () => {
+      audioContext.positionShared.value = 0;
+      audioContext.durationShared.value = 0;
+      setCurrentPlayAllSegmentIndex(null);
+      setCurrentPlayAllTotalSegments(null);
+      setShowPlayAllControls(false);
+    }
+  });
   const timeoutIdsRef = React.useRef<Set<ReturnType<typeof setTimeout>>>(
     new Set()
   );
@@ -632,15 +632,12 @@ export default function NextGenAssetsView() {
   );
 
   const blockIndividualPlayRef = React.useRef(false);
-  const stableOnPlay = React.useCallback(
-    (assetId: string) => {
-      if (blockIndividualPlayRef.current) {
-        return;
-      }
-      handlePlayAssetRef.current(assetId);
-    },
-    []
-  );
+  const stableOnPlay = React.useCallback((assetId: string) => {
+    if (blockIndividualPlayRef.current) {
+      return;
+    }
+    handlePlayAssetRef.current(assetId);
+  }, []);
 
   const renderItem = React.useCallback(
     ({
@@ -1137,7 +1134,9 @@ export default function NextGenAssetsView() {
     if (!currentlyPlayingAssetId) {
       return null;
     }
-    return assets.find((asset) => asset.id === currentlyPlayingAssetId)?.name ?? null;
+    return (
+      assets.find((asset) => asset.id === currentlyPlayingAssetId)?.name ?? null
+    );
   }, [assets, currentlyPlayingAssetId]);
 
   const currentSingleAssetName = React.useMemo(() => {

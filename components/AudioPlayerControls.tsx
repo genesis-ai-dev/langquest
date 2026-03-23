@@ -83,26 +83,23 @@ export const AudioPlayerControls = React.memo(function AudioPlayerControls({
   }, [durationMs, positionMs]);
 
   // Progress animation is driven by shared values when provided.
-  const progressStyle = useAnimatedStyle(
-    () => {
-      'worklet';
-      let progress = fallbackProgress;
-      if (positionShared && durationShared && durationShared.value > 0) {
-        const raw = positionShared.value / durationShared.value;
-        if (raw < 0) {
-          progress = 0;
-        } else if (raw > 1) {
-          progress = 1;
-        } else {
-          progress = raw;
-        }
+  const progressStyle = useAnimatedStyle(() => {
+    'worklet';
+    let progress = fallbackProgress;
+    if (positionShared && durationShared && durationShared.value > 0) {
+      const raw = positionShared.value / durationShared.value;
+      if (raw < 0) {
+        progress = 0;
+      } else if (raw > 1) {
+        progress = 1;
+      } else {
+        progress = raw;
       }
-      return {
-        width: `${progress * 100}%`
-      };
-    },
-    [durationShared, fallbackProgress, positionShared]
-  );
+    }
+    return {
+      width: `${progress * 100}%`
+    };
+  }, [durationShared, fallbackProgress, positionShared]);
 
   return (
     <View
@@ -160,7 +157,10 @@ export const AudioPlayerControls = React.memo(function AudioPlayerControls({
           onPress={onPlayPause}
           disabled={disabled || !onPlayPause}
         >
-          <Icon as={isPlaying ? PauseIcon : PlayIcon} className="text-primary-foreground" />
+          <Icon
+            as={isPlaying ? PauseIcon : PlayIcon}
+            className="text-primary-foreground"
+          />
         </Button>
 
         <Button

@@ -78,9 +78,10 @@ export function useAudioPlaybackCheckpoint() {
     []
   );
 
-  const getPlayAllCheckpoint = React.useCallback((): PlayAllCheckpoint | null => {
-    return playAllCheckpointRef.current;
-  }, []);
+  const getPlayAllCheckpoint =
+    React.useCallback((): PlayAllCheckpoint | null => {
+      return playAllCheckpointRef.current;
+    }, []);
 
   const clearPlayAllCheckpoint = React.useCallback(() => {
     playAllCheckpointRef.current = null;

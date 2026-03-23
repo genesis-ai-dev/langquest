@@ -549,40 +549,44 @@ const RecordingView = () => {
     rewindPlayAll,
     forwardPlayAll
   } = usePlayAllAudioController({
-      checkpointStore: playbackCheckpoint,
-      onCurrentAssetChange: ({ assetId, metadata }) => {
-        setCurrentlyPlayingAssetId(assetId);
-        if (assetId && typeof metadata?.listIndex === 'number' && listRef.current) {
-          listRef.current.scrollToIndex(metadata.listIndex - 1, true);
-        }
-      },
-      onPlaybackStatusUpdate: (status, payload) => {
-        if (status.playing) {
-          audioContext.positionShared.value = payload.assetPositionMs;
-          audioContext.durationShared.value = payload.assetDurationMs;
-          setCurrentPlayAllSegmentIndex(payload.uriIndex + 1);
-          setCurrentPlayAllTotalSegments(payload.item.uris.length);
-        }
-      },
-      onStopped: () => {
-        resetPlayAllSharedProgress();
-        setCurrentPlayAllSegmentIndex(null);
-        setCurrentPlayAllTotalSegments(null);
-        setShowPlayAllControls(false);
-      },
-      onFinished: () => {
-        resetPlayAllSharedProgress();
-        setCurrentPlayAllSegmentIndex(null);
-        setCurrentPlayAllTotalSegments(null);
-        setShowPlayAllControls(false);
-      },
-      onError: () => {
-        resetPlayAllSharedProgress();
-        setCurrentPlayAllSegmentIndex(null);
-        setCurrentPlayAllTotalSegments(null);
-        setShowPlayAllControls(false);
+    checkpointStore: playbackCheckpoint,
+    onCurrentAssetChange: ({ assetId, metadata }) => {
+      setCurrentlyPlayingAssetId(assetId);
+      if (
+        assetId &&
+        typeof metadata?.listIndex === 'number' &&
+        listRef.current
+      ) {
+        listRef.current.scrollToIndex(metadata.listIndex - 1, true);
       }
-    });
+    },
+    onPlaybackStatusUpdate: (status, payload) => {
+      if (status.playing) {
+        audioContext.positionShared.value = payload.assetPositionMs;
+        audioContext.durationShared.value = payload.assetDurationMs;
+        setCurrentPlayAllSegmentIndex(payload.uriIndex + 1);
+        setCurrentPlayAllTotalSegments(payload.item.uris.length);
+      }
+    },
+    onStopped: () => {
+      resetPlayAllSharedProgress();
+      setCurrentPlayAllSegmentIndex(null);
+      setCurrentPlayAllTotalSegments(null);
+      setShowPlayAllControls(false);
+    },
+    onFinished: () => {
+      resetPlayAllSharedProgress();
+      setCurrentPlayAllSegmentIndex(null);
+      setCurrentPlayAllTotalSegments(null);
+      setShowPlayAllControls(false);
+    },
+    onError: () => {
+      resetPlayAllSharedProgress();
+      setCurrentPlayAllSegmentIndex(null);
+      setCurrentPlayAllTotalSegments(null);
+      setShowPlayAllControls(false);
+    }
+  });
 
   // Track footer height for proper scrolling
   const [footerHeight, setFooterHeight] = React.useState(0);
@@ -1521,7 +1525,9 @@ const RecordingView = () => {
     if (!assetId) {
       return null;
     }
-    const matched = sessionItems.find((item) => isAsset(item) && item.id === assetId);
+    const matched = sessionItems.find(
+      (item) => isAsset(item) && item.id === assetId
+    );
     return matched && isAsset(matched) ? matched.name : null;
   }, [audioContext.currentAudioId, sessionItems]);
 
@@ -3073,7 +3079,10 @@ const RecordingView = () => {
           isSelectionMode={isSelectionMode}
           isPlaying={isThisAssetPlaying}
           playDisabled={
-            isPlayAllPlayerActive || isRecording || isVADRecording || isVADActive
+            isPlayAllPlayerActive ||
+            isRecording ||
+            isVADRecording ||
+            isVADActive
           }
           hideButtons={isRecording || isVADRecording || isVADActive}
           duration={duration}

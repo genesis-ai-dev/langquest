@@ -94,9 +94,9 @@ export function usePlayAllAudioController({
   const isPlayAllRunningRef = React.useRef(false);
   const isPlayAllPausedRef = React.useRef(false);
   const currentPlayerRef = React.useRef<AudioPlayer | null>(null);
-  const currentPlayerSubscriptionRef = React.useRef<{ remove: () => void } | null>(
-    null
-  );
+  const currentPlayerSubscriptionRef = React.useRef<{
+    remove: () => void;
+  } | null>(null);
   const currentSegmentResolveRef = React.useRef<(() => void) | null>(null);
   const seekTimeoutIdsRef = React.useRef<Set<ReturnType<typeof setTimeout>>>(
     new Set()
@@ -107,7 +107,9 @@ export function usePlayAllAudioController({
   const currentUriIndexRef = React.useRef<number | null>(null);
   const pendingJumpTargetRef = React.useRef<PlayAllJumpTarget | null>(null);
   const segmentDurationMsMapRef = React.useRef<Map<string, number>>(new Map());
-  const itemSegmentDurationsRef = React.useRef<Map<number, number[]>>(new Map());
+  const itemSegmentDurationsRef = React.useRef<Map<number, number[]>>(
+    new Map()
+  );
   const lastSeekActionAtRef = React.useRef(0);
   const lastSegmentPositionMsRef = React.useRef(0);
   const lastSegmentDurationMsRef = React.useRef(0);
@@ -192,9 +194,11 @@ export function usePlayAllAudioController({
 
   const stopPlayAll = React.useCallback(
     (reason: StopReason = 'manual', options?: StopOptions) => {
-      const shouldPersistPosition = options?.persistPosition ?? reason === 'manual';
+      const shouldPersistPosition =
+        options?.persistPosition ?? reason === 'manual';
       const shouldClearCheckpoint =
-        options?.clearCheckpoint ?? (reason === 'finished' || reason === 'error');
+        options?.clearCheckpoint ??
+        (reason === 'finished' || reason === 'error');
 
       if (shouldPersistPosition) {
         persistCurrentPosition();
@@ -367,7 +371,8 @@ export function usePlayAllAudioController({
         return;
       }
 
-      const rawPlayerCurrentTimeMs = currentPlayerRef.current.currentTime * 1000;
+      const rawPlayerCurrentTimeMs =
+        currentPlayerRef.current.currentTime * 1000;
       const rawPlayerDurationMs = currentPlayerRef.current.duration * 1000;
       const playerPositionMs = Number.isFinite(rawPlayerCurrentTimeMs)
         ? Math.max(0, rawPlayerCurrentTimeMs)
@@ -418,8 +423,12 @@ export function usePlayAllAudioController({
       };
 
       const applyLocalSeek = (positionMs: number) => {
-        const safeDurationMs = currentDurationMs > 0 ? currentDurationMs : positionMs;
-        const clampedPositionMs = Math.max(0, Math.min(positionMs, safeDurationMs));
+        const safeDurationMs =
+          currentDurationMs > 0 ? currentDurationMs : positionMs;
+        const clampedPositionMs = Math.max(
+          0,
+          Math.min(positionMs, safeDurationMs)
+        );
         currentPlayerRef.current?.seekTo(clampedPositionMs / 1000);
         lastSegmentPositionMsRef.current = clampedPositionMs;
         checkpointStore.savePlayAllCheckpoint(
@@ -433,16 +442,21 @@ export function usePlayAllAudioController({
         );
       };
 
-      const durationsFromCache = itemSegmentDurationsRef.current.get(currentItemIndex) ?? [];
+      const durationsFromCache =
+        itemSegmentDurationsRef.current.get(currentItemIndex) ?? [];
       const durations = currentItem.uris.map((_, idx) => {
         const fromItemCache = durationsFromCache[idx] ?? 0;
         const fromGlobalCache =
-          segmentDurationMsMapRef.current.get(`${currentItemIndex}:${idx}`) ?? 0;
+          segmentDurationMsMapRef.current.get(`${currentItemIndex}:${idx}`) ??
+          0;
         return Math.max(0, fromItemCache, fromGlobalCache);
       });
 
       if (currentDurationMs > 0) {
-        durations[currentUriIndex] = Math.max(durations[currentUriIndex] ?? 0, currentDurationMs);
+        durations[currentUriIndex] = Math.max(
+          durations[currentUriIndex] ?? 0,
+          currentDurationMs
+        );
       }
       itemSegmentDurationsRef.current.set(currentItemIndex, durations);
 
@@ -455,12 +469,16 @@ export function usePlayAllAudioController({
       const elapsedBeforeCurrent = durations
         .slice(0, currentUriIndex)
         .reduce((sum, d) => sum + d, 0);
-      const maxCurrentSegmentPosition = Math.max(0, durations[currentUriIndex] ?? 0);
+      const maxCurrentSegmentPosition = Math.max(
+        0,
+        durations[currentUriIndex] ?? 0
+      );
       const normalizedCurrentPosition = Math.max(
         0,
         Math.min(currentPositionMs, maxCurrentSegmentPosition)
       );
-      const currentAbsolutePosition = elapsedBeforeCurrent + normalizedCurrentPosition;
+      const currentAbsolutePosition =
+        elapsedBeforeCurrent + normalizedCurrentPosition;
       const targetAbsolutePosition = Math.max(
         0,
         Math.min(currentAbsolutePosition + deltaMs, totalDurationMs)
@@ -472,10 +490,7 @@ export function usePlayAllAudioController({
       for (let idx = 0; idx < durations.length; idx++) {
         const segmentDurationMs = Math.max(0, durations[idx] ?? 0);
         const end = accumulated + segmentDurationMs;
-        if (
-          targetAbsolutePosition <= end ||
-          idx === durations.length - 1
-        ) {
+        if (targetAbsolutePosition <= end || idx === durations.length - 1) {
           targetUriIndex = idx;
           targetPositionMs = Math.max(
             0,
@@ -496,7 +511,10 @@ export function usePlayAllAudioController({
         return;
       }
 
-      if (target.itemIndex === currentItemIndex && target.uriIndex === currentUriIndex) {
+      if (
+        target.itemIndex === currentItemIndex &&
+        target.uriIndex === currentUriIndex
+      ) {
         applyLocalSeek(target.positionMs);
         return;
       }
@@ -546,7 +564,11 @@ export function usePlayAllAudioController({
   }, [navigateToItemIndex]);
 
   const togglePlayAll = React.useCallback(
-    async ({ playlist, startItemIndex = 0, playlistKey }: TogglePlayAllOptions) => {
+    async ({
+      playlist,
+      startItemIndex = 0,
+      playlistKey
+    }: TogglePlayAllOptions) => {
       if (isPlayAllRunningRef.current) {
         stopPlayAll('manual');
         return;
@@ -611,7 +633,8 @@ export function usePlayAllAudioController({
           item: PlayAllPlaylistItem,
           itemIndex: number
         ) => {
-          const cachedDurations = itemSegmentDurationsRef.current.get(itemIndex);
+          const cachedDurations =
+            itemSegmentDurationsRef.current.get(itemIndex);
           if (
             cachedDurations &&
             cachedDurations.length === item.uris.length &&
@@ -652,7 +675,10 @@ export function usePlayAllAudioController({
           itemSegmentDurationsRef.current.set(itemIndex, resolvedDurations);
         };
 
-        for (let itemIndex = resolvedStartItemIndex; itemIndex < playlist.length; ) {
+        for (
+          let itemIndex = resolvedStartItemIndex;
+          itemIndex < playlist.length;
+        ) {
           if (!isPlayAllRunningRef.current) {
             stopPlayAll('cancelled');
             return;
@@ -683,21 +709,24 @@ export function usePlayAllAudioController({
             return target;
           })();
 
-          const startUriIndex =
-            pendingJumpTargetForCurrentItem
-              ? Math.min(
-                  pendingJumpTargetForCurrentItem.uriIndex,
-                  item.uris.length - 1
-                )
-              : shouldUseInitialCheckpoint &&
-                  savedCheckpoint &&
-                  itemIndex === resolvedStartItemIndex &&
-                  savedCheckpoint.uriIndex >= 0
-                ? Math.min(savedCheckpoint.uriIndex, item.uris.length - 1)
-                : 0;
+          const startUriIndex = pendingJumpTargetForCurrentItem
+            ? Math.min(
+                pendingJumpTargetForCurrentItem.uriIndex,
+                item.uris.length - 1
+              )
+            : shouldUseInitialCheckpoint &&
+                savedCheckpoint &&
+                itemIndex === resolvedStartItemIndex &&
+                savedCheckpoint.uriIndex >= 0
+              ? Math.min(savedCheckpoint.uriIndex, item.uris.length - 1)
+              : 0;
 
           let jumpedToAnotherItem = false;
-          for (let uriIndex = startUriIndex; uriIndex < item.uris.length; uriIndex++) {
+          for (
+            let uriIndex = startUriIndex;
+            uriIndex < item.uris.length;
+            uriIndex++
+          ) {
             if (!isPlayAllRunningRef.current) {
               stopPlayAll('cancelled');
               return;
@@ -765,12 +794,19 @@ export function usePlayAllAudioController({
                     const playbackStatus = status as PlaybackStatus;
                     lastStatusItemIndexRef.current = itemIndex;
                     lastStatusUriIndexRef.current = uriIndex;
-                    const statusCurrentTimeMs = playbackStatus.currentTime * 1000;
-                    if (Number.isFinite(statusCurrentTimeMs) && statusCurrentTimeMs >= 0) {
+                    const statusCurrentTimeMs =
+                      playbackStatus.currentTime * 1000;
+                    if (
+                      Number.isFinite(statusCurrentTimeMs) &&
+                      statusCurrentTimeMs >= 0
+                    ) {
                       lastSegmentPositionMsRef.current = statusCurrentTimeMs;
                     }
                     const statusDurationMs = playbackStatus.duration * 1000;
-                    if (Number.isFinite(statusDurationMs) && statusDurationMs > 0) {
+                    if (
+                      Number.isFinite(statusDurationMs) &&
+                      statusDurationMs > 0
+                    ) {
                       lastSegmentDurationMsRef.current = statusDurationMs;
                       segmentDurationMsMapRef.current.set(
                         `${itemIndex}:${uriIndex}`,
@@ -783,7 +819,10 @@ export function usePlayAllAudioController({
                         existingDurations[uriIndex] ?? 0,
                         statusDurationMs
                       );
-                      itemSegmentDurationsRef.current.set(itemIndex, existingDurations);
+                      itemSegmentDurationsRef.current.set(
+                        itemIndex,
+                        existingDurations
+                      );
                     }
 
                     const itemDurations =
@@ -791,8 +830,13 @@ export function usePlayAllAudioController({
                       new Array<number>(item.uris.length).fill(0);
                     const elapsedBeforeCurrentSegment = itemDurations
                       .slice(0, uriIndex)
-                      .reduce((sum, duration) => sum + Math.max(0, duration), 0);
-                    const currentSegmentPositionMs = Number.isFinite(statusCurrentTimeMs)
+                      .reduce(
+                        (sum, duration) => sum + Math.max(0, duration),
+                        0
+                      );
+                    const currentSegmentPositionMs = Number.isFinite(
+                      statusCurrentTimeMs
+                    )
                       ? Math.max(0, statusCurrentTimeMs)
                       : 0;
                     const assetPositionMs =
@@ -854,7 +898,8 @@ export function usePlayAllAudioController({
               }
             });
 
-            const jumpTarget = pendingJumpTargetRef.current as PlayAllJumpTarget | null;
+            const jumpTarget =
+              pendingJumpTargetRef.current as PlayAllJumpTarget | null;
             if (jumpTarget !== null) {
               shouldUseInitialCheckpoint = false;
               itemIndex = Math.max(
@@ -879,7 +924,12 @@ export function usePlayAllAudioController({
         stopPlayAll('error');
       }
     },
-    [checkpointStore, notifyCurrentAssetChange, releaseCurrentPlayer, stopPlayAll]
+    [
+      checkpointStore,
+      notifyCurrentAssetChange,
+      releaseCurrentPlayer,
+      stopPlayAll
+    ]
   );
 
   React.useEffect(() => {

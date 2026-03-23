@@ -294,9 +294,8 @@ const AssetCardItemComponent: React.FC<AssetCardItemProps> = ({
           isCurrentlyPlaying ? 'border-2 border-primary bg-primary/5' : ''
         } ${isSelected ? 'border-2 border-primary bg-primary/10' : ''} ${
           isSelectedForRecording ? 'border-2 border-primary bg-primary/15' : ''
-        } p-3 relative overflow-hidden`}
+        } relative overflow-hidden p-3`}
       >
-       
         <CardHeader className="flex flex-row items-start justify-between p-0">
           <View className="flex flex-1 gap-1">
             <View className="flex flex-row items-center justify-between gap-1.5">
@@ -384,8 +383,13 @@ const AssetCardItemComponent: React.FC<AssetCardItemProps> = ({
               {/* Actions: Edit name + Open details (hidden in selection mode) */}
               <View className="flex flex-row items-center gap-2">
                 {/* Highlight indicator badge */}
-              { isHighlighted && <View className="bg-primary/50 rounded-lg px-2 ">
-                <Text className="text-white font-semibold text-[10px]">NEW</Text></View> }
+                {isHighlighted && (
+                  <View className="rounded-lg bg-primary/50 px-2">
+                    <Text className="text-[10px] font-semibold text-white">
+                      NEW
+                    </Text>
+                  </View>
+                )}
 
                 {!isSelectionMode &&
                 !isPublished &&
@@ -525,9 +529,6 @@ const arePropsEqual = (
  * Memoized BibleAssetListItem component
  * Only re-renders when props that affect visual output change
  */
-export const AssetCardItem = React.memo(
-  AssetCardItemComponent,
-  arePropsEqual
-);
+export const AssetCardItem = React.memo(AssetCardItemComponent, arePropsEqual);
 
 AssetCardItem.displayName = 'AssetCardItem';
