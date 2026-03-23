@@ -1,7 +1,8 @@
 import { BibleReaderContent } from '@/components/BibleReaderContent';
 import { BibleTranslationDrawer } from '@/components/BibleTranslationDrawer';
-import { FiaIcon } from '@/components/icons/FiaIcon';
 import { Button } from '@/components/ui/button';
+import { CheckpointMediaPlayer } from '@/components/CheckpointMediaPlayer';
+import { FiaIcon } from '@/components/icons/FiaIcon';
 import {
   Collapsible,
   CollapsibleContent,
@@ -97,89 +98,25 @@ interface FiaStepDrawerProps {
 
 // --- Audio Player ---
 
-function StepAudioPlayer({ audioUrl }: { audioUrl: string | null }) {
-  const {
-    playSound,
-    pauseSound,
-    resumeSound,
-    stopCurrentSound,
-    isPlaying,
-    isPaused,
-    currentAudioId,
-    position,
-    duration,
-    setPosition
-  } = useAudio({ stopOnUnmount: false });
+const AUDIO_SEEK_STEP_MS = 10000;
 
-  const audioId = `fia-step-${audioUrl}`;
-  const isThisPlaying = isPlaying && currentAudioId === audioId;
-  const isThisPaused = isPaused && currentAudioId === audioId;
-  const isThisActive = isThisPlaying || isThisPaused;
-
-  const handlePlayPause = async () => {
-    if (!audioUrl) return;
-    if (isThisPlaying) {
-      await pauseSound();
-    } else if (isThisPaused) {
-      await resumeSound();
-    } else {
-      await playSound(audioUrl, audioId);
-    }
-  };
-
-  const handleSeek = (ms: number) => {
-    void setPosition(ms);
-  };
-
-  const formatTime = (ms: number) => {
-    const totalSeconds = Math.floor(ms / 1000);
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-  };
-
-  if (!audioUrl) return null;
-
-  const currentPos = isThisActive ? position : 0;
-  const currentDur = isThisActive ? duration : 0;
-
+function StepAudioPlayer({
+  audioUrl,
+  checkpointKey,
+  title
+}: {
+  audioUrl: string | null;
+  checkpointKey: string | null;
+  title?: string;
+}) {
   return (
-    <View className="gap-1 border-b border-border bg-card px-4 py-2">
-      <View className="flex-row items-center gap-3">
-        <Button
-          variant="default"
-          size="icon"
-          className="rounded-full"
-          onPress={handlePlayPause}
-        >
-          <Ionicons
-            name={isThisPlaying ? 'pause' : 'play'}
-            size={20}
-            color="white"
-          />
-        </Button>
-        <View className="flex-1">
-          <Slider
-            minimumValue={0}
-            maximumValue={currentDur || 1}
-            value={currentPos}
-            onValueChange={handleSeek}
-            disabled={!isThisActive}
-            animated={false}
-          />
-        </View>
-      </View>
-      <View className="flex-row justify-between px-1">
-        <Text className="text-xs text-muted-foreground">
-          {formatTime(currentPos)}
-        </Text>
-        {currentDur > 0 ? (
-          <Text className="text-xs text-muted-foreground">
-            {formatTime(currentDur)}
-          </Text>
-        ) : null}
-      </View>
-    </View>
+    <CheckpointMediaPlayer
+      className="rounded-none border-0 border-b border-border bg-card px-4 py-2"
+      title={title ?? 'Step audio'}
+      checkpointKey={checkpointKey}
+      audioUris={audioUrl ? [audioUrl] : []}
+      seekStepMs={AUDIO_SEEK_STEP_MS}
+    />
   );
 }
 
@@ -955,6 +892,10 @@ export function FiaStepDrawer({
 
   const currentStep = data?.steps.find((s) => s.stepId === activeStep);
   const audioUrl = currentStep?.audioUrl ?? null;
+  const stepAudioCheckpointKey =
+    projectId && pericopeId
+      ? `${projectId}:${pericopeId}:fia-step:${activeStep}`
+      : null;
   const currentStepIndex = STEP_CONFIG.findIndex((c) => c.id === activeStep);
   const isLastStep = currentStepIndex === STEP_CONFIG.length - 1;
   const isStepCompleted = completedSteps.has(activeStep);
@@ -1015,8 +956,12 @@ export function FiaStepDrawer({
   const prevOpenRef = React.useRef(open);
   React.useEffect(() => {
     if (prevOpenRef.current && !open && isGlobalPlaying) {
-      const isFiaAudio = globalAudioId?.startsWith('fia-step-');
-      const isBibleAudio = globalAudioId?.startsWith('bible-');
+      const isFiaAudio =
+        globalAudioId?.startsWith('fia-step-') ||
+        globalAudioId?.includes(':fia-step:');
+      const isBibleAudio =
+        globalAudioId?.startsWith('bible-') ||
+        globalAudioId?.includes(':bible-model:');
       if (isFiaAudio || isBibleAudio) {
         void pauseGlobal();
       }
@@ -1096,6 +1041,7 @@ export function FiaStepDrawer({
               <TabsContent value="bible" className="flex-1">
                 <BibleReaderContent
                   projectId={projectId}
+                  pericopeId={pericopeId}
                   fiaBookId={fiaBookId}
                   verseRange={verseRange}
                   onOpenTranslationDrawer={() => setTranslationDrawerOpen(true)}
@@ -1191,7 +1137,11 @@ export function FiaStepDrawer({
                       })}
                     </View>
 
-                    <StepAudioPlayer audioUrl={audioUrl} />
+                    <StepAudioPlayer
+                      audioUrl={audioUrl}
+                      checkpointKey={stepAudioCheckpointKey}
+                      title={currentStep?.title}
+                    />
 
                     <DrawerScrollView ref={scrollRef} style={{ flex: 1 }}>
                       {currentStep ? (
