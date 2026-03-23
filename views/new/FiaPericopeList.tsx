@@ -203,8 +203,10 @@ function PericopeButton({
 
   const primaryColor = useThemeColor('primary');
 
+  const isDisabledEmpty = !existingQuest && !canCreateNew;
+
   return (
-    <View className="relative w-full flex-col gap-1">
+    <View className={cn('relative w-full flex-col gap-1', isDisabledEmpty && 'opacity-40')}>
       <Button
         variant={exists ? 'default' : 'outline'}
         className={cn(
@@ -213,7 +215,7 @@ function PericopeButton({
           getBackgroundColor()
         )}
         onPress={onPress}
-        disabled={disabled || (!existingQuest && !canCreateNew)}
+        disabled={disabled || isDisabledEmpty}
       >
         <View className="w-full flex-col items-center gap-1">
           <View className="min-h-8 w-full items-center justify-center">
@@ -685,21 +687,19 @@ export function FiaPericopeList({
         contentContainerStyle={{ paddingHorizontal: 8 }}
         columnWrapperStyle={{ gap: 8 }}
         recycleItems
-        renderItem={({ item }) =>
-          (item.group || canCreateNew) && (
-            <PericopeButton
-              pericope={item.pericope}
-              index={item.index}
-              group={item.group}
-              isCreatingThis={item.isCreatingThis}
-              onPress={() => handlePericopePress(item.pericope)}
-              disabled={Boolean(isCreating)}
-              onDownloadClick={handleDownloadClick}
-              canCreateNew={canCreateNew}
-              downloadingQuestIds={downloadingQuestIds}
-            />
-          )
-        }
+        renderItem={({ item }) => (
+          <PericopeButton
+            pericope={item.pericope}
+            index={item.index}
+            group={item.group}
+            isCreatingThis={item.isCreatingThis}
+            onPress={() => handlePericopePress(item.pericope)}
+            disabled={Boolean(isCreating)}
+            onDownloadClick={handleDownloadClick}
+            canCreateNew={canCreateNew}
+            downloadingQuestIds={downloadingQuestIds}
+          />
+        )}
       />
 
       {/* Version picker drawer */}
