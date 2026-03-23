@@ -274,7 +274,9 @@ async function fetchPericopeSteps(
     throw new Error(`FIA steps request failed (${res.status}): ${body}`);
   }
 
-  console.log(`[FiaAttachmentQueue] Edge function responded OK for ${pericopeId}`);
+  console.log(
+    `[FiaAttachmentQueue] Edge function responded OK for ${pericopeId}`
+  );
   return res.json();
 }
 
@@ -337,9 +339,7 @@ export function useFiaAttachmentQueueSummary() {
   return useLocalStore(
     useShallow((state) => {
       const q = state.fiaAttachmentQueue;
-      const downloading = q.filter(
-        (i) => i.status === 'downloading'
-      ).length;
+      const downloading = q.filter((i) => i.status === 'downloading').length;
       const pending = q.filter((i) => i.status === 'pending').length;
       const failed = q.filter((i) => i.status === 'failed').length;
       const completed = q.filter((i) => i.status === 'completed').length;

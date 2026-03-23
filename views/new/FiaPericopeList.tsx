@@ -206,7 +206,12 @@ function PericopeButton({
   const isDisabledEmpty = !existingQuest && !canCreateNew;
 
   return (
-    <View className={cn('relative w-full flex-col gap-1', isDisabledEmpty && 'opacity-40')}>
+    <View
+      className={cn(
+        'relative w-full flex-col gap-1',
+        isDisabledEmpty && 'opacity-40'
+      )}
+    >
       <Button
         variant={exists ? 'default' : 'outline'}
         className={cn(
