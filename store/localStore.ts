@@ -801,6 +801,32 @@ export const useLocalStore = create<LocalState>()(
         console.log('rehydrating local store', state);
         if (state) {
           state.setTheme(state.theme);
+
+          // Reset any FIA attachments stuck in 'downloading' (interrupted by app restart)
+          const stuckItems = state.fiaAttachmentQueue.filter(
+            (i) => i.status === 'downloading'
+          );
+          if (stuckItems.length > 0) {
+            console.log(
+              `[LocalStore] Resetting ${stuckItems.length} stuck FIA downloads to pending`
+            );
+            for (const item of stuckItems) {
+              state.updateFiaAttachment(item.pericopeId, {
+                status: 'pending'
+              });
+            }
+          }
+
+          // Resume FIA queue if there are pending/failed items
+          const hasPendingFia = state.fiaAttachmentQueue.some(
+            (i) => i.status === 'pending' || i.status === 'failed'
+          );
+          if (hasPendingFia) {
+            const { resumeQueue } = await import(
+              '@/services/FiaAttachmentQueue'
+            );
+            resumeQueue();
+          }
           // Validate and clamp VAD threshold if invalid
           if (
             typeof state.vadThreshold !== 'number' ||

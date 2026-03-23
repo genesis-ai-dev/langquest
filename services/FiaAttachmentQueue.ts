@@ -253,6 +253,15 @@ function scheduleRetry() {
   }, RETRY_DELAY_MS);
 }
 
+/**
+ * Resume processing after app restart / store rehydration.
+ * Called once by the store's onRehydrateStorage callback so that items
+ * reset from 'downloading' → 'pending' actually get picked up.
+ */
+export function resumeQueue() {
+  void processQueue();
+}
+
 // ---------------------------------------------------------------------------
 // Hook for components to observe a single pericope's status
 // ---------------------------------------------------------------------------
