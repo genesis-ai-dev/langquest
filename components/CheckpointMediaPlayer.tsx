@@ -16,6 +16,7 @@ interface CheckpointMediaPlayerProps {
   seekStepMs?: number;
   className?: string;
   disabled?: boolean;
+  ticks?: { positionMs: number }[];
 }
 
 export function CheckpointMediaPlayer({
@@ -24,7 +25,8 @@ export function CheckpointMediaPlayer({
   title,
   seekStepMs,
   className,
-  disabled = false
+  disabled = false,
+  ticks
 }: CheckpointMediaPlayerProps) {
   const audioContext = useAudio({ stopOnUnmount: false });
 
@@ -208,6 +210,7 @@ export function CheckpointMediaPlayer({
       onStop={() => void stopAndResetCurrentAsset()}
       onForward={() => void forwardCurrentAsset()}
       disabled={disabled}
+      ticks={ticks}
     />
   );
 }

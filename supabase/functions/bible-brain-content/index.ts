@@ -171,8 +171,7 @@ async function getCustomTimestamps(
         : typeof r.verse_start === 'number'
           ? r.verse_start
           : NaN;
-    const timestamp =
-      typeof r.timestamp === 'number' ? r.timestamp : NaN;
+    const timestamp = typeof r.timestamp === 'number' ? r.timestamp : NaN;
     if (!Number.isFinite(verseStart) || !Number.isFinite(timestamp)) continue;
     mapped.push({ verseStart, timestamp });
   }
@@ -311,7 +310,12 @@ async function handleGetContent(body: GetContentRequest): Promise<Response> {
           // Timestamps: prefer custom DB rows, then Bible Brain API
           let tsList: VerseTimestamp[] | null = null;
           if (supabase) {
-            tsList = await getCustomTimestamps(supabase, audioFilesetId, book, ch);
+            tsList = await getCustomTimestamps(
+              supabase,
+              audioFilesetId,
+              book,
+              ch
+            );
           }
           if (tsList) {
             entry.timestamps = tsList;
