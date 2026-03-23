@@ -23,6 +23,7 @@ import { system } from '@/db/powersync/system';
 import { useProjectById } from '@/hooks/db/useProjects';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import type { FiaBook, FiaPericope } from '@/hooks/useFiaBooks';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useFiaPericopeCreation } from '@/hooks/useFiaPericopeCreation';
 import {
   useFiaPericopes,
@@ -364,8 +365,9 @@ export function FiaPericopeList({
     'open_project',
     isPrivate
   );
+  const isConnected = useNetworkStatus();
   const isMember = membership === 'member' || membership === 'owner';
-  const canCreateNew = isMember;
+  const canCreateNew = isMember && isConnected;
 
   const { pericopes: pericopeGroups, isLoadingCloud } = useFiaPericopes(
     projectId,
