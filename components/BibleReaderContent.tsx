@@ -414,13 +414,23 @@ export function BibleReaderContent({
   // Pericope tick positions on the combined audio timeline
   const pericopeTicks = useMemo(() => {
     const audio = content?.audio;
-    if (!audio?.length || !verseRange) return undefined;
-    if (audio.some((ch) => !ch.timestamps?.length)) return undefined;
+    if (!audio?.length || !verseRange) {
+      console.log('[Bible] ticks: no audio or verseRange', { audioLen: audio?.length, verseRange });
+      return undefined;
+    }
+    const missingTs = audio.filter((ch) => !ch.timestamps?.length);
+    if (missingTs.length > 0) {
+      console.log('[Bible] ticks: chapters missing timestamps', missingTs.map((ch) => ch.chapter));
+      return undefined;
+    }
 
     const match = verseRange.match(
       /^(\d+):(\d+)[a-z]?-(?:(\d+):)?(\d+)[a-z]?$/
     );
-    if (!match) return undefined;
+    if (!match) {
+      console.log('[Bible] ticks: verseRange regex failed', verseRange);
+      return undefined;
+    }
 
     const startChapter = parseInt(match[1]!, 10);
     const startVerse = parseInt(match[2]!, 10);
@@ -447,11 +457,15 @@ export function BibleReaderContent({
       cumulativeMs += ch.duration * 1000;
     }
 
-    if (startMs == null || endMs == null) return undefined;
+    if (startMs == null || endMs == null) {
+      console.log('[Bible] ticks: could not resolve bounds', { startMs, endMs, startChapter, startVerse, endChapter, endVerse, chapters: audio.map((c) => c.chapter) });
+      return undefined;
+    }
 
-    const ticks: { positionMs: number }[] = [];
-    if (startMs > 0) ticks.push({ positionMs: startMs });
-    if (endMs < cumulativeMs) ticks.push({ positionMs: endMs });
+    const ticks: { pct: number }[] = [];
+    if (startMs > 0) ticks.push({ pct: (startMs / cumulativeMs) * 100 });
+    if (endMs < cumulativeMs) ticks.push({ pct: (endMs / cumulativeMs) * 100 });
+    console.log('[Bible] ticks computed:', { startMs, endMs, cumulativeMs, tickCount: ticks.length, ticks });
     return ticks.length > 0 ? ticks : undefined;
   }, [content?.audio, verseRange]);
 

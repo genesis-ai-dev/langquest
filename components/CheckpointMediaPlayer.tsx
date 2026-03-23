@@ -16,7 +16,7 @@ interface CheckpointMediaPlayerProps {
   seekStepMs?: number;
   className?: string;
   disabled?: boolean;
-  ticks?: { positionMs: number }[];
+  ticks?: { pct: number }[];
 }
 
 export function CheckpointMediaPlayer({

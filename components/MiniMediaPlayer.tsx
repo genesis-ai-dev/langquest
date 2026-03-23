@@ -26,7 +26,7 @@ interface MiniMediaPlayerProps {
   onForward?: () => void;
   disabled?: boolean;
   className?: string;
-  ticks?: { positionMs: number }[];
+  ticks?: { pct: number }[];
 }
 
 function formatTime(ms: number): string {
@@ -91,7 +91,7 @@ export const MiniMediaPlayer = React.memo(function MiniMediaPlayer({
           disabled={disabled || !isActive || !onSeek}
           animated={false}
         />
-        {ticks && maxDuration > 1 && (
+        {ticks && (
           <View
             pointerEvents="none"
             style={{
@@ -109,7 +109,7 @@ export const MiniMediaPlayer = React.memo(function MiniMediaPlayer({
                 className="bg-primary/70"
                 style={{
                   position: 'absolute',
-                  left: `${(tick.positionMs / maxDuration) * 100}%`,
+                  left: `${tick.pct}%`,
                   top: 0,
                   bottom: 0,
                   width: 2,
