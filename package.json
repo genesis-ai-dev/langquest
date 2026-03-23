@@ -54,8 +54,6 @@
     "sb:serve-functions": "npm run sb functions serve -- --no-verify-jwt --debug",
     "sb:functions:deploy:send-email:dev": "npm run sb functions deploy send-email -- --no-verify-jwt --project-ref yjgdgsycxmlvaiuynlbv",
     "sb:functions:deploy:send-email:prod": "npm run sb functions deploy send-email -- --no-verify-jwt --project-ref unsxkmlcyxgtgmtzfonb",
-    "sb:functions:deploy:all:dev": "npm run sb -- functions deploy clone-worker fia-pericopes fia-pericope-steps fia-pericope-text bible-brain-content predict-translation transcribe sqltr localize-transcription send-email --project-ref yjgdgsycxmlvaiuynlbv",
-    "sb:functions:deploy:all:prod": "npm run sb -- functions deploy clone-worker fia-pericopes fia-pericope-steps fia-pericope-text bible-brain-content predict-translation transcribe sqltr localize-transcription send-email --project-ref unsxkmlcyxgtgmtzfonb",
     "package-lock:fix": "npm install --package-lock-only",
     "shadcn": "shadcn",
     "knip:check": "knip",
