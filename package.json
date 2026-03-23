@@ -16,6 +16,7 @@
     "export:dev:all": "EXPO_ATLAS=true npm run export:all -- --dev",
     "export:analyze": "npx expo-atlas .expo/atlas.jsonl",
     "generate-env": "npx tsx ./scripts/generate-env.ts",
+    "import-timestamps": "tsx scripts/import-timestamps.ts",
     "reset-project": "node ./scripts/reset-project.js",
     "clean-install": "git clean -xdf node_modules package-lock.json && npm i",
     "clean-rebuild:android": "npm run clean-install && npx expo prebuild --platform android --clean",
