@@ -46,6 +46,7 @@ import { PermAttachmentQueue } from './PermAttachmentQueue';
 import { ATTACHMENT_QUEUE_LIMITS } from './constants';
 import { getDefaultOpMetadata } from './opMetadata';
 
+import { initializeFiaQueue } from '@/services/FiaAttachmentQueue';
 import { posthog } from '@/services/posthog';
 import { useLocalStore } from '@/store/localStore';
 import { useNetworkStore } from '@/store/networkStore';
@@ -772,6 +773,7 @@ export class System {
     this.initializeAttachmentQueues()
       .then(() => {
         console.log('[System] ✓ Attachment queues initialized');
+        initializeFiaQueue();
       })
       .catch((error) => {
         // Log but don't block - queues will be initialized on-demand if needed

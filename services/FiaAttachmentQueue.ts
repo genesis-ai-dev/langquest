@@ -105,6 +105,7 @@ export function resolveImageUri(remoteUrl: string): string {
 // ---------------------------------------------------------------------------
 
 const RETRY_DELAY_MS = 30_000;
+const FETCH_TIMEOUT_MS = 30_000;
 const IMAGE_CONCURRENCY = 6;
 
 let processing = false;
@@ -116,13 +117,32 @@ function getStore() {
 
 function pendingItems(): FiaAttachmentQueueItem[] {
   return getStore().fiaAttachmentQueue.filter(
-    (i) => i.status === 'pending' || i.status === 'failed'
+    (i) =>
+      i.status === 'pending' ||
+      i.status === 'failed' ||
+      i.status === 'downloading'
   );
 }
 
 export function enqueue(pericopeId: string, projectId: string) {
   getStore().enqueueFiaAttachment({ pericopeId, projectId });
   void processQueue();
+}
+
+export function initializeFiaQueue() {
+  const store = getStore();
+  const stuck = store.fiaAttachmentQueue.filter(
+    (i) => i.status === 'downloading'
+  );
+  for (const item of stuck) {
+    store.updateFiaAttachment(item.pericopeId, { status: 'pending' });
+  }
+  if (pendingItems().length > 0) {
+    console.log(
+      `[FiaAttachmentQueue] Resuming ${pendingItems().length} items on init`
+    );
+    void processQueue();
+  }
 }
 
 async function processQueue() {
@@ -154,16 +174,18 @@ async function processItem(item: FiaAttachmentQueueItem) {
   }
 
   store.updateFiaAttachment(pericopeId, { status: 'downloading' });
+  console.log(`[FiaAttachmentQueue] Processing ${pericopeId}...`);
 
   try {
     const data = await fetchPericopeSteps(projectId, pericopeId);
     if (!data) throw new Error('Empty response from edge function');
 
-    // Download images concurrently (bounded)
     const imageUrls = extractImageUrls(data);
+    console.log(
+      `[FiaAttachmentQueue] Downloading ${imageUrls.length} images for ${pericopeId}...`
+    );
     await downloadImages(imageUrls);
 
-    // Persist pericope JSON
     writeFile(pericopeDataPath(pericopeId), JSON.stringify(data));
 
     getStore().updateFiaAttachment(pericopeId, {
@@ -185,39 +207,72 @@ async function processItem(item: FiaAttachmentQueueItem) {
   }
 }
 
+function fetchWithTimeout(
+  url: string,
+  options: RequestInit,
+  timeoutMs: number
+): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  return fetch(url, { ...options, signal: controller.signal }).finally(() =>
+    clearTimeout(timer)
+  );
+}
+
 async function fetchPericopeSteps(
   projectId: string,
   pericopeId: string
 ): Promise<FiaPericopeStepsResponse> {
+  console.log(
+    `[FiaAttachmentQueue] Looking up languoid for project ${projectId}...`
+  );
   const sourceLanguoidId = await lookupSourceLanguoidId(projectId);
   if (!sourceLanguoidId)
     throw new Error('Could not find source languoid for project');
 
+  console.log(
+    `[FiaAttachmentQueue] Looking up FIA code for languoid ${sourceLanguoidId}...`
+  );
   const fiaCode = await lookupFiaLanguageCode(sourceLanguoidId);
   if (!fiaCode)
     throw new Error(`No FIA language code for languoid ${sourceLanguoidId}`);
 
   const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+  if (!supabaseUrl)
+    throw new Error('EXPO_PUBLIC_SUPABASE_URL is not configured');
+
   const {
     data: { session }
   } = await system.supabaseConnector.client.auth.getSession();
   const token =
     session?.access_token ?? process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
-  const res = await fetch(`${supabaseUrl}/functions/v1/fia-pericope-steps`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`
+  if (!token) throw new Error('No auth token or anon key available');
+
+  const url = `${supabaseUrl}/functions/v1/fia-pericope-steps`;
+  console.log(
+    `[FiaAttachmentQueue] Fetching edge function: ${url} (fiaCode=${fiaCode}, pericopeId=${pericopeId})`
+  );
+
+  const res = await fetchWithTimeout(
+    url,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ pericopeId, fiaLanguageCode: fiaCode })
     },
-    body: JSON.stringify({ pericopeId, fiaLanguageCode: fiaCode })
-  });
+    FETCH_TIMEOUT_MS
+  );
 
   if (!res.ok) {
     const body = await res.text();
     throw new Error(`FIA steps request failed (${res.status}): ${body}`);
   }
 
+  console.log(`[FiaAttachmentQueue] Edge function responded OK for ${pericopeId}`);
   return res.json();
 }
 
@@ -253,15 +308,6 @@ function scheduleRetry() {
   }, RETRY_DELAY_MS);
 }
 
-/**
- * Resume processing after app restart / store rehydration.
- * Called once by the store's onRehydrateStorage callback so that items
- * reset from 'downloading' → 'pending' actually get picked up.
- */
-export function resumeQueue() {
-  void processQueue();
-}
-
 // ---------------------------------------------------------------------------
 // Hook for components to observe a single pericope's status
 // ---------------------------------------------------------------------------
@@ -288,17 +334,21 @@ export function useFiaAttachmentQueueSummary() {
   return useLocalStore(
     useShallow((state) => {
       const q = state.fiaAttachmentQueue;
-      const pending = q.filter(
-        (i) => i.status === 'pending' || i.status === 'downloading'
+      const downloading = q.filter(
+        (i) => i.status === 'downloading'
       ).length;
+      const pending = q.filter((i) => i.status === 'pending').length;
       const failed = q.filter((i) => i.status === 'failed').length;
       const completed = q.filter((i) => i.status === 'completed').length;
+      const lastError = q.find((i) => i.status === 'failed')?.error;
       return {
         total: q.length,
+        downloading,
         pending,
         failed,
         completed,
-        hasActivity: pending > 0
+        lastError,
+        hasActivity: downloading > 0 || pending > 0
       };
     })
   );

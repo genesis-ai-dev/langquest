@@ -619,24 +619,32 @@ export default function AppDrawer({
                         : 'text-muted-foreground'
                   )}
                 />
-                <View className="flex-1 flex-row items-center gap-1.5">
+                <View className="flex-1 flex-row flex-wrap items-center gap-1.5">
                   <Text className="text-xs text-foreground">FIA content</Text>
-                  {fiaQueueSummary.hasActivity ? (
+                  {fiaQueueSummary.downloading > 0 && (
                     <View className="flex-row items-center gap-1">
                       <ActivityIndicator size={10} color={primaryColor} />
                       <Text className="text-xs text-blue-500">
-                        {fiaQueueSummary.pending} downloading
+                        {fiaQueueSummary.downloading} downloading
                       </Text>
                     </View>
-                  ) : fiaQueueSummary.failed > 0 ? (
+                  )}
+                  {fiaQueueSummary.pending > 0 && (
+                    <Text className="text-xs text-muted-foreground">
+                      {fiaQueueSummary.pending} queued
+                    </Text>
+                  )}
+                  {fiaQueueSummary.failed > 0 && (
                     <Text className="text-xs text-destructive">
                       {fiaQueueSummary.failed} failed
                     </Text>
-                  ) : (
-                    <Text className="text-xs text-muted-foreground">
-                      {fiaQueueSummary.completed} cached
-                    </Text>
                   )}
+                  {!fiaQueueSummary.hasActivity &&
+                    fiaQueueSummary.failed === 0 && (
+                      <Text className="text-xs text-muted-foreground">
+                        {fiaQueueSummary.completed} cached
+                      </Text>
+                    )}
                 </View>
               </View>
             </View>
