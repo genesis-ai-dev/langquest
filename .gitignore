@@ -60,3 +60,4 @@ testing/client-migrations/*.sh
 testing/client-migrations/*.md
 # include readme only
 !testing/client-migrations/README.md
+/data/timestamps
