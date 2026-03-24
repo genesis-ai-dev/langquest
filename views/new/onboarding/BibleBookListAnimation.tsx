@@ -1,8 +1,8 @@
 import { Text } from '@/components/ui/text';
 import { BOOK_ICON_MAP } from '@/utils/BOOK_GRAPHICS';
 import { useThemeColor } from '@/utils/styleUtils';
+import { Image } from 'expo-image';
 import React, { useEffect } from 'react';
-import { Image } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -66,7 +66,7 @@ export function BibleBookListAnimation({
           height: 24,
           tintColor: primaryColor
         }}
-        resizeMode="contain"
+        contentFit="contain"
       />
       <Text variant="default">Genesis</Text>
     </Animated.View>
@@ -86,7 +86,7 @@ export function BibleBookListAnimation({
             height: 24,
             tintColor: secondaryColor
           }}
-          resizeMode="contain"
+          contentFit="contain"
         />
         <Text variant="default">Matthew</Text>
       </Animated.View>

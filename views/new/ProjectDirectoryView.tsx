@@ -64,7 +64,7 @@ import { useLocalStore } from '@/store/localStore';
 import { bulkDownloadQuest } from '@/utils/bulkDownload';
 import { resolveTable } from '@/utils/dbUtils';
 import { offloadQuest } from '@/utils/questOffloadUtils';
-import { getThemeColor } from '@/utils/styleUtils';
+import { getThemeColor, useThemeColor } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -115,6 +115,7 @@ export default function ProjectDirectoryView() {
   const queryClient = useQueryClient();
   const { setCloudLoading } = useCloudLoading();
   const insets = useSafeAreaInsets();
+  const primaryColor = useThemeColor('primary');
 
   // Track cloud loading states from child components
   const [questListCloudLoading, setQuestListCloudLoading] =
@@ -1092,8 +1093,8 @@ export default function ProjectDirectoryView() {
               <Icon as={ArrowLeftIcon} />
               <Text>{t('back')}</Text>
             </Button>
-            <View className="flex-1 items-center justify-center">
-              <ActivityIndicator size="large" />
+            <View className="w-full flex-1 items-center justify-center">
+              <ActivityIndicator size="large" color={primaryColor} />
             </View>
           </View>
         );

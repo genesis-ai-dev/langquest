@@ -11,12 +11,13 @@ import {
   SquareIcon
 } from 'lucide-react-native';
 import React from 'react';
-import { View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 
 interface MiniMediaPlayerProps {
   currentAssetName?: string | null;
   isPlaying: boolean;
   isPaused?: boolean;
+  loading?: boolean;
   positionMs?: number;
   durationMs?: number;
   onSeek?: (positionMs: number) => void;
@@ -42,6 +43,7 @@ export const MiniMediaPlayer = React.memo(function MiniMediaPlayer({
   currentAssetName,
   isPlaying,
   isPaused = false,
+  loading = false,
   positionMs = 0,
   durationMs = 0,
   onSeek,
@@ -145,12 +147,16 @@ export const MiniMediaPlayer = React.memo(function MiniMediaPlayer({
           variant="default"
           size="icon"
           onPress={onPlayPause}
-          disabled={disabled || !onPlayPause}
+          disabled={disabled || loading || !onPlayPause}
         >
-          <Icon
-            as={isPlaying ? PauseIcon : PlayIcon}
-            className="text-primary-foreground"
-          />
+          {loading ? (
+            <ActivityIndicator size="small" color="white" />
+          ) : (
+            <Icon
+              as={isPlaying ? PauseIcon : PlayIcon}
+              className="text-primary-foreground"
+            />
+          )}
         </Button>
 
         <Button

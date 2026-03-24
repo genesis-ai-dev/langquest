@@ -1,7 +1,6 @@
 import { LanguageCombobox } from '@/components/language-combobox';
 import { OfflineAlert } from '@/components/offline-alert';
-import { Button, buttonTextVariants } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
+import { Button } from '@/components/ui/button';
 import {
   Form,
   FormControl,
@@ -21,43 +20,17 @@ import type { SharedAuthInfo } from '@/navigators/AuthNavigator';
 import type { Language } from '@/store/localStore';
 import { useLocalStore } from '@/store/localStore';
 import { safeNavigate } from '@/utils/sharedUtils';
-import { cn } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
 import { LockIcon, MailIcon, UserIcon } from 'lucide-react-native';
-import React, { useCallback, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import { Linking, Pressable, View } from 'react-native';
+import { View } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { z } from 'zod';
 
 const { supabaseConnector } = system;
-
-function AgreeToTermsText({ className }: { className?: string }) {
-  const { t } = useLocalization();
-  const handleLinkPress = useCallback(() => {
-    void Linking.openURL(`${process.env.EXPO_PUBLIC_SITE_URL}/terms`);
-  }, []);
-
-  const baseText = t('agreeToTerms');
-  const linkText = t('termsAndPrivacyLink');
-  const textParts = baseText.split('{link}');
-
-  return (
-    <Text className={className}>
-      {textParts[0]}
-      <Text
-        className={buttonTextVariants({ variant: 'link' })}
-        style={{ fontSize: undefined }}
-        onPress={handleLinkPress}
-      >
-        {linkText}
-      </Text>
-      {textParts[1]}
-    </Text>
-  );
-}
 
 export default function RegisterView({
   onNavigate,
@@ -85,10 +58,7 @@ export default function RegisterView({
         .min(
           3,
           t('usernameRequired') || 'Username must be at least 3 characters'
-        ),
-      termsAccepted: z.boolean().refine((val) => val === true, {
-        message: t('termsRequired') || 'You must agree to the Terms and Privacy'
-      })
+        )
     })
     .refine((data) => data.password === data.confirmPassword, {
       message: t('passwordsNoMatch') || 'Passwords do not match',
@@ -112,7 +82,7 @@ export default function RegisterView({
         options: {
           data: {
             username: data.username.trim(),
-            terms_accepted: data.termsAccepted,
+            terms_accepted: true,
             terms_accepted_at: dateTermsAccepted || new Date().toISOString(),
             ui_language: languoidName.toLowerCase(),
             ui_languoid_id: currentLanguage?.id, // New languoid reference
@@ -151,8 +121,7 @@ export default function RegisterView({
       email: sharedAuthInfo?.email || '',
       password: '',
       confirmPassword: '',
-      username: '',
-      termsAccepted: false
+      username: ''
     }
   });
 
@@ -273,37 +242,6 @@ export default function RegisterView({
                 <FormMessage />
               </FormItem>
             )}
-          />
-          <FormField
-            control={form.control}
-            name="termsAccepted"
-            render={({ field }) => {
-              const error = form.formState.errors.termsAccepted;
-              return (
-                <FormItem>
-                  <FormControl>
-                    <Pressable
-                      onPress={() => field.onChange(!field.value)}
-                      className={cn(
-                        'flex flex-row items-center gap-2 rounded-lg border p-3',
-                        error
-                          ? 'border-destructive bg-destructive/10'
-                          : 'border-transparent'
-                      )}
-                    >
-                      <Checkbox
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                      <AgreeToTermsText
-                        className={cn('text-sm', error && 'text-destructive')}
-                      />
-                    </Pressable>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              );
-            }}
           />
           <OfflineAlert />
           <View className="flex flex-col gap-2">

@@ -23,6 +23,7 @@ import { system } from '@/db/powersync/system';
 import { useProjectById } from '@/hooks/db/useProjects';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import type { FiaBook, FiaPericope } from '@/hooks/useFiaBooks';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useFiaPericopeCreation } from '@/hooks/useFiaPericopeCreation';
 import {
   useFiaPericopes,
@@ -32,6 +33,7 @@ import {
 import { useQuestDownloadDiscovery } from '@/hooks/useQuestDownloadDiscovery';
 import { useQuestDownloadStatusLive } from '@/hooks/useQuestDownloadStatusLive';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
+import { enqueue as enqueueFiaAttachment } from '@/services/FiaAttachmentQueue';
 import { syncCallbackService } from '@/services/syncCallbackService';
 import { BOOK_ICON_MAP } from '@/utils/BOOK_GRAPHICS';
 import { bulkDownloadQuest } from '@/utils/bulkDownload';
@@ -43,10 +45,12 @@ import {
   BookOpenIcon,
   FileStackIcon,
   HardDriveIcon,
-  PlusCircleIcon
+  PlusCircleIcon,
+  UserIcon
 } from 'lucide-react-native';
+import { Image } from 'expo-image';
 import React from 'react';
-import { ActivityIndicator, Image, Pressable, View } from 'react-native';
+import { ActivityIndicator, Pressable, View } from 'react-native';
 
 const FIA_TO_BIBLE_BOOK_ID: Record<string, string> = {
   mrk: 'mar',
@@ -197,8 +201,17 @@ function PericopeButton({
     return 'text-muted-foreground';
   };
 
+  const primaryColor = useThemeColor('primary');
+
+  const isDisabledEmpty = !existingQuest && !canCreateNew;
+
   return (
-    <View className="relative w-full flex-col gap-1">
+    <View
+      className={cn(
+        'relative w-full flex-col gap-1',
+        isDisabledEmpty && 'opacity-40'
+      )}
+    >
       <Button
         variant={exists ? 'default' : 'outline'}
         className={cn(
@@ -207,70 +220,120 @@ function PericopeButton({
           getBackgroundColor()
         )}
         onPress={onPress}
-        disabled={disabled || (!existingQuest && !canCreateNew)}
+        disabled={disabled || isDisabledEmpty}
       >
-        {isCreatingThis ? (
-          <ActivityIndicator size="small" />
-        ) : (
-          <View className="flex-col items-center gap-1">
-            <View className="flex-row items-center gap-1">
-              {hasLocalCopy && (
-                <Icon as={HardDriveIcon} size={14} className="text-secondary" />
-              )}
-              {exists && (hasSyncedCopy || isCloudQuest) && (
-                <View pointerEvents="none">
-                  <DownloadIndicator
-                    isFlaggedForDownload={isDownloaded}
-                    isLoading={Boolean(isOptimisticallyDownloading)}
-                    onPress={handleDownloadToggle}
-                    size={16}
-                    iconColor={
-                      hasSyncedCopy || hasLocalCopy
-                        ? 'text-secondary'
-                        : 'text-foreground'
-                    }
-                  />
+        <View className="w-full flex-col items-center gap-1">
+          <View className="min-h-8 w-full items-center justify-center">
+            {isCreatingThis ? (
+              <ActivityIndicator size="small" color={primaryColor} />
+            ) : (
+              <>
+                <View className="flex-row items-center justify-center gap-1">
+                  <View className="h-5 min-w-0 flex-row items-center justify-center gap-0.5">
+                    {hasLocalCopy && (
+                      <Icon
+                        as={HardDriveIcon}
+                        size={14}
+                        className="text-secondary"
+                      />
+                    )}
+                    {exists && (hasSyncedCopy || isCloudQuest) && (
+                      <View pointerEvents="none">
+                        <DownloadIndicator
+                          isFlaggedForDownload={isDownloaded}
+                          isLoading={Boolean(isOptimisticallyDownloading)}
+                          onPress={handleDownloadToggle}
+                          size={16}
+                          iconColor={
+                            hasSyncedCopy || hasLocalCopy
+                              ? 'text-secondary'
+                              : 'text-foreground'
+                          }
+                        />
+                      </View>
+                    )}
+                  </View>
                 </View>
-              )}
-              <Text className={cn('text-base font-bold', getTextColor())}>
-                {pericope.verseRange}
-              </Text>
-            </View>
-            <View className="flex-row items-center gap-1">
-              <Text
-                className={cn(
-                  'text-xxs',
-                  exists ? 'text-card-foreground/70' : 'text-muted-foreground'
-                )}
-              >
-                p{index + 1}
-              </Text>
-              {versionCount > 1 && (
-                <View className="flex-row items-center gap-0.5">
-                  <Icon
-                    as={FileStackIcon}
-                    size={12}
-                    className={
-                      hasSyncedCopy || hasLocalCopy
-                        ? 'text-secondary/70'
-                        : 'text-muted-foreground'
-                    }
-                  />
+                <Text className={cn('text-base font-bold', getTextColor())}>
+                  {pericope.verseRange}
+                </Text>
+                <View className="flex-row items-center gap-1">
                   <Text
                     className={cn(
                       'text-xxs',
-                      hasSyncedCopy || hasLocalCopy
-                        ? 'text-secondary/70'
+                      exists
+                        ? 'text-card-foreground/70'
                         : 'text-muted-foreground'
                     )}
                   >
-                    {versionCount}
+                    p{index + 1}
                   </Text>
+                  {versionCount > 1 && (
+                    <View className="flex-row items-center gap-0.5">
+                      <Icon
+                        as={FileStackIcon}
+                        size={12}
+                        className={
+                          hasSyncedCopy || hasLocalCopy
+                            ? 'text-secondary/70'
+                            : 'text-muted-foreground'
+                        }
+                      />
+                      <Text
+                        className={cn(
+                          'text-xxs',
+                          hasSyncedCopy || hasLocalCopy
+                            ? 'text-secondary/70'
+                            : 'text-muted-foreground'
+                        )}
+                      >
+                        {versionCount}
+                      </Text>
+                    </View>
+                  )}
                 </View>
-              )}
-            </View>
+              </>
+            )}
           </View>
-        )}
+          <View
+            className={cn(
+              'flex-row items-center gap-1',
+              isCreatingThis && 'opacity-50'
+            )}
+          >
+            <Text
+              className={cn(
+                'text-xxs',
+                exists ? 'text-card-foreground/70' : 'text-muted-foreground'
+              )}
+            >
+              p{index + 1}
+            </Text>
+            {versionCount > 1 && (
+              <View className="flex-row items-center gap-0.5">
+                <Icon
+                  as={UserIcon}
+                  size={10}
+                  className={
+                    hasSyncedCopy || hasLocalCopy
+                      ? 'text-secondary/70'
+                      : 'text-muted-foreground'
+                  }
+                />
+                <Text
+                  className={cn(
+                    'text-xxs',
+                    hasSyncedCopy || hasLocalCopy
+                      ? 'text-secondary/70'
+                      : 'text-muted-foreground'
+                  )}
+                >
+                  {versionCount}
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
       </Button>
 
       {/* Download overlay removed — downloads are handled via the version picker drawer */}
@@ -309,8 +372,9 @@ export function FiaPericopeList({
     'open_project',
     isPrivate
   );
+  const isConnected = useNetworkStatus();
   const isMember = membership === 'member' || membership === 'owner';
-  const canCreateNew = isMember;
+  const canCreateNew = isMember && isConnected;
 
   const { pericopes: pericopeGroups, isLoadingCloud } = useFiaPericopes(
     projectId,
@@ -560,6 +624,8 @@ export function FiaPericopeList({
         totalPericopesInBook: book.pericopes.length
       });
 
+      enqueueFiaAttachment(pericope.id, projectId);
+
       goToQuest({
         id: result.questId,
         project_id: projectId,
@@ -605,7 +671,7 @@ export function FiaPericopeList({
           <Image
             source={iconSource}
             style={{ width: 48, height: 48, tintColor: primaryColor }}
-            resizeMode="contain"
+            contentFit="contain"
           />
         ) : (
           <Icon as={BookOpenIcon} size={32} className="text-primary" />
@@ -626,21 +692,19 @@ export function FiaPericopeList({
         contentContainerStyle={{ paddingHorizontal: 8 }}
         columnWrapperStyle={{ gap: 8 }}
         recycleItems
-        renderItem={({ item }) =>
-          (item.group || canCreateNew) && (
-            <PericopeButton
-              pericope={item.pericope}
-              index={item.index}
-              group={item.group}
-              isCreatingThis={item.isCreatingThis}
-              onPress={() => handlePericopePress(item.pericope)}
-              disabled={Boolean(isCreating)}
-              onDownloadClick={handleDownloadClick}
-              canCreateNew={canCreateNew}
-              downloadingQuestIds={downloadingQuestIds}
-            />
-          )
-        }
+        renderItem={({ item }) => (
+          <PericopeButton
+            pericope={item.pericope}
+            index={item.index}
+            group={item.group}
+            isCreatingThis={item.isCreatingThis}
+            onPress={() => handlePericopePress(item.pericope)}
+            disabled={Boolean(isCreating)}
+            onDownloadClick={handleDownloadClick}
+            canCreateNew={canCreateNew}
+            downloadingQuestIds={downloadingQuestIds}
+          />
+        )}
       />
 
       {/* Version picker drawer */}

@@ -1,4 +1,6 @@
 import { BibleReaderContent } from '@/components/BibleReaderContent';
+import { BibleTranslationDrawer } from '@/components/BibleTranslationDrawer';
+import { Button } from '@/components/ui/button';
 import { CheckpointMediaPlayer } from '@/components/CheckpointMediaPlayer';
 import { FiaIcon } from '@/components/icons/FiaIcon';
 import {
@@ -15,6 +17,8 @@ import {
   DrawerTitle
 } from '@/components/ui/drawer';
 import { Icon } from '@/components/ui/icon';
+import { Slider } from '@/components/ui/slider';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Text } from '@/components/ui/text';
 import { useAudio } from '@/contexts/AudioContext';
 import type {
@@ -25,7 +29,13 @@ import type {
   FiaTerm
 } from '@/hooks/useFiaPericopeSteps';
 import { useFiaPericopeSteps } from '@/hooks/useFiaPericopeSteps';
-import { cn } from '@/utils/styleUtils';
+import {
+  enqueue as enqueueFiaAttachment,
+  isFiaPericopeCached,
+  resolveImageUri,
+  useFiaAttachmentStatus
+} from '@/services/FiaAttachmentQueue';
+import { cn, useThemeColor } from '@/utils/styleUtils';
 import { Ionicons } from '@expo/vector-icons';
 import { ReactNativeZoomableView } from '@openspacelabs/react-native-zoomable-view';
 import {
@@ -40,12 +50,11 @@ import {
   TheaterIcon,
   UsersIcon
 } from 'lucide-react-native';
+import { Image } from 'expo-image';
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
-  Image,
   Modal,
-  TouchableOpacity,
   useWindowDimensions,
   View
 } from 'react-native';
@@ -95,11 +104,13 @@ const AUDIO_SEEK_STEP_MS = 10000;
 function StepAudioPlayer({
   audioUrl,
   checkpointKey,
-  title
+  title,
+  isDownloading
 }: {
   audioUrl: string | null;
   checkpointKey: string | null;
   title?: string;
+  isDownloading?: boolean;
 }) {
   return (
     <CheckpointMediaPlayer
@@ -108,6 +119,7 @@ function StepAudioPlayer({
       checkpointKey={checkpointKey}
       audioUris={audioUrl ? [audioUrl] : []}
       seekStepMs={AUDIO_SEEK_STEP_MS}
+      loading={isDownloading}
     />
   );
 }
@@ -552,9 +564,11 @@ function ActionCallout({
           {calloutText}
         </Text>
         {hasUnlinkedMedia && mediaCtx.onBrowseMedia && (
-          <TouchableOpacity
+          <Button
+            variant="plain"
+            size="auto"
+            className="mt-2 gap-1.5 self-start rounded-md border border-amber-500/40 bg-amber-500/15 px-2.5 py-1.5"
             onPress={mediaCtx.onBrowseMedia}
-            className="mt-2 flex-row items-center gap-1.5 self-start rounded-md border border-amber-500/40 bg-amber-500/15 px-2.5 py-1.5"
           >
             <Icon
               as={ImageIcon}
@@ -564,7 +578,7 @@ function ActionCallout({
             <Text className="text-xs font-medium text-amber-700 dark:text-amber-400">
               Browse Media
             </Text>
-          </TouchableOpacity>
+          </Button>
         )}
       </View>
     );
@@ -617,12 +631,14 @@ function ImageViewer({
       statusBarTranslucent
     >
       <View className="flex-1 bg-black">
-        <TouchableOpacity
+        <Button
+          variant="plain"
+          size="icon"
+          className="absolute right-4 top-14 z-10 rounded-full bg-white/20"
           onPress={onClose}
-          className="absolute right-4 top-14 z-10 h-10 w-10 items-center justify-center rounded-full bg-white/20"
         >
           <Ionicons name="close" size={24} color="white" />
-        </TouchableOpacity>
+        </Button>
 
         <ReactNativeZoomableView
           maxZoom={8}
@@ -636,7 +652,8 @@ function ImageViewer({
           <Image
             source={{ uri }}
             style={{ width: screenW, height: screenH * 0.8 }}
-            resizeMode="contain"
+            contentFit="contain"
+            cachePolicy="none" // Already cached by FiaAttachmentQueue
           />
         </ReactNativeZoomableView>
       </View>
@@ -647,27 +664,29 @@ function ImageViewer({
 function TappableImage({
   uri,
   aspectRatio,
-  resizeMode = 'cover'
+  contentFit = 'cover'
 }: {
   uri: string;
   aspectRatio: number;
-  resizeMode?: 'cover' | 'contain';
+  contentFit?: 'cover' | 'contain';
 }) {
   const [viewerOpen, setViewerOpen] = useState(false);
 
   return (
     <>
-      <TouchableOpacity
-        activeOpacity={0.85}
+      <Button
+        variant="plain"
+        size="auto"
+        className="w-full"
         onPress={() => setViewerOpen(true)}
       >
         <Image
           source={{ uri }}
-          className="w-full rounded-md"
-          style={{ aspectRatio }}
-          resizeMode={resizeMode}
+          style={{ width: '100%', borderRadius: 6, aspectRatio }}
+          contentFit={contentFit}
+          cachePolicy="none" // Already cached by FiaAttachmentQueue
         />
-      </TouchableOpacity>
+      </Button>
       <ImageViewer
         uri={uri}
         visible={viewerOpen}
@@ -687,9 +706,9 @@ function MediaItemDisplay({ item }: { item: FiaMediaItem }) {
         <View key={i}>
           {asset.imageUrl && (
             <TappableImage
-              uri={asset.imageUrl}
+              uri={resolveImageUri(asset.imageUrl)}
               aspectRatio={16 / 10}
-              resizeMode="cover"
+              contentFit="cover"
             />
           )}
           {asset.description ? (
@@ -715,9 +734,9 @@ function MapDisplay({ item }: { item: FiaMap }) {
         <Text className="text-sm font-semibold">{item.title}</Text>
       ) : null}
       <TappableImage
-        uri={item.imageUrl}
+        uri={resolveImageUri(item.imageUrl)}
         aspectRatio={4 / 3}
-        resizeMode="contain"
+        contentFit="contain"
       />
     </View>
   );
@@ -852,7 +871,10 @@ export function FiaStepDrawer({
   verseRange,
   persistedState
 }: FiaStepDrawerProps) {
+  const primaryColor = useThemeColor('primary');
   const saved = persistedState?.current;
+  const [translationDrawerOpen, setTranslationDrawerOpen] =
+    React.useState(false);
   const [activeTab, setActiveTab] = React.useState<'guide' | 'bible' | 'media'>(
     saved?.activeTab ?? 'guide'
   );
@@ -868,6 +890,17 @@ export function FiaStepDrawer({
     pericopeId ? projectId : undefined,
     pericopeId ?? undefined
   );
+
+  const attachmentStatus = useFiaAttachmentStatus(pericopeId);
+  const isAudioDownloading =
+    attachmentStatus?.status === 'pending' ||
+    attachmentStatus?.status === 'downloading';
+
+  React.useEffect(() => {
+    if (open && pericopeId && projectId && !isFiaPericopeCached(pericopeId)) {
+      enqueueFiaAttachment(pericopeId, projectId);
+    }
+  }, [open, pericopeId, projectId]);
 
   const currentStep = data?.steps.find((s) => s.stepId === activeStep);
   const audioUrl = currentStep?.audioUrl ?? null;
@@ -951,260 +984,245 @@ export function FiaStepDrawer({
   if (!pericopeId) return null;
 
   return (
-    <Drawer
-      open={open}
-      onOpenChange={onOpenChange}
-      snapPoints={['94%']}
-      enableDynamicSizing={false}
-    >
-      <DrawerContent asChild>
-        <View style={{ flex: 1 }} className="bg-background px-6">
-          <DrawerHeader className="pb-0">
-            <View className="flex-row items-start justify-between">
-              <View className="flex-1 flex-col gap-0.5">
-                <DrawerTitle>
-                  {activeTab === 'guide'
-                    ? currentStep?.title || 'FIA Steps'
-                    : activeTab === 'media'
-                      ? 'Media'
-                      : 'Bible'}
-                </DrawerTitle>
-                <DrawerDescription>{questName || ''}</DrawerDescription>
-              </View>
-              <View className="flex-row items-center gap-2">
-                {data &&
-                  (data.mediaItems.length > 0 || data.maps.length > 0) && (
-                    <TouchableOpacity
-                      className={cn(
-                        'h-10 w-10 items-center justify-center rounded-full shadow-sm',
-                        activeTab === 'media' ? 'bg-primary' : 'bg-muted'
-                      )}
-                      onPress={() =>
-                        setActiveTab(activeTab === 'media' ? 'guide' : 'media')
-                      }
-                    >
-                      <Icon
-                        as={ImageIcon}
-                        size={20}
-                        className={
-                          activeTab === 'media'
-                            ? 'text-primary-foreground'
-                            : 'text-muted-foreground'
+    <>
+      <Drawer
+        open={open}
+        onOpenChange={onOpenChange}
+        snapPoints={['94%']}
+        enableDynamicSizing={false}
+      >
+        <DrawerContent asChild>
+          <View className="flex-1 flex-col gap-2 bg-background px-6">
+            <DrawerHeader className="pb-0">
+              <View className="flex-row items-start justify-between">
+                <View className="flex-1 flex-col gap-0.5">
+                  <DrawerTitle>
+                    {activeTab === 'guide'
+                      ? currentStep?.title || 'FIA Steps'
+                      : activeTab === 'media'
+                        ? 'Media'
+                        : 'Bible'}
+                  </DrawerTitle>
+                  <DrawerDescription>{questName || ''}</DrawerDescription>
+                </View>
+                <View className="flex-row items-center gap-2">
+                  {data &&
+                    (data.mediaItems.length > 0 || data.maps.length > 0) && (
+                      <Button
+                        variant={activeTab === 'media' ? 'default' : 'outline'}
+                        size="icon"
+                        onPress={() =>
+                          setActiveTab(
+                            activeTab === 'media' ? 'guide' : 'media'
+                          )
                         }
-                      />
-                    </TouchableOpacity>
-                  )}
-                <View className="h-10 w-10 items-center justify-center rounded-full bg-primary shadow-sm">
-                  <Icon
-                    as={BookOpenIcon}
-                    size={20}
-                    className="text-primary-foreground"
-                  />
+                      >
+                        <Icon
+                          as={ImageIcon}
+                          size={20}
+                          className={
+                            activeTab === 'media'
+                              ? 'text-primary-foreground'
+                              : 'text-muted-foreground'
+                          }
+                        />
+                      </Button>
+                    )}
                 </View>
               </View>
-            </View>
-          </DrawerHeader>
+            </DrawerHeader>
 
-          {/* Guide / Bible tab row */}
-          <View className="flex-row gap-2 border-b border-border px-2 pb-2">
-            <TouchableOpacity
-              onPress={() => setActiveTab('guide')}
-              className={cn(
-                'flex-1 flex-row items-center justify-center gap-2 rounded-lg py-2',
-                activeTab === 'guide' ? 'bg-primary' : 'bg-muted'
-              )}
+            <Tabs
+              value={activeTab}
+              onValueChange={(val) =>
+                setActiveTab(val as 'guide' | 'bible' | 'media')
+              }
+              className="flex-1"
             >
-              <Icon
-                as={FiaIcon}
-                size={16}
-                className={
-                  activeTab === 'guide'
-                    ? 'text-primary-foreground'
-                    : 'text-muted-foreground'
-                }
-              />
-              <Text
-                className={cn(
-                  'text-sm font-semibold',
-                  activeTab === 'guide'
-                    ? 'text-primary-foreground'
-                    : 'text-muted-foreground'
-                )}
-              >
-                Guide
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => setActiveTab('bible')}
-              className={cn(
-                'flex-1 flex-row items-center justify-center gap-2 rounded-lg py-2',
-                activeTab === 'bible' ? 'bg-primary' : 'bg-muted'
-              )}
-            >
-              <Icon
-                as={BookOpenIcon}
-                size={16}
-                className={
-                  activeTab === 'bible'
-                    ? 'text-primary-foreground'
-                    : 'text-muted-foreground'
-                }
-              />
-              <Text
-                className={cn(
-                  'text-sm font-semibold',
-                  activeTab === 'bible'
-                    ? 'text-primary-foreground'
-                    : 'text-muted-foreground'
-                )}
-              >
-                Bible
-              </Text>
-            </TouchableOpacity>
-          </View>
+              <TabsList>
+                <TabsTrigger value="guide">
+                  <Icon as={FiaIcon} size={16} />
+                  <Text>Guide</Text>
+                </TabsTrigger>
+                <TabsTrigger value="bible">
+                  <Icon as={BookOpenIcon} size={16} />
+                  <Text>Bible</Text>
+                </TabsTrigger>
+              </TabsList>
 
-          {activeTab === 'bible' ? (
-            <BibleReaderContent
-              projectId={projectId}
-              pericopeId={pericopeId}
-              fiaBookId={fiaBookId}
-              verseRange={verseRange}
-            />
-          ) : activeTab === 'media' ? (
-            <DrawerScrollView style={{ flex: 1 }}>
-              <MediaGalleryContent
-                mediaItems={data?.mediaItems ?? []}
-                maps={data?.maps ?? []}
-              />
-            </DrawerScrollView>
-          ) : isLoading ? (
-            <View className="flex-1 items-center justify-center py-12">
-              <ActivityIndicator size="large" />
-              <Text className="mt-3 text-sm text-muted-foreground">
-                Loading steps...
-              </Text>
-            </View>
-          ) : error ? (
-            <View className="flex-1 items-center justify-center px-6 py-12">
-              <Text className="text-center text-sm text-destructive">
-                Failed to load content. Please check your connection and try
-                again.
-              </Text>
-            </View>
-          ) : data ? (
-            <>
-              <View className="flex-row items-center justify-around border-b border-border py-2">
-                {STEP_CONFIG.map((cfg, idx) => {
-                  const isActive = activeStep === cfg.id;
-                  const hasStep = data.steps.some((s) => s.stepId === cfg.id);
-                  const isDone = completedSteps.has(cfg.id);
-                  return (
-                    <TouchableOpacity
-                      key={cfg.id}
-                      onPress={() => hasStep && setActiveStep(cfg.id)}
-                      disabled={!hasStep}
-                      className={`items-center rounded-lg px-2.5 py-1.5 ${
-                        isActive
-                          ? 'bg-primary'
-                          : hasStep
-                            ? 'bg-muted'
-                            : 'bg-muted/50 opacity-40'
-                      }`}
-                    >
-                      <View>
-                        <View className="flex-row items-center gap-1">
-                          <Text
-                            className={`text-xs font-bold ${
-                              isActive
-                                ? 'text-primary-foreground'
-                                : 'text-muted-foreground'
-                            }`}
-                          >
-                            {idx + 1}
-                          </Text>
-                          <Icon
-                            as={cfg.icon}
-                            size={16}
-                            className={
-                              isActive
-                                ? 'text-primary-foreground'
-                                : 'text-muted-foreground'
-                            }
-                          />
-                        </View>
-                        {isDone && (
-                          <View
-                            className="absolute -right-1.5 -top-1.5 items-center justify-center rounded-full bg-green-500"
-                            style={{ width: 14, height: 14 }}
-                          >
-                            <Icon
-                              as={CheckIcon}
-                              size={9}
-                              className="text-white"
-                            />
-                          </View>
-                        )}
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+              <TabsContent value="bible" className="flex-1">
+                <BibleReaderContent
+                  projectId={projectId}
+                  pericopeId={pericopeId}
+                  fiaBookId={fiaBookId}
+                  verseRange={verseRange}
+                  onOpenTranslationDrawer={() => setTranslationDrawerOpen(true)}
+                />
+              </TabsContent>
 
-              <StepAudioPlayer
-                audioUrl={audioUrl}
-                checkpointKey={stepAudioCheckpointKey}
-                title={currentStep?.title}
-              />
+              <TabsContent value="media" className="flex-1">
+                <DrawerScrollView style={{ flex: 1 }}>
+                  <MediaGalleryContent
+                    mediaItems={data?.mediaItems ?? []}
+                    maps={data?.maps ?? []}
+                  />
+                </DrawerScrollView>
+              </TabsContent>
 
-              <DrawerScrollView ref={scrollRef} style={{ flex: 1 }}>
-                {currentStep ? (
-                  <>
-                    <StepContent
-                      step={currentStep}
-                      mediaItems={data.mediaItems}
-                      terms={data.terms}
-                      maps={data.maps}
-                      onBrowseMedia={() => setActiveTab('media')}
-                    />
-                    <View className="items-center gap-2 px-5 pb-8 pt-4">
-                      {isStepCompleted ? (
-                        <TouchableOpacity
-                          onPress={handleUndoDone}
-                          className="flex-row items-center gap-2 rounded-xl bg-green-500/20 px-6 py-3"
-                        >
-                          <Icon
-                            as={CheckIcon}
-                            size={18}
-                            className="text-green-600 dark:text-green-400"
-                          />
-                          <Text className="font-semibold text-green-600 dark:text-green-400">
-                            Done
-                          </Text>
-                        </TouchableOpacity>
-                      ) : (
-                        <TouchableOpacity
-                          onPress={handleStepDone}
-                          className="flex-row items-center gap-2 rounded-xl bg-primary px-6 py-3"
-                        >
-                          <Text className="font-semibold text-primary-foreground">
-                            {isLastStep ? 'Complete' : 'Done \u2014 Next Step'}
-                          </Text>
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                  </>
-                ) : (
-                  <View className="items-center justify-center py-12">
-                    <Text className="text-center text-muted-foreground">
-                      Select a step to view its content.
+              <TabsContent value="guide" className="flex-1">
+                {isLoading ? (
+                  <View className="flex-1 items-center justify-center py-12">
+                    <ActivityIndicator size="large" color={primaryColor} />
+                    <Text className="mt-3 text-sm text-muted-foreground">
+                      Loading steps...
                     </Text>
                   </View>
-                )}
-              </DrawerScrollView>
-            </>
-          ) : null}
-        </View>
-      </DrawerContent>
-    </Drawer>
+                ) : error ? (
+                  <View className="flex-1 items-center justify-center px-6 py-12">
+                    <Text className="text-center text-sm text-destructive">
+                      Failed to load content. Please check your connection and
+                      try again.
+                    </Text>
+                  </View>
+                ) : data ? (
+                  <View className="flex-1 flex-col gap-2">
+                    <View className="flex-row items-center justify-between rounded-lg p-1">
+                      {STEP_CONFIG.map((cfg, idx) => {
+                        const isActive = activeStep === cfg.id;
+                        const hasStep = data.steps.some(
+                          (s) => s.stepId === cfg.id
+                        );
+                        const isDone = completedSteps.has(cfg.id);
+                        return (
+                          <Button
+                            key={cfg.id}
+                            variant="plain"
+                            size="auto"
+                            onPress={() => hasStep && setActiveStep(cfg.id)}
+                            disabled={!hasStep}
+                            className={cn(
+                              'items-center rounded-md px-2.5 py-1.5',
+                              isActive
+                                ? 'bg-primary'
+                                : hasStep
+                                  ? 'bg-muted'
+                                  : 'bg-muted/50'
+                            )}
+                          >
+                            <View>
+                              <View className="flex-row items-center gap-1">
+                                <Text
+                                  className={cn(
+                                    'native:text-xs text-xs font-bold',
+                                    isActive
+                                      ? 'text-primary-foreground'
+                                      : 'text-muted-foreground'
+                                  )}
+                                >
+                                  {idx + 1}
+                                </Text>
+                                <Icon
+                                  as={cfg.icon}
+                                  size={16}
+                                  className={
+                                    isActive
+                                      ? 'text-primary-foreground'
+                                      : 'text-muted-foreground'
+                                  }
+                                />
+                              </View>
+                              {isDone && (
+                                <View
+                                  className="absolute -right-1.5 -top-1.5 items-center justify-center rounded-full bg-green-500"
+                                  style={{ width: 14, height: 14 }}
+                                >
+                                  <Icon
+                                    as={CheckIcon}
+                                    size={9}
+                                    className="text-white"
+                                  />
+                                </View>
+                              )}
+                            </View>
+                          </Button>
+                        );
+                      })}
+                    </View>
+
+                    <StepAudioPlayer
+                      audioUrl={audioUrl}
+                      checkpointKey={stepAudioCheckpointKey}
+                      title={currentStep?.title}
+                      isDownloading={isAudioDownloading}
+                    />
+
+                    <DrawerScrollView ref={scrollRef} style={{ flex: 1 }}>
+                      {currentStep ? (
+                        <>
+                          <StepContent
+                            step={currentStep}
+                            mediaItems={data.mediaItems}
+                            terms={data.terms}
+                            maps={data.maps}
+                            onBrowseMedia={() => setActiveTab('media')}
+                          />
+                          <View className="items-center gap-2 px-5 pb-8 pt-4">
+                            {isStepCompleted ? (
+                              <Button
+                                variant="plain"
+                                size="auto"
+                                className="rounded-xl bg-green-500/20 px-6 py-3"
+                                onPress={handleUndoDone}
+                              >
+                                <Icon
+                                  as={CheckIcon}
+                                  size={18}
+                                  className="text-green-600 dark:text-green-400"
+                                />
+                                <Text className="font-semibold text-green-600 dark:text-green-400">
+                                  Done
+                                </Text>
+                              </Button>
+                            ) : (
+                              <Button
+                                variant="default"
+                                size="auto"
+                                className="rounded-xl px-6 py-3"
+                                onPress={handleStepDone}
+                              >
+                                <Text className="font-semibold text-primary-foreground">
+                                  {isLastStep
+                                    ? 'Complete'
+                                    : 'Done \u2014 Next Step'}
+                                </Text>
+                              </Button>
+                            )}
+                          </View>
+                        </>
+                      ) : (
+                        <View className="items-center justify-center py-12">
+                          <Text className="text-center text-muted-foreground">
+                            Select a step to view its content.
+                          </Text>
+                        </View>
+                      )}
+                    </DrawerScrollView>
+                  </View>
+                ) : null}
+              </TabsContent>
+            </Tabs>
+          </View>
+        </DrawerContent>
+      </Drawer>
+
+      {projectId && (
+        <BibleTranslationDrawer
+          projectId={projectId}
+          open={translationDrawerOpen}
+          onOpenChange={setTranslationDrawerOpen}
+          onTranslationsConfirmed={() => onOpenChange(true)}
+        />
+      )}
+    </>
   );
 }

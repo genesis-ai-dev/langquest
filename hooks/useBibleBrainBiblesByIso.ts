@@ -1,53 +1,20 @@
 import { useAuth } from '@/contexts/AuthContext';
+import type { BibleBrainBible } from '@/hooks/useBibleBrainBibles';
 import { fiaBibleApiQueryOptions } from '@/utils/fiaBibleQueryCache';
-import {
-  lookupIso639_3,
-  lookupSourceLanguoidId
-} from '@/utils/languoidLookups';
 import { useQuery } from '@tanstack/react-query';
-
-// --- Types matching the edge function response ---
-
-export type Testament = 'OT' | 'NT';
-
-export interface BibleBrainBible {
-  id: string;
-  name: string;
-  vname: string | null;
-  hasText: boolean;
-  hasAudio: boolean;
-  textTestaments: Testament[];
-  audioTestaments: Testament[];
-  iso: string;
-  languageName: string;
-}
 
 interface ListBiblesResponse {
   bibles: BibleBrainBible[];
 }
 
-const EMPTY_BIBLES: BibleBrainBible[] = [];
-
-export function useBibleBrainBibles(projectId: string | undefined) {
+export function useBibleBrainBiblesByIso(iso: string | undefined) {
   const { session } = useAuth();
   const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['bible-brain-bibles', projectId],
+    queryKey: ['bible-brain-bibles-by-iso', iso],
     queryFn: async (): Promise<ListBiblesResponse | null> => {
-      if (!projectId) return null;
-
-      const sourceLanguoidId = await lookupSourceLanguoidId(projectId);
-      if (!sourceLanguoidId) {
-        throw new Error('Could not find source languoid for project');
-      }
-
-      const iso = await lookupIso639_3(sourceLanguoidId);
-      if (!iso) {
-        throw new Error(
-          `No ISO 639-3 code found for languoid ${sourceLanguoidId}`
-        );
-      }
+      if (!iso) return null;
 
       const response = await fetch(
         `${supabaseUrl}/functions/v1/bible-brain-content`,
@@ -70,13 +37,13 @@ export function useBibleBrainBibles(projectId: string | undefined) {
 
       return response.json();
     },
-    enabled: !!projectId && !!supabaseUrl,
+    enabled: !!iso && !!supabaseUrl,
     ...fiaBibleApiQueryOptions,
     retry: 2
   });
 
   return {
-    bibles: data?.bibles ?? EMPTY_BIBLES,
+    bibles: data?.bibles ?? [],
     isLoading,
     error
   };

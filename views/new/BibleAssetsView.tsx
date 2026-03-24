@@ -3885,8 +3885,9 @@ export default function BibleAssetsView() {
               </Button>
             )}
             {fiaPericopeId && (
-              <Pressable
-                className="h-10 w-10 items-center justify-center rounded-full bg-primary shadow-sm"
+              <Button
+                variant="default"
+                size="icon"
                 disabled={isPlayAllPlayerActive}
                 onPress={() => setShowFiaTextDrawer(true)}
                 style={isPlayAllPlayerActive ? { opacity: 0.5 } : undefined}
@@ -3896,7 +3897,7 @@ export default function BibleAssetsView() {
                   size={20}
                   className="text-primary-foreground"
                 />
-              </Pressable>
+              </Button>
             )}
           </View>
         </View>

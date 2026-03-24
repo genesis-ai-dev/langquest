@@ -11,13 +11,18 @@ import {
 import {
   useBibleBrainContent,
   type BibleBrainAudioChapter,
+  type BibleBrainCopyright,
   type BibleBrainVerse
 } from '@/hooks/useBibleBrainContent';
-import { useLocalStore } from '@/store/localStore';
-import { getThemeColor } from '@/utils/styleUtils';
+import {
+  useLocalStore,
+  type BibleDownloadTranslation
+} from '@/store/localStore';
+import { cn, getThemeColor, useThemeColor } from '@/utils/styleUtils';
 import {
   BookOpenIcon,
   HeadphonesIcon,
+  PlusIcon,
   SearchIcon,
   TypeIcon
 } from 'lucide-react-native';
@@ -28,10 +33,50 @@ import React, {
   useRef,
   useState
 } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Linking,
+  TouchableOpacity,
+  View
+} from 'react-native';
 import { Dropdown } from 'react-native-element-dropdown';
 
 const EMPTY_STRING_ARRAY: string[] = [];
+const EMPTY_DOWNLOAD_TRANSLATIONS: BibleDownloadTranslation[] = [];
+
+const NT_BOOKS = new Set([
+  'MAT',
+  'MRK',
+  'LUK',
+  'JHN',
+  'ACT',
+  'ROM',
+  '1CO',
+  '2CO',
+  'GAL',
+  'EPH',
+  'PHP',
+  'COL',
+  '1TH',
+  '2TH',
+  '1TI',
+  '2TI',
+  'TIT',
+  'PHM',
+  'HEB',
+  'JAS',
+  '1PE',
+  '2PE',
+  '1JN',
+  '2JN',
+  '3JN',
+  'JUD',
+  'REV'
+]);
+
+function guessTestament(bookId: string): 'OT' | 'NT' {
+  return NT_BOOKS.has(bookId.toUpperCase()) ? 'NT' : 'OT';
+}
 
 const AUDIO_SEEK_STEP_MS = 10000;
 
@@ -86,19 +131,24 @@ interface DropdownItem {
   label: string;
   hasText: boolean;
   hasAudio: boolean;
+  textTestaments: string[];
+  audioTestaments: string[];
   isRecent: boolean;
+  languageName: string;
 }
 
 function TranslationPicker({
   bibles,
   selectedId,
   onSelect,
-  recentIds
+  recentIds,
+  onAddPress
 }: {
   bibles: BibleBrainBible[];
   selectedId: string | null;
   onSelect: (bible: BibleBrainBible) => void;
   recentIds: string[];
+  onAddPress: () => void;
 }) {
   const [search, setSearch] = useState('');
 
@@ -109,140 +159,201 @@ function TranslationPicker({
       label: formatBibleLabel(b),
       hasText: b.hasText,
       hasAudio: b.hasAudio,
-      isRecent: recentSet.has(b.id)
+      textTestaments: b.textTestaments ?? [],
+      audioTestaments: b.audioTestaments ?? [],
+      isRecent: recentSet.has(b.id),
+      languageName: b.languageName || b.iso
     }));
 
-    // Sort: recent first (in order), then the rest by name
-    items.sort((a, b) => {
-      if (a.isRecent && !b.isRecent) return -1;
-      if (!a.isRecent && b.isRecent) return 1;
-      if (a.isRecent && b.isRecent) {
-        return recentIds.indexOf(a.value) - recentIds.indexOf(b.value);
+    const langOrder = new Map<string, number>();
+    for (const id of recentIds) {
+      const item = items.find((i) => i.value === id);
+      if (item && !langOrder.has(item.languageName)) {
+        langOrder.set(item.languageName, langOrder.size);
       }
+    }
+    for (const item of items) {
+      if (!langOrder.has(item.languageName)) {
+        langOrder.set(item.languageName, langOrder.size);
+      }
+    }
+
+    items.sort((a, b) => {
+      const langA = langOrder.get(a.languageName) ?? 0;
+      const langB = langOrder.get(b.languageName) ?? 0;
+      if (langA !== langB) return langA - langB;
+      const recentA = recentIds.indexOf(a.value);
+      const recentB = recentIds.indexOf(b.value);
+      if (recentA !== -1 && recentB !== -1) return recentA - recentB;
+      if (recentA !== -1) return -1;
+      if (recentB !== -1) return 1;
       return a.label.localeCompare(b.label);
     });
 
     return items;
   }, [bibles, recentIds]);
 
+  const categoryHeaders = useMemo(() => {
+    const headers = new Set<string>();
+    let lastLang = '';
+    for (const item of dropdownData) {
+      if (item.languageName !== lastLang) {
+        headers.add(item.value);
+        lastLang = item.languageName;
+      }
+    }
+    return headers;
+  }, [dropdownData]);
+
   return (
-    <View className="px-4 py-2">
-      <Dropdown
-        style={{
-          height: 44,
-          borderWidth: 1,
-          borderRadius: 8,
-          paddingHorizontal: 12,
-          backgroundColor: getThemeColor('card'),
-          borderColor: getThemeColor('border')
-        }}
-        placeholderStyle={{
-          fontSize: 14,
-          color: getThemeColor('muted-foreground')
-        }}
-        selectedTextStyle={{
-          fontSize: 14,
-          color: getThemeColor('foreground')
-        }}
-        containerStyle={{
-          borderRadius: 8,
-          overflow: 'hidden',
-          borderWidth: 1,
-          marginTop: 4,
-          backgroundColor: getThemeColor('card'),
-          borderColor: getThemeColor('border')
-        }}
-        dropdownPosition="auto"
-        itemTextStyle={{
-          fontSize: 14,
-          color: getThemeColor('foreground')
-        }}
-        itemContainerStyle={{
-          borderRadius: 6,
-          overflow: 'hidden'
-        }}
-        activeColor={getThemeColor('accent')}
-        data={dropdownData}
-        search
-        maxHeight={350}
-        labelField="label"
-        valueField="value"
-        placeholder="Select translation..."
-        value={selectedId}
-        onChange={(item) => {
-          const bible = bibles.find((b) => b.id === item.value);
-          if (bible) onSelect(bible);
-          setSearch('');
-        }}
-        renderInputSearch={(onSearchInternal) => (
-          <View className="overflow-hidden border-b border-border">
-            <Input
-              value={search}
-              onChangeText={(text) => {
-                setSearch(text);
-                onSearchInternal(text);
-              }}
-              placeholder="Search translations..."
-              prefix={SearchIcon}
-              size="sm"
-              className="border-0"
-              autoCapitalize="none"
-              autoCorrect={false}
+    <View className="flex-row items-center gap-2">
+      <View className="flex-1">
+        <Dropdown
+          style={{
+            height: 44,
+            borderWidth: 1,
+            borderRadius: 8,
+            paddingHorizontal: 12,
+            backgroundColor: getThemeColor('card'),
+            borderColor: getThemeColor('border')
+          }}
+          placeholderStyle={{
+            fontSize: 14,
+            color: getThemeColor('muted-foreground')
+          }}
+          selectedTextStyle={{
+            fontSize: 14,
+            color: getThemeColor('foreground')
+          }}
+          containerStyle={{
+            borderRadius: 8,
+            overflow: 'hidden',
+            borderWidth: 1,
+            marginTop: 4,
+            backgroundColor: getThemeColor('card'),
+            borderColor: getThemeColor('border')
+          }}
+          dropdownPosition="auto"
+          itemTextStyle={{
+            fontSize: 14,
+            color: getThemeColor('foreground')
+          }}
+          itemContainerStyle={{
+            borderRadius: 6,
+            overflow: 'hidden'
+          }}
+          activeColor={getThemeColor('accent')}
+          data={dropdownData}
+          search
+          maxHeight={350}
+          labelField="label"
+          valueField="value"
+          placeholder="Select translation..."
+          value={selectedId}
+          onChange={(item) => {
+            const bible = bibles.find((b) => b.id === item.value);
+            if (bible) onSelect(bible);
+            setSearch('');
+          }}
+          renderInputSearch={(onSearchInternal) => (
+            <View className="overflow-hidden border-b border-border">
+              <Input
+                value={search}
+                onChangeText={(text) => {
+                  setSearch(text);
+                  onSearchInternal(text);
+                }}
+                placeholder="Search translations..."
+                prefix={SearchIcon}
+                size="sm"
+                className="border-0"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+            </View>
+          )}
+          flatListProps={{
+            style: { backgroundColor: getThemeColor('card') },
+            keyboardShouldPersistTaps: 'handled' as const,
+            nestedScrollEnabled: true
+          }}
+          renderLeftIcon={() => (
+            <Icon
+              as={BookOpenIcon}
+              className="mr-2 text-muted-foreground"
+              size={16}
             />
-          </View>
-        )}
-        flatListProps={{
-          style: { backgroundColor: getThemeColor('card') },
-          keyboardShouldPersistTaps: 'handled' as const,
-          nestedScrollEnabled: true
-        }}
-        renderLeftIcon={() => (
-          <Icon
-            as={BookOpenIcon}
-            className="mr-2 text-muted-foreground"
-            size={16}
-          />
-        )}
-        renderItem={(item, selected) => (
-          <View
-            className={`flex-row items-center px-3 py-3 ${selected ? 'bg-accent' : ''}`}
-          >
-            <View className="flex-1">
-              <Text
-                className={`text-sm ${selected ? 'font-medium text-accent-foreground' : 'text-foreground'}`}
-                numberOfLines={2}
+          )}
+          renderItem={(item, selected) => (
+            <View>
+              {categoryHeaders.has(item.value) && (
+                <View className="border-t border-border bg-muted/50 px-3 py-1.5">
+                  <Text className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    {item.languageName}
+                  </Text>
+                </View>
+              )}
+              <View
+                className={cn(
+                  'flex-row items-center px-3 py-3',
+                  selected && 'bg-accent'
+                )}
               >
-                {item.label}
-              </Text>
-              {item.isRecent && (
-                <Text className="text-xs text-muted-foreground">
-                  Recently used
-                </Text>
-              )}
-            </View>
-            <View className="ml-2 flex-row gap-1">
-              {item.hasText && (
-                <View className="rounded-full bg-secondary/50 px-1.5 py-0.5">
-                  <Icon
-                    as={TypeIcon}
-                    size={10}
-                    className="text-muted-foreground"
-                  />
+                <View className="flex-1">
+                  <Text
+                    className={cn(
+                      'text-sm',
+                      selected
+                        ? 'font-medium text-accent-foreground'
+                        : 'text-foreground'
+                    )}
+                    numberOfLines={2}
+                  >
+                    {item.label}
+                  </Text>
                 </View>
-              )}
-              {item.hasAudio && (
-                <View className="rounded-full bg-secondary/50 px-1.5 py-0.5">
-                  <Icon
-                    as={HeadphonesIcon}
-                    size={10}
-                    className="text-muted-foreground"
-                  />
+                <View className="ml-2 flex-row gap-1">
+                  {item.hasText && (
+                    <View className="flex-row items-center gap-0.5 rounded-full bg-secondary/50 px-1.5 py-0.5">
+                      <Icon
+                        as={TypeIcon}
+                        size={10}
+                        className="text-muted-foreground"
+                      />
+                      {item.textTestaments.length === 1 && (
+                        <Text className="text-[9px] text-muted-foreground">
+                          {item.textTestaments[0]}
+                        </Text>
+                      )}
+                    </View>
+                  )}
+                  {item.hasAudio && (
+                    <View className="flex-row items-center gap-0.5 rounded-full bg-secondary/50 px-1.5 py-0.5">
+                      <Icon
+                        as={HeadphonesIcon}
+                        size={10}
+                        className="text-muted-foreground"
+                      />
+                      {item.audioTestaments.length === 1 && (
+                        <Text className="text-[9px] text-muted-foreground">
+                          {item.audioTestaments[0]}
+                        </Text>
+                      )}
+                    </View>
+                  )}
                 </View>
-              )}
+              </View>
             </View>
-          </View>
-        )}
-      />
+          )}
+        />
+      </View>
+      <TouchableOpacity
+        onPress={onAddPress}
+        className="h-11 w-11 items-center justify-center rounded-lg border border-border bg-card"
+        hitSlop={8}
+      >
+        <Icon as={PlusIcon} size={18} className="text-primary" />
+      </TouchableOpacity>
     </View>
   );
 }
@@ -281,7 +392,7 @@ function VerseDisplay({
           <View
             key={key}
             onLayout={(e) => onVerseLayout(key, e.nativeEvent.layout.y)}
-            className={`rounded px-1 py-0.5 ${isActive ? 'bg-primary/15' : ''}`}
+            className={cn('rounded px-1 py-0.5', isActive && 'bg-primary/15')}
           >
             <Text className="text-base leading-7">
               <Text className="text-xs font-bold text-primary">
@@ -296,6 +407,50 @@ function VerseDisplay({
   );
 }
 
+// --- Copyright Notice ---
+
+function CopyrightNotice({
+  copyright
+}: {
+  copyright: BibleBrainCopyright | null;
+}) {
+  if (!copyright?.copyright) return null;
+
+  const isPublicDomain = copyright.copyright
+    .toLowerCase()
+    .includes('public domain');
+
+  return (
+    <View className="px-4 py-3">
+      <Text className="text-xs leading-5 text-muted-foreground">
+        {copyright.copyright}
+      </Text>
+      {!isPublicDomain &&
+        (() => {
+          const orgsWithUrl = copyright.organizations.filter((org) => org.url);
+          if (orgsWithUrl.length === 0) return null;
+          return (
+            <Text className="mt-1 text-xs text-muted-foreground">
+              {orgsWithUrl.map((org, i) => (
+                <React.Fragment key={org.name}>
+                  {i > 0 && (
+                    <Text className="text-xs text-muted-foreground">, </Text>
+                  )}
+                  <Text
+                    className="text-xs text-primary"
+                    onPress={() => Linking.openURL(org.url!)}
+                  >
+                    {org.name}
+                  </Text>
+                </React.Fragment>
+              ))}
+            </Text>
+          );
+        })()}
+    </View>
+  );
+}
+
 // --- Main Component ---
 
 interface BibleReaderContentProps {
@@ -303,22 +458,48 @@ interface BibleReaderContentProps {
   pericopeId: string | undefined;
   fiaBookId: string | undefined;
   verseRange: string | undefined;
+  onOpenTranslationDrawer?: () => void;
 }
 
 export function BibleReaderContent({
   projectId,
   pericopeId,
   fiaBookId,
-  verseRange
+  verseRange,
+  onOpenTranslationDrawer
 }: BibleReaderContentProps) {
   const {
-    bibles,
+    bibles: apiBibles,
     isLoading: biblesLoading,
     error: biblesError
   } = useBibleBrainBibles(projectId);
   const [selectedBible, setSelectedBible] = useState<BibleBrainBible | null>(
     null
   );
+  // Saved translations from the store (user-curated list)
+  const savedDownloads = useLocalStore((s) =>
+    projectId
+      ? (s.bibleDownloadTranslations[projectId] ?? EMPTY_DOWNLOAD_TRANSLATIONS)
+      : EMPTY_DOWNLOAD_TRANSLATIONS
+  );
+
+  // When the user has curated translations, show those; otherwise show all API bibles
+  const displayBibles: BibleBrainBible[] = useMemo(() => {
+    if (savedDownloads.length > 0) {
+      return savedDownloads.map((t) => ({
+        id: t.bibleId,
+        name: t.name,
+        vname: t.vname,
+        hasText: t.hasText,
+        hasAudio: t.hasAudio,
+        textTestaments: t.textTestaments ?? [],
+        audioTestaments: t.audioTestaments ?? [],
+        iso: t.iso,
+        languageName: t.languageName
+      }));
+    }
+    return apiBibles;
+  }, [savedDownloads, apiBibles]);
 
   // Persistence
   const savedTranslation = useLocalStore((s) =>
@@ -333,19 +514,31 @@ export function BibleReaderContent({
 
   // Auto-select: saved translation > best match > first
   useEffect(() => {
-    if (bibles.length === 0 || selectedBible) return;
+    if (displayBibles.length === 0) return;
 
     if (savedTranslation) {
-      const saved = bibles.find((b) => b.id === savedTranslation.bibleId);
+      const saved = displayBibles.find(
+        (b) => b.id === savedTranslation.bibleId
+      );
       if (saved) {
-        setSelectedBible(saved);
+        if (saved.id !== selectedBible?.id) {
+          setSelectedBible(saved);
+        }
         return;
       }
     }
 
-    const best = bibles.find((b) => b.hasText && b.hasAudio) ?? bibles[0]!;
-    setSelectedBible(best);
-  }, [bibles, selectedBible, savedTranslation]);
+    if (
+      !selectedBible ||
+      !displayBibles.some((b) => b.id === selectedBible.id)
+    ) {
+      const best =
+        displayBibles.find((b) => b.hasText && b.hasAudio) ?? displayBibles[0]!;
+      if (best.id !== selectedBible?.id) {
+        setSelectedBible(best);
+      }
+    }
+  }, [displayBibles, selectedBible, savedTranslation]);
 
   const handleSelectBible = useCallback(
     (bible: BibleBrainBible) => {
@@ -355,8 +548,6 @@ export function BibleReaderContent({
           bibleId: bible.id,
           name: bible.name,
           vname: bible.vname,
-          textFilesetId: bible.textFilesetId,
-          audioFilesetId: bible.audioFilesetId,
           hasText: bible.hasText,
           hasAudio: bible.hasAudio
         });
@@ -369,12 +560,9 @@ export function BibleReaderContent({
     data: content,
     isLoading: contentLoading,
     error: contentError
-  } = useBibleBrainContent(
-    selectedBible?.textFilesetId,
-    selectedBible?.audioFilesetId,
-    fiaBookId,
-    verseRange
-  );
+  } = useBibleBrainContent(selectedBible?.id, fiaBookId, verseRange);
+
+  const passageLoadingColor = useThemeColor('primary');
 
   const audioUrls = useMemo(
     () => (content?.audio ?? []).map((a) => a.url).filter(Boolean),
@@ -393,8 +581,6 @@ export function BibleReaderContent({
     console.log(
       `[Bible] content loaded for "${bible.vname || bible.name}" (${bible.id})`,
       JSON.stringify({
-        textFileset: bible.textFilesetId,
-        audioFileset: bible.audioFilesetId,
         hasText: bible.hasText,
         hasAudio: bible.hasAudio,
         verseCount: verses.length,
@@ -501,7 +687,7 @@ export function BibleReaderContent({
   }, [activeVerseKey]);
 
   // Loading states
-  if (biblesLoading) {
+  if (biblesLoading && displayBibles.length === 0) {
     return (
       <View className="flex-1 items-center justify-center p-8">
         <ActivityIndicator size="large" />
@@ -512,7 +698,7 @@ export function BibleReaderContent({
     );
   }
 
-  if (biblesError) {
+  if (biblesError && displayBibles.length === 0) {
     return (
       <View className="flex-1 items-center justify-center p-8">
         <Text className="text-destructive">
@@ -525,23 +711,33 @@ export function BibleReaderContent({
     );
   }
 
-  if (bibles.length === 0) {
+  if (displayBibles.length === 0) {
     return (
       <View className="flex-1 items-center justify-center p-8">
         <Text className="text-muted-foreground">
-          No Bible translations available for this language.
+          No Bible translations available.
         </Text>
+        <Text className="mt-1 text-sm text-muted-foreground">
+          Tap the + button to add translations.
+        </Text>
+        <TouchableOpacity
+          onPress={onOpenTranslationDrawer}
+          className="mt-4 h-11 w-11 items-center justify-center rounded-lg border border-border bg-card"
+        >
+          <Icon as={PlusIcon} size={18} className="text-primary" />
+        </TouchableOpacity>
       </View>
     );
   }
 
   return (
-    <View className="flex-1">
+    <View className="flex flex-1 flex-col gap-2">
       <TranslationPicker
-        bibles={bibles}
+        bibles={displayBibles}
         selectedId={selectedBible?.id ?? null}
         onSelect={handleSelectBible}
         recentIds={recentIds}
+        onAddPress={onOpenTranslationDrawer ?? (() => {})}
       />
 
       {selectedBible?.hasAudio && audioUrls.length > 0 && (
@@ -559,7 +755,7 @@ export function BibleReaderContent({
 
       {contentLoading ? (
         <View className="flex-1 items-center justify-center p-8">
-          <ActivityIndicator size="small" />
+          <ActivityIndicator color={passageLoadingColor} size="small" />
           <Text className="mt-2 text-sm text-muted-foreground">
             Loading passage...
           </Text>
@@ -578,19 +774,43 @@ export function BibleReaderContent({
               activeVerseKey={activeVerseKey}
               onVerseLayout={handleVerseLayout}
             />
-          ) : selectedBible?.hasText ? (
-            <View className="items-center justify-center p-8">
-              <Text className="text-muted-foreground">
-                No text found for this passage.
-              </Text>
-            </View>
           ) : (
             <View className="items-center justify-center p-8">
-              <Text className="text-muted-foreground">
-                This translation has audio only.
+              <Text className="text-center text-muted-foreground">
+                {(() => {
+                  const testament = fiaBookId
+                    ? guessTestament(fiaBookId)
+                    : null;
+                  const testaments = selectedBible?.textTestaments ?? [];
+                  if (
+                    testament &&
+                    testaments.length > 0 &&
+                    !testaments.includes(testament)
+                  ) {
+                    const available = testaments.join(' & ');
+                    return `This translation only has text for the ${available === 'OT' ? 'Old' : available === 'NT' ? 'New' : available} Testament.`;
+                  }
+                  if (!selectedBible?.hasText) {
+                    const audioTs = selectedBible?.audioTestaments ?? [];
+                    if (
+                      testament &&
+                      audioTs.length > 0 &&
+                      !audioTs.includes(testament)
+                    ) {
+                      const available = audioTs.join(' & ');
+                      return `This translation only has audio for the ${available === 'OT' ? 'Old' : available === 'NT' ? 'New' : available} Testament.`;
+                    }
+                    if (selectedBible?.hasAudio) {
+                      return 'This translation has audio only.';
+                    }
+                    return 'No content available for this translation.';
+                  }
+                  return 'No text found for this passage.';
+                })()}
               </Text>
             </View>
           )}
+          <CopyrightNotice copyright={content?.copyright ?? null} />
         </DrawerScrollView>
       )}
     </View>

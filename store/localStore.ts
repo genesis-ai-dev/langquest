@@ -57,6 +57,35 @@ export interface NavigationStackItem {
 export type Language = typeof language.$inferSelect;
 export type Theme = 'light' | 'dark' | 'system';
 
+export type Testament = 'OT' | 'NT';
+
+export interface BibleDownloadTranslation {
+  bibleId: string;
+  name: string;
+  vname: string | null;
+  hasText: boolean;
+  hasAudio: boolean;
+  textTestaments: Testament[];
+  audioTestaments: Testament[];
+  iso: string;
+  languageName: string;
+}
+
+export type FiaAttachmentStatus =
+  | 'pending'
+  | 'downloading'
+  | 'completed'
+  | 'failed';
+
+export interface FiaAttachmentQueueItem {
+  pericopeId: string;
+  projectId: string;
+  status: FiaAttachmentStatus;
+  error?: string;
+  enqueuedAt: number;
+  completedAt?: number;
+}
+
 // AsyncStorage keys for user preferences
 export const OFFLINE_UNDOWNLOAD_WARNING_KEY = '@offline_undownload_warning';
 
@@ -285,8 +314,6 @@ export interface LocalState {
       bibleId: string;
       name: string;
       vname: string | null;
-      textFilesetId: string | null;
-      audioFilesetId: string | null;
       hasText: boolean;
       hasAudio: boolean;
     }
@@ -297,8 +324,6 @@ export interface LocalState {
       bibleId: string;
       name: string;
       vname: string | null;
-      textFilesetId: string | null;
-      audioFilesetId: string | null;
       hasText: boolean;
       hasAudio: boolean;
     }
@@ -306,6 +331,40 @@ export interface LocalState {
   bibleRecentTranslations: Record<string, string[]>;
   bibleAudioPositions: Record<string, number>;
   setBibleAudioPosition: (key: string, positionMs: number) => void;
+
+  // Audio file cache manifest (URL → local filename + download timestamp)
+  audioCacheEntries: Record<string, { filename: string; downloadedAt: number }>;
+  setAudioCacheEntry: (
+    url: string,
+    entry: { filename: string; downloadedAt: number }
+  ) => void;
+  removeAudioCacheEntries: (urls: string[]) => void;
+  clearAudioCacheEntries: () => void;
+
+  // Saved bible translations per project (controls what appears in the dropdown)
+  bibleDownloadTranslations: Record<string, BibleDownloadTranslation[]>;
+  setBibleDownloadTranslations: (
+    projectId: string,
+    translations: BibleDownloadTranslation[]
+  ) => void;
+  addBibleDownloadTranslation: (
+    projectId: string,
+    translation: BibleDownloadTranslation
+  ) => void;
+  removeBibleDownloadTranslation: (projectId: string, bibleId: string) => void;
+
+  // FIA attachment queue state
+  fiaAttachmentQueue: FiaAttachmentQueueItem[];
+  enqueueFiaAttachment: (item: {
+    pericopeId: string;
+    projectId: string;
+  }) => void;
+  updateFiaAttachment: (
+    pericopeId: string,
+    update: Partial<FiaAttachmentQueueItem>
+  ) => void;
+  removeFiaAttachment: (pericopeId: string) => void;
+  clearCompletedFiaAttachments: () => void;
 }
 
 export const useLocalStore = create<LocalState>()(
@@ -647,6 +706,95 @@ export const useLocalStore = create<LocalState>()(
             ...state.bibleAudioPositions,
             [key]: positionMs
           }
+        })),
+
+      // Audio file cache manifest
+      audioCacheEntries: {},
+      setAudioCacheEntry: (url, entry) =>
+        set((state) => ({
+          audioCacheEntries: {
+            ...state.audioCacheEntries,
+            [url]: entry
+          }
+        })),
+      removeAudioCacheEntries: (urls) =>
+        set((state) => {
+          const next = { ...state.audioCacheEntries };
+          for (const url of urls) {
+            delete next[url];
+          }
+          return { audioCacheEntries: next };
+        }),
+      clearAudioCacheEntries: () => set({ audioCacheEntries: {} }),
+
+      // Saved bible translations per project
+      bibleDownloadTranslations: {},
+      setBibleDownloadTranslations: (projectId, translations) =>
+        set((state) => ({
+          bibleDownloadTranslations: {
+            ...state.bibleDownloadTranslations,
+            [projectId]: translations
+          }
+        })),
+      addBibleDownloadTranslation: (projectId, translation) =>
+        set((state) => {
+          const existing = state.bibleDownloadTranslations[projectId] ?? [];
+          if (existing.some((t) => t.bibleId === translation.bibleId)) {
+            return state;
+          }
+          return {
+            bibleDownloadTranslations: {
+              ...state.bibleDownloadTranslations,
+              [projectId]: [...existing, translation]
+            }
+          };
+        }),
+      removeBibleDownloadTranslation: (projectId, bibleId) =>
+        set((state) => {
+          const existing = state.bibleDownloadTranslations[projectId] ?? [];
+          return {
+            bibleDownloadTranslations: {
+              ...state.bibleDownloadTranslations,
+              [projectId]: existing.filter((t) => t.bibleId !== bibleId)
+            }
+          };
+        }),
+
+      // FIA attachment queue
+      fiaAttachmentQueue: [],
+      enqueueFiaAttachment: ({ pericopeId, projectId }) =>
+        set((state) => {
+          if (state.fiaAttachmentQueue.some((i) => i.pericopeId === pericopeId))
+            return state;
+          return {
+            fiaAttachmentQueue: [
+              ...state.fiaAttachmentQueue,
+              {
+                pericopeId,
+                projectId,
+                status: 'pending' as const,
+                enqueuedAt: Date.now()
+              }
+            ]
+          };
+        }),
+      updateFiaAttachment: (pericopeId, update) =>
+        set((state) => ({
+          fiaAttachmentQueue: state.fiaAttachmentQueue.map((item) =>
+            item.pericopeId === pericopeId ? { ...item, ...update } : item
+          )
+        })),
+      removeFiaAttachment: (pericopeId) =>
+        set((state) => ({
+          fiaAttachmentQueue: state.fiaAttachmentQueue.filter(
+            (i) => i.pericopeId !== pericopeId
+          )
+        })),
+      clearCompletedFiaAttachments: () =>
+        set((state) => ({
+          fiaAttachmentQueue: state.fiaAttachmentQueue.filter(
+            (i) => i.status !== 'completed'
+          )
         }))
     }),
     {

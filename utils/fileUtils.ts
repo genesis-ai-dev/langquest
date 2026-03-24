@@ -256,6 +256,36 @@ export function getDocumentDirectory() {
   return Paths.document.uri;
 }
 
+export function getCacheDirectory() {
+  return Paths.cache.uri;
+}
+
+export function readFileText(uri: string): string {
+  const file = new File(uri);
+  if (!file.exists) {
+    throw new Error(`File does not exist: ${uri}`);
+  }
+  return file.textSync();
+}
+
+export function getFileSize(uri: string): number {
+  const file = new File(uri);
+  return file.exists ? (file.size ?? 0) : 0;
+}
+
+export async function downloadFile(
+  remoteUrl: string,
+  destinationUri: string
+): Promise<void> {
+  const dir = getDirectory(destinationUri);
+  ensureDir(dir);
+  const dest = new File(destinationUri);
+  if (dest.exists) {
+    dest.delete();
+  }
+  await File.downloadFileAsync(remoteUrl, dest);
+}
+
 const encoder = new TextEncoder();
 
 export function stringToArrayBuffer(str: string) {
