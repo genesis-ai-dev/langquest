@@ -334,7 +334,52 @@ async function handleGetContent(body: GetContentRequest): Promise<Response> {
     }
   }
 
-  return jsonResponse({ verses, audio });
+  // Fetch copyright from the best available fileset (prefer text, fallback to audio)
+  const copyrightFilesetId = textFilesetId ?? audioFilesetId;
+  let copyright: {
+    copyright: string;
+    copyrightDate: string | null;
+    organizations: Array<{
+      name: string;
+      logoUrl: string | null;
+      url: string | null;
+    }>;
+  } | null = null;
+
+  if (copyrightFilesetId) {
+    try {
+      // deno-lint-ignore no-explicit-any
+      const crRes: any = await bbFetch(
+        `/bibles/filesets/${copyrightFilesetId}/copyright`
+      );
+      const crData = crRes?.copyright;
+      if (crData) {
+        // deno-lint-ignore no-explicit-any
+        const orgs = (crData.organizations ?? []).map((org: any) => {
+          const name =
+            org.translations?.[0]?.name ?? org.slug?.replace(/-/g, ' ') ?? '';
+          const logos = org.logos ?? [];
+          // deno-lint-ignore no-explicit-any
+          const logoEntry = logos.find((l: any) => l.icon === 0) ?? logos[0];
+          return {
+            name,
+            logoUrl: logoEntry?.url ?? null,
+            url: org.url_site ?? null
+          };
+        });
+
+        copyright = {
+          copyright: crData.copyright ?? '',
+          copyrightDate: crData.copyright_date ?? null,
+          organizations: orgs
+        };
+      }
+    } catch {
+      // Copyright not critical — continue without it
+    }
+  }
+
+  return jsonResponse({ verses, audio, copyright });
 }
 
 // --- Utilities ---

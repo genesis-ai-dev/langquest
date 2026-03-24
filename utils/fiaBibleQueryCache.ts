@@ -1,8 +1,11 @@
 import { defaultShouldDehydrateQuery } from '@tanstack/query-core';
 import type { Query, QueryKey } from '@tanstack/query-core';
 
-/** Disk + in-memory cache window for FIA / Bible Brain API text & audio payloads */
+/** Persist FIA / Bible Brain API data on disk for 1 year */
 export const FIA_BIBLE_API_QUERY_CACHE_MS = 1000 * 60 * 60 * 24 * 365;
+
+/** Consider cached data stale after 14 days — triggers background refetch */
+const FIA_BIBLE_API_STALE_MS = 1000 * 60 * 60 * 24 * 14;
 
 /** Keep in memory slightly longer than `maxAge` so hydration is not immediately GC'd */
 const FIA_BIBLE_API_GC_BUFFER_MS = 1000 * 60 * 60;
@@ -37,8 +40,8 @@ export function shouldDehydrateFiaBibleApiQuery(query: Query): boolean {
 
 /** Use on FIA / Bible Brain edge-function queries so global refetchInterval does not hammer the API */
 export const fiaBibleApiQueryOptions = {
-  staleTime: FIA_BIBLE_API_QUERY_CACHE_MS,
+  staleTime: FIA_BIBLE_API_STALE_MS,
   gcTime: FIA_BIBLE_API_QUERY_CACHE_MS + FIA_BIBLE_API_GC_BUFFER_MS,
   refetchInterval: false,
-  refetchOnMount: false
+  refetchOnMount: true
 } as const;

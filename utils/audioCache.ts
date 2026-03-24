@@ -37,6 +37,20 @@ function hashUrl(url: string): string {
   return `${hex}_${safeTail}`;
 }
 
+/**
+ * Strips query parameters and fragments from a URL so that the same audio
+ * file served with different tokens / cache-busters resolves to one cache
+ * entry (e.g. Bible Brain chapter audio shared across pericopes).
+ */
+function stableCacheKey(url: string): string {
+  try {
+    const parsed = new URL(url);
+    return `${parsed.origin}${parsed.pathname}`;
+  } catch {
+    return url;
+  }
+}
+
 function extractExtension(url: string): string {
   try {
     const pathname = new URL(url).pathname;
@@ -61,8 +75,9 @@ export async function getCachedAudioUri(remoteUrl: string): Promise<string> {
     return remoteUrl;
   }
 
+  const key = stableCacheKey(remoteUrl);
   const store = useLocalStore.getState();
-  const existing = store.audioCacheEntries[remoteUrl];
+  const existing = store.audioCacheEntries[key];
 
   if (existing && Date.now() - existing.downloadedAt <= CACHE_TTL_MS) {
     const path = cachedFilePath(existing.filename);
@@ -72,13 +87,13 @@ export async function getCachedAudioUri(remoteUrl: string): Promise<string> {
   }
 
   const extension = extractExtension(remoteUrl);
-  const filename = `${hashUrl(remoteUrl)}${extension}`;
+  const filename = `${hashUrl(key)}${extension}`;
   const destPath = cachedFilePath(filename);
 
   try {
     await downloadFile(remoteUrl, destPath);
 
-    store.setAudioCacheEntry(remoteUrl, {
+    store.setAudioCacheEntry(key, {
       filename,
       downloadedAt: Date.now()
     });

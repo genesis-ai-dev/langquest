@@ -1,4 +1,5 @@
 import { CheckpointMediaPlayer } from '@/components/CheckpointMediaPlayer';
+import { Button } from '@/components/ui/button';
 import { DrawerScrollView } from '@/components/ui/drawer';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
@@ -11,6 +12,7 @@ import {
 import {
   useBibleBrainContent,
   type BibleBrainAudioChapter,
+  type BibleBrainCopyright,
   type BibleBrainVerse
 } from '@/hooks/useBibleBrainContent';
 import {
@@ -32,7 +34,12 @@ import React, {
   useRef,
   useState
 } from 'react';
-import { ActivityIndicator, TouchableOpacity, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Linking,
+  TouchableOpacity,
+  View
+} from 'react-native';
 import { Dropdown } from 'react-native-element-dropdown';
 
 const EMPTY_STRING_ARRAY: string[] = [];
@@ -401,6 +408,43 @@ function VerseDisplay({
   );
 }
 
+// --- Copyright Notice ---
+
+function CopyrightNotice({
+  copyright
+}: {
+  copyright: BibleBrainCopyright | null;
+}) {
+  if (!copyright?.copyright) return null;
+
+  const isPublicDomain =
+    copyright.copyright.toLowerCase().includes('public domain');
+
+  return (
+    <View className="px-4 py-3">
+      <Text className="text-xs leading-5 text-muted-foreground">
+        {copyright.copyright}
+      </Text>
+      {!isPublicDomain &&
+        copyright.organizations
+          .filter((org) => org.url)
+          .map((org) => (
+          <Button
+            key={org.name}
+            variant="plain"
+            size="sm"
+            className="mt-2 self-start px-0"
+            onPress={() => Linking.openURL(org.url!)}
+          >
+            <Text className="native:text-xs text-xs text-primary">
+              {org.name}
+            </Text>
+          </Button>
+        ))}
+    </View>
+  );
+}
+
 // --- Main Component ---
 
 interface BibleReaderContentProps {
@@ -674,13 +718,17 @@ export function BibleReaderContent({
                       const available = audioTs.join(' & ');
                       return `This translation only has audio for the ${available === 'OT' ? 'Old' : available === 'NT' ? 'New' : available} Testament.`;
                     }
-                    return 'This translation has audio only.';
+                    if (selectedBible?.hasAudio) {
+                      return 'This translation has audio only.';
+                    }
+                    return 'No content available for this translation.';
                   }
                   return 'No text found for this passage.';
                 })()}
               </Text>
             </View>
           )}
+          <CopyrightNotice copyright={content?.copyright ?? null} />
         </DrawerScrollView>
       )}
     </View>

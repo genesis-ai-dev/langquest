@@ -1,6 +1,7 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { fiaBibleApiQueryOptions } from '@/utils/fiaBibleQueryCache';
 import { useQuery } from '@tanstack/react-query';
+import { useMemo } from 'react';
 
 // --- Types matching the edge function response ---
 
@@ -17,9 +18,22 @@ export interface BibleBrainAudioChapter {
   timestamps?: Array<{ verseStart: number; timestamp: number }>;
 }
 
+export interface BibleBrainCopyrightOrg {
+  name: string;
+  logoUrl: string | null;
+  url: string | null;
+}
+
+export interface BibleBrainCopyright {
+  copyright: string;
+  copyrightDate: string | null;
+  organizations: BibleBrainCopyrightOrg[];
+}
+
 export interface BibleBrainContentResponse {
   verses: BibleBrainVerse[];
   audio: BibleBrainAudioChapter[];
+  copyright: BibleBrainCopyright | null;
 }
 
 // --- Verse range parsing (matches BibleAssetsView.parseFiaVerseRange) ---
@@ -42,6 +56,17 @@ function parseFiaVerseRange(verseRange: string): {
 
 // --- Hook ---
 
+/**
+ * Fetches Bible Brain content for a verse range, with chapter-level caching.
+ *
+ * The query key is based on chapter bounds (not the full verse range) so that
+ * multiple pericopes within the same chapter share a single cached response
+ * and a single set of audio URLs — avoiding duplicate API calls and duplicate
+ * audio file downloads.
+ *
+ * Full-chapter text is fetched once, then filtered client-side to the
+ * requested pericope's verse range.
+ */
 export function useBibleBrainContent(
   bibleId: string | null | undefined,
   fiaBookId: string | undefined,
@@ -53,8 +78,20 @@ export function useBibleBrainContent(
   const parsed = verseRange ? parseFiaVerseRange(verseRange) : null;
   const bookId = fiaBookId?.toUpperCase();
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['bible-brain-content', bibleId, bookId, verseRange],
+  // Chapter-level query key: all pericopes in the same chapter(s) share this
+  // entry, so we only fetch + cache the data once.
+  const {
+    data: chapterData,
+    isLoading,
+    error
+  } = useQuery({
+    queryKey: [
+      'bible-brain-content',
+      bibleId,
+      bookId,
+      parsed?.startChapter ?? null,
+      parsed?.endChapter ?? null
+    ],
     queryFn: async (): Promise<BibleBrainContentResponse | null> => {
       if (!bibleId || !parsed || !bookId) return null;
 
@@ -71,9 +108,9 @@ export function useBibleBrainContent(
             bibleId,
             bookId,
             startChapter: parsed.startChapter,
-            startVerse: parsed.startVerse,
+            startVerse: 1,
             endChapter: parsed.endChapter,
-            endVerse: parsed.endVerse
+            endVerse: 999
           })
         }
       );
@@ -92,8 +129,33 @@ export function useBibleBrainContent(
     retry: 2
   });
 
+  // Filter full-chapter verses down to this pericope's range.
+  // Audio stays untouched — it's already chapter-granular and shared.
+  const data = useMemo((): BibleBrainContentResponse | null => {
+    if (!chapterData || !parsed) return null;
+
+    const filteredVerses = chapterData.verses.filter((v) => {
+      if (v.chapter < parsed.startChapter || v.chapter > parsed.endChapter)
+        return false;
+      if (
+        v.chapter === parsed.startChapter &&
+        v.verseStart < parsed.startVerse
+      )
+        return false;
+      if (v.chapter === parsed.endChapter && v.verseStart > parsed.endVerse)
+        return false;
+      return true;
+    });
+
+    return {
+      verses: filteredVerses,
+      audio: chapterData.audio,
+      copyright: chapterData.copyright ?? null
+    };
+  }, [chapterData, parsed]);
+
   return {
-    data: data ?? null,
+    data,
     isLoading,
     error
   };
