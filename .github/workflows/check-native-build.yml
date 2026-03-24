@@ -2,8 +2,8 @@ name: Check Native Build Requirement
 
 on:
   push:
-    # REQUIRED: push dev branch is necessary for this action to update its fingerprint database
-    branches: [dev]
+    # REQUIRED: push to these branches is necessary for this action to update its fingerprint database
+    branches: [dev, main]
   pull_request:
     types: [opened, synchronize]
   pull_request_review:
@@ -13,9 +13,9 @@ jobs:
   fingerprint:
     if: github.event_name != 'pull_request_review'
     runs-on: ubuntu-latest
-    # REQUIRED: limit concurrency when pushing dev branch to prevent conflict for this action to update its fingerprint database
+    # REQUIRED: limit concurrency when pushing to prevent conflict for this action to update its fingerprint database
     concurrency:
-      group: fingerprint-${{ github.event_name != 'pull_request' && 'dev' || format('pr-{0}', github.event.pull_request.number) }}
+      group: fingerprint-${{ github.event_name != 'pull_request' && github.ref_name || format('pr-{0}', github.event.pull_request.number) }}
       cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     permissions:
       # REQUIRED: Allow comments of PRs
@@ -46,10 +46,11 @@ jobs:
         uses: expo/expo-github-action/fingerprint@main
         with:
           packager: npm
-          saving-db-branch: dev
+          saving-db-branch: ${{ github.event.pull_request.base.ref || github.ref_name }}
+          fingerprint-db-cache-key: fingerprint-db-${{ github.event.pull_request.base.ref || github.ref_name }}
 
       - name: "Add fingerprint changed label if not compatible"
-        if: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'dev' && steps.fingerprint.outputs.fingerprint-diff != '[]' }}
+        if: ${{ github.event_name == 'pull_request' && (github.event.pull_request.base.ref == 'dev' || github.event.pull_request.base.ref == 'main') && steps.fingerprint.outputs.fingerprint-diff != '[]' }}
         uses: actions/github-script@v7
         with:
           script: |
@@ -61,7 +62,7 @@ jobs:
             })
 
       - name: "Remove fingerprint changed label if compatible"
-        if: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'dev' && steps.fingerprint.outputs.fingerprint-diff == '[]' }}
+        if: ${{ github.event_name == 'pull_request' && (github.event.pull_request.base.ref == 'dev' || github.event.pull_request.base.ref == 'main') && steps.fingerprint.outputs.fingerprint-diff == '[]' }}
         uses: actions/github-script@v7
         with:
           script: |
@@ -79,13 +80,13 @@ jobs:
             }
 
       - name: Write fingerprint diff to file
-        if: github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'dev'
+        if: github.event_name == 'pull_request' && (github.event.pull_request.base.ref == 'dev' || github.event.pull_request.base.ref == 'main')
         run: |
           echo '${{ steps.fingerprint.outputs.fingerprint-diff }}' > fingerprint-diff-raw.json
         shell: bash
 
       - name: Check if fingerprint compatibility changed
-        if: github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'dev'
+        if: github.event_name == 'pull_request' && (github.event.pull_request.base.ref == 'dev' || github.event.pull_request.base.ref == 'main')
         id: check-compatibility-change
         uses: actions/github-script@v7
         with:
@@ -145,7 +146,7 @@ jobs:
             core.setOutput('has_review', hadReview);
 
       - name: Request changes review if fingerprint changed
-        if: github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'dev' && steps.check-compatibility-change.outputs.should_create_review == 'true'
+        if: github.event_name == 'pull_request' && (github.event.pull_request.base.ref == 'dev' || github.event.pull_request.base.ref == 'main') && steps.check-compatibility-change.outputs.should_create_review == 'true'
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -161,7 +162,7 @@ jobs:
             });
 
       - name: Format fingerprint diff for comment
-        if: github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'dev' && steps.check-compatibility-change.outputs.has_changes == 'true'
+        if: github.event_name == 'pull_request' && (github.event.pull_request.base.ref == 'dev' || github.event.pull_request.base.ref == 'main') && steps.check-compatibility-change.outputs.has_changes == 'true'
         id: format-diff
         uses: actions/github-script@v7
         with:
@@ -232,7 +233,7 @@ jobs:
             core.setOutput('has_diff_file', 'true');
 
       - name: Comment on PR if fingerprint changed
-        if: github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'dev' && steps.check-compatibility-change.outputs.has_changes == 'true'
+        if: github.event_name == 'pull_request' && (github.event.pull_request.base.ref == 'dev' || github.event.pull_request.base.ref == 'main') && steps.check-compatibility-change.outputs.has_changes == 'true'
         uses: actions/github-script@v7
         env:
           HAS_DIFF_FILE: ${{ steps.format-diff.outputs.has_diff_file }}
@@ -304,7 +305,7 @@ jobs:
             }
 
       - name: Remove comment if fingerprint compatible
-        if: github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'dev' && steps.check-compatibility-change.outputs.has_changes == 'false'
+        if: github.event_name == 'pull_request' && (github.event.pull_request.base.ref == 'dev' || github.event.pull_request.base.ref == 'main') && steps.check-compatibility-change.outputs.has_changes == 'false'
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -332,7 +333,7 @@ jobs:
             }
 
   dismiss-bot-review-on-approval:
-    if: github.event_name == 'pull_request_review' && github.event.review.state == 'approved' && github.event.pull_request.base.ref == 'dev'
+    if: github.event_name == 'pull_request_review' && github.event.review.state == 'approved' && (github.event.pull_request.base.ref == 'dev' || github.event.pull_request.base.ref == 'main')
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
