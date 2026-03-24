@@ -1,5 +1,4 @@
 import { CheckpointMediaPlayer } from '@/components/CheckpointMediaPlayer';
-import { Button } from '@/components/ui/button';
 import { DrawerScrollView } from '@/components/ui/drawer';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
@@ -417,8 +416,9 @@ function CopyrightNotice({
 }) {
   if (!copyright?.copyright) return null;
 
-  const isPublicDomain =
-    copyright.copyright.toLowerCase().includes('public domain');
+  const isPublicDomain = copyright.copyright
+    .toLowerCase()
+    .includes('public domain');
 
   return (
     <View className="px-4 py-3">
@@ -426,21 +426,27 @@ function CopyrightNotice({
         {copyright.copyright}
       </Text>
       {!isPublicDomain &&
-        copyright.organizations
-          .filter((org) => org.url)
-          .map((org) => (
-          <Button
-            key={org.name}
-            variant="plain"
-            size="sm"
-            className="mt-2 self-start px-0"
-            onPress={() => Linking.openURL(org.url!)}
-          >
-            <Text className="native:text-xs text-xs text-primary">
-              {org.name}
+        (() => {
+          const orgsWithUrl = copyright.organizations.filter((org) => org.url);
+          if (orgsWithUrl.length === 0) return null;
+          return (
+            <Text className="mt-1 text-xs text-muted-foreground">
+              {orgsWithUrl.map((org, i) => (
+                <React.Fragment key={org.name}>
+                  {i > 0 && (
+                    <Text className="text-xs text-muted-foreground">, </Text>
+                  )}
+                  <Text
+                    className="text-xs text-primary"
+                    onPress={() => Linking.openURL(org.url!)}
+                  >
+                    {org.name}
+                  </Text>
+                </React.Fragment>
+              ))}
             </Text>
-          </Button>
-        ))}
+          );
+        })()}
     </View>
   );
 }
