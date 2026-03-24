@@ -27,6 +27,7 @@ interface MiniMediaPlayerProps {
   onForward?: () => void;
   disabled?: boolean;
   className?: string;
+  ticks?: { pct: number }[];
 }
 
 function formatTime(ms: number): string {
@@ -51,7 +52,8 @@ export const MiniMediaPlayer = React.memo(function MiniMediaPlayer({
   onStop,
   onForward,
   disabled = false,
-  className
+  className,
+  ticks
 }: MiniMediaPlayerProps) {
   const isActive = isPlaying || isPaused;
   const assetName = currentAssetName?.trim() || 'No audio selected';
@@ -78,18 +80,49 @@ export const MiniMediaPlayer = React.memo(function MiniMediaPlayer({
         {assetName}
       </Text>
 
-      <Slider
-        minimumValue={0}
-        maximumValue={maxDuration}
-        value={clampedPosition}
-        onValueChange={setDragPosition}
-        onSlidingComplete={(ms) => {
-          setDragPosition(null);
-          onSeek?.(ms);
-        }}
-        disabled={disabled || !isActive || !onSeek}
-        animated={false}
-      />
+      <View style={{ position: 'relative' }}>
+        <Slider
+          minimumValue={0}
+          maximumValue={maxDuration}
+          value={clampedPosition}
+          onValueChange={setDragPosition}
+          onSlidingComplete={(ms) => {
+            setDragPosition(null);
+            onSeek?.(ms);
+          }}
+          disabled={disabled || !isActive || !onSeek}
+          animated={false}
+        />
+        {ticks && (
+          <View
+            pointerEvents="none"
+            style={{
+              position: 'absolute',
+              left: 0,
+              right: 0,
+              top: '50%',
+              height: 20,
+              marginTop: -10
+            }}
+          >
+            {ticks.map((tick, i) => (
+              <View
+                key={i}
+                className="bg-primary/70"
+                style={{
+                  position: 'absolute',
+                  left: `${tick.pct}%`,
+                  top: 0,
+                  bottom: 0,
+                  width: 2,
+                  marginLeft: -1,
+                  borderRadius: 1
+                }}
+              />
+            ))}
+          </View>
+        )}
+      </View>
 
       <View className="mt-1 flex-row items-center justify-between">
         <Text className="text-xs text-muted-foreground">

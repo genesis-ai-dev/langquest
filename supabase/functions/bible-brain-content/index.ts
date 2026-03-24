@@ -1,8 +1,16 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
+import { createClient } from 'npm:@supabase/supabase-js';
 
 // --- Constants ---
 
 const BIBLE_BRAIN_API = 'https://4.dbt.io/api';
+
+function getSupabase() {
+  const url = Deno.env.get('SUPABASE_URL');
+  const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  if (!url || !key) return null;
+  return createClient(url, key);
+}
 
 const TEXT_TYPES = ['text_plain', 'text_format'];
 const AUDIO_TYPES = ['audio_drama', 'audio'];
@@ -151,6 +159,48 @@ function coveredTestaments(filesets: any[], types: string[]): Testament[] {
   return result;
 }
 
+type VerseTimestamp = { verseStart: number; timestamp: number };
+
+async function getCustomTimestamps(
+  supabase: NonNullable<ReturnType<typeof getSupabase>>,
+  audioFilesetId: string,
+  bookId: string,
+  chapter: number
+): Promise<VerseTimestamp[] | null> {
+  const { data, error } = await supabase
+    .from('bible_audio_timestamp')
+    .select('timestamps')
+    .eq('audio_fileset_id', audioFilesetId)
+    .eq('book_id', bookId)
+    .eq('chapter', chapter)
+    .maybeSingle();
+
+  if (error) {
+    console.error('bible_audio_timestamp lookup failed:', error.message);
+    return null;
+  }
+
+  const raw = data?.timestamps;
+  if (!Array.isArray(raw) || raw.length === 0) return null;
+
+  const mapped: VerseTimestamp[] = [];
+  for (const row of raw) {
+    // deno-lint-ignore no-explicit-any
+    const r = row as any;
+    const verseStart =
+      typeof r.verseStart === 'number'
+        ? r.verseStart
+        : typeof r.verse_start === 'number'
+          ? r.verse_start
+          : NaN;
+    const timestamp = typeof r.timestamp === 'number' ? r.timestamp : NaN;
+    if (!Number.isFinite(verseStart) || !Number.isFinite(timestamp)) continue;
+    mapped.push({ verseStart, timestamp });
+  }
+
+  return mapped.length > 0 ? mapped : null;
+}
+
 // --- Action: list-bibles ---
 
 async function handleListBibles(iso639_3: string): Promise<Response> {
@@ -285,6 +335,7 @@ async function handleGetContent(body: GetContentRequest): Promise<Response> {
     timestamps?: Array<{ verseStart: number; timestamp: number }>;
   }
   const audio: AudioChapter[] = [];
+  const supabase = getSupabase();
 
   if (audioFilesetId) {
     const audioPromises = chapters.map(
@@ -304,21 +355,35 @@ async function handleGetContent(body: GetContentRequest): Promise<Response> {
             duration: item.duration ?? 0
           };
 
-          try {
-            // deno-lint-ignore no-explicit-any
-            const tsRes: any = await bbFetch(
-              `/timestamps/${audioFilesetId}/${book}/${ch}`
+          // Timestamps: prefer custom DB rows, then Bible Brain API
+          let tsList: VerseTimestamp[] | null = null;
+          if (supabase) {
+            tsList = await getCustomTimestamps(
+              supabase,
+              audioFilesetId,
+              book,
+              ch
             );
-            const tsData = tsRes.data ?? [];
-            if (Array.isArray(tsData) && tsData.length > 0) {
+          }
+          if (tsList) {
+            entry.timestamps = tsList;
+          } else {
+            try {
               // deno-lint-ignore no-explicit-any
-              entry.timestamps = tsData.map((t: any) => ({
-                verseStart: parseInt(t.verse_start, 10),
-                timestamp: t.timestamp
-              }));
+              const tsRes: any = await bbFetch(
+                `/timestamps/${audioFilesetId}/${book}/${ch}`
+              );
+              const tsData = tsRes.data ?? [];
+              if (Array.isArray(tsData) && tsData.length > 0) {
+                // deno-lint-ignore no-explicit-any
+                entry.timestamps = tsData.map((t: any) => ({
+                  verseStart: parseInt(t.verse_start, 10),
+                  timestamp: t.timestamp
+                }));
+              }
+            } catch {
+              // Timestamps not available for this fileset
             }
-          } catch {
-            // Timestamps not available for this fileset
           }
 
           return entry;
