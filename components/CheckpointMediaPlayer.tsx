@@ -224,7 +224,13 @@ export function CheckpointMediaPlayer({
     if (autoStopMs && audioContext.position < autoStopMs - 1000) {
       hasAutoStoppedRef.current = false;
     }
-  }, [isThisActive, autoStopMs, audioContext.isPlaying, audioContext.position, audioContext.pauseSound]);
+  }, [
+    isThisActive,
+    autoStopMs,
+    audioContext.isPlaying,
+    audioContext.position,
+    audioContext.pauseSound
+  ]);
 
   if (!checkpointKey || audioUris.length === 0) return null;
 
