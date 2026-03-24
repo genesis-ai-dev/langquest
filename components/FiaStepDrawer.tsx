@@ -35,7 +35,7 @@ import {
   resolveImageUri,
   useFiaAttachmentStatus
 } from '@/services/FiaAttachmentQueue';
-import { cn } from '@/utils/styleUtils';
+import { cn, useThemeColor } from '@/utils/styleUtils';
 import { Ionicons } from '@expo/vector-icons';
 import { ReactNativeZoomableView } from '@openspacelabs/react-native-zoomable-view';
 import {
@@ -871,6 +871,7 @@ export function FiaStepDrawer({
   verseRange,
   persistedState
 }: FiaStepDrawerProps) {
+  const primaryColor = useThemeColor('primary');
   const saved = persistedState?.current;
   const [translationDrawerOpen, setTranslationDrawerOpen] =
     React.useState(false);
@@ -1071,7 +1072,7 @@ export function FiaStepDrawer({
               <TabsContent value="guide" className="flex-1">
                 {isLoading ? (
                   <View className="flex-1 items-center justify-center py-12">
-                    <ActivityIndicator size="large" />
+                    <ActivityIndicator size="large" color={primaryColor} />
                     <Text className="mt-3 text-sm text-muted-foreground">
                       Loading steps...
                     </Text>
