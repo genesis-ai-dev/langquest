@@ -87,7 +87,8 @@ export async function getCachedAudioUri(remoteUrl: string): Promise<string> {
   }
 
   const extension = extractExtension(remoteUrl);
-  const filename = `${hashUrl(key)}${extension}`;
+  const hash = hashUrl(key);
+  const filename = hash.endsWith(extension) ? hash : `${hash}${extension}`;
   const destPath = cachedFilePath(filename);
 
   try {
