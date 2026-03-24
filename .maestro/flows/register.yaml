@@ -18,6 +18,10 @@ onFlowStart:
 - inputText: password
 - tapOn: Confirm Password
 - inputText: password
+- scrollUntilVisible:
+    element: Register
+    direction: DOWN
+    timeout: 10000
 - tapOn: Register
 - assertVisible: Projects
 - tapOn:
