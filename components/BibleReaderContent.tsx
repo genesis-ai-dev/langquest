@@ -381,6 +381,81 @@ export function BibleReaderContent({
     [content?.audio]
   );
 
+  // Diagnostic: log content shape when a translation loads
+  useEffect(() => {
+    if (contentLoading || !selectedBible) return;
+    const bible = selectedBible;
+    const audioChapters = content?.audio ?? [];
+    const verses = content?.verses ?? [];
+    const hasTimestamps = audioChapters.some(
+      (ch) => ch.timestamps && ch.timestamps.length > 0
+    );
+    console.log(
+      `[Bible] content loaded for "${bible.vname || bible.name}" (${bible.id})`,
+      JSON.stringify({
+        textFileset: bible.textFilesetId,
+        audioFileset: bible.audioFilesetId,
+        hasText: bible.hasText,
+        hasAudio: bible.hasAudio,
+        verseCount: verses.length,
+        audioChapters: audioChapters.map((ch) => ({
+          chapter: ch.chapter,
+          duration: ch.duration,
+          timestampCount: ch.timestamps?.length ?? 0
+        })),
+        hasTimestamps
+      })
+    );
+    if (contentError) {
+      console.log('[Bible] content error:', contentError);
+    }
+  }, [content, contentLoading, contentError, selectedBible]);
+
+  // Pericope bounds on the combined audio timeline (ms + tick percentages)
+  const pericopeBounds = useMemo(() => {
+    const audio = content?.audio;
+    if (!audio?.length || !verseRange) return null;
+    if (audio.some((ch) => !ch.timestamps?.length)) return null;
+
+    const match = verseRange.match(
+      /^(\d+):(\d+)[a-z]?-(?:(\d+):)?(\d+)[a-z]?$/
+    );
+    if (!match) return null;
+
+    const startChapter = parseInt(match[1]!, 10);
+    const startVerse = parseInt(match[2]!, 10);
+    const endChapter = match[3] ? parseInt(match[3], 10) : startChapter;
+    const endVerse = parseInt(match[4]!, 10);
+
+    let startMs: number | undefined;
+    let endMs: number | undefined;
+    let cumulativeMs = 0;
+
+    for (const ch of audio) {
+      const ts = ch.timestamps!;
+      if (ch.chapter === startChapter) {
+        const entry = ts.find((t) => t.verseStart >= startVerse);
+        if (entry) startMs = cumulativeMs + entry.timestamp * 1000;
+      }
+      if (ch.chapter === endChapter) {
+        const sorted = [...ts].sort((a, b) => a.verseStart - b.verseStart);
+        const afterEnd = sorted.find((t) => t.verseStart > endVerse);
+        endMs = afterEnd
+          ? cumulativeMs + afterEnd.timestamp * 1000
+          : cumulativeMs + ch.duration * 1000;
+      }
+      cumulativeMs += ch.duration * 1000;
+    }
+
+    if (startMs == null || endMs == null) return null;
+
+    const ticks: { pct: number }[] = [];
+    if (startMs > 0) ticks.push({ pct: (startMs / cumulativeMs) * 100 });
+    if (endMs < cumulativeMs) ticks.push({ pct: (endMs / cumulativeMs) * 100 });
+
+    return { startMs, endMs, ticks: ticks.length > 0 ? ticks : undefined };
+  }, [content?.audio, verseRange]);
+
   const bibleModelKeyPart = selectedBible?.id
     ? `bible-model:${selectedBible.id}`
     : 'bible-model:default';
@@ -476,6 +551,9 @@ export function BibleReaderContent({
           checkpointKey={bibleAudioCheckpointKey}
           audioUris={audioUrls}
           seekStepMs={AUDIO_SEEK_STEP_MS}
+          ticks={pericopeBounds?.ticks}
+          initialPositionMs={pericopeBounds?.startMs}
+          autoStopMs={pericopeBounds?.endMs}
         />
       )}
 

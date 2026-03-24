@@ -16,6 +16,9 @@ interface CheckpointMediaPlayerProps {
   seekStepMs?: number;
   className?: string;
   disabled?: boolean;
+  ticks?: { pct: number }[];
+  initialPositionMs?: number;
+  autoStopMs?: number;
 }
 
 export function CheckpointMediaPlayer({
@@ -24,9 +27,18 @@ export function CheckpointMediaPlayer({
   title,
   seekStepMs,
   className,
-  disabled = false
+  disabled = false,
+  ticks,
+  initialPositionMs,
+  autoStopMs
 }: CheckpointMediaPlayerProps) {
   const audioContext = useAudio({ stopOnUnmount: false });
+
+  // Ref so the stable checkpointStore closure reads the latest value
+  const initialPositionMsRef = React.useRef(initialPositionMs);
+  React.useEffect(() => {
+    initialPositionMsRef.current = initialPositionMs;
+  }, [initialPositionMs]);
 
   const checkpointStore = React.useMemo(
     () => ({
@@ -54,9 +66,10 @@ export function CheckpointMediaPlayer({
       getAssetCheckpoint: (assetId: string) => {
         const { bibleAudioPositions } = useLocalStore.getState();
         const position = bibleAudioPositions[assetId] ?? 0;
-        return Number.isFinite(position)
+        const saved = Number.isFinite(position)
           ? Math.max(0, Math.floor(position))
           : 0;
+        return saved > 0 ? saved : (initialPositionMsRef.current ?? 0);
       },
       clearAssetCheckpoint: (assetId: string) => {
         const { setBibleAudioPosition } = useLocalStore.getState();
@@ -192,6 +205,33 @@ export function CheckpointMediaPlayer({
     };
   }, [persistSnapshot]);
 
+  // Auto-stop: pause when playback reaches the pericope end boundary
+  const hasAutoStoppedRef = React.useRef(false);
+  React.useEffect(() => {
+    if (!isThisActive) {
+      hasAutoStoppedRef.current = false;
+      return;
+    }
+    if (
+      autoStopMs &&
+      audioContext.isPlaying &&
+      audioContext.position >= autoStopMs &&
+      !hasAutoStoppedRef.current
+    ) {
+      hasAutoStoppedRef.current = true;
+      void audioContext.pauseSound();
+    }
+    if (autoStopMs && audioContext.position < autoStopMs - 1000) {
+      hasAutoStoppedRef.current = false;
+    }
+  }, [
+    isThisActive,
+    autoStopMs,
+    audioContext.isPlaying,
+    audioContext.position,
+    audioContext.pauseSound
+  ]);
+
   if (!checkpointKey || audioUris.length === 0) return null;
 
   return (
@@ -208,6 +248,7 @@ export function CheckpointMediaPlayer({
       onStop={() => void stopAndResetCurrentAsset()}
       onForward={() => void forwardCurrentAsset()}
       disabled={disabled}
+      ticks={ticks}
     />
   );
 }
