@@ -3278,7 +3278,7 @@ const RecordingView = () => {
 
   return (
     <View className="flex-1 bg-background">
-      {isVADActive && <KeepAwakeGuard />}
+      {(isVADActive || isPlayAllPlayerActive) && <KeepAwakeGuard />}
       {/* Full-screen VAD overlay - takes over entire screen */}
       {showFullScreenOverlay && (
         <FullScreenVADOverlay
