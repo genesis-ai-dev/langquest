@@ -23,6 +23,7 @@ onFlowStart:
     direction: DOWN
     timeout: 10000
 - tapOn: Register
+- tapOn: Register
 - assertVisible: Projects
 - tapOn:
     id: app-drawer-menu-button
