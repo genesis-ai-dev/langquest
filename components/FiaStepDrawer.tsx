@@ -653,6 +653,7 @@ function ImageViewer({
             source={{ uri }}
             style={{ width: screenW, height: screenH * 0.8 }}
             contentFit="contain"
+            cachePolicy="none" // Already cached by FiaAttachmentQueue
           />
         </ReactNativeZoomableView>
       </View>
@@ -683,6 +684,7 @@ function TappableImage({
           source={{ uri }}
           style={{ width: '100%', borderRadius: 6, aspectRatio }}
           contentFit={contentFit}
+          cachePolicy="none" // Already cached by FiaAttachmentQueue
         />
       </Button>
       <ImageViewer
