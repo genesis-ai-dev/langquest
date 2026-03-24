@@ -581,8 +581,6 @@ export function BibleReaderContent({
     console.log(
       `[Bible] content loaded for "${bible.vname || bible.name}" (${bible.id})`,
       JSON.stringify({
-        textFileset: bible.textFilesetId,
-        audioFileset: bible.audioFilesetId,
         hasText: bible.hasText,
         hasAudio: bible.hasAudio,
         verseCount: verses.length,

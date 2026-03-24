@@ -137,10 +137,7 @@ export function useBibleBrainContent(
     const filteredVerses = chapterData.verses.filter((v) => {
       if (v.chapter < parsed.startChapter || v.chapter > parsed.endChapter)
         return false;
-      if (
-        v.chapter === parsed.startChapter &&
-        v.verseStart < parsed.startVerse
-      )
+      if (v.chapter === parsed.startChapter && v.verseStart < parsed.startVerse)
         return false;
       if (v.chapter === parsed.endChapter && v.verseStart > parsed.endVerse)
         return false;
