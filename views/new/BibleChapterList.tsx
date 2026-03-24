@@ -1,9 +1,22 @@
+/**
+ * Displays Bible chapters for a selected book within a project.
+ * Shows download/state indicators, creates chapter quests on-demand,
+ * and navigates to the recording view. When multiple versions exist
+ * for a chapter, shows a picker drawer.
+ */
+
 import { DownloadConfirmationModal } from '@/components/DownloadConfirmationModal';
 import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { QuestDownloadDiscoveryDrawer } from '@/components/QuestDownloadDiscoveryDrawer';
 import { Button } from '@/components/ui/button';
+import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle
+} from '@/components/ui/drawer';
 import { Icon } from '@/components/ui/icon';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { getBibleBook } from '@/constants/bibleStructure';
 import { useAuth } from '@/contexts/AuthContext';
@@ -11,7 +24,11 @@ import { system } from '@/db/powersync/system';
 import { useProjectById } from '@/hooks/db/useProjects';
 import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useBibleChapterCreation } from '@/hooks/useBibleChapterCreation';
-import { useBibleChapters } from '@/hooks/useBibleChapters';
+import {
+  useBibleChapters,
+  type BibleChapterGroup,
+  type BibleChapterQuest
+} from '@/hooks/useBibleChapters';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useQuestDownloadDiscovery } from '@/hooks/useQuestDownloadDiscovery';
 import { useQuestDownloadStatusLive } from '@/hooks/useQuestDownloadStatusLive';
@@ -19,36 +36,104 @@ import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { syncCallbackService } from '@/services/syncCallbackService';
 import { BOOK_ICON_MAP } from '@/utils/BOOK_GRAPHICS';
 import { bulkDownloadQuest } from '@/utils/bulkDownload';
+import { formatRelativeDate } from '@/utils/dateUtils';
 import { cn, useThemeColor } from '@/utils/styleUtils';
+import RNAlert from '@blazejkustra/react-native-alert';
 import { LegendList } from '@legendapp/list';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Image } from 'expo-image';
-import { BookOpenIcon, HardDriveIcon } from 'lucide-react-native';
+import {
+  BookOpenIcon,
+  CopyIcon,
+  HardDriveIcon,
+  PlusCircleIcon
+} from 'lucide-react-native';
 import React from 'react';
-import { ActivityIndicator, TouchableOpacity, View } from 'react-native';
-import RNAlert from '@blazejkustra/react-native-alert';
+import { ActivityIndicator, Pressable, View } from 'react-native';
 
-interface BibleChapterListProps {
-  projectId: string;
-  bookId: string;
-  onCloudLoadingChange?: (isLoading: boolean) => void;
+// --- Version card inside the picker drawer ---
+
+function VersionCard({
+  version,
+  isCurrentUser,
+  onPress,
+  onDownloadClick,
+  isDownloading
+}: {
+  version: BibleChapterQuest;
+  isCurrentUser: boolean;
+  onPress: () => void;
+  onDownloadClick: (questId: string) => void;
+  isDownloading: boolean;
+}) {
+  const displayName = version.creatorName || 'Unknown';
+  const initial = displayName.charAt(0).toUpperCase();
+  const isLocal = version.source === 'local';
+  const isCloud = version.source === 'cloud';
+  const isDownloaded = useQuestDownloadStatusLive(isLocal ? null : version.id);
+  const needsDownload = isCloud && !isDownloaded;
+
+  return (
+    <Pressable
+      onPress={needsDownload ? () => onDownloadClick(version.id) : onPress}
+      className={cn(
+        'flex-row items-center gap-3 rounded-lg border border-border bg-card p-4 active:opacity-70',
+        needsDownload && 'opacity-60',
+        !version.visible && 'opacity-50'
+      )}
+    >
+      <View
+        className={cn(
+          'h-10 w-10 items-center justify-center rounded-full',
+          isLocal ? 'bg-chart-2' : needsDownload ? 'bg-muted' : 'bg-primary'
+        )}
+      >
+        <Text
+          className={cn(
+            'font-semibold',
+            isLocal || needsDownload
+              ? 'text-secondary-foreground'
+              : 'text-primary-foreground'
+          )}
+        >
+          {initial}
+        </Text>
+      </View>
+      <View className="flex-1">
+        <View className="flex-row items-center gap-1.5">
+          <Text className="font-semibold">
+            {displayName}
+            {isCurrentUser ? ' (you)' : ''}
+          </Text>
+        </View>
+        <Text className="text-sm text-muted-foreground">
+          {isCurrentUser && isLocal
+            ? `Draft - ${formatRelativeDate(version.created_at)}`
+            : formatRelativeDate(version.created_at)}
+        </Text>
+      </View>
+      <View className="items-center justify-center">
+        {isLocal && (
+          <Icon as={HardDriveIcon} size={18} className="text-chart-2" />
+        )}
+        {!isLocal && (
+          <DownloadIndicator
+            isFlaggedForDownload={isDownloaded}
+            isLoading={isDownloading && !isDownloaded}
+            onPress={() => onDownloadClick(version.id)}
+            size={18}
+          />
+        )}
+      </View>
+    </Pressable>
+  );
 }
 
-// type QuestClosure = typeof quest_closure.$inferSelect;
+// --- Chapter button ---
 
-// Simple skeleton for chapter buttons during loading
-const ChapterSkeleton = () => (
-  <View className="w-full flex-col items-center gap-1 rounded-md border border-border bg-muted/50 py-3">
-    <Skeleton style={{ width: 32, height: 24 }} />
-    <Skeleton style={{ width: 24, height: 14 }} />
-  </View>
-);
-
-// Helper component to handle individual chapter download state
 function ChapterButton({
   chapterNum,
-  verseCount: _verseCount,
-  existingChapter,
+  group,
   isCreatingThis,
   onPress,
   disabled,
@@ -57,15 +142,7 @@ function ChapterButton({
   downloadingQuestIds = new Set()
 }: {
   chapterNum: number;
-  verseCount: number;
-  existingChapter?: {
-    id: string;
-    name: string;
-    source: string;
-    hasLocalCopy: boolean;
-    hasSyncedCopy: boolean;
-    download_profiles?: string[] | null;
-  };
+  group?: BibleChapterGroup;
   isCreatingThis: boolean;
   onPress: () => void;
   disabled: boolean;
@@ -74,38 +151,32 @@ function ChapterButton({
   downloadingQuestIds?: Set<string>;
 }) {
   const { currentUser } = useAuth();
-  const exists = !!existingChapter;
-  const hasLocalCopy = existingChapter?.hasLocalCopy ?? false;
-  const hasSyncedCopy = existingChapter?.hasSyncedCopy ?? false;
-  const isCloudQuest = existingChapter?.source === 'cloud';
+  const existingQuest = group?.primary;
+  const exists = !!existingQuest;
+  const hasLocalCopy = existingQuest?.hasLocalCopy ?? false;
+  const hasSyncedCopy = existingQuest?.hasSyncedCopy ?? false;
+  const isCloudQuest = existingQuest?.source === 'cloud';
+  const versionCount = group?.versions.length ?? 0;
   const primaryColor = useThemeColor('primary');
 
-  // Query SQLite directly - single source of truth
-  const isDownloaded = useQuestDownloadStatusLive(existingChapter?.id || null);
-
-  // Show loading if actively downloading (for spinner feedback)
+  const isDownloaded = useQuestDownloadStatusLive(existingQuest?.id || null);
   const isOptimisticallyDownloading = Boolean(
-    existingChapter?.id && downloadingQuestIds.has(existingChapter.id)
+    existingQuest?.id && downloadingQuestIds.has(existingQuest.id)
   );
   const needsDownload = isCloudQuest && !isDownloaded;
 
   const handleDownloadToggle = () => {
-    if (!currentUser?.id || !existingChapter?.id) return;
+    if (!currentUser?.id || !existingQuest?.id) return;
     if (!isDownloaded) {
-      onDownloadClick(existingChapter.id);
+      onDownloadClick(existingQuest.id);
     }
   };
 
-  // Use semantic Tailwind colors for status, matching conventions:
-  // - Published: success/green (chart-3)
-  // - Local only: info/blue (chart-2)
-  // - Not created: muted
-  // - Foreground should always be readable (primary-foreground for filled, foreground for outline)
   const getBackgroundColor = () => {
-    if (hasSyncedCopy) return 'bg-chart-3'; // Published (Success, Green)
-    if (hasLocalCopy) return 'bg-chart-2'; // Local-only (Info, Blue)
-    if (exists) return 'bg-card'; // Exists but not local or synced
-    return 'bg-muted'; // Not yet created (empty slot)
+    if (hasSyncedCopy) return 'bg-chart-3';
+    if (hasLocalCopy) return 'bg-chart-2';
+    if (exists) return 'bg-card';
+    return 'bg-muted';
   };
 
   const getTextColor = () => {
@@ -121,13 +192,10 @@ function ChapterButton({
         className={cn(
           'w-full flex-col gap-1 py-3',
           !exists && 'border-dashed',
-          needsDownload && 'opacity-50',
           getBackgroundColor()
         )}
         onPress={onPress}
-        disabled={
-          disabled || needsDownload || (!existingChapter && !canCreateNew)
-        }
+        disabled={disabled || (!existingQuest && !canCreateNew)}
       >
         {isCreatingThis ? (
           <ActivityIndicator size="small" color={primaryColor} />
@@ -138,7 +206,7 @@ function ChapterButton({
                 <Icon as={HardDriveIcon} size={14} className="text-secondary" />
               )}
               {exists && (hasSyncedCopy || isCloudQuest) && (
-                <View pointerEvents={isDownloaded ? 'none' : 'auto'}>
+                <View pointerEvents="none">
                   <DownloadIndicator
                     isFlaggedForDownload={isDownloaded}
                     isLoading={Boolean(isOptimisticallyDownloading)}
@@ -156,28 +224,44 @@ function ChapterButton({
                 {chapterNum}
               </Text>
             </View>
-            {/* <Text
-              className={cn(
-                "text-xs",
-                exists ? "text-card-foreground/70" : "text-muted-foreground"
+            <View className="flex-row items-center gap-1">
+              {versionCount > 1 && (
+                <View className="flex-row items-center gap-0.5">
+                  <Icon
+                    as={CopyIcon}
+                    size={10}
+                    className={
+                      hasSyncedCopy || hasLocalCopy
+                        ? 'text-secondary/70'
+                        : 'text-muted-foreground'
+                    }
+                  />
+                  <Text
+                    className={cn(
+                      'text-xxs',
+                      hasSyncedCopy || hasLocalCopy
+                        ? 'text-secondary/70'
+                        : 'text-muted-foreground'
+                    )}
+                  >
+                    {versionCount}
+                  </Text>
+                </View>
               )}
-            >
-              {verseCount} vs
-            </Text> */}
+            </View>
           </View>
         )}
       </Button>
-
-      {/* Overlay to make entire button pressable for download when needed */}
-      {needsDownload && !disabled && (
-        <TouchableOpacity
-          onPress={handleDownloadToggle}
-          className="absolute inset-0"
-          activeOpacity={0.7}
-        />
-      )}
     </View>
   );
+}
+
+// --- Main list ---
+
+interface BibleChapterListProps {
+  projectId: string;
+  bookId: string;
+  onCloudLoadingChange?: (isLoading: boolean) => void;
 }
 
 export function BibleChapterList({
@@ -195,19 +279,15 @@ export function BibleChapterList({
   const primaryColor = useThemeColor('primary');
   const { t } = useLocalization();
 
-  // Check user permissions for creating chapters
   const { membership } = useUserPermissions(projectId, 'open_project');
   const canCreateNew = membership === 'member' || membership === 'owner';
 
-  // Query existing chapters using parent-child relationship
   const {
-    existingChapterNumbers: _existingChapterNumbers,
-    chapters: existingChapters,
+    chapters: chapterGroups,
     isLoading: isLoadingChapters,
     isLoadingCloud
   } = useBibleChapters(projectId, bookId);
 
-  // Notify parent of cloud loading state
   React.useEffect(() => {
     onCloudLoadingChange?.(isLoadingCloud);
   }, [isLoadingCloud, onCloudLoadingChange]);
@@ -216,26 +296,28 @@ export function BibleChapterList({
     null
   );
 
-  // Discovery drawer state
+  // Version picker state
+  const [pickerChapterNum, setPickerChapterNum] = React.useState<number | null>(
+    null
+  );
+  const pickerGroup = chapterGroups.find(
+    (g) => g.chapterNumber === pickerChapterNum
+  );
+
+  // Download state
   const [questIdToDownload, setQuestIdToDownload] = React.useState<
     string | null
   >(null);
   const [showDiscoveryDrawer, setShowDiscoveryDrawer] = React.useState(false);
   const [showConfirmationModal, setShowConfirmationModal] =
     React.useState(false);
-
-  // Track quest IDs that are currently downloading (for optimistic UI updates)
   const [downloadingQuestIds, setDownloadingQuestIds] = React.useState<
     Set<string>
   >(new Set());
 
-  // Discovery hook
   const discoveryState = useQuestDownloadDiscovery(questIdToDownload || '');
-
-  // Track if we've started discovery for this quest ID to prevent loops
   const startedDiscoveryRef = React.useRef<string | null>(null);
 
-  // Auto-start discovery when drawer opens with a quest ID
   React.useEffect(() => {
     if (
       showDiscoveryDrawer &&
@@ -243,15 +325,9 @@ export function BibleChapterList({
       !discoveryState.isDiscovering &&
       startedDiscoveryRef.current !== questIdToDownload
     ) {
-      console.log(
-        '📥 [Download] Auto-starting discovery for quest:',
-        questIdToDownload
-      );
       startedDiscoveryRef.current = questIdToDownload;
       discoveryState.startDiscovery();
     }
-
-    // Reset ref when drawer closes
     if (!showDiscoveryDrawer) {
       startedDiscoveryRef.current = null;
     }
@@ -262,7 +338,6 @@ export function BibleChapterList({
     discoveryState
   ]);
 
-  // Bulk download mutation
   const bulkDownloadMutation = useMutation({
     mutationFn: async () => {
       if (
@@ -271,188 +346,119 @@ export function BibleChapterList({
       ) {
         throw new Error('Missing user or discovered IDs');
       }
-
-      console.log(
-        '📥 [Bulk Download] Starting bulk download with IDs:',
-        discoveryState.discoveredIds
-      );
-
-      const data = await bulkDownloadQuest(
-        discoveryState.discoveredIds,
-        currentUser.id
-      );
-
-      console.log('📥 [Bulk Download] Success:', data);
-      return data;
+      return bulkDownloadQuest(discoveryState.discoveredIds, currentUser.id);
     },
     onMutate: async () => {
-      console.log(
-        '📥 [Bulk Download] Optimistically updating cache (BEFORE mutation)'
-      );
-
-      // Optimistically update chapter queries immediately
       const questIdsToUpdate = new Set(discoveryState.discoveredIds.questIds);
 
-      const updateChapterCache = (oldData: unknown) => {
+      const updateCache = (oldData: unknown) => {
         if (!oldData || !currentUser?.id) return oldData;
-
-        // Handle array of chapters
-        const chapters = oldData as {
+        const items = oldData as {
           id: string;
           download_profiles?: string[] | null;
           [key: string]: unknown;
         }[];
-
-        return chapters.map((chapter) => {
-          if (questIdsToUpdate.has(chapter.id)) {
-            const currentProfiles = chapter.download_profiles || [];
-            const updatedProfiles = currentProfiles.includes(currentUser.id)
-              ? currentProfiles
-              : [...currentProfiles, currentUser.id];
-
+        return items.map((item) => {
+          if (questIdsToUpdate.has(item.id)) {
+            const profiles = item.download_profiles || [];
             return {
-              ...chapter,
-              download_profiles: updatedProfiles
+              ...item,
+              download_profiles: profiles.includes(currentUser.id)
+                ? profiles
+                : [...profiles, currentUser.id]
             };
           }
-          return chapter;
+          return item;
         });
       };
 
-      // Update chapter queries
       await queryClient.setQueriesData(
         {
           queryKey: ['bible-chapters', 'local', projectId, bookId],
           exact: false
         },
-        updateChapterCache
+        updateCache
       );
-
       await queryClient.setQueriesData(
         {
           queryKey: ['bible-chapters', 'cloud', projectId, bookId],
           exact: false
         },
-        updateChapterCache
-      );
-
-      console.log(
-        '📥 [Bulk Download] Cache updated - UI should show downloaded state immediately'
+        updateCache
       );
     },
     onSuccess: async () => {
-      console.log('📥 [Bulk Download] Success - registering sync callback...');
-
-      // Register callback to invalidate queries after PowerSync sync completes
       if (questIdToDownload) {
-        // Get all quest IDs to clear from downloading state
         const questIdsToClear = discoveryState.discoveredIds.questIds;
 
-        syncCallbackService.registerCallback(questIdToDownload, async () => {
-          console.log(
-            '📥 [Bulk Download] Sync completed - invalidating queries'
-          );
-
-          // Clear downloading state - sync is complete, UI should show real data now
+        const clearAndInvalidate = async () => {
           setDownloadingQuestIds((prev) => {
             const next = new Set(prev);
             questIdsToClear.forEach((id) => next.delete(id));
             return next;
           });
 
-          // Invalidate chapter queries to refetch from local SQLite with updated download_profiles
           await queryClient.invalidateQueries({
             queryKey: ['bible-chapters', 'local', projectId, bookId]
           });
-
           await queryClient.invalidateQueries({
             queryKey: ['bible-chapters', 'cloud', projectId, bookId]
           });
+          await queryClient.invalidateQueries({ queryKey: ['assets'] });
+        };
 
-          // Invalidate assets queries to refresh assets list if user is viewing a quest
-          await queryClient.invalidateQueries({
-            queryKey: ['assets']
-          });
-
-          console.log(
-            '📥 [Bulk Download] Complete - UI will show updated download status'
-          );
-        });
+        syncCallbackService.registerCallback(
+          questIdToDownload,
+          clearAndInvalidate
+        );
       }
-    },
-    onError: (error) => {
-      console.error('📥 [Bulk Download] Failed:', error);
-      // Rollback optimistic cache updates if mutation fails
     }
   });
 
-  // Handle download click - start discovery
   const handleDownloadClick = (questId: string) => {
-    console.log('📥 [Download] Opening discovery drawer for quest:', questId);
     setQuestIdToDownload(questId);
     setShowDiscoveryDrawer(true);
-    // Discovery will auto-start via useEffect
   };
 
-  // Handle discovery completion - show confirmation
   const handleDiscoveryContinue = () => {
-    console.log('📥 [Download] Discovery complete, showing confirmation');
     setShowDiscoveryDrawer(false);
     setShowConfirmationModal(true);
   };
 
-  // Handle confirmation - execute bulk download
   const handleConfirmDownload = async () => {
-    console.log('📥 [Download] User confirmed, executing bulk download');
     setShowConfirmationModal(false);
-
-    // Track all discovered quest IDs as downloading for optimistic UI
     const questIdsToTrack = new Set(discoveryState.discoveredIds.questIds);
     setDownloadingQuestIds((prev) => new Set([...prev, ...questIdsToTrack]));
 
     try {
       await bulkDownloadMutation.mutateAsync();
-      // Don't clear questIdToDownload yet - wait for sync callback
-    } catch (error) {
-      // On error, clear downloading state
+    } catch {
       setDownloadingQuestIds((prev) => {
         const next = new Set(prev);
         questIdsToTrack.forEach((id) => next.delete(id));
         return next;
       });
       setQuestIdToDownload(null);
-      throw error;
     }
   };
 
-  // Handle cancellation
   const handleCancelDiscovery = () => {
-    console.log('📥 [Download] User cancelled discovery');
     discoveryState.cancel();
-
-    // Cancel sync callback if registered
     if (questIdToDownload) {
       syncCallbackService.cancelCallback(questIdToDownload);
-      // Clear downloading state
       setDownloadingQuestIds((prev) => {
         const next = new Set(prev);
         next.delete(questIdToDownload);
         return next;
       });
     }
-
     setShowDiscoveryDrawer(false);
     setQuestIdToDownload(null);
   };
 
   const handleCancelConfirmation = () => {
-    console.log('📥 [Download] User cancelled confirmation');
-
-    // Cancel sync callback if registered
     if (questIdToDownload) {
       syncCallbackService.cancelCallback(questIdToDownload);
-
-      // Clear downloading state for all discovered quest IDs
       const questIdsToClear = discoveryState.discoveredIds.questIds;
       setDownloadingQuestIds((prev) => {
         const next = new Set(prev);
@@ -460,9 +466,80 @@ export function BibleChapterList({
         return next;
       });
     }
-
     setShowConfirmationModal(false);
     setQuestIdToDownload(null);
+  };
+
+  const navigateToVersion = async (version: BibleChapterQuest) => {
+    if (!currentUser?.id) return;
+
+    if (version.source === 'local') {
+      goToQuest({
+        id: version.id,
+        project_id: projectId,
+        name: version.name,
+        projectData: project as Record<string, unknown>,
+        questData: version as unknown as Record<string, unknown>
+      });
+      setPickerChapterNum(null);
+      return;
+    }
+
+    const questRow = await system.db.query.quest.findFirst({
+      where: (fields, { eq }) => eq(fields.id, version.id),
+      columns: { download_profiles: true, source: true }
+    });
+
+    const profiles = questRow?.download_profiles;
+    let isDownloaded = false;
+    if (profiles) {
+      const parsed =
+        typeof profiles === 'string' ? JSON.parse(profiles) : profiles;
+      isDownloaded = Array.isArray(parsed) && parsed.includes(currentUser.id);
+    }
+    const isCloudQuest =
+      questRow?.source === 'cloud' || version.source === 'cloud';
+
+    if (isCloudQuest && !isDownloaded) {
+      setPickerChapterNum(null);
+      handleDownloadClick(version.id);
+      return;
+    }
+
+    goToQuest({
+      id: version.id,
+      project_id: projectId,
+      name: version.name,
+      projectData: project as Record<string, unknown>,
+      questData: version as unknown as Record<string, unknown>
+    });
+    setPickerChapterNum(null);
+  };
+
+  const createNewVersion = async (chapterNum: number) => {
+    if (!currentUser?.id || isCreating || !canCreateNew || !book) return;
+
+    setPickerChapterNum(null);
+    setCreatingChapter(chapterNum);
+    try {
+      const result = await createChapter({
+        projectId,
+        bookId,
+        chapter: chapterNum,
+        targetLanguageId: project?.target_language_id || ''
+      });
+
+      goToQuest({
+        id: result.questId,
+        project_id: projectId,
+        name: result.questName,
+        projectData: project as Record<string, unknown>
+      });
+    } catch (error) {
+      console.error('Failed to create chapter:', error);
+    } finally {
+      setCreatingChapter(null);
+    }
   };
 
   if (!book) {
@@ -473,136 +550,42 @@ export function BibleChapterList({
     );
   }
 
-  // Don't block on project loading - we can render chapter structure immediately
-  // Project metadata will populate targetLanguageId when ready for chapter creation
-
   const handleChapterPress = (chapterNum: number) => {
-    // Prevent any action while creating
-    if (isCreating || creatingChapter === chapterNum) {
-      return;
-    }
+    if (!currentUser?.id || isCreating) return;
 
-    // Check if chapter already exists
-    const existingChapter = existingChapters.find(
-      (ch) => ch.chapterNumber === chapterNum
-    );
+    const group = chapterGroups.find((g) => g.chapterNumber === chapterNum);
 
-    if (existingChapter) {
-      // Check directly from SQLite (single source of truth) - async so we need to await
-      void (async () => {
-        const quest = await system.db.query.quest.findFirst({
-          where: (fields, { eq }) => eq(fields.id, existingChapter.id),
-          columns: { download_profiles: true, source: true }
-        });
-
-        const profiles = quest?.download_profiles;
-        let isDownloaded = false;
-        if (profiles) {
-          const parsed =
-            typeof profiles === 'string' ? JSON.parse(profiles) : profiles;
-          isDownloaded =
-            Array.isArray(parsed) && parsed.includes(currentUser?.id || '');
-        }
-        const isCloudQuest =
-          quest?.source === 'cloud' || existingChapter.source === 'cloud';
-
-        // Anonymous users can navigate directly to cloud records (cloud-only browsing)
-        // Authenticated users need to download cloud quests before viewing
-        if (currentUser && isCloudQuest && !isDownloaded) {
-          // Directly trigger download flow for cloud-only quests
-          console.log(
-            `📥 Cloud quest not downloaded, triggering download: ${existingChapter.id}`
-          );
-          handleDownloadClick(existingChapter.id);
-          return;
-        }
-
-        // Chapter exists and is downloaded (or local), or user is anonymous (cloud-only), navigate to it
-        console.log(`📖 Opening existing chapter: ${existingChapter.id}`);
-        goToQuest({
-          id: existingChapter.id,
-          project_id: projectId,
-          name: existingChapter.name,
-          projectData: project as Record<string, unknown>, // Pass project data!
-          questData: existingChapter as unknown as Record<string, unknown> // Pass chapter/quest data!
-        });
-      })();
-      return;
-    }
-
-    // Chapter doesn't exist - check permissions
-    if (!canCreateNew) {
-      RNAlert.alert(t('error'), t('membersOnlyCreate'));
-      return;
-    }
-
-    // Chapter doesn't exist - show confirmation dialog
-    RNAlert.alert(t('createObject'), `${book.name} ${chapterNum}`, [
-      {
-        text: t('cancel'),
-        style: 'cancel'
-      },
-      {
-        text: t('confirm'),
-        onPress: () => {
-          void (async () => {
-            setCreatingChapter(chapterNum);
-
-            try {
-              console.log(
-                `📖 Creating new chapter: ${book.name} ${chapterNum}`
-              );
-
-              const result = await createChapter({
-                projectId,
-                bookId,
-                chapter: chapterNum,
-                targetLanguageId: project?.target_language_id || ''
-              });
-
-              console.log(
-                `✅ Chapter created! Quest ID: ${result.questId}, ${result.assetCount} assets`
-              );
-
-              // Navigate to assets view with passed data
-              goToQuest({
-                id: result.questId,
-                project_id: projectId,
-                name: result.questName,
-                projectData: project as Record<string, unknown> // Pass project data!
-              });
-            } catch (error) {
-              console.error('Failed to create chapter:', error);
-              // TODO: Show error toast or something to user
-            } finally {
-              setCreatingChapter(null);
-            }
-          })();
-        }
+    if (!group || group.versions.length === 0) {
+      if (!canCreateNew) {
+        RNAlert.alert(t('error'), t('membersOnlyCreate'));
+        return;
       }
-    ]);
+      RNAlert.alert(t('createObject'), `${book.name} ${chapterNum}`, [
+        { text: t('cancel'), style: 'cancel' },
+        {
+          text: t('confirm'),
+          isPreferred: true,
+          onPress: () => void createNewVersion(chapterNum)
+        }
+      ]);
+      return;
+    }
+
+    setPickerChapterNum(chapterNum);
   };
 
-  // Generate array of chapter numbers with metadata
-  const chapters = Array.from({ length: book.chapters }, (_, i) => {
+  const chapterItems = Array.from({ length: book.chapters }, (_, i) => {
     const chapterNum = i + 1;
-    const verseCount = book.verses[chapterNum - 1] || 0;
-    const existingChapter = existingChapters.find(
-      (ch) => ch.chapterNumber === chapterNum
-    );
-    const isCreatingThis = creatingChapter === chapterNum;
-
+    const group = chapterGroups.find((g) => g.chapterNumber === chapterNum);
     return {
       id: chapterNum,
       chapterNum,
-      verseCount,
-      existingChapter,
-      isCreatingThis
+      group,
+      isCreatingThis: creatingChapter === chapterNum
     };
   });
 
-  // Check if we should show empty state (only for non-members with no chapters)
-  const hasNoChapters = existingChapters.length === 0;
+  const hasNoChapters = chapterGroups.length === 0;
   const showEmptyState = !isLoadingChapters && hasNoChapters && !canCreateNew;
 
   return (
@@ -617,7 +600,9 @@ export function BibleChapterList({
               contentFit="contain"
             />
           ) : (
-            <Text className="text-4xl">📖</Text>
+            <Text className="text-4xl">
+              <Icon as={BookOpenIcon} size={32} className="text-primary" />
+            </Text>
           )}
           <View className="flex-col">
             <Text variant="h3">{book.name}</Text>
@@ -627,7 +612,6 @@ export function BibleChapterList({
           </View>
         </View>
 
-        {/* Empty State - only for non-members with no content */}
         {showEmptyState ? (
           <View className="flex-1 items-center justify-center gap-4 px-6">
             <Icon
@@ -646,7 +630,7 @@ export function BibleChapterList({
           </View>
         ) : (
           <LegendList
-            data={chapters}
+            data={chapterItems}
             keyExtractor={(item) => item.id.toString()}
             numColumns={4}
             estimatedItemSize={90}
@@ -654,11 +638,10 @@ export function BibleChapterList({
             columnWrapperStyle={{ gap: 8 }}
             recycleItems
             renderItem={({ item }) =>
-              (item.existingChapter || canCreateNew) && (
+              (item.group || canCreateNew) && (
                 <ChapterButton
                   chapterNum={item.chapterNum}
-                  verseCount={item.verseCount}
-                  existingChapter={item.existingChapter}
+                  group={item.group}
                   isCreatingThis={item.isCreatingThis}
                   onPress={() => handleChapterPress(item.chapterNum)}
                   disabled={Boolean(isCreating)}
@@ -672,7 +655,57 @@ export function BibleChapterList({
         )}
       </View>
 
-      {/* Discovery Drawer */}
+      {/* Version picker drawer */}
+      <Drawer
+        open={!!pickerChapterNum}
+        onOpenChange={(open) => {
+          if (!open) setPickerChapterNum(null);
+        }}
+        snapPoints={['50%']}
+      >
+        <DrawerContent>
+          <DrawerHeader>
+            <DrawerTitle>
+              {book.name} {pickerChapterNum} versions
+            </DrawerTitle>
+            <DrawerDescription>
+              {pickerGroup?.versions.length ?? 0} version
+              {(pickerGroup?.versions.length ?? 0) !== 1 ? 's' : ''} available
+            </DrawerDescription>
+          </DrawerHeader>
+
+          {pickerGroup?.versions.map((version) => (
+            <VersionCard
+              key={version.id}
+              version={version}
+              isCurrentUser={version.creator_id === currentUser?.id}
+              onPress={() => navigateToVersion(version)}
+              onDownloadClick={handleDownloadClick}
+              isDownloading={downloadingQuestIds.has(version.id)}
+            />
+          ))}
+
+          {canCreateNew && pickerChapterNum && (
+            <Pressable
+              onPress={() => createNewVersion(pickerChapterNum)}
+              className="flex-row items-center gap-3 rounded-lg border border-dashed border-border p-4 active:opacity-70"
+            >
+              <View className="h-10 w-10 items-center justify-center rounded-full bg-muted">
+                <Icon as={PlusCircleIcon} size={20} className="text-primary" />
+              </View>
+              <View className="flex-1">
+                <Text className="font-semibold text-primary">
+                  Create new version
+                </Text>
+                <Text className="text-sm text-muted-foreground">
+                  Start a new recording for this chapter
+                </Text>
+              </View>
+            </Pressable>
+          )}
+        </DrawerContent>
+      </Drawer>
+
       <QuestDownloadDiscoveryDrawer
         isOpen={showDiscoveryDrawer}
         onOpenChange={(open) => {
@@ -682,7 +715,6 @@ export function BibleChapterList({
         discoveryState={discoveryState}
       />
 
-      {/* Confirmation Modal */}
       <DownloadConfirmationModal
         visible={showConfirmationModal}
         onConfirm={handleConfirmDownload}

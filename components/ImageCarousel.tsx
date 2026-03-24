@@ -1,5 +1,6 @@
+import { Image } from 'expo-image';
 import React from 'react';
-import { Image, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 import Carousel from './Carousel';
 
 interface ImageCarouselProps {
@@ -11,7 +12,11 @@ const ImageCarousel: React.FC<ImageCarouselProps> = ({ uris }) => {
     <Carousel
       items={uris}
       renderItem={(uri) => (
-        <Image source={{ uri: uri }} style={styles.carouselImage} />
+        <Image
+          source={{ uri }}
+          style={styles.carouselImage}
+          contentFit="contain"
+        />
       )}
     />
   );
@@ -20,8 +25,7 @@ const ImageCarousel: React.FC<ImageCarouselProps> = ({ uris }) => {
 const styles = StyleSheet.create({
   carouselImage: {
     width: '100%',
-    height: '100%',
-    resizeMode: 'contain'
+    height: '100%'
   }
 });
 

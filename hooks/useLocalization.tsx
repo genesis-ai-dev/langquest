@@ -37,6 +37,10 @@ function mapLanguoidNameToSupportedLanguage(
     'brazilian portuguese': 'brazilian_portuguese',
     'português brasileiro': 'brazilian_portuguese',
     'portugues brasileiro': 'brazilian_portuguese', // Without accent
+    // French names and endonyms
+    french: 'french',
+    français: 'french',
+    francais: 'french', // Without accent
     // Tok Pisin names
     'tok pisin': 'tok_pisin',
     // Indonesian names and endonyms
@@ -45,7 +49,24 @@ function mapLanguoidNameToSupportedLanguage(
     'bahasa indonesia': 'indonesian',
     // Nepali names and endonyms
     nepali: 'nepali',
-    नेपाली: 'nepali'
+    नेपाली: 'nepali',
+    // Hindi names and endonyms
+    hindi: 'hindi',
+    हिन्दी: 'hindi',
+    हिंदी: 'hindi',
+    // Burmese names and endonyms
+    burmese: 'burmese',
+    မြန်မာ: 'burmese',
+    myanmar: 'burmese',
+    // Thai names and endonyms
+    thai: 'thai',
+    ไทย: 'thai',
+    // Mandarin names and endonyms
+    mandarin: 'mandarin',
+    'mandarin chinese': 'mandarin',
+    普通话: 'mandarin',
+    中文: 'mandarin',
+    chinese: 'mandarin'
   };
 
   return mapping[normalized] ?? 'english';

@@ -49,13 +49,13 @@ import {
   useBibleBookCreation,
   useBibleBooks
 } from '@/hooks/useBibleBookCreation';
-import { useFiaBooks } from '@/hooks/useFiaBooks';
 import {
   useFiaBookCreation,
   useFiaBookQuests
 } from '@/hooks/useFiaBookCreation';
-import { useProjectSourceLanguoid } from '@/hooks/useProjectSourceLanguoid';
+import { useFiaBooks } from '@/hooks/useFiaBooks';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useProjectSourceLanguoid } from '@/hooks/useProjectSourceLanguoid';
 import { useQuestDownloadDiscovery } from '@/hooks/useQuestDownloadDiscovery';
 import { useQuestOffloadVerification } from '@/hooks/useQuestOffloadVerification';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
@@ -64,7 +64,7 @@ import { useLocalStore } from '@/store/localStore';
 import { bulkDownloadQuest } from '@/utils/bulkDownload';
 import { resolveTable } from '@/utils/dbUtils';
 import { offloadQuest } from '@/utils/questOffloadUtils';
-import { getThemeColor } from '@/utils/styleUtils';
+import { getThemeColor, useThemeColor } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -115,6 +115,7 @@ export default function ProjectDirectoryView() {
   const queryClient = useQueryClient();
   const { setCloudLoading } = useCloudLoading();
   const insets = useSafeAreaInsets();
+  const primaryColor = useThemeColor('primary');
 
   // Track cloud loading states from child components
   const [questListCloudLoading, setQuestListCloudLoading] =
@@ -415,6 +416,7 @@ export default function ProjectDirectoryView() {
 
   const _showHiddenContent = useLocalStore((state) => state.showHiddenContent);
   const enableFia = useLocalStore((state) => state.enableFia);
+  const setEnableFia = useLocalStore((state) => state.setEnableFia);
 
   // Query existing books for Bible projects (after isMember is defined)
   const { books: existingBooks = [], isCloudLoading: booksCloudLoading } =
@@ -1012,7 +1014,7 @@ export default function ProjectDirectoryView() {
         <View className="flex flex-1 flex-col items-start justify-start gap-2 px-4 pb-10">
           <Button variant="ghost" size="sm" onPress={goBack}>
             <Icon as={ArrowLeftIcon} />
-            <Text>Back</Text>
+            <Text>{t('back')}</Text>
           </Button>
           <View className="w-full flex-1">
             <BibleChapterList
@@ -1039,11 +1041,10 @@ export default function ProjectDirectoryView() {
               {t('fiaExperimentalTitle')}
             </Text>
             <Text className="text-center text-muted-foreground">
-              {t('fiaExperimentalDescription')}
+              {t('enableFiaPrompt')}
             </Text>
-            <Button variant="default" onPress={goToSettings}>
-              <Icon as={SettingsIcon} size={16} />
-              <Text>{t('openSettings')}</Text>
+            <Button variant="default" onPress={() => setEnableFia(true)}>
+              <Text>{t('enable')}</Text>
             </Button>
           </View>
         );
@@ -1090,10 +1091,10 @@ export default function ProjectDirectoryView() {
           <View className="flex flex-1 flex-col items-start justify-start gap-2 px-4 pb-10">
             <Button variant="ghost" size="sm" onPress={goBack}>
               <Icon as={ArrowLeftIcon} />
-              <Text>Back</Text>
+              <Text>{t('back')}</Text>
             </Button>
-            <View className="flex-1 items-center justify-center">
-              <ActivityIndicator size="large" />
+            <View className="w-full flex-1 items-center justify-center">
+              <ActivityIndicator size="large" color={primaryColor} />
             </View>
           </View>
         );
@@ -1103,7 +1104,7 @@ export default function ProjectDirectoryView() {
         <View className="flex flex-1 flex-col items-start justify-start gap-2 px-4 pb-10">
           <Button variant="ghost" size="sm" onPress={goBack}>
             <Icon as={ArrowLeftIcon} />
-            <Text>Back</Text>
+            <Text>{t('back')}</Text>
           </Button>
           <View className="w-full flex-1">
             <FiaPericopeList
@@ -1118,7 +1119,7 @@ export default function ProjectDirectoryView() {
 
     // Default unstructured project view
     return (
-      <View className="flex-1 flex-col gap-4 p-4">
+      <View className="flex-1 flex-col gap-4 p-6 pt-0">
         <View className="flex flex-col gap-4">
           <View className="flex flex-row items-center justify-between gap-2">
             <View className="flex flex-row items-center gap-2">
@@ -1252,7 +1253,6 @@ export default function ProjectDirectoryView() {
         <Drawer
           open={isCreateOpen}
           onOpenChange={setIsCreateOpen}
-          dismissible={!isCreatingQuest}
           snapPoints={[450, 700]}
         >
           {renderContent()}
@@ -1306,7 +1306,7 @@ export default function ProjectDirectoryView() {
                 >
                   <Text>{t('createObject')}</Text>
                 </FormSubmit>
-                <DrawerClose disabled={isCreatingQuest}>
+                <DrawerClose>
                   <Text>{t('cancel')}</Text>
                 </DrawerClose>
               </DrawerFooter>

@@ -10,14 +10,15 @@ npm-debug.*
 *.orig.*
 web-build/
 llm_supp_files/
-android/
-ios/
+/android
+/ios
 .env
 .env.*
 !.env.*.example
 *.swp
 .vercel
 gitignore_scripts/
+quest_backup*
 
 /modules/**/android/build
 /public/@powersync
@@ -57,6 +58,6 @@ testing/client-migrations/*.sh
 !testing/client-migrations/replace-device-db.sh
 !testing/client-migrations/restart-device-app.sh
 # exclude analysis files
-*.md
+testing/client-migrations/*.md
 # include readme only
 !testing/client-migrations/README.md

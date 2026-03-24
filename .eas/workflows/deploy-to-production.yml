@@ -21,6 +21,8 @@ on:
       - '!deno.json'
       - '!.cursor/**'
       - '!.vscode/**'
+      - '!.agents/**'
+      - '!.maestro/**'
 
 jobs:
   fingerprint:

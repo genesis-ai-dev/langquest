@@ -5,7 +5,7 @@ import { useExpoUpdates } from '@/hooks/useExpoUpdates';
 import { useLocalization } from '@/hooks/useLocalization';
 import { CloudDownload, XIcon } from 'lucide-react-native';
 import React from 'react';
-import { ActivityIndicator, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 
 // DEV ONLY: Import mock for testing
 // To test OTA updates in development, uncomment the next 2 lines:
@@ -71,13 +71,14 @@ export function UpdateBanner() {
             </Text>
           )}
         </Button>
-        <TouchableOpacity
+        <Button
+          variant="plain"
           onPress={dismissBanner}
           disabled={isDownloadingUpdate}
           className="p-1"
         >
           <Icon as={XIcon} size={20} className="text-muted-foreground" />
-        </TouchableOpacity>
+        </Button>
       </View>
     </View>
   );

@@ -36,7 +36,16 @@ export function shouldHideInvitation(
 }
 
 export function formatRelativeDate(dateString: string): string {
-  const date = new Date(dateString);
+  // Both SQLite ("2026-03-20 14:30:00") and Postgres ("2026-03-20 14:30:00+00")
+  // use a space between date and time. Hermes requires the ISO 8601 'T' separator,
+  // so always replace the first space in the datetime portion. For SQLite strings
+  // that lack a timezone suffix, also append 'Z' to mark them as UTC.
+  let normalized = dateString.replace(' ', 'T');
+  const hasTimezone = /([Z]|[+-]\d{2}:?\d{0,2})$/.test(normalized);
+  if (!hasTimezone) {
+    normalized = normalized + 'Z';
+  }
+  const date = new Date(normalized);
   const now = new Date();
   const diffTime = Math.abs(now.getTime() - date.getTime());
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));

@@ -45,7 +45,7 @@ const textVariants = cva(
       }
     },
     defaultVariants: {
-      variant: 'default'
+      variant: 'default' // this is the default variant
     }
   }
 );
@@ -74,8 +74,8 @@ const TextClassContext = React.createContext<string | undefined>(undefined);
 
 function Text({
   className,
-  asChild = false,
-  variant = 'default',
+  asChild,
+  variant,
   ...props
 }: React.ComponentProps<typeof RNText> &
   TextVariantProps &
@@ -87,22 +87,12 @@ function Text({
   const { style, ...restProps } = props;
   const notoSansStyle = useNotoSans(mergedClassName, style);
 
+  const Component = asChild ? Slot.Text : RNText;
   // Render directly as RNText to avoid Slot navigation context issues during transitions
   // Only use Slot.Text when explicitly using asChild pattern
-  if (!asChild) {
-    return (
-      <RNText
-        className={mergedClassName}
-        role={variant ? ROLE[variant] : undefined}
-        aria-level={variant ? ARIA_LEVEL[variant] : undefined}
-        style={notoSansStyle}
-        {...restProps}
-      />
-    );
-  }
 
   return (
-    <Slot.Text
+    <Component
       className={mergedClassName}
       role={variant ? ROLE[variant] : undefined}
       aria-level={variant ? ARIA_LEVEL[variant] : undefined}

@@ -5,12 +5,10 @@
  */
 
 import { useAuth } from '@/contexts/AuthContext';
-import { quest } from '@/db/drizzleSchema';
 import type { QuestMetadata } from '@/db/drizzleSchemaColumns';
 import { system } from '@/db/powersync/system';
 import { resolveTable } from '@/utils/dbUtils';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { and, eq, sql } from 'drizzle-orm';
 import { useFiaBookCreation } from './useFiaBookCreation';
 
 interface CreatePericopeParams {
@@ -53,34 +51,6 @@ export function useFiaPericopeCreation() {
       return await system.db.transaction(async (tx) => {
         const questName = `${bookTitle} ${verseRange}`;
 
-        // Check if THIS USER already has a pericope quest for this pericopeId.
-        // Other users' versions are intentionally ignored so each user can
-        // create their own version of the same pericope.
-        const existing = await tx.run(
-          sql.raw(`
-            SELECT id, name, project_id
-            FROM quest
-            WHERE REPLACE(project_id, '-', '') = REPLACE('${projectId}', '-', '')
-              AND json_extract(metadata, '$.fia.pericopeId') = '${pericopeId}'
-              AND creator_id = '${currentUser.id}'
-            LIMIT 1
-          `)
-        );
-
-        if (existing.rows?._array && existing.rows._array.length > 0) {
-          const found = existing.rows._array[0] as {
-            id: string;
-            name: string;
-          };
-          return {
-            questId: found.id,
-            questName: found.name,
-            projectId,
-            bookId
-          };
-        }
-
-        // Create pericope quest
         const metadata: QuestMetadata = {
           fia: {
             bookId,

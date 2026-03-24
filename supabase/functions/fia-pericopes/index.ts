@@ -280,8 +280,13 @@ Deno.serve(async (req) => {
         pageInfo = bt.pericopeTranslations.pageInfo;
       }
 
-      // Sort pericopes by sequence
-      pericopes.sort((a, b) => a.sequence - b.sequence);
+      // Sort pericopes by sequence, then by verse position for splits (e.g. gen-p4a, gen-p4b)
+      pericopes.sort(
+        (a, b) =>
+          a.sequence - b.sequence ||
+          a.startChapter - b.startChapter ||
+          a.startVerse - b.startVerse
+      );
 
       books.push({ id: bookId, title: bookTitle, pericopes });
     }

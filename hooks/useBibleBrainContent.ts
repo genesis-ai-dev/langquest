@@ -1,5 +1,7 @@
 import { useAuth } from '@/contexts/AuthContext';
+import { fiaBibleApiQueryOptions } from '@/utils/fiaBibleQueryCache';
 import { useQuery } from '@tanstack/react-query';
+import { useMemo } from 'react';
 
 // --- Types matching the edge function response ---
 
@@ -16,9 +18,22 @@ export interface BibleBrainAudioChapter {
   timestamps?: Array<{ verseStart: number; timestamp: number }>;
 }
 
+export interface BibleBrainCopyrightOrg {
+  name: string;
+  logoUrl: string | null;
+  url: string | null;
+}
+
+export interface BibleBrainCopyright {
+  copyright: string;
+  copyrightDate: string | null;
+  organizations: BibleBrainCopyrightOrg[];
+}
+
 export interface BibleBrainContentResponse {
   verses: BibleBrainVerse[];
   audio: BibleBrainAudioChapter[];
+  copyright: BibleBrainCopyright | null;
 }
 
 // --- Verse range parsing (matches BibleAssetsView.parseFiaVerseRange) ---
@@ -41,29 +56,44 @@ function parseFiaVerseRange(verseRange: string): {
 
 // --- Hook ---
 
+/**
+ * Fetches Bible Brain content for a verse range, with chapter-level caching.
+ *
+ * The query key is based on chapter bounds (not the full verse range) so that
+ * multiple pericopes within the same chapter share a single cached response
+ * and a single set of audio URLs — avoiding duplicate API calls and duplicate
+ * audio file downloads.
+ *
+ * Full-chapter text is fetched once, then filtered client-side to the
+ * requested pericope's verse range.
+ */
 export function useBibleBrainContent(
-  textFilesetId: string | null | undefined,
-  audioFilesetId: string | null | undefined,
+  bibleId: string | null | undefined,
   fiaBookId: string | undefined,
   verseRange: string | undefined
 ) {
   const { session } = useAuth();
   const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
 
-  const hasFileset = !!textFilesetId || !!audioFilesetId;
   const parsed = verseRange ? parseFiaVerseRange(verseRange) : null;
   const bookId = fiaBookId?.toUpperCase();
 
-  const { data, isLoading, error } = useQuery({
+  // Chapter-level query key: all pericopes in the same chapter(s) share this
+  // entry, so we only fetch + cache the data once.
+  const {
+    data: chapterData,
+    isLoading,
+    error
+  } = useQuery({
     queryKey: [
       'bible-brain-content',
-      textFilesetId,
-      audioFilesetId,
+      bibleId,
       bookId,
-      verseRange
+      parsed?.startChapter ?? null,
+      parsed?.endChapter ?? null
     ],
     queryFn: async (): Promise<BibleBrainContentResponse | null> => {
-      if (!hasFileset || !parsed || !bookId) return null;
+      if (!bibleId || !parsed || !bookId) return null;
 
       const response = await fetch(
         `${supabaseUrl}/functions/v1/bible-brain-content`,
@@ -75,13 +105,12 @@ export function useBibleBrainContent(
           },
           body: JSON.stringify({
             action: 'get-content',
-            textFilesetId: textFilesetId ?? null,
-            audioFilesetId: audioFilesetId ?? null,
+            bibleId,
             bookId,
             startChapter: parsed.startChapter,
-            startVerse: parsed.startVerse,
+            startVerse: 1,
             endChapter: parsed.endChapter,
-            endVerse: parsed.endVerse
+            endVerse: 999
           })
         }
       );
@@ -95,13 +124,35 @@ export function useBibleBrainContent(
 
       return response.json();
     },
-    enabled: hasFileset && !!parsed && !!bookId && !!supabaseUrl,
-    staleTime: 5 * 60 * 1000,
+    enabled: !!bibleId && !!parsed && !!bookId && !!supabaseUrl,
+    ...fiaBibleApiQueryOptions,
     retry: 2
   });
 
+  // Filter full-chapter verses down to this pericope's range.
+  // Audio stays untouched — it's already chapter-granular and shared.
+  const data = useMemo((): BibleBrainContentResponse | null => {
+    if (!chapterData || !parsed) return null;
+
+    const filteredVerses = chapterData.verses.filter((v) => {
+      if (v.chapter < parsed.startChapter || v.chapter > parsed.endChapter)
+        return false;
+      if (v.chapter === parsed.startChapter && v.verseStart < parsed.startVerse)
+        return false;
+      if (v.chapter === parsed.endChapter && v.verseStart > parsed.endVerse)
+        return false;
+      return true;
+    });
+
+    return {
+      verses: filteredVerses,
+      audio: chapterData.audio,
+      copyright: chapterData.copyright ?? null
+    };
+  }, [chapterData, parsed]);
+
   return {
-    data: data ?? null,
+    data,
     isLoading,
     error
   };

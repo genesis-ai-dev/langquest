@@ -187,7 +187,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       RNAlert.alert(
         'Initialization Error',
         'Failed to initialize the app. Please try logging out and back in.',
-        [{ text: 'OK' }]
+        [{ text: 'OK', isPreferred: true }]
       );
     }
   };

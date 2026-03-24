@@ -92,6 +92,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
           { text: t('cancel'), style: 'cancel' },
           {
             text: t('signIn') || 'Sign In',
+            isPreferred: true,
             onPress: () => {
               onClose();
               setAuthView('sign-in');
@@ -278,9 +279,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
           </TouchableWithoutFeedback>
         </Pressable>
       </TouchableWithoutFeedback>
-      <KeyboardToolbar>
-        <KeyboardToolbar.Done />
-      </KeyboardToolbar>
+      <KeyboardToolbar />
     </Modal>
   );
 };

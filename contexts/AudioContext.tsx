@@ -1,4 +1,9 @@
-import { Audio } from 'expo-av';
+import { expireAudioCache, getCachedAudioUri } from '@/utils/audioCache';
+import {
+  createAudioPlayer,
+  setAudioModeAsync,
+  type AudioPlayer
+} from 'expo-audio';
 import React, { createContext, useContext, useRef, useState } from 'react';
 import type { SharedValue } from 'react-native-reanimated';
 import { useFrameCallback, useSharedValue } from 'react-native-reanimated';
@@ -34,7 +39,8 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   const durationShared = useSharedValue(0);
   const cumulativePositionShared = useSharedValue(0); // SharedValue for worklet access
 
-  const soundRef = useRef<Audio.Sound | null>(null);
+  const playerRef = useRef<AudioPlayer | null>(null);
+  const playerListenerRef = useRef<{ remove: () => void } | null>(null);
   const positionUpdateInterval = useRef<ReturnType<typeof setInterval> | null>(
     null
   );
@@ -50,6 +56,27 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   const cumulativePositionSharedRef = useRef(cumulativePositionShared);
   const isTrackingPositionRef = useRef(isTrackingPosition);
 
+  // Helper to wait for an AudioPlayer to finish loading
+  const waitForPlayerLoaded = (player: AudioPlayer): Promise<void> => {
+    return new Promise((resolve) => {
+      if (player.isLoaded) {
+        resolve();
+        return;
+      }
+      const check = setInterval(() => {
+        if (player.isLoaded) {
+          clearInterval(check);
+          resolve();
+        }
+      }, 10);
+      // Safety timeout to avoid hanging forever
+      setTimeout(() => {
+        clearInterval(check);
+        resolve();
+      }, 5000);
+    });
+  };
+
   // Clear the position update interval
   const clearPositionInterval = () => {
     if (positionUpdateInterval.current) {
@@ -64,19 +91,16 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     isTrackingPositionRef.current.value = true;
 
     positionUpdateInterval.current = setInterval(() => {
-      if (soundRef.current) {
-        void soundRef.current.getStatusAsync().then((status) => {
-          if (status.isLoaded) {
-            // Calculate cumulative position across all segments
-            let cumulativeDuration = 0;
-            for (let i = 0; i < currentSequenceIndex.current; i++) {
-              cumulativeDuration += segmentDurations.current[i] || 0;
-            }
-            const totalPosition = cumulativeDuration + status.positionMillis;
-            cumulativePositionSharedRef.current.value = totalPosition; // Update SharedValue
-            setPositionState(totalPosition);
-          }
-        });
+      if (playerRef.current?.isLoaded) {
+        // Calculate cumulative position across all segments
+        let cumulativeDuration = 0;
+        for (let i = 0; i < currentSequenceIndex.current; i++) {
+          cumulativeDuration += segmentDurations.current[i] || 0;
+        }
+        const totalPosition =
+          cumulativeDuration + playerRef.current.currentTime * 1000;
+        cumulativePositionSharedRef.current.value = totalPosition; // Update SharedValue
+        setPositionState(totalPosition);
       }
     }, 100); // Update every 100ms for smoother animation
   };
@@ -108,10 +132,16 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     // Update SharedValue via ref to satisfy React Compiler
     cumulativePositionSharedRef.current.value = 0;
 
-    if (soundRef.current) {
-      await soundRef.current.stopAsync();
-      await soundRef.current.unloadAsync();
-      soundRef.current = null;
+    if (playerRef.current) {
+      playerListenerRef.current?.remove();
+      playerListenerRef.current = null;
+      try {
+        playerRef.current.pause();
+        playerRef.current.release();
+      } catch {
+        // Native shared object may already be deallocated
+      }
+      playerRef.current = null;
     }
 
     setIsPlaying(false);
@@ -125,18 +155,18 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   };
 
   const pauseSound = async () => {
-    if (soundRef.current && isPlaying) {
+    if (playerRef.current && isPlaying) {
       clearPositionInterval();
       isTrackingPositionRef.current.value = false;
-      await soundRef.current.pauseAsync();
+      playerRef.current.pause();
       setIsPlaying(false);
       setIsPaused(true);
     }
   };
 
   const resumeSound = async () => {
-    if (soundRef.current && isPaused) {
-      await soundRef.current.playAsync();
+    if (playerRef.current && isPaused) {
+      playerRef.current.play();
       setIsPlaying(true);
       setIsPaused(false);
       startPositionTracking();
@@ -144,12 +174,93 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   };
 
   const setPosition = async (newPosition: number) => {
-    if (soundRef.current && (isPlaying || isPaused)) {
-      await soundRef.current.setPositionAsync(newPosition);
-      setPositionState(newPosition);
-      cumulativePositionSharedRef.current.value = newPosition;
-      positionSharedRef.current.value = newPosition;
+    if (!playerRef.current?.isLoaded) {
+      return;
     }
+
+    const currentDuration = durationSharedRef.current.value;
+    const clampedPosition = Math.max(0, Math.min(newPosition, currentDuration));
+
+    const isSequence = sequenceQueue.current.length > 1;
+    if (!isSequence) {
+      playerRef.current.seekTo(clampedPosition / 1000);
+      setPositionState(clampedPosition);
+      cumulativePositionSharedRef.current.value = clampedPosition;
+      positionSharedRef.current.value = clampedPosition;
+      return;
+    }
+
+    let accumulated = 0;
+    let targetSegmentIndex = currentSequenceIndex.current;
+    let targetSegmentPositionMs = clampedPosition;
+
+    for (let idx = 0; idx < segmentDurations.current.length; idx++) {
+      const segDuration = Math.max(0, segmentDurations.current[idx] ?? 0);
+      const end = accumulated + segDuration;
+      if (
+        clampedPosition <= end ||
+        idx === segmentDurations.current.length - 1
+      ) {
+        targetSegmentIndex = idx;
+        targetSegmentPositionMs = Math.max(
+          0,
+          Math.min(clampedPosition - accumulated, segDuration)
+        );
+        break;
+      }
+      accumulated = end;
+    }
+
+    setPositionState(clampedPosition);
+    cumulativePositionSharedRef.current.value = clampedPosition;
+    positionSharedRef.current.value = clampedPosition;
+
+    if (targetSegmentIndex === currentSequenceIndex.current) {
+      playerRef.current.seekTo(targetSegmentPositionMs / 1000);
+      return;
+    }
+
+    const wasPaused = playerRef.current?.paused ?? false;
+    clearPositionInterval();
+    playerListenerRef.current?.remove();
+    playerListenerRef.current = null;
+    playerRef.current.pause();
+    playerRef.current.release();
+    playerRef.current = null;
+
+    currentSequenceIndex.current = targetSegmentIndex;
+    const targetUri = sequenceQueue.current[targetSegmentIndex];
+    if (!targetUri) {
+      return;
+    }
+
+    await playSound(targetUri, currentAudioId || undefined, true);
+
+    // playSound re-assigns playerRef.current; cast to break TS narrowing from the null assignment above.
+    const newPlayer = playerRef.current as AudioPlayer | null;
+    if (newPlayer?.isLoaded) {
+      newPlayer.seekTo(targetSegmentPositionMs / 1000);
+    } else if (newPlayer) {
+      const seekInterval = setInterval(() => {
+        if (!newPlayer.isLoaded) {
+          return;
+        }
+        clearInterval(seekInterval);
+        newPlayer.seekTo(targetSegmentPositionMs / 1000);
+      }, 20);
+      setTimeout(() => clearInterval(seekInterval), 2500);
+    }
+
+    if (wasPaused && newPlayer) {
+      newPlayer.pause();
+      setIsPlaying(false);
+      setIsPaused(true);
+      clearPositionInterval();
+      isTrackingPositionRef.current.value = false;
+    }
+
+    cumulativePositionSharedRef.current.value = clampedPosition;
+    positionSharedRef.current.value = clampedPosition;
   };
 
   const playNextInSequence = async () => {
@@ -183,39 +294,41 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     audioId?: string,
     isSequencePart = false
   ) => {
-    // Stop current sound if any is playing (but preserve sequence state)
-    if (soundRef.current) {
+    // Stop current player if any is playing (but preserve sequence state)
+    if (playerRef.current) {
       clearPositionInterval();
 
       // Store the duration of the previous segment if part of a sequence
       if (isSequencePart && currentSequenceIndex.current > 0) {
-        const prevStatus = await soundRef.current.getStatusAsync();
-        if (prevStatus.isLoaded) {
+        if (playerRef.current.isLoaded) {
           segmentDurations.current[currentSequenceIndex.current - 1] =
-            prevStatus.durationMillis ?? 0;
+            playerRef.current.duration * 1000;
         }
       }
 
-      await soundRef.current.stopAsync();
-      await soundRef.current.unloadAsync();
-      soundRef.current = null;
+      playerListenerRef.current?.remove();
+      playerListenerRef.current = null;
+      playerRef.current.pause();
+      playerRef.current.release();
+      playerRef.current = null;
     }
 
     // Set up audio mode
-    await Audio.setAudioModeAsync({
-      allowsRecordingIOS: false,
-      playsInSilentModeIOS: true,
-      staysActiveInBackground: true
+    await setAudioModeAsync({
+      allowsRecording: false,
+      playsInSilentMode: true,
+      shouldPlayInBackground: true
     });
+
+    // Resolve through file cache (downloads remote files on first access, serves local copy thereafter)
+    const resolvedUri = await getCachedAudioUri(uri);
 
     // Load and play new sound
     try {
-      const { sound } = await Audio.Sound.createAsync(
-        { uri },
-        { shouldPlay: true }
-      );
+      const player = createAudioPlayer(resolvedUri);
+      player.play();
 
-      soundRef.current = sound;
+      playerRef.current = player;
       setIsPlaying(true);
       setIsPaused(false);
 
@@ -223,10 +336,10 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         setCurrentAudioId(audioId);
       }
 
-      // Get initial status to set the duration
-      const status = await sound.getStatusAsync();
-      if (status.isLoaded) {
-        const durationMs = status.durationMillis ?? 0;
+      // Wait for player to load to get duration
+      await waitForPlayerLoaded(player);
+      if (player.isLoaded) {
+        const durationMs = player.duration * 1000;
 
         // Store this segment's duration
         segmentDurations.current[currentSequenceIndex.current] = durationMs;
@@ -243,17 +356,18 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       // Start tracking position
       startPositionTracking();
 
-      // Set up listener for when sound finishes playing
-      sound.setOnPlaybackStatusUpdate((status) => {
-        if (!status.isLoaded) {
-          return;
-        }
+      // Set up listener for when playback finishes
+      playerListenerRef.current = player.addListener(
+        'playbackStatusUpdate',
+        (status) => {
+          if (!status.didJustFinish) return;
 
-        if (status.didJustFinish) {
           clearPositionInterval();
           isTrackingPositionRef.current.value = false;
-          void sound.unloadAsync();
-          soundRef.current = null;
+          playerListenerRef.current?.remove();
+          playerListenerRef.current = null;
+          player.release();
+          playerRef.current = null;
 
           // Check if there are more sounds in the sequence
           if (sequenceQueue.current.length > 0) {
@@ -267,7 +381,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
             durationSharedRef.current.value = 0;
           }
         }
-      });
+      );
     } catch {
       setIsPlaying(false);
       setCurrentAudioId(null);
@@ -287,18 +401,20 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     // Update SharedValue via ref to satisfy React Compiler
     cumulativePositionSharedRef.current.value = 0;
 
-    // Preload all segment durations for accurate total duration
+    // Pre-cache all URIs and preload segment durations
     // NOTE: Process sequentially to avoid ExoPlayer threading issues on Android
     // (ExoPlayer requires all player operations on the main thread)
+    const resolvedUris: string[] = [];
     try {
       for (let index = 0; index < uris.length; index++) {
-        const uri = uris[index]!;
-        const { sound } = await Audio.Sound.createAsync({ uri });
-        const status = await sound.getStatusAsync();
-        await sound.unloadAsync();
-        if (status.isLoaded) {
-          segmentDurations.current[index] = status.durationMillis ?? 0;
+        const resolved = await getCachedAudioUri(uris[index]!);
+        resolvedUris.push(resolved);
+        const player = createAudioPlayer(resolved);
+        await waitForPlayerLoaded(player);
+        if (player.isLoaded) {
+          segmentDurations.current[index] = player.duration * 1000;
         }
+        player.release();
       }
 
       const totalDuration = segmentDurations.current.reduce(
@@ -311,16 +427,21 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       // Failed to preload durations, will calculate on the fly
     }
 
+    // Update queue to use resolved (cached) URIs
+    sequenceQueue.current = resolvedUris.length > 0 ? resolvedUris : uris;
+
     // Play first sound
-    await playSound(uris[0]!, audioId, true);
+    await playSound(sequenceQueue.current[0]!, audioId, true);
   };
 
-  // Ensure cleanup when the component unmounts
+  // Expire stale cache entries on mount, clean up player on unmount
   React.useEffect(() => {
+    expireAudioCache();
     return () => {
       clearPositionInterval();
-      if (soundRef.current) {
-        void soundRef.current.unloadAsync();
+      if (playerRef.current) {
+        playerListenerRef.current?.remove();
+        playerRef.current.release();
       }
     };
   }, []);

@@ -2,9 +2,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useColorScheme } from 'nativewind';
+import { Image, type ImageSource } from 'expo-image';
 import React, { useEffect } from 'react';
-import type { ImageSourcePropType } from 'react-native';
-import { Image, View } from 'react-native';
+import { View } from 'react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -20,8 +20,8 @@ import { VisionFlowAnimation } from './VisionFlowAnimation';
 
 // Icon sources - using require for React Native image assets
 /* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-unsafe-assignment */
-const iconDark: ImageSourcePropType = require('@/assets/icons/icon_dark.png');
-const iconLight: ImageSourcePropType = require('@/assets/icons/icon_light.png');
+const iconDark: ImageSource = require('@/assets/icons/icon_dark.png');
+const iconLight: ImageSource = require('@/assets/icons/icon_light.png');
 
 export function VisionScreen() {
   const { t } = useLocalization();
@@ -85,7 +85,7 @@ export function VisionScreen() {
             <Image
               source={iconSource}
               style={{ width: 96, height: 96 }}
-              resizeMode="contain"
+              contentFit="contain"
             />
           </View>
         </Animated.View>
