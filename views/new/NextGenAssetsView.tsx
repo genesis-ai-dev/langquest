@@ -37,6 +37,7 @@ import { useLocalStore } from '@/store/localStore';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { LegendList } from '@legendapp/list';
+import { useKeepAwake } from 'expo-keep-awake';
 import {
   ArrowBigDownDashIcon,
   CheckCheck,
@@ -108,6 +109,11 @@ type AssetQuestLink = Asset & {
 
 const DEFAULT_RECORDING_INITIAL_ORDER_INDEX = 1000000;
 const PLAY_ALL_AUDIO_ID = 'play-all-assets';
+
+function KeepAwakeGuard() {
+  useKeepAwake();
+  return null;
+}
 
 export default function NextGenAssetsView() {
   const {
@@ -1507,6 +1513,7 @@ export default function NextGenAssetsView() {
 
   return (
     <View className="flex flex-1 flex-col gap-6 p-6 pt-0">
+      {isPlayAllPlayerActive && <KeepAwakeGuard />}
       <View className="flex flex-row items-center justify-between">
         <View className="flex flex-row items-center gap-2">
           <Text className="text-xl font-semibold">{t('assets')}</Text>

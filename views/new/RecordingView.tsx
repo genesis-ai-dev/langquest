@@ -50,6 +50,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { and, asc, eq } from 'drizzle-orm';
 import { createAudioPlayer } from 'expo-audio';
+import { useKeepAwake } from 'expo-keep-awake';
 import {
   ArrowLeft,
   BookOpenIcon,
@@ -99,6 +100,11 @@ function debugLog(...args: unknown[]) {
   if (DEBUG_MODE) {
     console.log(...args);
   }
+}
+
+function KeepAwakeGuard() {
+  useKeepAwake();
+  return null;
 }
 
 interface UIAsset {
@@ -3271,6 +3277,7 @@ const RecordingView = () => {
 
   return (
     <View className="flex-1 bg-background">
+      {(isVADActive || isPlayAllPlayerActive) && <KeepAwakeGuard />}
       {/* Full-screen VAD overlay - takes over entire screen */}
       {showFullScreenOverlay && (
         <FullScreenVADOverlay
