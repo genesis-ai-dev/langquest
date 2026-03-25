@@ -10,8 +10,12 @@ import {
 import { Directory, File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { Share as NativeShare, Platform } from 'react-native';
-import { zip as zipArchive } from 'react-native-zip-archive';
 import { getFiaSequenceFromQuestMetadata } from './fiaUtils';
+
+async function getZipArchive() {
+  const { zip } = await import('react-native-zip-archive');
+  return zip;
+}
 
 export interface ExportArtifact {
   uri: string;
@@ -306,8 +310,9 @@ async function compressFiles(options: {
       })
     );
 
+    const zipFn = await getZipArchive();
     const zipUri = normalizeFileSystemUri(
-      await zipArchive(
+      await zipFn(
         normalizeFileSystemUri(stagingDir.uri),
         normalizeFileSystemUri(zipOutputPath)
       )

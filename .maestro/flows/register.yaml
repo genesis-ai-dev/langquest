@@ -18,9 +18,7 @@ onFlowStart:
 - inputText: password
 - tapOn: Confirm Password
 - inputText: password
-- pressKey: Enter
-- tapOn:
-    id: checkbox # checkboxes are hard to find by maestro in LangQuest, using id
+- tapOn: Register
 - tapOn: Register
 - assertVisible: Projects
 - tapOn:

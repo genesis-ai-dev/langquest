@@ -1,3 +1,4 @@
+import { expireAudioCache, getCachedAudioUri } from '@/utils/audioCache';
 import {
   createAudioPlayer,
   setAudioModeAsync,
@@ -134,8 +135,12 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     if (playerRef.current) {
       playerListenerRef.current?.remove();
       playerListenerRef.current = null;
-      playerRef.current.pause();
-      playerRef.current.release();
+      try {
+        playerRef.current.pause();
+        playerRef.current.release();
+      } catch {
+        // Native shared object may already be deallocated
+      }
       playerRef.current = null;
     }
 
@@ -315,9 +320,12 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       shouldPlayInBackground: true
     });
 
+    // Resolve through file cache (downloads remote files on first access, serves local copy thereafter)
+    const resolvedUri = await getCachedAudioUri(uri);
+
     // Load and play new sound
     try {
-      const player = createAudioPlayer(uri);
+      const player = createAudioPlayer(resolvedUri);
       player.play();
 
       playerRef.current = player;
@@ -393,13 +401,15 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     // Update SharedValue via ref to satisfy React Compiler
     cumulativePositionSharedRef.current.value = 0;
 
-    // Preload all segment durations for accurate total duration
+    // Pre-cache all URIs and preload segment durations
     // NOTE: Process sequentially to avoid ExoPlayer threading issues on Android
     // (ExoPlayer requires all player operations on the main thread)
+    const resolvedUris: string[] = [];
     try {
       for (let index = 0; index < uris.length; index++) {
-        const uri = uris[index]!;
-        const player = createAudioPlayer(uri);
+        const resolved = await getCachedAudioUri(uris[index]!);
+        resolvedUris.push(resolved);
+        const player = createAudioPlayer(resolved);
         await waitForPlayerLoaded(player);
         if (player.isLoaded) {
           segmentDurations.current[index] = player.duration * 1000;
@@ -417,12 +427,16 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       // Failed to preload durations, will calculate on the fly
     }
 
+    // Update queue to use resolved (cached) URIs
+    sequenceQueue.current = resolvedUris.length > 0 ? resolvedUris : uris;
+
     // Play first sound
-    await playSound(uris[0]!, audioId, true);
+    await playSound(sequenceQueue.current[0]!, audioId, true);
   };
 
-  // Ensure cleanup when the component unmounts
+  // Expire stale cache entries on mount, clean up player on unmount
   React.useEffect(() => {
+    expireAudioCache();
     return () => {
       clearPositionInterval();
       if (playerRef.current) {

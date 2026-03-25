@@ -1,3 +1,4 @@
+import { AudioPlayerControls } from '@/components/AudioPlayerControls';
 import type { FiaDrawerState } from '@/components/FiaStepDrawer';
 import {
   FiaStepDrawer,
@@ -6,7 +7,6 @@ import {
 import { RecordingHelpDialog } from '@/components/RecordingHelpDialog';
 import type { RecordingSelectionListHandle } from '@/components/RecordingSelectionList';
 import RecordingSelectionList from '@/components/RecordingSelectionList';
-import { AudioPlayerControls } from '@/components/AudioPlayerControls';
 import { VersePill } from '@/components/VersePill';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
@@ -34,9 +34,9 @@ import {
   useCurrentNavigation
 } from '@/hooks/useAppNavigation';
 import { useAudioPlaybackCheckpoint } from '@/hooks/useAudioPlaybackCheckpoint';
+import { useLocalization } from '@/hooks/useLocalization';
 import { usePlayAllAudioController } from '@/hooks/usePlayAllAudioController';
 import { useSingleAudioController } from '@/hooks/useSingleAudioController';
-import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
 import { resolveTable } from '@/utils/dbUtils';
 import {
@@ -50,18 +50,18 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { and, asc, eq } from 'drizzle-orm';
 import { createAudioPlayer } from 'expo-audio';
+import { useKeepAwake } from 'expo-keep-awake';
 import {
   ArrowLeft,
   BookOpenIcon,
   ChevronLeft,
   Ellipsis,
   ListVideo,
-  PauseIcon,
   Plus,
   SquareIcon
 } from 'lucide-react-native';
 import React, { useMemo } from 'react';
-import { InteractionManager, Pressable, View } from 'react-native';
+import { InteractionManager, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FullScreenVADOverlay } from './recording/components/FullScreenVADOverlay';
 import { RecordAssetCard } from './recording/components/RecordAssetCard';
@@ -100,6 +100,11 @@ function debugLog(...args: unknown[]) {
   if (DEBUG_MODE) {
     console.log(...args);
   }
+}
+
+function KeepAwakeGuard() {
+  useKeepAwake();
+  return null;
 }
 
 interface UIAsset {
@@ -3272,6 +3277,7 @@ const RecordingView = () => {
 
   return (
     <View className="flex-1 bg-background">
+      {(isVADActive || isPlayAllPlayerActive) && <KeepAwakeGuard />}
       {/* Full-screen VAD overlay - takes over entire screen */}
       {showFullScreenOverlay && (
         <FullScreenVADOverlay
@@ -3359,8 +3365,9 @@ const RecordingView = () => {
             </Button>
           )}
           {fiaPericopeId && (
-            <Pressable
-              className="h-10 w-10 items-center justify-center rounded-full bg-primary shadow-sm"
+            <Button
+              variant="default"
+              size="icon"
               disabled={isPlayAllPlayerActive}
               onPress={() => setShowFiaTextDrawer(true)}
               style={isPlayAllPlayerActive ? { opacity: 0.5 } : undefined}
@@ -3370,7 +3377,7 @@ const RecordingView = () => {
                 size={20}
                 className="text-primary-foreground"
               />
-            </Pressable>
+            </Button>
           )}
         </View>
       </View>

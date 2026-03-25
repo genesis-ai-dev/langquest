@@ -38,6 +38,7 @@ import { useLocalStore } from '@/store/localStore';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import RNAlert from '@blazejkustra/react-native-alert';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useKeepAwake } from 'expo-keep-awake';
 import {
   ArrowLeftIcon,
   BookmarkPlusIcon,
@@ -530,6 +531,11 @@ function buildFinalList(
 
 // Track quests where the user has dismissed the FIA drawer (persists across mounts within session)
 const fiaDrawerDismissedQuests = new Set<string>();
+
+function KeepAwakeGuard() {
+  useKeepAwake();
+  return null;
+}
 
 export default function BibleAssetsView() {
   const {
@@ -3661,6 +3667,7 @@ export default function BibleAssetsView() {
 
   return (
     <View className="flex flex-1 flex-col gap-4 px-6 pb-6 pt-1">
+      {isPlayAllPlayerActive && <KeepAwakeGuard />}
       <View className="flex flex-row items-center justify-between">
         <Button
           variant="ghost"
@@ -3878,8 +3885,9 @@ export default function BibleAssetsView() {
               </Button>
             )}
             {fiaPericopeId && (
-              <Pressable
-                className="h-10 w-10 items-center justify-center rounded-full bg-primary shadow-sm"
+              <Button
+                variant="default"
+                size="icon"
                 disabled={isPlayAllPlayerActive}
                 onPress={() => setShowFiaTextDrawer(true)}
                 style={isPlayAllPlayerActive ? { opacity: 0.5 } : undefined}
@@ -3889,7 +3897,7 @@ export default function BibleAssetsView() {
                   size={20}
                   className="text-primary-foreground"
                 />
-              </Pressable>
+              </Button>
             )}
           </View>
         </View>

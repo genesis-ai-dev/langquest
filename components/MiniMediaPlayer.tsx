@@ -11,12 +11,13 @@ import {
   SquareIcon
 } from 'lucide-react-native';
 import React from 'react';
-import { View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 
 interface MiniMediaPlayerProps {
   currentAssetName?: string | null;
   isPlaying: boolean;
   isPaused?: boolean;
+  loading?: boolean;
   positionMs?: number;
   durationMs?: number;
   onSeek?: (positionMs: number) => void;
@@ -26,6 +27,7 @@ interface MiniMediaPlayerProps {
   onForward?: () => void;
   disabled?: boolean;
   className?: string;
+  ticks?: { pct: number }[];
 }
 
 function formatTime(ms: number): string {
@@ -41,6 +43,7 @@ export const MiniMediaPlayer = React.memo(function MiniMediaPlayer({
   currentAssetName,
   isPlaying,
   isPaused = false,
+  loading = false,
   positionMs = 0,
   durationMs = 0,
   onSeek,
@@ -49,7 +52,8 @@ export const MiniMediaPlayer = React.memo(function MiniMediaPlayer({
   onStop,
   onForward,
   disabled = false,
-  className
+  className,
+  ticks
 }: MiniMediaPlayerProps) {
   const isActive = isPlaying || isPaused;
   const assetName = currentAssetName?.trim() || 'No audio selected';
@@ -76,18 +80,49 @@ export const MiniMediaPlayer = React.memo(function MiniMediaPlayer({
         {assetName}
       </Text>
 
-      <Slider
-        minimumValue={0}
-        maximumValue={maxDuration}
-        value={clampedPosition}
-        onValueChange={setDragPosition}
-        onSlidingComplete={(ms) => {
-          setDragPosition(null);
-          onSeek?.(ms);
-        }}
-        disabled={disabled || !isActive || !onSeek}
-        animated={false}
-      />
+      <View style={{ position: 'relative' }}>
+        <Slider
+          minimumValue={0}
+          maximumValue={maxDuration}
+          value={clampedPosition}
+          onValueChange={setDragPosition}
+          onSlidingComplete={(ms) => {
+            setDragPosition(null);
+            onSeek?.(ms);
+          }}
+          disabled={disabled || !isActive || !onSeek}
+          animated={false}
+        />
+        {ticks && (
+          <View
+            pointerEvents="none"
+            style={{
+              position: 'absolute',
+              left: 0,
+              right: 0,
+              top: '50%',
+              height: 20,
+              marginTop: -10
+            }}
+          >
+            {ticks.map((tick, i) => (
+              <View
+                key={i}
+                className="bg-primary/70"
+                style={{
+                  position: 'absolute',
+                  left: `${tick.pct}%`,
+                  top: 0,
+                  bottom: 0,
+                  width: 2,
+                  marginLeft: -1,
+                  borderRadius: 1
+                }}
+              />
+            ))}
+          </View>
+        )}
+      </View>
 
       <View className="mt-1 flex-row items-center justify-between">
         <Text className="text-xs text-muted-foreground">
@@ -112,12 +147,16 @@ export const MiniMediaPlayer = React.memo(function MiniMediaPlayer({
           variant="default"
           size="icon"
           onPress={onPlayPause}
-          disabled={disabled || !onPlayPause}
+          disabled={disabled || loading || !onPlayPause}
         >
-          <Icon
-            as={isPlaying ? PauseIcon : PlayIcon}
-            className="text-primary-foreground"
-          />
+          {loading ? (
+            <ActivityIndicator size="small" color="white" />
+          ) : (
+            <Icon
+              as={isPlaying ? PauseIcon : PlayIcon}
+              className="text-primary-foreground"
+            />
+          )}
         </Button>
 
         <Button

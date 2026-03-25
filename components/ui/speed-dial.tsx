@@ -64,6 +64,7 @@ interface TriggerProps extends Omit<ButtonProps, 'ref'> {
   iconClosed?: LucideIcon;
   iconOpen?: LucideIcon;
   iconClassName?: string;
+  iconSize?: number;
   openClassName?: string;
   closedClassName?: string;
   disableIconRotation?: boolean;
@@ -73,6 +74,7 @@ function SpeedDialTrigger({
   iconClosed = EllipsisVerticalIcon,
   iconOpen = XIcon,
   iconClassName,
+  iconSize = 20,
   openClassName,
   closedClassName,
   disableIconRotation = false,
@@ -104,7 +106,7 @@ function SpeedDialTrigger({
         <Icon
           as={open ? iconOpen : iconClosed}
           strokeWidth={2.5}
-          size={20}
+          size={iconSize}
           className={cn('text-secondary', iconClassName)}
         />
       </MotiView>
