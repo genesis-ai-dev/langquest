@@ -1967,6 +1967,7 @@ export default function NextGenAssetsView() {
           onClose={() => setShowSettingsModal(false)}
           questId={currentQuestId}
           projectId={currentProjectId || ''}
+          questSource={selectedQuest?.source}
         />
       )}
       {selectedQuest && (

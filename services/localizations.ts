@@ -7034,17 +7034,17 @@ export const localizations = {
     mandarin: '更新项目活动状态失败'
   },
   projectSettingsLoadError: {
-    english: 'Error loading quest settings.',
-    french: 'Erreur lors du chargement des paramètres de quête.',
-    spanish: 'Error al cargar la configuración de quest.',
-    brazilian_portuguese: 'Erro ao carregar as configurações da quest.',
-    tok_pisin: 'I no inap load quest settings.',
-    indonesian: 'Gagal memuat pengaturan quest.',
-    nepali: 'क्वेस्ट सेटिङहरू लोड गर्दा त्रुटि।',
-    hindi: 'क्वेस्ट सेटिंग लोड करने में त्रुटि।',
-    burmese: 'စွမ်းဆောင်ရည် ဆက်တင်များကို ဖွင့်ရာတွင် အမှားအယွင်း။',
-    thai: 'เกิดข้อผิดพลาดในการโหลดการตั้งค่าเควสต์',
-    mandarin: '加载任务设置时出错。'
+    english: 'Error loading project settings.',
+    french: 'Erreur lors du chargement des paramètres du projet.',
+    spanish: 'Error al cargar la configuración del proyecto.',
+    brazilian_portuguese: 'Erro ao carregar as configurações do projeto.',
+    tok_pisin: 'I no inap load project settings.',
+    indonesian: 'Gagal memuat pengaturan proyek.',
+    nepali: 'प्रोजेक्ट सेटिङहरू लोड गर्दा त्रुटि।',
+    hindi: 'प्रोजेक्ट सेटिंग लोड करने में त्रुटि।',
+    burmese: 'ပရောဂျက် ဆက်တင်များကို ဖွင့်ရာတွင် အမှားအယွင်း။',
+    thai: 'เกิดข้อผิดพลาดในการโหลดการตั้งค่าโปรเจกต์',
+    mandarin: '加载项目设置时出错。'
   },
   projectSettings: {
     english: 'Project Settings',
