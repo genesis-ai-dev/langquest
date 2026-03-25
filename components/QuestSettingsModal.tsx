@@ -64,7 +64,8 @@ export const QuestSettingsModal: React.FC<QuestSettingsModalProps> = ({
   // Check if quest has local data (source is 'local' or has been downloaded)
   const hasLocalData =
     questData?.source === 'local' || questData?.source === 'synced';
-  const areSwitchesDisabled = isLoading || isSubmitting || !isOwner || !questData;
+  const areSwitchesDisabled =
+    isLoading || isSubmitting || !isOwner || !questData;
 
   const handleToggleVisible = async () => {
     if (!questData || isSubmitting) return;
