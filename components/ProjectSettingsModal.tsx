@@ -42,20 +42,11 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
   const {
     data: projectData,
     isLoading,
-    isError,
     refetch
   } = useProjectStatuses(projectId);
 
-  React.useEffect(() => {
-    if (isError) {
-      RNAlert.alert(t('error'), t('projectSettingsLoadError'));
-      onClose();
-    }
-  }, [isError, onClose, t]);
-
-  if (isError) {
-    return null;
-  }
+  const areSwitchesDisabled =
+    isLoading || isSubmitting || !isOwner || !projectData;
 
   const handleToggleStatus = async (statusType: TProjectStatusType) => {
     if (!projectData || isSubmitting) return;
@@ -125,7 +116,7 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
             }
             value={projectData?.private ?? false}
             onChange={() => handleToggleStatus('private')}
-            disabled={isLoading || !isOwner}
+            disabled={areSwitchesDisabled}
             icon={projectData?.private ? LockIcon : UnlockIcon}
           />
 
@@ -138,7 +129,7 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
             }
             value={projectData?.visible ?? false}
             onChange={() => handleToggleStatus('visible')}
-            disabled={isLoading || !isOwner}
+            disabled={areSwitchesDisabled}
             icon={projectData?.visible ? EyeIcon : EyeOffIcon}
           />
 
@@ -151,7 +142,7 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
             }
             value={projectData?.active ?? false}
             onChange={() => handleToggleStatus('active')}
-            disabled={isLoading || !isOwner}
+            disabled={areSwitchesDisabled}
             icon={projectData?.active ? CheckCircleIcon : XCircleIcon}
           />
         </View>
