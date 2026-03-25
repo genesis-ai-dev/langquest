@@ -4155,6 +4155,7 @@ export default function BibleAssetsView() {
           onClose={() => setShowSettingsModal(false)}
           questId={currentQuestId}
           projectId={currentProjectId || ''}
+          questSource={selectedQuest?.source}
         />
       )}
 

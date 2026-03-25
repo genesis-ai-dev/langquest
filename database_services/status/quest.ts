@@ -1,5 +1,6 @@
 import { quest } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { localSourceOverrideOptions, resolveTable } from '@/utils/dbUtils';
 import type { HybridDataSource } from '@/views/new/useHybridData';
 import { useHybridData } from '@/views/new/useHybridData';
@@ -14,8 +15,12 @@ export interface QuestStatusHook {
   refetch: () => void;
 }
 
-export function useQuestStatuses(questId: string): QuestStatusHook {
+export function useQuestStatuses(
+  questId: string,
+  questSource?: HybridDataSource
+): QuestStatusHook {
   const { db, supabaseConnector } = system;
+  const isOnline = useNetworkStatus();
 
   const {
     data: questData = [],
@@ -48,8 +53,8 @@ export function useQuestStatuses(questId: string): QuestStatusHook {
       if (error) throw error;
       return data;
     },
-    enableOfflineQuery: !!questId,
-    enableCloudQuery: !!questId,
+    enableOfflineQuery: !!questId && questSource !== 'cloud',
+    enableCloudQuery: !!questId && isOnline && questSource !== 'local',
     getItemId: () => questId
   });
 

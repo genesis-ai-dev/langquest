@@ -7,6 +7,7 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { useQuestOffloadVerification } from '@/hooks/useQuestOffloadVerification';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { offloadQuest } from '@/utils/questOffloadUtils';
+import type { HybridDataSource } from '@/views/new/useHybridData';
 import RNAlert from '@blazejkustra/react-native-alert';
 import {
   CheckCircleIcon,
@@ -15,7 +16,7 @@ import {
   EyeOffIcon,
   XCircleIcon
 } from 'lucide-react-native';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { View } from 'react-native';
 import { QuestOffloadVerificationDrawer } from './QuestOffloadVerificationDrawer';
 import { SwitchBox } from './SwitchBox';
@@ -29,6 +30,7 @@ interface QuestSettingsModalProps {
   onClose: () => void;
   questId: string;
   projectId: string;
+  questSource?: HybridDataSource;
 }
 
 // type TStatusType = 'active' | 'visible';
@@ -37,7 +39,8 @@ export const QuestSettingsModal: React.FC<QuestSettingsModalProps> = ({
   isVisible,
   onClose,
   questId,
-  projectId
+  projectId,
+  questSource
 }) => {
   const { t } = useLocalization();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -52,28 +55,16 @@ export const QuestSettingsModal: React.FC<QuestSettingsModalProps> = ({
   const {
     data: questData,
     isLoading,
-    isError,
     refetch
-  } = useQuestStatuses(questId);
+  } = useQuestStatuses(questId, questSource);
 
   // Initialize offload verification hook
   const verificationState = useQuestOffloadVerification(questId);
 
-  // Handle error in useEffect to avoid setState during render
-  useEffect(() => {
-    if (isError && isVisible) {
-      RNAlert.alert(t('error'), t('questSettingsLoadError'));
-      onClose();
-    }
-  }, [isError, isVisible, onClose, t]);
-
-  if (isError) {
-    return null;
-  }
-
   // Check if quest has local data (source is 'local' or has been downloaded)
   const hasLocalData =
     questData?.source === 'local' || questData?.source === 'synced';
+  const areSwitchesDisabled = isLoading || isSubmitting || !isOwner || !questData;
 
   const handleToggleVisible = async () => {
     if (!questData || isSubmitting) return;
@@ -184,7 +175,7 @@ export const QuestSettingsModal: React.FC<QuestSettingsModalProps> = ({
               }
               value={questData?.visible ?? false}
               onChange={() => handleToggleVisible()}
-              disabled={isLoading || !isOwner}
+              disabled={areSwitchesDisabled}
               icon={questData?.visible ? EyeIcon : EyeOffIcon}
             />
             <SwitchBox
@@ -196,7 +187,7 @@ export const QuestSettingsModal: React.FC<QuestSettingsModalProps> = ({
               }
               value={questData?.active ?? false}
               onChange={() => handleToggleActive()}
-              disabled={isLoading || !isOwner}
+              disabled={areSwitchesDisabled}
               icon={questData?.active ? CheckCircleIcon : XCircleIcon}
             />
 
