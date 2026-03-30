@@ -35,7 +35,7 @@ import {
 import { Text } from '@/components/ui/text';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/contexts/AuthContext';
-import { useCloudLoading } from '@/contexts/CloudLoadingContext';
+
 import type { quest } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useProjectById } from '@/hooks/db/useProjects';
@@ -105,7 +105,6 @@ export default function ProjectDirectoryView() {
   const { currentUser, isAuthenticated } = useAuth();
   const { t } = useLocalization();
   const queryClient = useQueryClient();
-  const { setCloudLoading } = useCloudLoading();
   const insets = useSafeAreaInsets();
   const primaryColor = useThemeColor('primary');
 
@@ -139,8 +138,7 @@ export default function ProjectDirectoryView() {
 
   // Use passed project data if available (instant!), otherwise query
   // Query runs in background to get updates even if data was passed
-  const { project: queriedProject, isCloudLoading: projectCloudLoading } =
-    useProjectById(projectId);
+  const { project: queriedProject } = useProjectById(projectId);
 
   const project = queriedProject;
   const template = project?.template;
@@ -400,7 +398,7 @@ export default function ProjectDirectoryView() {
   const setEnableFia = useLocalStore((state) => state.setEnableFia);
 
   // Query existing books for Bible projects (after isMember is defined)
-  const { books: existingBooks = [], isCloudLoading: booksCloudLoading } =
+  const { books: existingBooks = [] } =
     useBibleBooks(template === 'bible' ? projectId || '' : '');
 
   // FIA: Fetch source languoid, FIA books from API, and existing book quests
@@ -428,16 +426,6 @@ export default function ProjectDirectoryView() {
     return ids;
   }, [existingFiaBookQuests]);
 
-  // Aggregate all cloud loading states
-  const isCloudLoading =
-    projectCloudLoading ||
-    questListCloudLoading ||
-    booksCloudLoading;
-
-  // Update global cloud loading state
-  React.useEffect(() => {
-    setCloudLoading(isCloudLoading);
-  }, [isCloudLoading, setCloudLoading]);
 
   // Build set of existing book IDs from metadata
   const existingBookIds = React.useMemo(() => {

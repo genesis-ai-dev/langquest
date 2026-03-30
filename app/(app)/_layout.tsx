@@ -10,10 +10,7 @@ import { AccountDeletedOverlay } from '@/components/AccountDeletedOverlay';
 import AppDrawer from '@/components/AppDrawer';
 import AppHeader from '@/components/AppHeader';
 import { useAuth } from '@/contexts/AuthContext';
-import {
-  CloudLoadingProvider,
-  useCloudLoading
-} from '@/contexts/CloudLoadingContext';
+
 import { StatusProvider } from '@/contexts/StatusContext';
 import { useProfileByUserId } from '@/hooks/db/useProfiles';
 import { useLocalStore } from '@/store/localStore';
@@ -27,7 +24,6 @@ const SimpleOnboardingFlow = React.lazy(() =>
 );
 
 /**
- * Inner content that needs CloudLoadingContext.
  * Renders AppHeader, the Stack navigator with protected routes, and overlays.
  */
 function AppContent() {
@@ -42,7 +38,6 @@ function AppContent() {
   const setOnboardingIsOpen = useLocalStore((s) => s.setOnboardingIsOpen);
   const onboardingCompleted = useLocalStore((s) => s.onboardingCompleted);
   const [drawerIsVisible, setDrawerIsVisible] = useState(false);
-  const { isCloudLoading } = useCloudLoading();
   const pathname = usePathname();
   const isProjectsView = pathname === '/' || pathname === '';
 
@@ -115,7 +110,6 @@ function AppContent() {
       <View className="p-4">
         <AppHeader
           drawerToggleCallback={drawerToggleCallback}
-          isCloudLoading={isCloudLoading}
           onOnboardingPress={isProjectsView ? handleOnboardingPress : undefined}
         />
       </View>
@@ -164,9 +158,7 @@ export default function AppLayout() {
       edges={['top', 'left', 'right']}
     >
       <StatusProvider>
-        <CloudLoadingProvider>
-          <AppContent />
-        </CloudLoadingProvider>
+        <AppContent />
       </StatusProvider>
     </SafeAreaView>
   );
