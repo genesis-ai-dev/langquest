@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unnecessary-condition */
 import { AssetsDeletionDrawer } from '@/components/AssetsDeletionDrawer';
+import { AudioPlayerControls } from '@/components/AudioPlayerControls';
 import { QuestSettingsModal } from '@/components/QuestSettingsModal';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
@@ -26,15 +27,19 @@ import { useDebouncedState } from '@/hooks/use-debounced-state';
 import { useProjectById } from '@/hooks/db/useProjects';
 import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
+import { useAudioPlaybackCheckpoint } from '@/hooks/useAudioPlaybackCheckpoint';
 import { useLocalization } from '@/hooks/useLocalization';
+import { usePlayAllAudioController } from '@/hooks/usePlayAllAudioController';
 import { useQuestDownloadStatusLive } from '@/hooks/useQuestDownloadStatusLive';
+import { useSingleAudioController } from '@/hooks/useSingleAudioController';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useLocalStore } from '@/store/localStore';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import RNAlert from '@blazejkustra/react-native-alert';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createAudioPlayer, type AudioPlayer } from 'expo-audio';
+import { useKeepAwake } from 'expo-keep-awake';
 import {
+  ArrowLeftIcon,
   BookmarkPlusIcon,
   BookOpenIcon,
   BrushCleaning,
@@ -46,10 +51,10 @@ import {
   ListVideo,
   LockIcon,
   MicIcon,
-  PauseIcon,
   RefreshCwIcon,
   SearchIcon,
   SettingsIcon,
+  SquareIcon,
   UserPlusIcon
 } from 'lucide-react-native';
 import React from 'react';
@@ -294,6 +299,7 @@ interface DraggableAssetItemProps {
   questId: string;
   isPublished: boolean;
   isPlaying: boolean;
+  playDisabled?: boolean;
   isSelected: boolean;
   isSelectionMode: boolean;
   isAssetSelectedForRecording: boolean;
@@ -315,6 +321,7 @@ const DraggableAssetItem = React.memo(function DraggableAssetItem({
   questId,
   isPublished,
   isPlaying,
+  playDisabled = false,
   isSelected,
   isSelectionMode,
   isAssetSelectedForRecording,
@@ -357,6 +364,7 @@ const DraggableAssetItem = React.memo(function DraggableAssetItem({
         questId={questId}
         isPublished={isPublished}
         isCurrentlyPlaying={isPlaying}
+        playDisabled={playDisabled}
         onPlay={onPlay}
         showDragHandle={showDragHandle}
         isDragFixed={isDragFixed}
@@ -523,6 +531,11 @@ function buildFinalList(
 // Track quests where the user has dismissed the FIA drawer (persists across mounts within session)
 const fiaDrawerDismissedQuests = new Set<string>();
 
+function KeepAwakeGuard() {
+  useKeepAwake();
+  return null;
+}
+
 export default function BibleAssetsView() {
   const {
     questId,
@@ -648,8 +661,11 @@ export default function BibleAssetsView() {
   const [currentlyPlayingAssetId, setCurrentlyPlayingAssetId] = React.useState<
     string | null
   >(null);
-  // Track if PlayAll is running (for button icon state)
-  const [isPlayAllRunning, setIsPlayAllRunning] = React.useState(false);
+  const [showPlayAllControls, setShowPlayAllControls] = React.useState(false);
+  const [currentPlayAllSegmentIndex, setCurrentPlayAllSegmentIndex] =
+    React.useState<number | null>(null);
+  const [currentPlayAllTotalSegments, setCurrentPlayAllTotalSegments] =
+    React.useState<number | null>(null);
   // OLD handlePlayAllAssets refs - commented out
   // const assetUriMapRef = React.useRef<Map<string, string>>(new Map()); // URI -> assetId
   // const assetOrderRef = React.useRef<string[]>([]); // Ordered list of asset IDs
@@ -2568,10 +2584,13 @@ export default function BibleAssetsView() {
   );
 
   // Stable wrapper for onPlay callback (avoids creating new function in renderItem)
-  const stableOnPlay = React.useCallback(
-    (assetId: string) => handlePlayAssetRef.current(assetId),
-    []
-  );
+  const blockIndividualPlayRef = React.useRef(false);
+  const stableOnPlay = React.useCallback((assetId: string) => {
+    if (blockIndividualPlayRef.current) {
+      return;
+    }
+    handlePlayAssetRef.current(assetId);
+  }, []);
 
   // Stable callbacks for DraggableAssetItem (to prevent recreation on each render)
   const handleAddVersePressRef = React.useRef<
@@ -2686,6 +2705,7 @@ export default function BibleAssetsView() {
           questId={questId || ''}
           isPublished={isPublished}
           isPlaying={isPlaying}
+          playDisabled={showPlayAllControls}
           isHighlighted={
             asset.metadata?.recordingSessionId ==
             selectedQuest?.metadata?.lastRecordingSessionId
@@ -3101,10 +3121,86 @@ export default function BibleAssetsView() {
     audioContext.position
   ]);
 
-  // Ref to track if handlePlayAll is running (for cancellation and to avoid state conflicts)
-  const isPlayAllRunningRef = React.useRef(false);
-  // Ref to track current playing sound for immediate cancellation
-  const currentPlayAllSoundRef = React.useRef<AudioPlayer | null>(null);
+  const playbackCheckpoint = useAudioPlaybackCheckpoint();
+  const {
+    isPlayAllRunning,
+    isPlayAllPaused,
+    isPlayAllRunningRef,
+    togglePlayAll,
+    stopPlayAll,
+    stopAndResetPlayAll,
+    togglePlayPausePlayAll,
+    nextPlayAllItem,
+    previousPlayAllItem,
+    rewindPlayAll,
+    forwardPlayAll
+  } = usePlayAllAudioController({
+    checkpointStore: playbackCheckpoint,
+    onCurrentAssetChange: ({ assetId }) => {
+      setCurrentlyPlayingAssetId(assetId);
+    },
+    onPlaybackStatusUpdate: (status, payload) => {
+      if (status.playing) {
+        audioContext.positionShared.value = payload.assetPositionMs;
+        audioContext.durationShared.value = payload.assetDurationMs;
+        setCurrentPlayAllSegmentIndex(payload.uriIndex + 1);
+        setCurrentPlayAllTotalSegments(payload.item.uris.length);
+      }
+    },
+    onStopped: () => {
+      audioContext.positionShared.value = 0;
+      audioContext.durationShared.value = 0;
+      setCurrentPlayAllSegmentIndex(null);
+      setCurrentPlayAllTotalSegments(null);
+      setShowPlayAllControls(false);
+    },
+    onFinished: () => {
+      audioContext.positionShared.value = 0;
+      audioContext.durationShared.value = 0;
+      setCurrentPlayAllSegmentIndex(null);
+      setCurrentPlayAllTotalSegments(null);
+      setShowPlayAllControls(false);
+    },
+    onError: () => {
+      audioContext.positionShared.value = 0;
+      audioContext.durationShared.value = 0;
+      setCurrentPlayAllSegmentIndex(null);
+      setCurrentPlayAllTotalSegments(null);
+      setShowPlayAllControls(false);
+    }
+  });
+
+  const currentPlayAllAssetName = React.useMemo(() => {
+    if (!currentlyPlayingAssetId) {
+      return null;
+    }
+    return (
+      assets.find((asset) => asset.id === currentlyPlayingAssetId)?.name ?? null
+    );
+  }, [assets, currentlyPlayingAssetId]);
+
+  const currentSingleAsset = React.useMemo(() => {
+    const assetId = audioContext.currentAudioId;
+    if (!assetId) {
+      return null;
+    }
+    return assets.find((asset) => asset.id === assetId) ?? null;
+  }, [assets, audioContext.currentAudioId]);
+
+  const currentSingleAssetName = currentSingleAsset?.name ?? null;
+
+  const showSingleControls =
+    !showPlayAllControls &&
+    !!audioContext.currentAudioId &&
+    audioContext.currentAudioId !== PLAY_ALL_AUDIO_ID &&
+    !!currentSingleAsset &&
+    (audioContext.isPlaying || audioContext.isPaused);
+  const isIndividualPlayerActive = showSingleControls;
+  const isPlayAllPlayerActive = showPlayAllControls || isPlayAllRunning;
+
+  React.useEffect(() => {
+    blockIndividualPlayRef.current = isPlayAllPlayerActive;
+  }, [isPlayAllPlayerActive]);
 
   // Ref to hold latest audioContext for cleanup (avoids stale closure)
   const audioContextCurrentRef = React.useRef(audioContext);
@@ -3145,164 +3241,56 @@ export default function BibleAssetsView() {
     async (
       selectedAsset?: { type: 'asset' | 'separator'; assetId?: string } | null
     ) => {
-      try {
-        // Check if already playing - toggle to stop
-        if (isPlayAllRunningRef.current) {
-          isPlayAllRunningRef.current = false;
-          setIsPlayAllRunning(false);
-
-          // Stop current sound immediately
-          if (currentPlayAllSoundRef.current) {
-            try {
-              currentPlayAllSoundRef.current.pause();
-              currentPlayAllSoundRef.current.release();
-              currentPlayAllSoundRef.current = null;
-            } catch (error) {
-              console.error('Error stopping sound:', error);
-            }
-          }
-
-          setCurrentlyPlayingAssetId(null);
-          console.log('⏸️ Stopped play all');
-          return;
-        }
-
-        // Determine which assets to process based on selection state
-        let assetsToProcess: AssetQuestLink[];
-
-        // Priority 1: selectedForRecording (for unpublished quests with recording selection)
-        if (selectedAsset?.type === 'asset' && selectedAsset?.assetId) {
-          const selectedIndex = assets.findIndex(
-            (a) => a.id === selectedAsset.assetId
-          );
-          if (selectedIndex >= 0) {
-            assetsToProcess = assets.slice(selectedIndex);
-          } else {
-            assetsToProcess = assets;
-          }
-        }
-        // Priority 2: selectedAssetIds (for published quests with visual selection)
-        else if (selectedAssetIds.size > 0) {
-          const firstSelectedIndex = assets.findIndex((a) =>
-            selectedAssetIds.has(a.id)
-          );
-          if (firstSelectedIndex >= 0) {
-            assetsToProcess = assets.slice(firstSelectedIndex);
-            console.log(
-              `🎵 Starting from first selected asset at index ${firstSelectedIndex}`
-            );
-          } else {
-            assetsToProcess = assets;
-          }
-        }
-        // Priority 3: No selection, play all
-        else {
-          assetsToProcess = assets;
-        }
-
-        if (assetsToProcess.length === 0) {
-          console.warn('⚠️ No assets to play');
-          return;
-        }
-
-        console.log(
-          `🎵 Starting play all from ${assetsToProcess.length} assets...`
-        );
-
-        // Mark as running
-        isPlayAllRunningRef.current = true;
-        setIsPlayAllRunning(true);
-
-        // Build playlist: Array<{assetId, uris}>
-        const playlist: { assetId: string; uris: string[] }[] = [];
-
-        for (const asset of assetsToProcess) {
-          // Check if cancelled
-          if (!isPlayAllRunningRef.current) {
-            console.log('⏸️ Play all cancelled during playlist build');
-            return;
-          }
-
-          // Get URIs for this asset (getAssetAudioUris handles all the resolution)
-          const uris = await getAssetAudioUris(asset.id);
-          if (uris.length > 0) {
-            playlist.push({ assetId: asset.id, uris });
-          }
-        }
-
-        if (playlist.length === 0) {
-          console.error('❌ No audio URIs found for any assets');
-          isPlayAllRunningRef.current = false;
-          setIsPlayAllRunning(false);
-          return;
-        }
-
-        console.log(
-          `▶️ Playing ${playlist.reduce((sum, p) => sum + p.uris.length, 0)} audio segments from ${playlist.length} assets`
-        );
-
-        // STEP 2: Play each asset sequentially with direct linking
-        for (let i = 0; i < playlist.length; i++) {
-          // Check if cancelled
-          if (!isPlayAllRunningRef.current) {
-            console.log('⏸️ Play all cancelled');
-            setCurrentlyPlayingAssetId(null);
-            return;
-          }
-
-          const item = playlist[i]!;
-
-          // HIGHLIGHT THIS ASSET - direct link!
-          setCurrentlyPlayingAssetId(item.assetId);
-          console.log(
-            `▶️ [${i + 1}/${playlist.length}] Playing asset ${item.assetId.slice(0, 8)} (${item.uris.length} segments)`
-          );
-
-          // Play all URIs for this asset sequentially
-          for (const uri of item.uris) {
-            // Check if cancelled
-            if (!isPlayAllRunningRef.current) {
-              setCurrentlyPlayingAssetId(null);
-              return;
-            }
-
-            // Play this URI and wait for it to finish
-            await new Promise<void>((resolve) => {
-              try {
-                const player = createAudioPlayer(uri);
-                currentPlayAllSoundRef.current = player;
-                player.play();
-
-                player.addListener('playbackStatusUpdate', (status) => {
-                  if (!status.didJustFinish) return;
-                  currentPlayAllSoundRef.current = null;
-                  player.release();
-                  resolve();
-                });
-              } catch (error) {
-                console.error('Failed to play audio:', error);
-                currentPlayAllSoundRef.current = null;
-                resolve(); // Continue to next even on error
-              }
-            });
-          }
-        }
-
-        // Done playing all
-        console.log('✅ Finished playing all assets');
-        setCurrentlyPlayingAssetId(null);
-        isPlayAllRunningRef.current = false;
-        setIsPlayAllRunning(false);
-        currentPlayAllSoundRef.current = null;
-      } catch (error) {
-        console.error('❌ Erro ao tocar todos os assets:', error);
-        setCurrentlyPlayingAssetId(null);
-        isPlayAllRunningRef.current = false;
-        setIsPlayAllRunning(false);
-        currentPlayAllSoundRef.current = null;
+      if (isIndividualPlayerActive) {
+        return;
       }
+
+      // Determine which assets to process based on selection state
+      let assetsToProcess: AssetQuestLink[];
+
+      if (selectedAsset?.type === 'asset' && selectedAsset?.assetId) {
+        const selectedIndex = assets.findIndex(
+          (a) => a.id === selectedAsset.assetId
+        );
+        assetsToProcess =
+          selectedIndex >= 0 ? assets.slice(selectedIndex) : assets;
+      } else if (selectedAssetIds.size > 0) {
+        const firstSelectedIndex = assets.findIndex((a) =>
+          selectedAssetIds.has(a.id)
+        );
+        assetsToProcess =
+          firstSelectedIndex >= 0 ? assets.slice(firstSelectedIndex) : assets;
+      } else {
+        assetsToProcess = assets;
+      }
+
+      if (assetsToProcess.length === 0) {
+        console.warn('⚠️ No assets to play');
+        return;
+      }
+
+      const playlist: { assetId: string; uris: string[] }[] = [];
+      for (const asset of assetsToProcess) {
+        const uris = await getAssetAudioUris(asset.id);
+        if (uris.length > 0) {
+          playlist.push({ assetId: asset.id, uris });
+        }
+      }
+
+      if (playlist.length === 0) {
+        console.warn('⚠️ No audio URIs found for any assets');
+        return;
+      }
+
+      await togglePlayAll({ playlist });
     },
-    [assets, getAssetAudioUris, selectedAssetIds]
+    [
+      assets,
+      getAssetAudioUris,
+      isIndividualPlayerActive,
+      selectedAssetIds,
+      togglePlayAll
+    ]
   );
 
   // Handle going to recording - stops any playing audio first
@@ -3314,21 +3302,7 @@ export default function BibleAssetsView() {
 
     // Stop PlayAll if running
     if (isPlayAllRunningRef.current) {
-      isPlayAllRunningRef.current = false;
-      setIsPlayAllRunning(false);
-
-      // Stop current sound immediately
-      if (currentPlayAllSoundRef.current) {
-        try {
-          currentPlayAllSoundRef.current.pause();
-          currentPlayAllSoundRef.current.release();
-          currentPlayAllSoundRef.current = null;
-        } catch (error) {
-          console.error('Error stopping sound:', error);
-        }
-      }
-
-      setCurrentlyPlayingAssetId(null);
+      stopPlayAll();
     }
 
     // Stop any other audio from audioContext
@@ -3368,7 +3342,9 @@ export default function BibleAssetsView() {
     nextVerse,
     limitVerse,
     pericopeSequence,
-    pericopeBookShortName
+    pericopeBookShortName,
+    isPlayAllRunningRef,
+    stopPlayAll
   ]);
 
   // Cleanup effect: Stop audio when component unmounts
@@ -3381,159 +3357,45 @@ export default function BibleAssetsView() {
 
       // Stop PlayAll if running
       if (isPlayAllRunningRef.current) {
-        isPlayAllRunningRef.current = false;
-
-        // Stop current sound immediately
-        if (currentPlayAllSoundRef.current) {
-          try {
-            currentPlayAllSoundRef.current.pause();
-            currentPlayAllSoundRef.current.release();
-          } catch {
-            // Ignore errors during cleanup
-          }
-          currentPlayAllSoundRef.current = null;
-        }
+        stopPlayAll();
       }
 
       // Reset state
+      playbackCheckpoint.clearAllCheckpoints();
       setCurrentlyPlayingAssetId(null);
-      setIsPlayAllRunning(false);
     };
-  }, []);
+  }, [isPlayAllRunningRef, playbackCheckpoint, stopPlayAll]);
 
-  // OLD handlePlayAllAssets function - commented out (replaced by handlePlayAll)
-  // const handlePlayAllAssets = React.useCallback(async () => {
-  //   try {
-  //     const isPlayingAll =
-  //       audioContext.isPlaying &&
-  //       audioContext.currentAudioId === PLAY_ALL_AUDIO_ID;
-  //
-  //     if (isPlayingAll) {
-  //       await audioContext.stopCurrentSound();
-  //       setCurrentlyPlayingAssetId(null);
-  //       assetUriMapRef.current.clear();
-  //       assetOrderRef.current = [];
-  //       uriOrderRef.current = [];
-  //       segmentDurationsRef.current = [];
-  //       assetTimeRangesRef.current = [];
-  //     } else {
-  //       if (assets.length === 0) {
-  //         console.warn('⚠️ No assets to play');
-  //         return;
-  //       }
-  //
-  //       // Collect all URIs from all assets in order, tracking which asset each URI belongs to
-  //       const allUris: string[] = [];
-  //       assetUriMapRef.current.clear();
-  //       assetOrderRef.current = [];
-  //       uriOrderRef.current = [];
-  //       segmentDurationsRef.current = [];
-  //       assetTimeRangesRef.current = [];
-  //
-  //       // Build time ranges for each asset
-  //       let cumulativeTime = 0;
-  //       for (const asset of assets) {
-  //         const uris = await getAssetAudioUris(asset.id);
-  //         if (uris.length > 0) {
-  //           const assetStartTime = cumulativeTime;
-  //           assetOrderRef.current.push(asset.id);
-  //
-  //           // Add all URIs for this asset
-  //           for (const uri of uris) {
-  //             allUris.push(uri);
-  //             uriOrderRef.current.push(uri);
-  //             assetUriMapRef.current.set(uri, asset.id);
-  //
-  //             // Load duration for this URI
-  //             try {
-  //               const { sound } = await Audio.Sound.createAsync({ uri });
-  //               const status = await sound.getStatusAsync();
-  //               await sound.unloadAsync();
-  //               if (status.isLoaded) {
-  //                 const duration = status.durationMillis ?? 0;
-  //                 segmentDurationsRef.current.push(duration);
-  //                 cumulativeTime += duration;
-  //               } else {
-  //                 segmentDurationsRef.current.push(0);
-  //               }
-  //             } catch {
-  //               segmentDurationsRef.current.push(0);
-  //             }
-  //           }
-  //
-  //           // Store the time range for this asset
-  //           assetTimeRangesRef.current.push({
-  //             assetId: asset.id,
-  //             startMs: assetStartTime,
-  //             endMs: cumulativeTime
-  //           });
-  //
-  //           console.log(
-  //             `📊 Asset ${asset.id.slice(0, 8)}: ${Math.round(assetStartTime)}ms - ${Math.round(cumulativeTime)}ms (${uris.length} segments)`
-  //           );
-  //         }
-  //       }
-  //
-  //       if (allUris.length === 0) {
-  //         console.error('❌ No audio URIs found for any assets');
-  //         return;
-  //       }
-  //
-  //       console.log(
-  //         `▶️ Playing ${allUris.length} audio segments from ${assets.length} assets (total: ${Math.round(cumulativeTime)}ms)`
-  //       );
-  //
-  //       // Start playing (AudioContext will handle sequence playback)
-  //       await audioContext.playSoundSequence(allUris, PLAY_ALL_AUDIO_ID);
-  //     }
-  //   } catch (error) {
-  //     console.error('❌ Failed to play all assets:', error);
-  //     setCurrentlyPlayingAssetId(null);
-  //     assetUriMapRef.current.clear();
-  //     assetOrderRef.current = [];
-  //     uriOrderRef.current = [];
-  //     segmentDurationsRef.current = [];
-  //   }
-  // }, [audioContext, getAssetAudioUris, assets]);
-
-  // Handle play individual asset
-  const handlePlayAsset = React.useCallback(
-    async (assetId: string) => {
-      try {
-        const isThisAssetPlaying =
-          audioContext.isPlaying && audioContext.currentAudioId === assetId;
-
-        if (isThisAssetPlaying) {
-          console.log('⏸️ Stopping asset:', assetId.slice(0, 8));
-          await audioContext.stopCurrentSound();
-          setCurrentlyPlayingAssetId(null);
-        } else {
-          console.log('▶️ Playing asset:', assetId.slice(0, 8));
-          const uris = await getAssetAudioUris(assetId);
-
-          if (uris.length === 0) {
-            console.warn('⚠️ No audio URIs found for asset:', assetId);
-            return;
-          }
-
-          // Set the asset as currently playing immediately for visual feedback
-          setCurrentlyPlayingAssetId(assetId);
-
-          if (uris.length === 1 && uris[0]) {
-            console.log('▶️ Playing single segment');
-            await audioContext.playSound(uris[0], assetId);
-          } else if (uris.length > 1) {
-            console.log(`▶️ Playing ${uris.length} segments in sequence`);
-            await audioContext.playSoundSequence(uris, assetId);
-          }
-        }
-      } catch (error) {
-        console.error('❌ Failed to play audio:', error);
-        setCurrentlyPlayingAssetId(null);
-      }
+  const {
+    playAsset: handlePlayAsset,
+    toggleCurrentAssetPlayPause,
+    stopAndResetCurrentAsset,
+    rewindCurrentAsset,
+    forwardCurrentAsset
+  } = useSingleAudioController({
+    audioContext,
+    checkpointStore: playbackCheckpoint,
+    getAssetAudioUris,
+    onCurrentAssetChange: (assetId) => {
+      setCurrentlyPlayingAssetId(assetId);
     },
-    [audioContext, getAssetAudioUris]
-  );
+    onNoAudioFound: (assetId) => {
+      console.warn('⚠️ No audio URIs found for asset:', assetId);
+    },
+    onError: (error) => {
+      console.error('❌ Failed to play audio:', error);
+      setCurrentlyPlayingAssetId(null);
+    },
+    log: (action, assetId) => {
+      if (action === 'pause') {
+        console.log('⏸️ Pausing asset:', assetId.slice(0, 8));
+      } else if (action === 'resume') {
+        console.log('▶️ Resuming asset:', assetId.slice(0, 8));
+      } else {
+        console.log('▶️ Playing asset:', assetId.slice(0, 8));
+      }
+    }
+  });
 
   // Update ref so renderItem can use it
   handlePlayAssetRef.current = handlePlayAsset;
@@ -3804,227 +3666,251 @@ export default function BibleAssetsView() {
 
   const { project: projectForName } = useProjectById(projectId);
   const projectName = projectForName?.name || '';
+  const hasFloatingPlayer = showPlayAllControls || showSingleControls;
+  const hasFloatingSelectionControls =
+    isSelectionMode && !isPublished && !!currentUser;
+  const listBottomSpacerHeight = hasFloatingPlayer
+    ? insets.bottom + 96
+    : hasFloatingSelectionControls
+      ? insets.bottom + 96
+      : 0;
 
   return (
-    <View className="flex flex-1 flex-col gap-6 p-6 pt-0">
+    <View className="flex flex-1 flex-col gap-4 px-6 pb-6 pt-1">
       {selectedQuest?.name && <Stack.Screen options={{ title: selectedQuest.name }} />}
+      {isPlayAllPlayerActive && <KeepAwakeGuard />}
       <View className="flex flex-row items-center justify-between">
-        {/* Left side: Quest name + action buttons */}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="self-start p-0"
+          onPress={() => router.back()}
+        >
+          <Icon as={ArrowLeftIcon} />
+          <Text>{t('back')}</Text>
+        </Button>
         <View className="flex flex-row items-center gap-2">
+          <View className="flex flex-row items-center gap-2">
+            {isPublished ? (
+              // Show cloud badge and export button if user is creator, member, or owner
+              canSeePublishedBadge ? (
+                <>
+                  <Button
+                    variant="outline"
+                    className="h-10 px-4 py-0"
+                    onPress={() => {
+                      RNAlert.alert(t('questSyncedToCloud'));
+                    }}
+                  >
+                    <View className="flex-row items-center gap-0.5">
+                      <Icon as={CloudUpload} size={18} />
+                      <Icon as={CheckCheck} size={14} />
+                    </View>
+                  </Button>
+                {questId && projectId && (
+                  <ExportButton
+                    questId={questId}
+                    projectId={projectId}
+                    questName={selectedQuest?.name}
+                    disabled={isPublishing || !isOnline}
+                    membership={membership}
+                    passedQuestPublished={isPublished}
+                  />
+                )}
+                </>
+              ) : (
+                // Show membership request button for non-members viewing published quest
+                isPrivateProject && (
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onPress={() => setShowPrivateAccessModal(true)}
+                  >
+                    <Icon as={UserPlusIcon} size={16} />
+                    <Icon as={LockIcon} size={16} />
+                  </Button>
+                )
+              )
+            ) : (
+              // Only show publish/export buttons for authenticated users
+              currentUser && (
+                <>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    disabled={isPublishing || !isOnline || !isMember}
+                    onPress={() => {
+                      if (!isOnline) {
+                        RNAlert.alert(
+                          t('error'),
+                          t('cannotPublishWhileOffline')
+                        );
+                        return;
+                      }
+
+                      if (!isMember) {
+                        RNAlert.alert(t('error'), t('membersOnlyPublish'));
+                        return;
+                      }
+
+                      if (!questId) {
+                        console.error('No current quest id');
+                        return;
+                      }
+
+                      // Use quest name if available, otherwise generic message
+                      const questName = selectedQuest?.name || 'this chapter';
+
+                      RNAlert.alert(
+                        t('publishChapter'),
+                        t('publishChapterMessage').replace(
+                          '{questName}',
+                          questName
+                        ),
+                        [
+                          {
+                            text: t('cancel'),
+                            style: 'cancel'
+                          },
+                          {
+                            text: t('publish'),
+                            style: 'default',
+                            isPreferred: true,
+                            onPress: () => {
+                              publishQuest();
+                            }
+                          }
+                        ]
+                      );
+                    }}
+                  >
+                    {isPublishing ? (
+                      <ActivityIndicator
+                        size="small"
+                        color={getThemeColor('primary')}
+                      />
+                    ) : (
+                      <Icon as={CloudUpload} />
+                    )}
+                  </Button>
+                {questId && projectId && (
+                  <ExportButton
+                    questId={questId}
+                    projectId={projectId}
+                    questName={selectedQuest?.name}
+                    disabled={isPublishing || !isOnline}
+                    membership={membership}
+                  />
+                )}
+                </>
+              )
+            )}
+          </View>
+        </View>
+      </View>
+      <View className="flex w-full flex-row items-center justify-between">
+        {/* Left side: Quest name + action buttons */}
+        <View className="flex w-full flex-row items-center justify-between gap-2">
           <View className="flex flex-col">
             {selectedQuest?.name && (
-              <Text className="text-xl font-semibold">
+              <Text
+                className="text-base font-semibold"
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
                 {selectedQuest.name.length > 25
                   ? `${selectedQuest.name.slice(0, 25)}...`
                   : selectedQuest.name}
               </Text>
             )}
-            <Text className="text-lg font-medium text-muted-foreground">
+            <Text className="text-sm font-medium text-muted-foreground">
               {t('assets')}
             </Text>
           </View>
-
-          {/* Action buttons close to title: Refresh, PlayAll, AddLabel */}
-          <Button
-            variant="ghost"
-            size="icon"
-            disabled={isRefreshing}
-            onPress={async () => {
-              setIsRefreshing(true);
-              console.log('🔄 Manually refreshing assets queries...');
-              await queryClient.invalidateQueries({
-                queryKey: ['assets']
-              });
-              void refetch();
-              console.log('🔄 Assets queries invalidated');
-              // Stop animation after a brief delay
-              setTimeout(() => {
-                setIsRefreshing(false);
-              }, 500);
-            }}
-          >
-            <Animated.View style={spinStyle}>
-              <Icon as={RefreshCwIcon} size={18} className="text-primary" />
-            </Animated.View>
-          </Button>
-          {assets.length > 0 && (
+          <View className="flex-row items-center gap-1">
+            {/* Action buttons close to title: Refresh, PlayAll, AddLabel */}
             <Button
               variant="ghost"
               size="icon"
-              onPress={() => handlePlayAll(selectedForRecording)}
-              className="h-10 w-10"
-            >
-              <Icon
-                as={isPlayAllRunning ? PauseIcon : ListVideo}
-                size={20}
-                className="text-primary"
-              />
-            </Button>
-          )}
-          {!isPublished && currentUser && (
-            <Button
-              variant="ghost"
-              size="icon"
-              // className="border-[1.5px] border-primary"
-              onPress={() => {
-                setNewLabelSelectorState({
-                  isOpen: true
+              disabled={isRefreshing || isPlayAllPlayerActive}
+              onPress={async () => {
+                setIsRefreshing(true);
+                console.log('🔄 Manually refreshing assets queries...');
+                await queryClient.invalidateQueries({
+                  queryKey: ['assets']
                 });
+                void refetch();
+                console.log('🔄 Assets queries invalidated');
+                // Stop animation after a brief delay
+                setTimeout(() => {
+                  setIsRefreshing(false);
+                }, 500);
               }}
-              disabled={
-                !isOnline ||
-                verseCount === 0 ||
-                getAvailableVerses().length === 0
-              }
             >
-              <Icon as={BookmarkPlusIcon} className="text-primary" />
+              <Animated.View style={spinStyle}>
+                <Icon as={RefreshCwIcon} size={18} className="text-primary" />
+              </Animated.View>
             </Button>
-          )}
-          {fiaPericopeId && (
-            <Pressable
-              className="h-10 w-10 items-center justify-center rounded-full bg-primary shadow-sm"
-              onPress={() => setShowFiaTextDrawer(true)}
-            >
-              <Icon
-                as={BookOpenIcon}
-                size={20}
-                className="text-primary-foreground"
-              />
-            </Pressable>
-          )}
-        </View>
-
-        {/* Right side: Publish/Export buttons (isolated) */}
-        <View className="flex flex-row items-center gap-2">
-          {/* OLD handlePlayAllAssets button - commented out (replaced by Library icon button) */}
-          {/* {assets.length > 0 && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onPress={handlePlayAllAssets}
-              className="h-10 w-10"
-            >
-              <Icon
-                as={
-                  audioContext.isPlaying &&
-                  audioContext.currentAudioId === PLAY_ALL_AUDIO_ID
-                    ? PauseIcon
-                    : PlayIcon
+            {assets.length > 0 && (
+              <Button
+                variant="ghost"
+                size="icon"
+                disabled={isIndividualPlayerActive && !isPlayAllPlayerActive}
+                onPress={() => {
+                  if (isPlayAllPlayerActive) {
+                    stopAndResetPlayAll();
+                    setShowPlayAllControls(false);
+                    return;
+                  }
+                  if (!isPlayAllRunning) {
+                    setShowPlayAllControls(true);
+                    void handlePlayAll(selectedForRecording);
+                  }
+                }}
+                className="h-10 w-10"
+              >
+                <Icon
+                  as={isPlayAllPlayerActive ? SquareIcon : ListVideo}
+                  size={20}
+                  className="text-primary"
+                />
+              </Button>
+            )}
+            {!isPublished && currentUser && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onPress={() => {
+                  setNewLabelSelectorState({
+                    isOpen: true
+                  });
+                }}
+                disabled={
+                  isPlayAllPlayerActive ||
+                  !isOnline ||
+                  verseCount === 0 ||
+                  getAvailableVerses().length === 0
                 }
-                size={20}
-              />
-            </Button>
-          )} */}
-          {isPublished ? (
-            // Show cloud badge and export button if user is creator, member, or owner
-            canSeePublishedBadge ? (
-              <>
-                <Button
-                  variant="outline"
-                  className="h-10 px-4 py-0"
-                  onPress={() => {
-                    RNAlert.alert(t('questSyncedToCloud'));
-                  }}
-                >
-                  <View className="flex-row items-center gap-0.5">
-                    <Icon as={CloudUpload} size={18} />
-                    <Icon as={CheckCheck} size={14} />
-                  </View>
-                </Button>
-                {questId && projectId && (
-                  <ExportButton
-                    questId={questId}
-                    projectId={projectId}
-                    questName={selectedQuest?.name}
-                    disabled={isPublishing || !isOnline}
-                    membership={membership}
-                  />
-                )}
-              </>
-            ) : (
-              // Show membership request button for non-members viewing published quest
-              isPrivateProject && (
-                <Button
-                  variant="default"
-                  size="sm"
-                  onPress={() => setShowPrivateAccessModal(true)}
-                >
-                  <Icon as={UserPlusIcon} size={16} />
-                  <Icon as={LockIcon} size={16} />
-                </Button>
-              )
-            )
-          ) : (
-            // Only show publish/export buttons for authenticated users
-            currentUser && (
-              <>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  disabled={isPublishing || !isOnline || !isMember}
-                  onPress={() => {
-                    if (!isOnline) {
-                      RNAlert.alert(t('error'), t('cannotPublishWhileOffline'));
-                      return;
-                    }
-
-                    if (!isMember) {
-                      RNAlert.alert(t('error'), t('membersOnlyPublish'));
-                      return;
-                    }
-
-                    if (!questId) {
-                      console.error('No current quest id');
-                      return;
-                    }
-
-                    // Use quest name if available, otherwise generic message
-                    const questName = selectedQuest?.name || 'this chapter';
-
-                    RNAlert.alert(
-                      t('publishChapter'),
-                      t('publishChapterMessage').replace(
-                        '{questName}',
-                        questName
-                      ),
-                      [
-                        {
-                          text: t('cancel'),
-                          style: 'cancel'
-                        },
-                        {
-                          text: t('publish'),
-                          style: 'default',
-                          isPreferred: true,
-                          onPress: () => {
-                            publishQuest();
-                          }
-                        }
-                      ]
-                    );
-                  }}
-                >
-                  {isPublishing ? (
-                    <ActivityIndicator
-                      size="small"
-                      color={getThemeColor('primary')}
-                    />
-                  ) : (
-                    <Icon as={CloudUpload} />
-                  )}
-                </Button>
-                {questId && projectId && (
-                  <ExportButton
-                    questId={questId}
-                    projectId={projectId}
-                    questName={selectedQuest?.name}
-                    disabled={isPublishing || !isOnline}
-                    membership={membership}
-                  />
-                )}
-              </>
-            )
-          )}
+              >
+                <Icon as={BookmarkPlusIcon} className="text-primary" />
+              </Button>
+            )}
+            {fiaPericopeId && (
+              <Button
+                variant="default"
+                size="icon"
+                disabled={isPlayAllPlayerActive}
+                onPress={() => setShowFiaTextDrawer(true)}
+                style={isPlayAllPlayerActive ? { opacity: 0.5 } : undefined}
+              >
+                <Icon
+                  as={BookOpenIcon}
+                  size={20}
+                  className="text-primary-foreground"
+                />
+              </Button>
+            )}
+          </View>
         </View>
       </View>
 
@@ -4102,6 +3988,9 @@ export default function BibleAssetsView() {
                   <Text className="text-sm text-muted-foreground">•••</Text>
                 </View>
               )}
+              {listBottomSpacerHeight > 0 && (
+                <View style={{ height: listBottomSpacerHeight }} />
+              )}
             </>
           }
         />
@@ -4171,7 +4060,9 @@ export default function BibleAssetsView() {
       )}
 
       {/* Sticky Record Button Footer - only show for authenticated users */}
-      {!isPublished &&
+      {!showPlayAllControls &&
+        !showSingleControls &&
+        !isPublished &&
         currentUser &&
         (isSelectionMode ? (
           <View
@@ -4202,11 +4093,11 @@ export default function BibleAssetsView() {
             <Pressable
               //variant="destructive"
               // size="lg"
-              className="ml-14 w-full flex-row items-center justify-around gap-2 rounded-lg bg-primary p-2 px-4"
+              className="ml-14 w-full flex-row items-center justify-around gap-2 rounded-lg bg-primary p-2 px-2"
               onPress={() => void handleGoToRecording()}
             >
               <Icon as={MicIcon} size={24} className="text-secondary" />
-              <View className="ml-2 flex-col items-start justify-start gap-0">
+              <View className="ml-1 flex-col items-start justify-start gap-0">
                 <Text className="text-center text-base font-semibold text-secondary">
                   {t('startRecordingSession')}
                 </Text>
@@ -4222,6 +4113,51 @@ export default function BibleAssetsView() {
             </Pressable>
           </View>
         ))}
+      {showPlayAllControls && (
+        <AudioPlayerControls
+          mode="playAll"
+          position="footer"
+          currentAssetName={currentPlayAllAssetName}
+          currentSegmentIndex={currentPlayAllSegmentIndex}
+          totalSegments={currentPlayAllTotalSegments}
+          isPlaying={isPlayAllRunning && !isPlayAllPaused}
+          isPaused={isPlayAllPaused}
+          positionShared={audioContext.positionShared}
+          durationShared={audioContext.durationShared}
+          onPrevious={previousPlayAllItem}
+          onRewind={rewindPlayAll}
+          onPlayPause={togglePlayPausePlayAll}
+          onForward={forwardPlayAll}
+          onNext={nextPlayAllItem}
+          onStop={() => {
+            stopAndResetPlayAll();
+            setShowPlayAllControls(false);
+          }}
+        />
+      )}
+      {showSingleControls && (
+        <AudioPlayerControls
+          mode="individual"
+          position="footer"
+          currentAssetName={currentSingleAssetName}
+          isPlaying={audioContext.isPlaying}
+          isPaused={audioContext.isPaused}
+          positionShared={audioContext.positionShared}
+          durationShared={audioContext.durationShared}
+          onRewind={() => {
+            void rewindCurrentAsset();
+          }}
+          onPlayPause={() => {
+            void toggleCurrentAssetPlayPause();
+          }}
+          onStop={() => {
+            void stopAndResetCurrentAsset();
+          }}
+          onForward={() => {
+            void forwardCurrentAsset();
+          }}
+        />
+      )}
       {/* )} */}
 
       {allowSettings && isOwner && showSettingsModal && (
@@ -4230,6 +4166,7 @@ export default function BibleAssetsView() {
           onClose={() => setShowSettingsModal(false)}
           questId={questId}
           projectId={projectId || ''}
+          questSource={selectedQuest?.source}
         />
       )}
 

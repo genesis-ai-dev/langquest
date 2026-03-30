@@ -5,6 +5,7 @@
  */
 
 import { useAuth } from '@/contexts/AuthContext';
+import { fiaBibleApiQueryOptions } from '@/utils/fiaBibleQueryCache';
 import { lookupFiaLanguageCode } from '@/utils/languoidLookups';
 import { useQuery } from '@tanstack/react-query';
 
@@ -90,7 +91,7 @@ export function useFiaBooks(sourceLanguoidId: string | null) {
       return result.books;
     },
     enabled: !!sourceLanguoidId && !!supabaseUrl,
-    staleTime: 30 * 60 * 1000, // Cache for 30 minutes - FIA book list rarely changes
+    ...fiaBibleApiQueryOptions,
     retry: 2
   });
 

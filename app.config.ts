@@ -28,7 +28,7 @@ function getAppName(variant: string) {
 function getBundleIdentifier(variant: string) {
   switch (variant) {
     case 'development':
-      return `${uniqueIdentifier}.dev`;
+      return `${uniqueIdentifier}.development`;
     case 'preview':
       return `${uniqueIdentifier}.preview`;
     default:
@@ -124,6 +124,14 @@ export default ({ config }: ConfigContext): ExpoConfig =>
       'expo-asset',
       'expo-audio',
       'expo-image',
+      [
+        'expo-build-properties',
+        {
+          ios: {
+            deploymentTarget: '15.5'
+          }
+        }
+      ],
       [
         'expo-splash-screen',
         {

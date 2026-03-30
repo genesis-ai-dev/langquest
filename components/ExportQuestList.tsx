@@ -1,0 +1,368 @@
+import { ToggleButton } from '@/components/ToggleButton';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Text } from '@/components/ui/text';
+import { useAssetsByQuest } from '@/hooks/db/useAssets';
+import { useQuestById } from '@/hooks/db/useQuests';
+import { useLocalization } from '@/hooks/useLocalization';
+import { getThemeColor } from '@/utils/styleUtils';
+import {
+  buildExportArtifacts,
+  downloadExport,
+  shareExport
+} from '@/utils/exportUtils';
+import RNAlert from '@blazejkustra/react-native-alert';
+import { LegendList } from '@legendapp/list';
+import { Download, Info, Share2Icon } from 'lucide-react-native';
+import React from 'react';
+import {
+  ActivityIndicator,
+  Modal,
+  Platform,
+  Pressable,
+  View
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+interface ExportQuestListProps {
+  isOpen: boolean;
+  onClose: () => void;
+  currentProjectId: string;
+  currentQuestId: string;
+  initialShareEnable?: boolean;
+}
+
+interface AssetItem {
+  id: string;
+  name: string | null;
+  source?: 'cloud' | 'local' | 'synced';
+}
+
+export function ExportQuestList({
+  isOpen,
+  onClose,
+  currentProjectId,
+  currentQuestId,
+  initialShareEnable = false
+}: ExportQuestListProps) {
+  const { t } = useLocalization();
+  const { quest } = useQuestById(currentQuestId);
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } =
+    useAssetsByQuest(currentQuestId, '', true);
+
+  const [selectedAssetIds, setSelectedAssetIds] = React.useState<Set<string>>(
+    () => new Set()
+  );
+  const [hasUserTouchedSelection, setHasUserTouchedSelection] =
+    React.useState(false);
+  const [mergedFile, setMergedFile] = React.useState(true);
+  const [includeCsvFile, setIncludeCsvFile] = React.useState(true);
+  const [zipFile, setZipFile] = React.useState(false);
+  const [shareEnable, setShareEnable] = React.useState(initialShareEnable);
+  const [isConcatenating, setIsConcatenating] = React.useState(false);
+
+  const assets = React.useMemo(() => {
+    const allAssets = data.pages.flatMap((page) => page.data) as AssetItem[];
+    const assetMap = new Map<string, AssetItem>();
+
+    for (const asset of allAssets) {
+      const existing = assetMap.get(asset.id);
+      if (!existing) {
+        assetMap.set(asset.id, asset);
+      } else if (asset.source === 'synced' && existing.source !== 'synced') {
+        assetMap.set(asset.id, asset);
+      }
+    }
+
+    return Array.from(assetMap.values());
+  }, [data.pages]);
+
+  React.useEffect(() => {
+    if (isOpen && hasNextPage && !isFetchingNextPage) {
+      void fetchNextPage();
+    }
+  }, [isOpen, hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  React.useEffect(() => {
+    if (!hasUserTouchedSelection) {
+      setSelectedAssetIds(new Set(assets.map((asset) => asset.id)));
+    }
+  }, [assets, hasUserTouchedSelection]);
+
+  React.useEffect(() => {
+    if (isOpen) {
+      setShareEnable(initialShareEnable);
+      return;
+    }
+
+    if (!isOpen) {
+      setHasUserTouchedSelection(false);
+      setSelectedAssetIds(new Set());
+    }
+  }, [isOpen, currentProjectId, currentQuestId, initialShareEnable]);
+
+  const isAllSelected = React.useMemo(() => {
+    if (assets.length === 0) return false;
+    return assets.every((asset) => selectedAssetIds.has(asset.id));
+  }, [assets, selectedAssetIds]);
+
+  const selectedCount = React.useMemo(
+    () =>
+      assets.reduce(
+        (count, asset) => count + (selectedAssetIds.has(asset.id) ? 1 : 0),
+        0
+      ),
+    [assets, selectedAssetIds]
+  );
+  const selectedAssetIdList = React.useMemo(
+    () =>
+      assets
+        .filter((asset) => selectedAssetIds.has(asset.id))
+        .map((asset) => asset.id),
+    [assets, selectedAssetIds]
+  );
+
+  const handleToggleAll = React.useCallback(() => {
+    setHasUserTouchedSelection(true);
+    setSelectedAssetIds((prev) => {
+      const currentlyAllSelected = assets.every((asset) => prev.has(asset.id));
+      if (currentlyAllSelected) return new Set<string>();
+      return new Set(assets.map((asset) => asset.id));
+    });
+  }, [assets]);
+
+  const insets = useSafeAreaInsets();
+  const infoColor = getThemeColor('muted-foreground');
+
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
+  const noop = React.useCallback((_: boolean) => {}, []);
+
+  const handleToggleAsset = React.useCallback((assetId: string) => {
+    setHasUserTouchedSelection(true);
+    setSelectedAssetIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(assetId)) {
+        next.delete(assetId);
+      } else {
+        next.add(assetId);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleExport = React.useCallback(async () => {
+    setIsConcatenating(true);
+    let cleanup: (() => Promise<void>) | undefined;
+    try {
+      const artifacts = await buildExportArtifacts({
+        questId: currentQuestId,
+        projectId: currentProjectId,
+        assetIds: selectedAssetIdList,
+        questName: quest?.name || undefined,
+        mergedFile: shareEnable ? true : mergedFile,
+        includeCsvFile: shareEnable ? false : includeCsvFile,
+        zipFile: shareEnable ? false : zipFile
+      });
+
+      cleanup = artifacts.cleanup;
+
+      let exportResult: 'completed' | 'cancelled' = 'completed';
+      if (shareEnable) {
+        exportResult = await shareExport(
+          artifacts,
+          quest?.name || t('questAudio')
+        );
+      } else {
+        const result = await downloadExport(artifacts, {
+          iosDialogTitle: quest?.name || t('saveExport')
+        });
+        if (result === 'cancelled') {
+          exportResult = result;
+        }
+      }
+
+      if (exportResult === 'cancelled') {
+        return;
+      }
+
+      RNAlert.alert(
+        t('success'),
+        shareEnable ? t('contentShared') : t('filesDownloadedSuccessfully')
+      );
+    } catch (error) {
+      RNAlert.alert(
+        t('error'),
+        error instanceof Error ? error.message : t('failedToExportAudio')
+      );
+    } finally {
+      if (cleanup) {
+        await cleanup();
+      }
+      setIsConcatenating(false);
+    }
+  }, [
+    currentQuestId,
+    includeCsvFile,
+    mergedFile,
+    zipFile,
+    quest?.name,
+    selectedAssetIdList,
+    shareEnable,
+    t
+  ]);
+
+  return (
+    <Modal visible={isOpen} animationType="slide" onRequestClose={onClose}>
+      <View className="flex-1 bg-background">
+        <View
+          style={{ paddingTop: insets.top + 16 }}
+          className="flex-row items-center justify-between border-b border-border px-6 pb-4"
+        >
+          <View className="flex-col">
+            <Text variant="h4">{t('exportQuestTitle')}</Text>
+            <Text className="text-sm text-muted-foreground">
+              {quest?.name || '-'}
+            </Text>
+          </View>
+          <View>
+            {Platform.OS === 'android' && (
+              <ToggleButton
+                value={shareEnable ? 'right' : 'left'}
+                onValueChange={(next) => setShareEnable(next === 'right')}
+                leftIcon={Download}
+                rightIcon={Share2Icon}
+                leftText={t('download')}
+                rightText={t('share')}
+              />
+            )}
+          </View>
+        </View>
+
+        {!shareEnable ? (
+          <View className="mx-6 mt-4 flex-col items-center justify-between border-b border-border pb-2">
+            <View className="w-full flex-row flex-wrap items-center justify-center gap-4">
+              <View className="flex-row items-center gap-2">
+                <Checkbox
+                  checked={mergedFile}
+                  onCheckedChange={(v) => setMergedFile(v === true)}
+                />
+                <Text className="text-xs">{t('mergeAudio')}</Text>
+              </View>
+              <View className="flex-row items-center gap-2">
+                <Checkbox
+                  checked={includeCsvFile}
+                  onCheckedChange={(v) => setIncludeCsvFile(v === true)}
+                />
+                <Text className="text-xs">{t('includeText')}</Text>
+              </View>
+              {Platform.OS === 'android' && (
+                <View className="flex-row items-center gap-2">
+                  <Checkbox
+                    checked={zipFile}
+                    onCheckedChange={(v) => setZipFile(v === true)}
+                  />
+                  <Text className="text-xs">{t('singleZip')}</Text>
+                </View>
+              )}
+            </View>
+            <View className="mt-3 flex-row gap-2">
+              <Info color={infoColor} size={16} />
+              <Text className="text-xs text-muted-foreground">
+                {t('translationsAndTranscriptionsNotIncluded')}
+              </Text>
+            </View>
+          </View>
+        ) : (
+          <View className="mx-6 mt-4 flex-row items-center justify-center gap-2 border-b border-border pb-2">
+            <Info color={infoColor} size={16} />
+            <Text className="text-xs text-muted-foreground">
+              {t('filesMergedAndSharedSingleFile')}
+            </Text>
+          </View>
+        )}
+
+        <View className="mx-6 mt-4 flex-row items-center justify-between border-b border-border pb-2">
+          <View className="flex-row items-center gap-3">
+            <Checkbox
+              checked={isAllSelected}
+              onCheckedChange={handleToggleAll}
+            />
+            <Text className="font-medium">{t('assets')}</Text>
+          </View>
+          <Text className="text-sm text-muted-foreground">
+            {selectedCount}/{assets.length}
+          </Text>
+        </View>
+
+        {/* ── Scrollable list (fills all remaining space) ── */}
+        <View className="flex-1 px-6 pt-3">
+          {isLoading && assets.length === 0 ? (
+            <View className="flex-1 items-center justify-center">
+              <ActivityIndicator />
+            </View>
+          ) : (
+            <LegendList
+              data={assets}
+              estimatedItemSize={56}
+              keyExtractor={(item) => item.id}
+              extraData={selectedAssetIds}
+              contentContainerStyle={{ paddingBottom: 8 }}
+              renderItem={({ item }) => {
+                const checked = selectedAssetIds.has(item.id);
+                return (
+                  <Pressable
+                    onPress={() => handleToggleAsset(item.id)}
+                    className="mb-2 flex-row items-center gap-3 rounded-lg border border-border px-3 py-3"
+                  >
+                    {/* pointerEvents="none" avoid double trigger */}
+                    <View pointerEvents="none">
+                      <Checkbox checked={checked} onCheckedChange={noop} />
+                    </View>
+                    <Text className="flex-1" numberOfLines={1}>
+                      {item.name || t('untitledAsset')}
+                    </Text>
+                  </Pressable>
+                );
+              }}
+              ListEmptyComponent={() => (
+                <View className="items-center justify-center py-16">
+                  <Text className="text-muted-foreground">
+                    {t('noAssetsFoundForQuest')}
+                  </Text>
+                </View>
+              )}
+              ListFooterComponent={() =>
+                isFetchingNextPage ? (
+                  <View className="py-3">
+                    <ActivityIndicator />
+                  </View>
+                ) : null
+              }
+            />
+          )}
+        </View>
+
+        {/* ── Fixed footer ── */}
+        <View className="flex-col gap-1 border-t border-border px-6 pb-12 pt-4">
+          <Button
+            onPress={handleExport}
+            disabled={isConcatenating || selectedCount === 0}
+          >
+            {isConcatenating ? (
+              <ActivityIndicator />
+            ) : (
+              <Text>
+                {shareEnable || Platform.OS === 'ios'
+                  ? t('share')
+                  : t('download')}
+              </Text>
+            )}
+          </Button>
+          <Button onPress={onClose} variant="outline" className="mb-2">
+            <Text>{t('cancel')}</Text>
+          </Button>
+        </View>
+      </View>
+    </Modal>
+  );
+}

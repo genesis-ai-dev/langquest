@@ -3,6 +3,7 @@ export type SupportedLanguage =
   | 'english'
   | 'spanish'
   | 'brazilian_portuguese'
+  | 'french'
   | 'tok_pisin'
   | 'indonesian'
   | 'nepali'
@@ -28,6 +29,10 @@ export const SUPPORTED_LANGUAGE_NAMES = new Set([
   'brazilian portuguese',
   'português brasileiro',
   'portugues brasileiro',
+  // French
+  'french',
+  'français',
+  'francais',
   // Tok Pisin
   'tok pisin',
   // Indonesian
@@ -63,6 +68,7 @@ export type LocalizationKey = keyof typeof localizations;
 export const localizations = {
   accept: {
     english: 'Accept',
+    french: 'Accepter',
     spanish: 'Aceptar',
     brazilian_portuguese: 'Aceitar',
     tok_pisin: 'Orait',
@@ -75,6 +81,7 @@ export const localizations = {
   },
   iAgree: {
     english: 'I agree',
+    french: "Je suis d'accord",
     spanish: 'Estoy de acuerdo',
     brazilian_portuguese: 'Eu concordo',
     tok_pisin: 'Mi agri',
@@ -88,6 +95,8 @@ export const localizations = {
   accountNotVerified: {
     english:
       'Please verify your email address before signing in. Check your email for the verification link.',
+    french:
+      'Veuillez vérifier votre adresse e-mail avant de vous connecter. Vérifiez votre e-mail pour le lien de vérification.',
     spanish:
       'Por favor verifique su dirección de correo electrónico antes de iniciar sesión. Revise su correo electrónico para el enlace de verificación.',
     brazilian_portuguese:
@@ -108,6 +117,7 @@ export const localizations = {
   },
   done: {
     english: 'Done',
+    french: 'Fait',
     spanish: 'Listo',
     brazilian_portuguese: 'Feito',
     tok_pisin: 'Done',
@@ -120,6 +130,7 @@ export const localizations = {
   },
   all: {
     english: 'All',
+    french: 'Tous',
     spanish: 'Todo',
     brazilian_portuguese: 'Todos',
     tok_pisin: 'Olgeta',
@@ -132,6 +143,7 @@ export const localizations = {
   },
   options: {
     english: 'Options',
+    french: 'Possibilités',
     spanish: 'Opciones',
     brazilian_portuguese: 'Opções',
     tok_pisin: 'Ol options',
@@ -144,6 +156,7 @@ export const localizations = {
   },
   membersOnlyCreate: {
     english: 'Only project members can create content',
+    french: 'Seuls les membres du projet peuvent créer du contenu',
     spanish: 'Solo los miembros del proyecto pueden crear contenido',
     brazilian_portuguese: 'Apenas membros do projeto podem criar conteúdo',
     tok_pisin: 'Tasol ol memba bilong projek inap mekim nupela samting',
@@ -156,6 +169,7 @@ export const localizations = {
   },
   membersOnlyPublish: {
     english: 'Only project members can save to the cloud',
+    french: 'Seuls les membres du projet peuvent enregistrer dans le cloud',
     spanish: 'Solo los miembros del proyecto pueden guardar en la nube',
     brazilian_portuguese: 'Apenas membros do projeto podem salvar na nuvem',
     tok_pisin: 'Tasol ol memba bilong projek inap save long cloud',
@@ -168,6 +182,7 @@ export const localizations = {
   },
   apply: {
     english: 'Apply',
+    french: 'Appliquer',
     spanish: 'Aplicar',
     brazilian_portuguese: 'Aplicar',
     tok_pisin: 'Putim',
@@ -180,6 +195,7 @@ export const localizations = {
   },
   avatar: {
     english: 'Avatar',
+    french: 'Avatar',
     spanish: 'Avatar',
     brazilian_portuguese: 'Avatar',
     tok_pisin: 'Avatar',
@@ -192,6 +208,7 @@ export const localizations = {
   },
   backToLogin: {
     english: 'Back to Login',
+    french: 'Retour à la connexion',
     spanish: 'Volver al inicio de sesión',
     brazilian_portuguese: 'Voltar para o Login',
     tok_pisin: 'Go bek long Login',
@@ -204,6 +221,7 @@ export const localizations = {
   },
   checkEmail: {
     english: 'Please check your email',
+    french: 'Veuillez vérifier votre courrier électronique',
     spanish: 'Por favor revise su correo electrónico',
     brazilian_portuguese: 'Por favor, verifique seu e-mail',
     tok_pisin: 'Plis checkum email bilong yu',
@@ -216,6 +234,8 @@ export const localizations = {
   },
   checkEmailForResetLink: {
     english: 'Please check your email for the password reset link',
+    french:
+      'Veuillez vérifier votre courrier électronique pour le lien de réinitialisation du mot de passe',
     spanish:
       'Por favor revise su correo electrónico para el enlace de restablecimiento de contraseña',
     brazilian_portuguese:
@@ -230,6 +250,7 @@ export const localizations = {
   },
   confirmNewPassword: {
     english: 'Confirm New Password',
+    french: 'Confirmer le nouveau mot de passe',
     spanish: 'Confirmar nueva contraseña',
     brazilian_portuguese: 'Confirmar Nova Senha',
     tok_pisin: 'Confirm nupela password',
@@ -242,6 +263,7 @@ export const localizations = {
   },
   confirmPassword: {
     english: 'Confirm Password',
+    french: 'Confirmez le mot de passe',
     spanish: 'Confirmar contraseña',
     brazilian_portuguese: 'Confirmar Senha',
     tok_pisin: 'Confirm password',
@@ -254,6 +276,7 @@ export const localizations = {
   },
   createObject: {
     english: 'Create',
+    french: 'Créer',
     spanish: 'Crear',
     brazilian_portuguese: 'Criar',
     tok_pisin: 'Create',
@@ -266,6 +289,7 @@ export const localizations = {
   },
   projectName: {
     english: 'Project Name',
+    french: 'Nom du projet',
     spanish: 'Nombre del Proyecto',
     brazilian_portuguese: 'Nome do Projeto',
     tok_pisin: 'Project Name',
@@ -278,6 +302,7 @@ export const localizations = {
   },
   newProject: {
     english: 'New Project',
+    french: 'Nouveau projet',
     spanish: 'Nuevo Proyecto',
     brazilian_portuguese: 'Novo Projeto',
     tok_pisin: 'Nupela Project',
@@ -290,6 +315,7 @@ export const localizations = {
   },
   newQuest: {
     english: 'New Quest',
+    french: 'Nouvelle quête',
     spanish: 'Nueva Misión',
     brazilian_portuguese: 'Nova Missão',
     tok_pisin: 'Nupela Quest',
@@ -302,6 +328,7 @@ export const localizations = {
   },
   questName: {
     english: 'Quest Name',
+    french: 'Nom de la quête',
     spanish: 'Nombre de la Misión',
     brazilian_portuguese: 'Nome da Missão',
     tok_pisin: 'Nem bilong Quest',
@@ -314,6 +341,7 @@ export const localizations = {
   },
   description: {
     english: 'Description',
+    french: 'Description',
     spanish: 'Descripción',
     brazilian_portuguese: 'Descrição',
     tok_pisin: 'Description',
@@ -326,6 +354,7 @@ export const localizations = {
   },
   visible: {
     english: 'Visible',
+    french: 'Visible',
     spanish: 'Visible',
     brazilian_portuguese: 'Visible',
     tok_pisin: 'Visible',
@@ -338,6 +367,7 @@ export const localizations = {
   },
   private: {
     english: 'Private',
+    french: 'Privé',
     spanish: 'Privado',
     brazilian_portuguese: 'Privado',
     tok_pisin: 'Private',
@@ -350,6 +380,7 @@ export const localizations = {
   },
   date: {
     english: 'Date',
+    french: 'Date',
     spanish: 'Fecha',
     brazilian_portuguese: 'Data',
     tok_pisin: 'De',
@@ -362,6 +393,7 @@ export const localizations = {
   },
   decline: {
     english: 'Decline',
+    french: 'Déclin',
     spanish: 'Rechazar',
     brazilian_portuguese: 'Rejeitar',
     tok_pisin: 'No',
@@ -374,6 +406,7 @@ export const localizations = {
   },
   downloadAnyway: {
     english: 'Download Anyway',
+    french: 'Télécharger quand même',
     spanish: 'Descargar de todas formas',
     brazilian_portuguese: 'Descarregar de qualquer forma',
     tok_pisin: 'Download tasol',
@@ -386,6 +419,7 @@ export const localizations = {
   },
   downloadProject: {
     english: 'Download Project',
+    french: 'Télécharger le projet',
     spanish: 'Descargar Proyecto',
     brazilian_portuguese: 'Descarregar Projeto',
     tok_pisin: 'Download project',
@@ -398,6 +432,7 @@ export const localizations = {
   },
   downloadQuest: {
     english: 'Download Quest',
+    french: 'Télécharger la quête',
     spanish: 'Descargar Quest',
     brazilian_portuguese: 'Descarregar Quest',
     nepali: 'क्वेस्ट डाउनलोड गर्नुहोस्',
@@ -411,6 +446,8 @@ export const localizations = {
   downloadProjectOfflineWarning: {
     english:
       "If you don't download the project, you won't be able to contribute to it offline. You can download it later by pressing the project card's download button.",
+    french:
+      'Si vous ne téléchargez pas le projet, vous ne pourrez pas y contribuer hors ligne. Vous pourrez le télécharger plus tard en appuyant sur le bouton de téléchargement de la fiche du projet.',
     spanish:
       'Si no descargas el proyecto, no podrás contribuir sin conexión. Puedes descargarlo más tarde presionando el botón de descarga en la tarjeta del proyecto.',
     brazilian_portuguese:
@@ -431,6 +468,7 @@ export const localizations = {
   },
   downloadProjectWhenRequestSent: {
     english: 'Download project when request is sent',
+    french: 'Télécharger le projet lorsque la demande est envoyée',
     spanish: 'Descargar proyecto cuando se envíe la solicitud',
     brazilian_portuguese: 'Baixar projeto quando a solicitação for enviada',
     tok_pisin: 'Download project taim request i go',
@@ -443,6 +481,7 @@ export const localizations = {
   },
   discoveringQuestData: {
     english: 'Discovering Quest Data',
+    french: 'Découvrir les données de quête',
     spanish: 'Descubriendo Datos de la Misión',
     brazilian_portuguese: 'Descobrindo Dados da Missão',
     tok_pisin: 'Painimaut long Quest Data',
@@ -455,6 +494,7 @@ export const localizations = {
   },
   offloadQuest: {
     english: 'Offload Quest',
+    french: 'Quête de déchargement',
     spanish: 'Descargar Quest',
     brazilian_portuguese: 'Descarregar Quest',
     tok_pisin: 'Rausim Quest',
@@ -467,6 +507,8 @@ export const localizations = {
   },
   offloadQuestDescription: {
     english: 'Remove local data to free up storage',
+    french:
+      "Supprimez les données locales pour libérer de l'espace de stockage",
     spanish: 'Eliminar datos locales para liberar almacenamiento',
     brazilian_portuguese: 'Remover dados locais para liberar armazenamento',
     tok_pisin: 'Rausim data long freeup storage',
@@ -479,6 +521,7 @@ export const localizations = {
   },
   verifyingCloudData: {
     english: 'Verifying data in cloud...',
+    french: 'Vérification des données dans le cloud...',
     spanish: 'Verificando datos en la nube...',
     brazilian_portuguese: 'Verificando dados na nuvem...',
     tok_pisin: 'Checkim data long klaud...',
@@ -491,6 +534,7 @@ export const localizations = {
   },
   pendingUploadsDetected: {
     english: 'Pending uploads detected',
+    french: 'Téléchargements en attente détectés',
     spanish: 'Se detectaron cargas pendientes',
     brazilian_portuguese: 'Uploads pendentes detectados',
     tok_pisin: 'Painimaut sampela hap i no go yet',
@@ -504,6 +548,8 @@ export const localizations = {
   pendingUploadsMessage: {
     english:
       'Please wait for all changes to upload to the cloud before offloading. Connect to the internet and wait for sync to complete.',
+    french:
+      'Veuillez attendre que toutes les modifications soient téléchargées sur le cloud avant de les décharger. Connectez-vous à Internet et attendez la fin de la synchronisation.',
     spanish:
       'Espere a que todos los cambios se carguen en la nube antes de descargar. Conéctese a Internet y espere a que se complete la sincronización.',
     brazilian_portuguese:
@@ -523,6 +569,7 @@ export const localizations = {
   },
   readyToOffload: {
     english: 'Ready to offload',
+    french: 'Prêt à décharger',
     spanish: 'Listo para descargar',
     brazilian_portuguese: 'Pronto para descarregar',
     tok_pisin: 'Redi long rausim',
@@ -536,6 +583,8 @@ export const localizations = {
   offloadWarning: {
     english:
       'This will delete local copies. Data will remain safely in the cloud and can be re-downloaded later.',
+    french:
+      'Cela supprimera les copies locales. Les données resteront en sécurité dans le cloud et pourront être retéléchargées ultérieurement.',
     spanish:
       'Esto eliminará las copias locales. Los datos permanecerán seguros en la nube y se pueden volver a descargar más tarde.',
     brazilian_portuguese:
@@ -555,6 +604,7 @@ export const localizations = {
   },
   storageToFree: {
     english: 'Storage to Free',
+    french: 'Stockage gratuit',
     spanish: 'Almacenamiento para Liberar',
     brazilian_portuguese: 'Armazenamento a Liberar',
     tok_pisin: 'Storage Long Freeup',
@@ -567,6 +617,7 @@ export const localizations = {
   },
   continue: {
     english: 'Continue',
+    french: 'Continuer',
     spanish: 'Continuar',
     brazilian_portuguese: 'Continuar',
     tok_pisin: 'Go Het',
@@ -579,6 +630,7 @@ export const localizations = {
   },
   continueToOffload: {
     english: 'Offload from Device',
+    french: "Décharger depuis l'appareil",
     spanish: 'Descargar del Dispositivo',
     brazilian_portuguese: 'Descarregar do Dispositivo',
     tok_pisin: 'Rausim long Mashin',
@@ -591,6 +643,7 @@ export const localizations = {
   },
   offloadingQuest: {
     english: 'Offloading quest...',
+    french: 'Quête de déchargement...',
     spanish: 'Descargando quest...',
     brazilian_portuguese: 'Descarregando quest...',
     tok_pisin: 'Rausim quest...',
@@ -603,6 +656,7 @@ export const localizations = {
   },
   offloadComplete: {
     english: 'Quest offloaded successfully',
+    french: 'Quête déchargée avec succès',
     spanish: 'Quest descargada con éxito',
     brazilian_portuguese: 'Quest descarregada com sucesso',
     tok_pisin: 'Quest i rausim orait',
@@ -615,6 +669,7 @@ export const localizations = {
   },
   offloadError: {
     english: 'Failed to offload quest',
+    french: 'Échec du déchargement de la quête',
     spanish: 'Error al descargar quest',
     brazilian_portuguese: 'Falha ao descarregar quest',
     tok_pisin: 'Pasin long rausim quest i no inap',
@@ -627,6 +682,7 @@ export const localizations = {
   },
   cannotOffloadErrors: {
     english: 'Cannot offload - errors detected',
+    french: 'Impossible de décharger – erreurs détectées',
     spanish: 'No se puede descargar - errores detectados',
     brazilian_portuguese: 'Não é possível descarregar - erros detectados',
     tok_pisin: 'No inap rausim - painimaut sampela rong',
@@ -639,6 +695,7 @@ export const localizations = {
   },
   allDataVerifiedInCloud: {
     english: 'All data verified in cloud',
+    french: 'Toutes les données vérifiées dans le cloud',
     spanish: 'Todos los datos verificados en la nube',
     brazilian_portuguese: 'Todos os dados verificados na nuvem',
     tok_pisin: 'Olgeta data i stret long klaud',
@@ -651,6 +708,7 @@ export const localizations = {
   },
   checkingPendingChanges: {
     english: 'Checking for pending changes...',
+    french: 'Vérification des modifications en attente...',
     spanish: 'Verificando cambios pendientes...',
     brazilian_portuguese: 'Verificando alterações pendentes...',
     tok_pisin: 'Checkim sampela senis i no go yet...',
@@ -663,6 +721,7 @@ export const localizations = {
   },
   verifyingDatabaseRecords: {
     english: 'Verifying database records',
+    french: 'Vérification des enregistrements de la base de données',
     spanish: 'Verificando registros de base de datos',
     brazilian_portuguese: 'Verificando registros do banco de dados',
     tok_pisin: 'Checkim ol rekod long database',
@@ -675,6 +734,7 @@ export const localizations = {
   },
   verifyingAttachments: {
     english: 'Verifying attachments',
+    french: 'Vérification des pièces jointes',
     spanish: 'Verificando archivos adjuntos',
     brazilian_portuguese: 'Verificando anexos',
     tok_pisin: 'Checkim ol fail i pas long',
@@ -687,6 +747,7 @@ export const localizations = {
   },
   waitingForUploads: {
     english: 'Waiting for Uploads',
+    french: 'En attente de téléchargements',
     spanish: 'Esperando Cargas',
     brazilian_portuguese: 'Aguardando Uploads',
     tok_pisin: 'Wetim Upload',
@@ -699,6 +760,7 @@ export const localizations = {
   },
   cannotOffload: {
     english: 'Cannot Offload',
+    french: 'Impossible de décharger',
     spanish: 'No se puede Descargar',
     brazilian_portuguese: 'Não é possível Descarregar',
     tok_pisin: 'No Inap Rausim',
@@ -711,6 +773,7 @@ export const localizations = {
   },
   analyzingRelatedRecords: {
     english: 'Analyzing related records...',
+    french: 'Analyse des enregistrements associés...',
     spanish: 'Analizando registros relacionados...',
     brazilian_portuguese: 'Analisando registros relacionados...',
     tok_pisin: 'Lukautim ol related records...',
@@ -723,6 +786,7 @@ export const localizations = {
   },
   discoveryComplete: {
     english: 'Discovery complete',
+    french: 'Découverte terminée',
     spanish: 'Descubrimiento completo',
     brazilian_portuguese: 'Descoberta completa',
     tok_pisin: 'Discovery i pinis',
@@ -735,6 +799,7 @@ export const localizations = {
   },
   totalRecords: {
     english: 'Total Records',
+    french: 'Total des enregistrements',
     spanish: 'Registros Totales',
     brazilian_portuguese: 'Registros Totais',
     tok_pisin: 'Total Records',
@@ -748,6 +813,8 @@ export const localizations = {
   discoveryErrorsOccurred: {
     english:
       'Some errors occurred during discovery. You can still download the discovered records.',
+    french:
+      'Certaines erreurs se sont produites lors de la découverte. Vous pouvez toujours télécharger les enregistrements découverts.',
     spanish:
       'Ocurrieron algunos errores durante el descubrimiento. Aún puedes descargar los registros descubiertos.',
     brazilian_portuguese:
@@ -768,6 +835,8 @@ export const localizations = {
   questNotFoundInCloud: {
     english:
       'Quest not found in cloud database. It may only exist locally or you may not have permission to access it. Try refreshing the page or contact support if this persists.',
+    french:
+      "Quête introuvable dans la base de données cloud. Il se peut qu'il n'existe que localement ou que vous n'ayez pas la permission d'y accéder. Essayez d'actualiser la page ou contactez l'assistance si cela persiste.",
     spanish:
       'La misión no se encontró en la base de datos de la nube. Puede que solo exista localmente o que no tenga permiso para acceder a ella. Intenta actualizar la página o contacta al soporte si este problema persiste.',
     brazilian_portuguese:
@@ -788,6 +857,7 @@ export const localizations = {
   },
   discovering: {
     english: 'Discovering...',
+    french: 'Découverte...',
     spanish: 'Descubriendo...',
     brazilian_portuguese: 'Descobrindo...',
     tok_pisin: 'Painimaut...',
@@ -800,6 +870,7 @@ export const localizations = {
   },
   continueToDownload: {
     english: 'Continue to Download',
+    french: 'Continuer à télécharger',
     spanish: 'Continuar con la Descarga',
     brazilian_portuguese: 'Continuar para Download',
     tok_pisin: 'Go het long Download',
@@ -812,6 +883,7 @@ export const localizations = {
   },
   email: {
     english: 'Email',
+    french: 'E-mail',
     spanish: 'Email',
     brazilian_portuguese: 'E-mail',
     tok_pisin: 'Email',
@@ -824,6 +896,7 @@ export const localizations = {
   },
   emailAlreadyMemberMessage: {
     english: 'This email address is already a {role} of this project.',
+    french: 'Cette adresse e-mail est déjà un {role} de ce projet.',
     spanish:
       'Esta dirección de correo electrónico ya es {role} de este proyecto.',
     brazilian_portuguese: 'Este endereço de e-mail já é {role} deste projeto.',
@@ -837,6 +910,7 @@ export const localizations = {
   },
   emailRequired: {
     english: 'Email is required',
+    french: "L'e-mail est requis",
     spanish: 'Se requiere email',
     brazilian_portuguese: 'E-mail é obrigatório',
     tok_pisin: 'Email i mas',
@@ -849,6 +923,7 @@ export const localizations = {
   },
   nameRequired: {
     english: 'Name is required',
+    french: 'Le nom est requis',
     spanish: 'Nombre es requerido',
     brazilian_portuguese: 'Nome é obrigatório',
     tok_pisin: 'Name i mas',
@@ -861,6 +936,7 @@ export const localizations = {
   },
   descriptionTooLong: {
     english: 'Description must be less than {max} characters',
+    french: 'La description doit contenir moins de {max} caractères',
     spanish: 'La descripción debe tener menos de {max} caracteres',
     brazilian_portuguese: 'A descrição deve ter menos de {max} caracteres',
     tok_pisin: 'Description i no sem long {max} character',
@@ -873,6 +949,7 @@ export const localizations = {
   },
   enterTranslation: {
     english: 'Enter your translation here',
+    french: 'Entrez votre traduction ici',
     spanish: 'Ingrese su traducción aquí',
     brazilian_portuguese: 'Digite sua tradução aqui',
     tok_pisin: 'Putim translation bilong yu long hia',
@@ -885,6 +962,7 @@ export const localizations = {
   },
   enterTranscription: {
     english: 'Enter your transcription here',
+    french: 'Entrez votre transcription ici',
     spanish: 'Ingrese su transcripción aquí',
     brazilian_portuguese: 'Digite sua transcrição aqui',
     tok_pisin: 'Putim transcription bilong yu long hia',
@@ -897,6 +975,7 @@ export const localizations = {
   },
   enterYourTranscriptionIn: {
     english: 'Enter your transcription in {language}',
+    french: 'Entrez votre transcription dans {language}',
     spanish: 'Ingrese su transcripción en {language}',
     brazilian_portuguese: 'Digite sua transcrição em {language}',
     tok_pisin: 'Putim transcription bilong yu long {language}',
@@ -909,6 +988,7 @@ export const localizations = {
   },
   enterValidEmail: {
     english: 'Please enter a valid email',
+    french: 'Veuillez entrer un email valide',
     spanish: 'Por favor ingrese un correo electrónico válido',
     brazilian_portuguese: 'Por favor, digite um e-mail válido',
     tok_pisin: 'Plis putim wanpela gutpela email',
@@ -921,6 +1001,7 @@ export const localizations = {
   },
   enterYourEmail: {
     english: 'Enter your email',
+    french: 'Entrez votre email',
     spanish: 'Ingrese su correo electrónico',
     brazilian_portuguese: 'Digite seu e-mail',
     tok_pisin: 'Putim email bilong yu',
@@ -933,6 +1014,7 @@ export const localizations = {
   },
   enterYourPassword: {
     english: 'Enter your password',
+    french: 'Entrez votre mot de passe',
     spanish: 'Ingrese su contraseña',
     brazilian_portuguese: 'Digite sua senha',
     tok_pisin: 'Putim password bilong yu',
@@ -945,6 +1027,7 @@ export const localizations = {
   },
   error: {
     english: 'Error',
+    french: 'Erreur',
     spanish: 'Error',
     brazilian_portuguese: 'Erro',
     tok_pisin: 'Rong',
@@ -957,6 +1040,7 @@ export const localizations = {
   },
   failedCreateTranslation: {
     english: 'Failed to create translation',
+    french: 'Échec de la création de la traduction',
     spanish: 'Error al crear la traducción',
     brazilian_portuguese: 'Falha ao criar tradução',
     tok_pisin: 'I no inap mekim translation',
@@ -969,6 +1053,7 @@ export const localizations = {
   },
   failedCreateTranscription: {
     english: 'Failed to create transcription',
+    french: 'Échec de la création de la transcription',
     spanish: 'Error al crear la transcripción',
     brazilian_portuguese: 'Falha ao criar transcrição',
     tok_pisin: 'I no inap mekim transcription',
@@ -981,6 +1066,7 @@ export const localizations = {
   },
   failedLoadProjects: {
     english: 'Failed to load projects',
+    french: 'Échec du chargement des projets',
     spanish: 'Error al cargar proyectos',
     brazilian_portuguese: 'Falha ao carregar projetos',
     tok_pisin: 'I no inap loadim ol project',
@@ -993,6 +1079,7 @@ export const localizations = {
   },
   failedLoadQuests: {
     english: 'Failed to load quests',
+    french: 'Échec du chargement des quêtes',
     spanish: 'Error al cargar misiones',
     brazilian_portuguese: 'Falha ao carregar missões',
     tok_pisin: 'I no inap loadim ol quest',
@@ -1005,6 +1092,7 @@ export const localizations = {
   },
   failedResetPassword: {
     english: 'Failed to reset password',
+    french: 'Échec de la réinitialisation du mot de passe',
     spanish: 'Error al restablecer la contraseña',
     brazilian_portuguese: 'Falha ao redefinir senha',
     tok_pisin: 'I no inap resetim password',
@@ -1017,6 +1105,7 @@ export const localizations = {
   },
   failedSendResetEmail: {
     english: 'Failed to send reset email',
+    french: "Échec de l'envoi de l'e-mail de réinitialisation",
     spanish: 'Error al enviar el correo de restablecimiento',
     brazilian_portuguese: 'Falha ao enviar e-mail de redefinição',
     tok_pisin: 'I no inap salim reset email',
@@ -1029,6 +1118,7 @@ export const localizations = {
   },
   failedToAcceptInvitation: {
     english: 'Failed to accept invitation. Please try again.',
+    french: "Échec de l'acceptation de l'invitation. Veuillez réessayer.",
     spanish: 'Error al aceptar la invitación. Por favor, inténtelo de nuevo.',
     brazilian_portuguese:
       'Falha ao aceitar o convite. Por favor, tente novamente.',
@@ -1042,6 +1132,7 @@ export const localizations = {
   },
   failedToDeclineInvitation: {
     english: 'Failed to decline invitation. Please try again.',
+    french: "Échec du refus de l'invitation. Veuillez réessayer.",
     spanish: 'Error al rechazar la invitación. Por favor, inténtelo de nuevo.',
     brazilian_portuguese:
       'Falha ao recusar o convite. Por favor, tente novamente.',
@@ -1055,6 +1146,7 @@ export const localizations = {
   },
   mustBeOnlineToAcceptInvite: {
     english: 'You must be online to accept an invitation',
+    french: 'Vous devez être en ligne pour accepter une invitation',
     spanish: 'Debes estar en línea para aceptar una invitación',
     brazilian_portuguese: 'Você precisa estar online para aceitar um convite',
     tok_pisin: 'Yu mas stap long internet bilong accept invitation',
@@ -1067,6 +1159,7 @@ export const localizations = {
   },
   failedToVote: {
     english: 'Failed to submit vote',
+    french: 'Échec de la soumission du vote',
     spanish: 'Error al enviar el voto',
     brazilian_portuguese: 'Falha ao enviar voto',
     tok_pisin: 'I no inap salim vote',
@@ -1079,6 +1172,7 @@ export const localizations = {
   },
   fillFields: {
     english: 'Please fill in all required fields',
+    french: 'Veuillez remplir tous les champs obligatoires',
     spanish: 'Por favor complete todos los campos requeridos',
     brazilian_portuguese: 'Por favor, preencha todos os campos obrigatórios',
     tok_pisin: 'Plis fulupim olgeta field i mas',
@@ -1091,6 +1185,7 @@ export const localizations = {
   },
   forgotPassword: {
     english: 'I forgot my password',
+    french: "J'ai oublié mon mot de passe",
     spanish: 'Olvidé mi contraseña',
     brazilian_portuguese: 'Esqueci minha senha',
     tok_pisin: 'Mi lusim password bilong mi',
@@ -1103,6 +1198,7 @@ export const localizations = {
   },
   invalidResetLink: {
     english: 'Invalid or expired reset link',
+    french: 'Lien de réinitialisation invalide ou expiré',
     spanish: 'Enlace de restablecimiento inválido o expirado',
     brazilian_portuguese: 'Link de redefinição inválido ou expirado',
     tok_pisin: 'Reset link i no gutpela o i pinis',
@@ -1116,6 +1212,7 @@ export const localizations = {
   },
   logInToTranslate: {
     english: 'You must be logged in to submit translations',
+    french: 'Vous devez être connecté pour soumettre des traductions',
     spanish: 'Debe iniciar sesión para enviar traducciones',
     brazilian_portuguese: 'Você precisa estar logado para enviar traduções',
     tok_pisin: 'Yu mas login pastaim long salim ol translation',
@@ -1128,6 +1225,7 @@ export const localizations = {
   },
   logInToVote: {
     english: 'You must be logged in to vote',
+    french: 'Vous devez être connecté pour voter',
     spanish: 'Debe iniciar sesión para votar',
     brazilian_portuguese: 'Você precisa estar logado para votar',
     tok_pisin: 'Yu mas login pastaim long vote',
@@ -1140,6 +1238,7 @@ export const localizations = {
   },
   menu: {
     english: 'Menu',
+    french: 'Menu',
     spanish: 'Menú',
     brazilian_portuguese: 'Menu',
     tok_pisin: 'Menu',
@@ -1152,6 +1251,7 @@ export const localizations = {
   },
   newTranslation: {
     english: 'New Translation',
+    french: 'Nouvelle traduction',
     spanish: 'Nueva Traducción',
     brazilian_portuguese: 'Nova Tradução',
     tok_pisin: 'Nupela Translation',
@@ -1164,6 +1264,7 @@ export const localizations = {
   },
   newTranscription: {
     english: 'New Transcription',
+    french: 'Nouvelle transcription',
     spanish: 'Nueva Transcripción',
     brazilian_portuguese: 'Nova Transcrição',
     tok_pisin: 'Nupela Transcription',
@@ -1176,6 +1277,7 @@ export const localizations = {
   },
   newUser: {
     english: 'New user?',
+    french: 'Nouvel utilisateur ?',
     spanish: '¿Usuario nuevo?',
     brazilian_portuguese: 'Novo usuário?',
     tok_pisin: 'Nupela user?',
@@ -1188,6 +1290,7 @@ export const localizations = {
   },
   newUserRegistration: {
     english: 'New User Registration',
+    french: "Inscription d'un nouvel utilisateur",
     spanish: 'Registro de nuevo usuario',
     brazilian_portuguese: 'Registro de Novo Usuário',
     tok_pisin: 'Nupela User Registration',
@@ -1200,6 +1303,7 @@ export const localizations = {
   },
   noComment: {
     english: 'No Comment',
+    french: 'Aucun commentaire',
     spanish: 'Sin comentarios',
     brazilian_portuguese: 'Sem Comentários',
     tok_pisin: 'No gat comment',
@@ -1212,6 +1316,7 @@ export const localizations = {
   },
   noProject: {
     english: 'No active project found',
+    french: 'Aucun projet actif trouvé',
     spanish: 'No se encontró ningún proyecto activo',
     brazilian_portuguese: 'Nenhum projeto ativo encontrado',
     tok_pisin: 'No gat active project',
@@ -1224,6 +1329,7 @@ export const localizations = {
   },
   ok: {
     english: 'OK',
+    french: "D'ACCORD",
     spanish: 'OK',
     brazilian_portuguese: 'OK',
     tok_pisin: 'Orait',
@@ -1236,6 +1342,7 @@ export const localizations = {
   },
   offline: {
     english: 'Offline',
+    french: 'Hors ligne',
     spanish: 'Sin conexión',
     brazilian_portuguese: 'Offline',
     tok_pisin: 'No gat internet',
@@ -1248,6 +1355,7 @@ export const localizations = {
   },
   password: {
     english: 'Password',
+    french: 'Mot de passe',
     spanish: 'Contraseña',
     brazilian_portuguese: 'Senha',
     tok_pisin: 'Password',
@@ -1260,6 +1368,7 @@ export const localizations = {
   },
   passwordRequired: {
     english: 'Password is required',
+    french: 'Le mot de passe est requis',
     spanish: 'Se requiere contraseña',
     brazilian_portuguese: 'Senha é obrigatória',
     tok_pisin: 'Password i mas',
@@ -1272,6 +1381,7 @@ export const localizations = {
   },
   passwordMinLength: {
     english: 'Password must be at least 6 characters',
+    french: 'Le mot de passe doit contenir au moins 6 caractères',
     spanish: 'La contraseña debe tener al menos 6 caracteres',
     brazilian_portuguese: 'A senha deve ter pelo menos 6 caracteres',
     tok_pisin: 'Password i mas gat 6 character',
@@ -1284,6 +1394,7 @@ export const localizations = {
   },
   passwordsNoMatch: {
     english: 'Passwords do not match',
+    french: 'Les mots de passe ne correspondent pas',
     spanish: 'Las contraseñas no coinciden',
     brazilian_portuguese: 'As senhas não coincidem',
     tok_pisin: 'Ol password i no sem',
@@ -1296,6 +1407,7 @@ export const localizations = {
   },
   passwordResetSuccess: {
     english: 'Password has been reset successfully',
+    french: 'Le mot de passe a été réinitialisé avec succès',
     spanish: 'La contraseña se ha restablecido correctamente',
     brazilian_portuguese: 'A senha foi redefinida com sucesso',
     tok_pisin: 'Password i reset gut pinis',
@@ -1309,6 +1421,8 @@ export const localizations = {
   projectDownloadFailed: {
     english:
       'Invitation accepted, but project download failed. You can download it later from the projects page.',
+    french:
+      'Invitation acceptée, mais le téléchargement du projet a échoué. Vous pourrez le télécharger plus tard depuis la page des projets.',
     spanish:
       'Invitación aceptada, pero la descarga del proyecto falló. Puede descargarla más tarde desde la página de proyectos.',
     brazilian_portuguese:
@@ -1328,6 +1442,7 @@ export const localizations = {
   },
   projects: {
     english: 'Projects',
+    french: 'Projets',
     spanish: 'Proyectos',
     brazilian_portuguese: 'Projetos',
     tok_pisin: 'Ol Project',
@@ -1340,6 +1455,7 @@ export const localizations = {
   },
   quests: {
     english: 'Quests',
+    french: 'Quêtes',
     spanish: 'Misiones',
     brazilian_portuguese: 'Missões',
     tok_pisin: 'Ol Quest',
@@ -1352,6 +1468,7 @@ export const localizations = {
   },
   project: {
     english: 'Project',
+    french: 'Projet',
     spanish: 'Proyecto',
     brazilian_portuguese: 'Projeto',
     tok_pisin: 'Projek',
@@ -1364,6 +1481,7 @@ export const localizations = {
   },
   noProjectsFound: {
     english: 'No projects found',
+    french: 'Aucun projet trouvé',
     spanish: 'No se encontraron proyectos',
     brazilian_portuguese: 'Nenhum projeto encontrado',
     tok_pisin: 'Nogat projek i painim',
@@ -1376,6 +1494,7 @@ export const localizations = {
   },
   noProjectsYet: {
     english: 'No projects yet',
+    french: "Aucun projet pour l'instant",
     spanish: 'Aún no hay proyectos',
     brazilian_portuguese: 'Ainda não há projetos',
     tok_pisin: 'I no gat projek yet',
@@ -1388,6 +1507,7 @@ export const localizations = {
   },
   noProjectsAvailable: {
     english: 'No projects available',
+    french: 'Aucun projet disponible',
     spanish: 'No hay proyectos disponibles',
     brazilian_portuguese: 'Nenhum projeto disponível',
     tok_pisin: 'Nogat projek i stap',
@@ -1400,6 +1520,7 @@ export const localizations = {
   },
   createProject: {
     english: 'Create Project',
+    french: 'Créer un projet',
     spanish: 'Crear proyecto',
     brazilian_portuguese: 'Criar projeto',
     tok_pisin: 'Wokim Nupela Projek',
@@ -1412,6 +1533,7 @@ export const localizations = {
   },
   published: {
     english: 'Published',
+    french: 'Publié',
     spanish: 'Publicado',
     brazilian_portuguese: 'Publicado',
     tok_pisin: 'Publisim pinis',
@@ -1424,6 +1546,7 @@ export const localizations = {
   },
   cannotPublishWhileOffline: {
     english: 'Cannot save to cloud while offline',
+    french: "Impossible d'enregistrer sur le cloud en mode hors connexion",
     spanish: 'No se puede guardar en la nube mientras está desconectado',
     brazilian_portuguese:
       'Não é possível salvar na nuvem enquanto está desconectado',
@@ -1437,6 +1560,7 @@ export const localizations = {
   },
   chapters: {
     english: 'Chapters',
+    french: 'Chapitres',
     spanish: 'Capítulos',
     brazilian_portuguese: 'Capítulos',
     tok_pisin: 'Chapter',
@@ -1449,6 +1573,7 @@ export const localizations = {
   },
   chapter: {
     english: 'Chapter',
+    french: 'Chapitre',
     spanish: 'Capítulo',
     brazilian_portuguese: 'Capítulo',
     tok_pisin: 'Chapter',
@@ -1461,6 +1586,7 @@ export const localizations = {
   },
   publishChapter: {
     english: 'Save to Cloud',
+    french: 'Enregistrer dans le cloud',
     spanish: 'Guardar en la Nube',
     brazilian_portuguese: 'Salvar na Nuvem',
     tok_pisin: 'Save long Cloud',
@@ -1473,6 +1599,7 @@ export const localizations = {
   },
   publish: {
     english: 'Save',
+    french: 'Sauvegarder',
     spanish: 'Guardar',
     nepali: 'सेभ गर्नुहोस्',
     brazilian_portuguese: 'Salvar',
@@ -1486,6 +1613,8 @@ export const localizations = {
   publishChapterMessage: {
     english:
       "This will create a permanent copy of {questName} in the cloud.\n\nAll recordings will be saved as an immutable snapshot. Once saved, this version cannot be changed, but you can create new versions later if needed.\n\nIf the parent book or project haven't been saved to the cloud yet, they will be saved automatically.",
+    french:
+      "Cela créera une copie permanente de {questName} dans le cloud.\n\nTous les enregistrements seront sauvegardés sous forme d’instantané immuable. Une fois enregistrée, cette version ne peut pas être modifiée, mais vous pouvez créer de nouvelles versions ultérieurement si nécessaire.\n\nSi le livre ou le projet parent n'a pas encore été enregistré dans le cloud, il le sera automatiquement.",
     spanish:
       'Esto creará una copia permanente de {questName} en la nube.\n\nTodas las grabaciones se guardarán como una instantánea inmutable. Una vez guardada, esta versión no se puede cambiar, pero puedes crear nuevas versiones más tarde si es necesario.\n\nSi el libro o proyecto padre aún no se han guardado en la nube, se guardarán automáticamente.',
     brazilian_portuguese:
@@ -1506,6 +1635,7 @@ export const localizations = {
   },
   quest: {
     english: 'Quest',
+    french: 'Quête',
     spanish: 'Misión',
     brazilian_portuguese: 'Missão',
     tok_pisin: 'Quest',
@@ -1518,6 +1648,7 @@ export const localizations = {
   },
   questOptions: {
     english: 'Quest Options',
+    french: 'Options de quête',
     spanish: 'Opciones de misión',
     brazilian_portuguese: 'Opções de Missão',
     tok_pisin: 'Quest Options',
@@ -1530,6 +1661,7 @@ export const localizations = {
   },
   recording: {
     english: 'Recording',
+    french: 'Enregistrement',
     spanish: 'Grabando',
     brazilian_portuguese: 'Gravando',
     tok_pisin: 'Recording',
@@ -1542,6 +1674,7 @@ export const localizations = {
   },
   register: {
     english: 'Register',
+    french: 'Registre',
     spanish: 'Registrarse',
     brazilian_portuguese: 'Registrar',
     tok_pisin: 'Register',
@@ -1554,6 +1687,7 @@ export const localizations = {
   },
   createAccount: {
     english: 'Create Account',
+    french: 'Créer un compte',
     spanish: 'Crear Cuenta',
     brazilian_portuguese: 'Criar Conta',
     tok_pisin: 'Mekim Account',
@@ -1566,6 +1700,7 @@ export const localizations = {
   },
   registrationFail: {
     english: 'Registration failed',
+    french: "L'inscription a échoué",
     spanish: 'Error en el registro',
     brazilian_portuguese: 'Falha no registro',
     tok_pisin: 'Registration i no inap',
@@ -1578,6 +1713,7 @@ export const localizations = {
   },
   registrationSuccess: {
     english: 'Registration successful',
+    french: 'Inscription réussie',
     spanish: 'Registro exitoso',
     brazilian_portuguese: 'Registro bem-sucedido',
     tok_pisin: 'Registration i orait',
@@ -1590,6 +1726,7 @@ export const localizations = {
   },
   resetPassword: {
     english: 'Reset Password',
+    french: 'Réinitialiser le mot de passe',
     spanish: 'Restablecer contraseña',
     brazilian_portuguese: 'Redefinir Senha',
     tok_pisin: 'Reset Password',
@@ -1602,6 +1739,7 @@ export const localizations = {
   },
   returningHero: {
     english: 'Returning hero? Sign In',
+    french: 'Un héros de retour ? Se connecter',
     spanish: '¿Héroe que regresa? Inicia sesión',
     brazilian_portuguese: 'Herói retornando? Faça Login',
     tok_pisin: 'Hero i kam bek? Sign In',
@@ -1614,6 +1752,7 @@ export const localizations = {
   },
   search: {
     english: 'Search...',
+    french: 'Recherche...',
     spanish: 'Buscar...',
     brazilian_portuguese: 'Buscar...',
     tok_pisin: 'Painim...',
@@ -1626,6 +1765,7 @@ export const localizations = {
   },
   searchAssets: {
     english: 'Search assets...',
+    french: 'Rechercher des éléments...',
     spanish: 'Buscar recursos...',
     brazilian_portuguese: 'Buscar recursos...',
     tok_pisin: 'Painim ol asset...',
@@ -1638,6 +1778,7 @@ export const localizations = {
   },
   noAssetsFound: {
     english: 'No assets found',
+    french: 'Aucun élément trouvé',
     spanish: 'No se encontraron recursos',
     brazilian_portuguese: 'Nenhum recurso encontrado',
     tok_pisin: 'No gat asset',
@@ -1650,6 +1791,7 @@ export const localizations = {
   },
   nothingHereYet: {
     english: 'Nothing here yet!',
+    french: "Rien ici pour l'instant !",
     spanish: '¡Nada aquí todavía!',
     brazilian_portuguese: '¡Nada aqui ainda!',
     tok_pisin: 'I no gat here yet!',
@@ -1662,6 +1804,7 @@ export const localizations = {
   },
   searchQuests: {
     english: 'Search quests...',
+    french: 'Rechercher des quêtes...',
     spanish: 'Buscar misiones...',
     brazilian_portuguese: 'Buscar missões...',
     tok_pisin: 'Painim ol quest...',
@@ -1674,6 +1817,7 @@ export const localizations = {
   },
   selectItem: {
     english: 'Select item',
+    french: 'Sélectionner un article',
     spanish: 'Seleccionar elemento',
     brazilian_portuguese: 'Selecionar item',
     tok_pisin: 'Makim item',
@@ -1686,6 +1830,7 @@ export const localizations = {
   },
   selectLanguage: {
     english: 'Please select a language',
+    french: 'Veuillez sélectionner une langue',
     spanish: 'Por favor seleccione un idioma',
     brazilian_portuguese: 'Por favor, selecione um idioma',
     tok_pisin: 'Plis makim wanpela tokples',
@@ -1698,6 +1843,7 @@ export const localizations = {
   },
   selectRegion: {
     english: 'Select Region',
+    french: 'Sélectionnez une région',
     spanish: 'Seleccionar Región',
     brazilian_portuguese: 'Selecionar Região',
     tok_pisin: 'Makim Region',
@@ -1710,6 +1856,7 @@ export const localizations = {
   },
   selectRegionToFilterLanguages: {
     english: 'Select a region to see languages from that area',
+    french: 'Sélectionnez une région pour voir les langues de cette zone',
     spanish: 'Seleccione una región para ver idiomas de esa área',
     brazilian_portuguese: 'Selecionar uma região para ver idiomas dessa área',
     tok_pisin: 'Makim wanpela region long lukim ol tokples bilong ples ya',
@@ -1722,6 +1869,7 @@ export const localizations = {
   },
   selectYourLanguage: {
     english: 'Select Your Language',
+    french: 'Sélectionnez votre langue',
     spanish: 'Seleccione Su Idioma',
     brazilian_portuguese: 'Selecionar Seu Idioma',
     tok_pisin: 'Makim Tokples Bilong Yu',
@@ -1734,6 +1882,7 @@ export const localizations = {
   },
   createLanguage: {
     english: 'Create Language',
+    french: 'Créer une langue',
     spanish: 'Crear Idioma',
     brazilian_portuguese: 'Criar Idioma',
     tok_pisin: 'Mekim Tokples',
@@ -1746,6 +1895,7 @@ export const localizations = {
   },
   createNewLanguage: {
     english: 'Create New Language',
+    french: 'Créer une nouvelle langue',
     spanish: 'Crear Nuevo Idioma',
     brazilian_portuguese: 'Criar Novo Idioma',
     tok_pisin: 'Mekim Nupela Tokples',
@@ -1758,6 +1908,7 @@ export const localizations = {
   },
   languageNotInList: {
     english: 'My language is not in the list',
+    french: "Ma langue n'est pas dans la liste",
     spanish: 'Mi idioma no está en la lista',
     brazilian_portuguese: 'Meu idioma não está na lista',
     tok_pisin: 'Tokples bilong mi i no stap long list',
@@ -1770,6 +1921,7 @@ export const localizations = {
   },
   willCreateLanguage: {
     english: 'Will create language',
+    french: 'Créera un langage',
     spanish: 'Creará idioma',
     brazilian_portuguese: 'Criará idioma',
     tok_pisin: 'Bai mekim tokples',
@@ -1782,6 +1934,7 @@ export const localizations = {
   },
   nativeName: {
     english: 'Native Name',
+    french: 'Nom natif',
     spanish: 'Nombre Nativo',
     brazilian_portuguese: 'Nome Nativo',
     tok_pisin: 'Nem Bilong Tokples',
@@ -1794,6 +1947,7 @@ export const localizations = {
   },
   englishName: {
     english: 'English Name',
+    french: 'Nom anglais',
     spanish: 'Nombre en Inglés',
     brazilian_portuguese: 'Nome em Inglês',
     tok_pisin: 'Nem Long English',
@@ -1806,6 +1960,7 @@ export const localizations = {
   },
   iso6393Code: {
     english: 'ISO 639-3 Code',
+    french: 'Code ISO 639-3',
     spanish: 'Código ISO 639-3',
     brazilian_portuguese: 'Código ISO 639-3',
     tok_pisin: 'ISO 639-3 Code',
@@ -1818,6 +1973,7 @@ export const localizations = {
   },
   locale: {
     english: 'Locale',
+    french: 'Lieu',
     spanish: 'Idioma',
     brazilian_portuguese: 'Idioma',
     tok_pisin: 'Locale',
@@ -1830,6 +1986,7 @@ export const localizations = {
   },
   createAndContinue: {
     english: 'Create and Continue',
+    french: 'Créer et continuer',
     spanish: 'Crear y Continuar',
     brazilian_portuguese: 'Criar e Continuar',
     tok_pisin: 'Mekim na Go Long',
@@ -1842,6 +1999,7 @@ export const localizations = {
   },
   whatWouldYouLikeToCreate: {
     english: 'What would you like to create?',
+    french: 'Qu’aimeriez-vous créer ?',
     spanish: '¿Qué te gustaría crear?',
     brazilian_portuguese: 'O que você gostaria de criar?',
     tok_pisin: 'Wanem samting yu laik mekim?',
@@ -1854,6 +2012,7 @@ export const localizations = {
   },
   createBibleProject: {
     english: 'Bible',
+    french: 'Bible',
     spanish: 'Biblia',
     brazilian_portuguese: 'Bíblia',
     tok_pisin: 'Baibel',
@@ -1866,6 +2025,7 @@ export const localizations = {
   },
   translateBibleIntoYourLanguage: {
     english: 'Translate the Bible into your language',
+    french: 'Traduisez la Bible dans votre langue',
     spanish: 'Traduce la Biblia a tu idioma',
     brazilian_portuguese: 'Traduza a Bíblia para o seu idioma',
     tok_pisin: 'Translate Baibel long tokples bilong yu',
@@ -1878,6 +2038,7 @@ export const localizations = {
   },
   createOtherProject: {
     english: 'Custom Translation',
+    french: 'Traduction personnalisée',
     spanish: 'Traducción Personalizada',
     brazilian_portuguese: 'Tradução Personalizada',
     tok_pisin: 'Custom Translation',
@@ -1890,6 +2051,7 @@ export const localizations = {
   },
   createGeneralTranslationProject: {
     english: 'Create a custom translation project',
+    french: 'Créer un projet de traduction personnalisé',
     spanish: 'Crear un proyecto de traducción personalizado',
     brazilian_portuguese: 'Criar um projeto de tradução personalizado',
     tok_pisin: 'Mekim wanpela custom project long translate ol samting',
@@ -1902,6 +2064,7 @@ export const localizations = {
   },
   selectProject: {
     english: 'Select Project',
+    french: 'Sélectionnez un projet',
     spanish: 'Seleccionar Proyecto',
     brazilian_portuguese: 'Selecionar Projeto',
     tok_pisin: 'Makim Project',
@@ -1914,6 +2077,7 @@ export const localizations = {
   },
   createFirstProject: {
     english: 'Create First Project',
+    french: 'Créer un premier projet',
     spanish: 'Crear Primer Proyecto',
     brazilian_portuguese: 'Criar Primeiro Projeto',
     tok_pisin: 'Mekim Nambawan Project',
@@ -1926,6 +2090,7 @@ export const localizations = {
   },
   createNewProject: {
     english: 'Create New Project',
+    french: 'Créer un nouveau projet',
     spanish: 'Crear Nuevo Proyecto',
     nepali: 'नयाँ प्रोजेक्ट सिर्जना गर्नुहोस्',
     brazilian_portuguese: 'Criar Novo Projeto',
@@ -1938,6 +2103,7 @@ export const localizations = {
   },
   existingProjectsInLanguage: {
     english: 'Existing projects in {language}',
+    french: 'Projets existants en {language}',
     spanish: 'Proyectos existentes en {language}',
     brazilian_portuguese: 'Projetos existentes em {language}',
     tok_pisin: 'Ol project i stap pinis long {language}',
@@ -1950,6 +2116,7 @@ export const localizations = {
   },
   noProjectsInLanguage: {
     english: 'No projects yet in {language}',
+    french: "Aucun projet pour l'instant en {language}",
     spanish: 'Aún no hay proyectos en {language}',
     brazilian_portuguese: 'Ainda não há projetos em {language}',
     tok_pisin: 'I no gat project yet long {language}',
@@ -1962,6 +2129,7 @@ export const localizations = {
   },
   searchLanguages: {
     english: 'Search languages...',
+    french: 'Rechercher des langues...',
     spanish: 'Buscar idiomas...',
     brazilian_portuguese: 'Pesquisar idiomas...',
     tok_pisin: 'Painim ol tokples...',
@@ -1974,6 +2142,7 @@ export const localizations = {
   },
   noLanguagesFound: {
     english: 'No languages found',
+    french: 'Aucune langue trouvée',
     spanish: 'No se encontraron idiomas',
     brazilian_portuguese: 'Nenhum idioma encontrado',
     tok_pisin: 'I no gat tokples',
@@ -1987,6 +2156,8 @@ export const localizations = {
   noLanguagesInRegion: {
     english:
       'No languages found in this region. You can create a new language below.',
+    french:
+      'Aucune langue trouvée dans cette région. Vous pouvez créer une nouvelle langue ci-dessous.',
     spanish:
       'No se encontraron idiomas en esta región. Puedes crear un nuevo idioma a continuación.',
     brazilian_portuguese:
@@ -2006,6 +2177,7 @@ export const localizations = {
   },
   typeToSearch: {
     english: 'Type at least {min} characters to search',
+    french: 'Saisissez au moins {min} caractères pour effectuer la recherche.',
     spanish: 'Escriba al menos {min} caracteres para buscar',
     brazilian_portuguese: 'Digite pelo menos {min} caracteres para pesquisar',
     tok_pisin: 'Raitim {min} leta bipo painim',
@@ -2018,6 +2190,7 @@ export const localizations = {
   },
   selectTemplate: {
     english: 'Please select a template',
+    french: 'Veuillez sélectionner un modèle',
     spanish: 'Por favor seleccione una plantilla',
     brazilian_portuguese: 'Por favor, selecione uma planta',
     tok_pisin: 'Plis makim wanpela template',
@@ -2030,6 +2203,7 @@ export const localizations = {
   },
   sendResetEmail: {
     english: 'Send Reset Email',
+    french: 'Envoyer un e-mail de réinitialisation',
     spanish: 'Enviar correo de restablecimiento',
     brazilian_portuguese: 'Enviar E-mail de Redefinição',
     tok_pisin: 'Salim Reset Email',
@@ -2042,6 +2216,7 @@ export const localizations = {
   },
   signIn: {
     english: 'Sign In',
+    french: 'Se connecter',
     spanish: 'Iniciar Sesión',
     brazilian_portuguese: 'Entrar',
     tok_pisin: 'Sign In',
@@ -2054,6 +2229,7 @@ export const localizations = {
   },
   signInToSaveOrContribute: {
     english: 'Sign in to save or contribute to projects',
+    french: 'Connectez-vous pour enregistrer ou contribuer à des projets',
     spanish: 'Inicia sesión para guardar o contribuir a proyectos',
     brazilian_portuguese: 'Entre para salvar ou contribuir com projetos',
     tok_pisin: 'Sign in long seivim o helpim ol project',
@@ -2066,6 +2242,7 @@ export const localizations = {
   },
   orBrowseAllProjects: {
     english: 'Or browse all public projects',
+    french: 'Ou parcourez tous les projets publics',
     spanish: 'O navega todos los proyectos públicos',
     brazilian_portuguese: 'Ou navegue por todos os projetos públicos',
     tok_pisin: 'O lukluk long olgeta public project',
@@ -2078,6 +2255,7 @@ export const localizations = {
   },
   viewAllProjects: {
     english: 'View All Projects',
+    french: 'Voir tous les projets',
     spanish: 'Ver Todos los Proyectos',
     brazilian_portuguese: 'Ver Todos os Projetos',
     tok_pisin: 'Lukim Olgeta Project',
@@ -2090,6 +2268,8 @@ export const localizations = {
   },
   signInError: {
     english: 'Something went wrong… Please, check your email and password.',
+    french:
+      "Quelque chose s'est mal passé… Veuillez vérifier votre e-mail et votre mot de passe.",
     spanish: 'Algo salió mal… Por favor, revisa tu correo y contraseña.',
     brazilian_portuguese:
       'Algo deu errado… Por favor, verifique seu e-mail e senha.',
@@ -2105,6 +2285,7 @@ export const localizations = {
   },
   logOut: {
     english: 'Log Out',
+    french: 'Se déconnecter',
     spanish: 'Cerrar Sesión',
     brazilian_portuguese: 'Sair',
     tok_pisin: 'Log Out',
@@ -2117,6 +2298,7 @@ export const localizations = {
   },
   sortBy: {
     english: 'Sort by',
+    french: 'Trier par',
     spanish: 'Ordenar por',
     brazilian_portuguese: 'Ordenar por',
     tok_pisin: 'Sortim long',
@@ -2129,6 +2311,7 @@ export const localizations = {
   },
   source: {
     english: 'Source',
+    french: 'Source',
     spanish: 'Fuente',
     brazilian_portuguese: 'Fonte',
     tok_pisin: 'Source',
@@ -2141,6 +2324,7 @@ export const localizations = {
   },
   submit: {
     english: 'Submit',
+    french: 'Soumettre',
     spanish: 'Enviar',
     brazilian_portuguese: 'Enviar',
     tok_pisin: 'Salim',
@@ -2153,6 +2337,7 @@ export const localizations = {
   },
   success: {
     english: 'Success',
+    french: 'Succès',
     spanish: 'Éxito',
     brazilian_portuguese: 'Sucesso',
     tok_pisin: 'Orait',
@@ -2165,6 +2350,7 @@ export const localizations = {
   },
   target: {
     english: 'Target',
+    french: 'Cible',
     spanish: 'Objetivo',
     brazilian_portuguese: 'Alvo',
     tok_pisin: 'Target',
@@ -2177,6 +2363,7 @@ export const localizations = {
   },
   username: {
     english: 'Username',
+    french: "Nom d'utilisateur",
     spanish: 'Nombre de usuario',
     brazilian_portuguese: 'Nome de usuário',
     tok_pisin: 'Username',
@@ -2189,6 +2376,7 @@ export const localizations = {
   },
   usernameRequired: {
     english: 'Username is required',
+    french: "Le nom d'utilisateur est requis",
     spanish: 'Se requiere nombre de usuario',
     brazilian_portuguese: 'Nome de usuário é obrigatório',
     tok_pisin: 'Username i mas',
@@ -2201,6 +2389,7 @@ export const localizations = {
   },
   votes: {
     english: 'Votes',
+    french: 'Votes',
     spanish: 'Votos',
     brazilian_portuguese: 'Votos',
     tok_pisin: 'Ol Vote',
@@ -2213,6 +2402,7 @@ export const localizations = {
   },
   voting: {
     english: 'Voting',
+    french: 'Vote',
     spanish: 'Votación',
     brazilian_portuguese: 'Votação',
     tok_pisin: 'Voting',
@@ -2225,6 +2415,7 @@ export const localizations = {
   },
   warning: {
     english: 'Warning',
+    french: 'Avertissement',
     spanish: 'Advertencia',
     brazilian_portuguese: 'Aviso',
     tok_pisin: 'Warning',
@@ -2237,6 +2428,7 @@ export const localizations = {
   },
   welcome: {
     english: 'Welcome back, hero!',
+    french: 'Bon retour, héros !',
     spanish: '¡Bienvenido de nuevo, héroe!',
     brazilian_portuguese: 'Bem-vindo de volta, herói!',
     tok_pisin: 'Welkam bek, hero!',
@@ -2249,6 +2441,7 @@ export const localizations = {
   },
   welcomeToApp: {
     english: 'Welcome',
+    french: 'Accueillir',
     spanish: 'Bienvenido',
     brazilian_portuguese: 'Bem-vindo',
     tok_pisin: 'Welkam',
@@ -2261,6 +2454,7 @@ export const localizations = {
   },
   recentlyVisited: {
     english: 'Recently Visited',
+    french: 'Récemment visité',
     spanish: 'Recientemente visitado',
     brazilian_portuguese: 'Visitados Recentemente',
     tok_pisin: 'Nupela taim visitim',
@@ -2273,6 +2467,7 @@ export const localizations = {
   },
   assets: {
     english: 'Assets',
+    french: 'Actifs',
     spanish: 'Recursos',
     brazilian_portuguese: 'Recursos',
     tok_pisin: 'Ol Asset',
@@ -2285,6 +2480,7 @@ export const localizations = {
   },
   asset: {
     english: 'Asset',
+    french: 'Actif',
     spanish: 'Recurso',
     brazilian_portuguese: 'Recurso',
     tok_pisin: 'Asset',
@@ -2297,6 +2493,7 @@ export const localizations = {
   },
   deleteAssets: {
     english: 'Delete Assets',
+    french: 'Supprimer des actifs',
     spanish: 'Eliminar recursos',
     brazilian_portuguese: 'Excluir recursos',
     tok_pisin: 'Rausim ol asset',
@@ -2310,6 +2507,8 @@ export const localizations = {
   deleteAssetsConfirmation: {
     english:
       'Are you sure you want to delete {count} asset(s)? This action cannot be undone.',
+    french:
+      'Êtes-vous sûr de vouloir supprimer {count} élément(s) ? Cette action ne peut pas être annulée.',
     spanish:
       '¿Estás seguro de que deseas eliminar {count} recurso(s)? Esta acción no se puede deshacer.',
     brazilian_portuguese:
@@ -2329,6 +2528,7 @@ export const localizations = {
   },
   selected: {
     english: 'selected',
+    french: 'choisi',
     spanish: 'seleccionado(s)',
     brazilian_portuguese: 'selecionado(s)',
     tok_pisin: 'selected',
@@ -2341,6 +2541,7 @@ export const localizations = {
   },
   delete: {
     english: 'Delete',
+    french: 'Supprimer',
     spanish: 'Eliminar',
     brazilian_portuguese: 'Excluir',
     tok_pisin: 'Rausim',
@@ -2353,6 +2554,7 @@ export const localizations = {
   },
   mergeAssets: {
     english: 'Merge Assets',
+    french: 'Fusionner les actifs',
     spanish: 'Combinar recursos',
     brazilian_portuguese: 'Mesclar recursos',
     tok_pisin: 'Joinim ol asset',
@@ -2366,6 +2568,8 @@ export const localizations = {
   mergeAssetsConfirmation: {
     english:
       'Are you sure you want to merge {count} assets? The audio segments will be combined into the first selected asset, and the others will be deleted.',
+    french:
+      'Êtes-vous sûr de vouloir fusionner {count} éléments ? Les segments audio seront combinés dans le premier élément sélectionné et les autres seront supprimés.',
     spanish:
       '¿Estás seguro de que deseas combinar {count} recursos? Los segmentos de audio se combinarán en el primer recurso seleccionado y los demás se eliminarán.',
     brazilian_portuguese:
@@ -2386,6 +2590,7 @@ export const localizations = {
   },
   merge: {
     english: 'Merge',
+    french: 'Fusionner',
     spanish: 'Combinar',
     brazilian_portuguese: 'Mesclar',
     tok_pisin: 'Joinim',
@@ -2398,6 +2603,7 @@ export const localizations = {
   },
   failedToMergeAssets: {
     english: 'Failed to merge assets. Please try again.',
+    french: 'Échec de la fusion des éléments. Veuillez réessayer.',
     spanish: 'Error al combinar los recursos. Por favor, inténtalo de nuevo.',
     brazilian_portuguese:
       'Falha ao mesclar recursos. Por favor, tente novamente.',
@@ -2412,6 +2618,7 @@ export const localizations = {
   },
   failedToDeleteAssets: {
     english: 'Failed to delete assets. Please try again.',
+    french: 'Échec de la suppression des éléments. Veuillez réessayer.',
     spanish: 'Error al eliminar los recursos. Por favor, inténtalo de nuevo.',
     brazilian_portuguese:
       'Falha ao excluir recursos. Por favor, tente novamente.',
@@ -2425,6 +2632,7 @@ export const localizations = {
   },
   errorLoadingAssets: {
     english: 'Error loading assets',
+    french: 'Erreur lors du chargement des éléments',
     spanish: 'Error al cargar los recursos',
     brazilian_portuguese: 'Erro ao carregar recursos',
     tok_pisin: 'Rong long loadim ol asset',
@@ -2437,6 +2645,8 @@ export const localizations = {
   },
   noAssetsYetStartRecording: {
     english: 'No assets yet. Start recording to create your first asset.',
+    french:
+      "Aucun actif pour l'instant. Commencez l'enregistrement pour créer votre premier élément.",
     spanish:
       'Aún no hay recursos. Comienza a grabar para crear tu primer recurso.',
     brazilian_portuguese:
@@ -2456,6 +2666,7 @@ export const localizations = {
   },
   remaining: {
     english: 'remaining',
+    french: 'restant',
     spanish: 'restante',
     brazilian_portuguese: 'restante',
     tok_pisin: 'stap yet',
@@ -2468,6 +2679,7 @@ export const localizations = {
   },
   noNotifications: {
     english: 'No notifications',
+    french: 'Aucune notification',
     spanish: 'No hay notificaciones',
     brazilian_portuguese: 'Nenhuma notificação',
     tok_pisin: 'No gat notification',
@@ -2480,6 +2692,8 @@ export const localizations = {
   },
   noNotificationsSubtext: {
     english: "You'll see project invitations and join requests here",
+    french:
+      'Vous verrez les invitations à des projets et les demandes de participation ici',
     spanish: 'Aquí verás invitaciones a proyectos y solicitudes de unión',
     brazilian_portuguese:
       'Aqui você verá convites para projetos e solicitações de união',
@@ -2496,6 +2710,7 @@ export const localizations = {
   },
   notifications: {
     english: 'Notifications',
+    french: 'Notifications',
     spanish: 'Notificaciones',
     brazilian_portuguese: 'Notificações',
     tok_pisin: 'Ol Notification',
@@ -2508,6 +2723,7 @@ export const localizations = {
   },
   profile: {
     english: 'Profile',
+    french: 'Profil',
     spanish: 'Perfil',
     brazilian_portuguese: 'Perfil',
     tok_pisin: 'Profile',
@@ -2520,6 +2736,7 @@ export const localizations = {
   },
   settings: {
     english: 'Settings',
+    french: 'Paramètres',
     spanish: 'Configuración',
     brazilian_portuguese: 'Configurações',
     tok_pisin: 'Settings',
@@ -2532,6 +2749,7 @@ export const localizations = {
   },
   changePassword: {
     english: 'Change Password',
+    french: 'Changer le mot de passe',
     spanish: 'Cambiar Contraseña',
     brazilian_portuguese: 'Alterar Senha',
     tok_pisin: 'Senisim Password',
@@ -2544,6 +2762,7 @@ export const localizations = {
   },
   currentPassword: {
     english: 'Current Password',
+    french: 'Mot de passe actuel',
     spanish: 'Contraseña Actual',
     brazilian_portuguese: 'Senha Atual',
     tok_pisin: 'Password bilong nau',
@@ -2556,6 +2775,7 @@ export const localizations = {
   },
   newPassword: {
     english: 'New Password',
+    french: 'Nouveau mot de passe',
     spanish: 'Nueva Contraseña',
     brazilian_portuguese: 'Nova Senha',
     tok_pisin: 'Nupela Password',
@@ -2568,6 +2788,7 @@ export const localizations = {
   },
   onlineOnlyFeatures: {
     english: 'Password changes are only available when online',
+    french: "Les changements de mot de passe ne sont disponibles qu'en ligne",
     spanish:
       'Los cambios de contraseña solo están disponibles cuando está en línea',
     brazilian_portuguese:
@@ -2583,6 +2804,7 @@ export const localizations = {
   },
   accountDeletionRequiresOnline: {
     english: 'You must be online to delete your account',
+    french: 'Vous devez être en ligne pour supprimer votre compte',
     spanish: 'Debes estar en línea para eliminar tu cuenta',
     brazilian_portuguese: 'Você deve estar online para excluir sua conta',
     tok_pisin: 'Yu mas gat internet long rausim account bilong yu',
@@ -2595,6 +2817,7 @@ export const localizations = {
   },
   termsAndPrivacyTitle: {
     english: 'Terms & Privacy',
+    french: 'Conditions et confidentialité',
     spanish: 'Términos y Privacidad',
     brazilian_portuguese: 'Termos e Privacidade',
     tok_pisin: 'Terms na Privacy',
@@ -2607,6 +2830,7 @@ export const localizations = {
   },
   verificationRequired: {
     english: 'Verification Required',
+    french: 'Vérification requise',
     spanish: 'Verificación Requerida',
     brazilian_portuguese: 'Verificação Necessária',
     tok_pisin: 'Verification i mas',
@@ -2618,19 +2842,21 @@ export const localizations = {
     mandarin: '需要验证'
   },
   agreeToTerms: {
-    english: 'I have read and agree to the {link}',
-    spanish: 'He leído y acepto los {link}',
-    brazilian_portuguese: 'Eu li e concordo com os {link}',
-    tok_pisin: 'Mi ridim na agri long {link}',
-    indonesian: 'Saya telah membaca dan menyetujui {link}',
-    nepali: 'मैले {link} पढेको छु र स्वीकार गर्छु',
-    hindi: 'मैंने {link} पढ़ ली है और सहमत हूं',
-    burmese: 'ကျွန်ုပ်သည် {link} ကို ဖတ်ရှုပြီး သဘောတူပါသည်',
-    thai: 'ฉันได้อ่านและยอมรับ{link}แล้ว',
-    mandarin: '我已阅读并同意{link}'
+    english: 'I agree to the {link}',
+    french: "J'accepte le {link}",
+    spanish: 'Acepto los {link}',
+    brazilian_portuguese: 'Eu concordo com os {link}',
+    tok_pisin: 'Mi agri long {link}',
+    indonesian: 'Saya menyetujui {link}',
+    nepali: 'म {link} स्वीकार गर्छु',
+    hindi: 'मैं {link} से सहमत हूं',
+    burmese: 'ကျွန်ုပ် {link} ကို သဘောတူပါသည်',
+    thai: 'ฉันยอมรับ{link}',
+    mandarin: '我同意{link}'
   },
   termsAndPrivacyLink: {
     english: 'Terms & Privacy',
+    french: 'Conditions et confidentialité',
     spanish: 'Términos y Privacidad',
     brazilian_portuguese: 'Termos e Privacidade',
     tok_pisin: 'Terms na Privacy',
@@ -2643,6 +2869,7 @@ export const localizations = {
   },
   viewTerms: {
     english: 'View Terms and Privacy',
+    french: 'Afficher les conditions et la confidentialité',
     spanish: 'Ver Términos y Privacidad',
     brazilian_portuguese: 'Ver Termos e Privacidade',
     tok_pisin: 'Lukim Terms na Privacy',
@@ -2655,6 +2882,7 @@ export const localizations = {
   },
   termsRequired: {
     english: 'You must agree to the Terms and Privacy',
+    french: 'Vous devez accepter les conditions et la confidentialité',
     spanish: 'Debe aceptar los Términos y Privacidad',
     brazilian_portuguese: 'Você deve concordar com os Termos e Privacidade',
     tok_pisin: 'Yu mas agri long Terms na Privacy',
@@ -2667,6 +2895,7 @@ export const localizations = {
   },
   processing: {
     english: 'Processing...',
+    french: 'Traitement...',
     spanish: 'Procesando...',
     brazilian_portuguese: 'Processando...',
     tok_pisin: 'Processing...',
@@ -2680,6 +2909,8 @@ export const localizations = {
   termsContributionInfo: {
     english:
       'By tapping {iAgree}, you agree that all content you contribute to LangQuest will be freely available worldwide under the CC0 1.0 Universal (CC0 1.0) Public Domain Dedication.',
+    french:
+      'En appuyant sur {iAgree}, vous acceptez que tout le contenu que vous contribuez à LangQuest sera disponible gratuitement dans le monde entier sous la dédicace au domaine public CC0 1.0 Universal (CC0 1.0).',
     spanish:
       'Al tocar {iAgree}, acepta que todo el contenido que aporte a LangQuest estará disponible gratuitamente en todo el mundo bajo la Dedicación de Dominio Público CC0 1.0 Universal (CC0 1.0).',
     brazilian_portuguese:
@@ -2701,6 +2932,8 @@ export const localizations = {
   termsDataInfo: {
     english:
       'This means your contributions can be used by anyone for any purpose without attribution. We collect minimal user data: only your email (for account recovery) and newsletter subscription if opted in.',
+    french:
+      'Cela signifie que vos contributions peuvent être utilisées par n’importe qui à n’importe quelle fin sans attribution. Nous collectons un minimum de données utilisateur : uniquement votre e-mail (pour la récupération de compte) et votre abonnement à la newsletter si vous y êtes inscrit.',
     spanish:
       'Esto significa que sus contribuciones pueden ser utilizadas por cualquier persona para cualquier propósito sin atribución. Recopilamos datos mínimos de usuario: solo su correo electrónico (para recuperación de cuenta) y suscripción al boletín si se inscribe.',
     brazilian_portuguese:
@@ -2722,6 +2955,8 @@ export const localizations = {
   analyticsInfo: {
     english:
       'We collect analytics and diagnostic data to improve the app and your experience. You can opt out of analytics at any time in your profile settings. Your data is processed and stored in the United States.',
+    french:
+      "Nous collectons des données d'analyse et de diagnostic pour améliorer l'application et votre expérience. Vous pouvez vous désinscrire des analyses à tout moment dans les paramètres de votre profil. Vos données sont traitées et stockées aux États-Unis.",
     spanish:
       'Recopilamos datos de análisis y diagnóstico para mejorar la aplicación y su experiencia. Puede optar por no participar en el análisis en cualquier momento en sus ajustes. Sus datos se procesan y almacenan en los Estados Unidos.',
     brazilian_portuguese:
@@ -2742,6 +2977,7 @@ export const localizations = {
   },
   viewFullTerms: {
     english: 'View Full Terms',
+    french: 'Voir les conditions complètes',
     spanish: 'Ver Términos Completos',
     brazilian_portuguese: 'Ver Termos Completos',
     tok_pisin: 'Lukim Olgeta Terms',
@@ -2754,6 +2990,7 @@ export const localizations = {
   },
   viewFullPrivacy: {
     english: 'View Full Privacy',
+    french: 'Voir la confidentialité complète',
     spanish: 'Ver Privacidad Completa',
     brazilian_portuguese: 'Ver Privacidade Completa',
     tok_pisin: 'Lukim Olgeta Privacy',
@@ -2766,6 +3003,7 @@ export const localizations = {
   },
   submitFeedback: {
     english: 'Submit Feedback',
+    french: 'Envoyer des commentaires',
     spanish: 'Enviar Feedback',
     brazilian_portuguese: 'Enviar Feedback',
     tok_pisin: 'Salim Feedback',
@@ -2778,6 +3016,7 @@ export const localizations = {
   },
   reportProject: {
     english: 'Report Project',
+    french: 'Projet de rapport',
     spanish: 'Reportar Proyecto',
     brazilian_portuguese: 'Reportar Projeto',
     tok_pisin: 'Reportim Projek',
@@ -2790,6 +3029,7 @@ export const localizations = {
   },
   reportQuest: {
     english: 'Report Quest',
+    french: 'Signaler la quête',
     spanish: 'Reportar Quest',
     brazilian_portuguese: 'Reportar Quest',
     tok_pisin: 'Reportim Quest',
@@ -2802,6 +3042,7 @@ export const localizations = {
   },
   reportAsset: {
     english: 'Report Asset',
+    french: "Signaler l'actif",
     spanish: 'Reportar Recurso',
     brazilian_portuguese: 'Reportar Recurso',
     tok_pisin: 'Reportim Asset',
@@ -2814,6 +3055,7 @@ export const localizations = {
   },
   reportTranslation: {
     english: 'Report Translation',
+    french: 'Traduction du rapport',
     spanish: 'Reportar Traducción',
     brazilian_portuguese: 'Reportar Tradução',
     tok_pisin: 'Reportim Translation',
@@ -2826,6 +3068,7 @@ export const localizations = {
   },
   reportGeneric: {
     english: 'Report',
+    french: 'Rapport',
     spanish: 'Reportar',
     brazilian_portuguese: 'Reportar',
     tok_pisin: 'Reportim',
@@ -2838,6 +3081,7 @@ export const localizations = {
   },
   selectReasonLabel: {
     english: 'Select a reason',
+    french: 'Sélectionnez une raison',
     spanish: 'Seleccione un motivo',
     brazilian_portuguese: 'Selecione um motivo',
     tok_pisin: 'Makim wanpela reson',
@@ -2850,6 +3094,7 @@ export const localizations = {
   },
   additionalDetails: {
     english: 'Additional Details',
+    french: 'Détails supplémentaires',
     spanish: 'Detalles Adicionales',
     brazilian_portuguese: 'Detalhes Adicionais',
     tok_pisin: 'Moa Details',
@@ -2862,6 +3107,7 @@ export const localizations = {
   },
   additionalDetailsPlaceholder: {
     english: 'Provide any additional information...',
+    french: 'Fournissez toute information supplémentaire...',
     spanish: 'Proporcionar cualquier información adicional...',
     brazilian_portuguese: 'Forneça qualquer informação adicional...',
     tok_pisin: 'Givim narapela information...',
@@ -2874,6 +3120,7 @@ export const localizations = {
   },
   submitReport: {
     english: 'Submit Report',
+    french: 'Soumettre le rapport',
     spanish: 'Enviar Reporte',
     brazilian_portuguese: 'Enviar Relatório',
     tok_pisin: 'Salim Report',
@@ -2886,6 +3133,7 @@ export const localizations = {
   },
   submitting: {
     english: 'Submitting...',
+    french: 'Soumission...',
     spanish: 'Enviando...',
     brazilian_portuguese: 'Enviando...',
     tok_pisin: 'Salim...',
@@ -2898,6 +3146,7 @@ export const localizations = {
   },
   reportSubmitted: {
     english: 'Report submitted successfully',
+    french: 'Rapport soumis avec succès',
     spanish: 'Reporte enviado exitosamente',
     brazilian_portuguese: 'Relatório enviado com sucesso',
     tok_pisin: 'Report i go gut',
@@ -2910,6 +3159,7 @@ export const localizations = {
   },
   enterEmailForPasswordReset: {
     english: 'Enter your email to reset your password',
+    french: 'Entrez votre email pour réinitialiser votre mot de passe',
     spanish: 'Ingrese su email para restablecer su contraseña',
     brazilian_portuguese: 'Digite seu e-mail para redefinir sua senha',
     tok_pisin: 'Putim email bilong yu long resetim password',
@@ -2922,6 +3172,7 @@ export const localizations = {
   },
   failedToSubmitReport: {
     english: 'Failed to submit report',
+    french: "Échec de l'envoi du rapport",
     spanish: 'Error al enviar el reporte',
     brazilian_portuguese: 'Falha ao enviar relatório',
     tok_pisin: 'I no inap salim report',
@@ -2934,6 +3185,7 @@ export const localizations = {
   },
   logInToReport: {
     english: 'You must be logged in to report translations',
+    french: 'Vous devez être connecté pour signaler des traductions',
     spanish: 'Debe iniciar sesión para reportar traducciones',
     brazilian_portuguese: 'Você deve estar logado para reportar traduções',
     tok_pisin: 'Yu mas login pastaim long reportim ol translation',
@@ -2946,6 +3198,7 @@ export const localizations = {
   },
   selectReason: {
     english: 'Please select a reason for the report',
+    french: 'Veuillez sélectionner une raison pour le rapport',
     spanish: 'Por favor seleccione un motivo para el reporte',
     brazilian_portuguese: 'Por favor, selecione um motivo para o relatório',
     tok_pisin: 'Plis makim wanpela reson long report',
@@ -2958,6 +3211,7 @@ export const localizations = {
   },
   enableAnalytics: {
     english: 'Enable Analytics',
+    french: "Activer l'analyse",
     spanish: 'Habilitar Análisis',
     brazilian_portuguese: 'Habilitar Análise',
     tok_pisin: 'Onim Analytics',
@@ -2971,6 +3225,8 @@ export const localizations = {
   analyticsDescription: {
     english:
       'When disabled, we will not collect usage data to improve the app.',
+    french:
+      "Lorsqu'elle est désactivée, nous ne collecterons pas de données d'utilisation pour améliorer l'application.",
     spanish:
       'Cuando está deshabilitado, no recopilaremos datos de uso para mejorar la aplicación.',
     brazilian_portuguese:
@@ -2990,6 +3246,7 @@ export const localizations = {
   },
   sessionExpired: {
     english: 'Session expired',
+    french: 'Session expirée',
     spanish: 'Sesión expirada',
     brazilian_portuguese: 'Sessão expirada',
     tok_pisin: 'Session i pinis',
@@ -3002,6 +3259,7 @@ export const localizations = {
   },
   'reportReason.inappropriate_content': {
     english: 'Inappropriate Content',
+    french: 'Contenu inapproprié',
     spanish: 'Contenido Inapropiado',
     brazilian_portuguese: 'Conteúdo Inapropriado',
     tok_pisin: 'Content i no gutpela',
@@ -3014,6 +3272,7 @@ export const localizations = {
   },
   'reportReason.spam': {
     english: 'Spam',
+    french: 'Courrier indésirable',
     spanish: 'Spam',
     brazilian_portuguese: 'Spam',
     tok_pisin: 'Spam',
@@ -3026,6 +3285,7 @@ export const localizations = {
   },
   'reportReason.other': {
     english: 'Other',
+    french: 'Autre',
     spanish: 'Otro',
     brazilian_portuguese: 'Outro',
     tok_pisin: 'Narapela',
@@ -3038,6 +3298,7 @@ export const localizations = {
   },
   updatePassword: {
     english: 'Update Password',
+    french: 'Mettre à jour le mot de passe',
     spanish: 'Actualizar Contraseña',
     brazilian_portuguese: 'Atualizar Senha',
     tok_pisin: 'Updateim Password',
@@ -3050,6 +3311,7 @@ export const localizations = {
   },
   createNewPassword: {
     english: 'Create New Password',
+    french: 'Créer un nouveau mot de passe',
     spanish: 'Crear nueva contraseña',
     brazilian_portuguese: 'Criar nova senha',
     tok_pisin: 'Mekim nupela password',
@@ -3062,6 +3324,7 @@ export const localizations = {
   },
   downloadLimitExceeded: {
     english: 'Download Limit Exceeded',
+    french: 'Limite de téléchargement dépassée',
     spanish: 'Límite de descarga excedido',
     brazilian_portuguese: 'Limite de download excedido',
     tok_pisin: 'Download limit i pinis',
@@ -3075,6 +3338,8 @@ export const localizations = {
   downloadLimitMessage: {
     english:
       'You are trying to download {newDownloads} attachments for a total of {totalDownloads}, but the limit is {limit}. Please deselect some downloads and try again.',
+    french:
+      'Vous essayez de télécharger {newDownloads} pièces jointes pour un total de {totalDownloads}, mais la limite est de {limit}. Veuillez désélectionner certains téléchargements et réessayer.',
     spanish:
       'Está intentando descargar {newDownloads} archivos adjuntos para un total de {totalDownloads}, pero el límite es {limit}. Por favor, deseleccione algunas descargas e intente nuevamente.',
     brazilian_portuguese:
@@ -3095,6 +3360,7 @@ export const localizations = {
   },
   offlineUndownloadWarning: {
     english: 'Offline Undownload Warning',
+    french: 'Avertissement de téléchargement hors ligne',
     spanish: 'Advertencia de eliminación sin conexión',
     brazilian_portuguese: 'Aviso de remoção de download offline',
     tok_pisin: 'Offline Undownload Warning',
@@ -3108,6 +3374,8 @@ export const localizations = {
   offlineUndownloadMessage: {
     english:
       "You are currently offline. If you remove this download, you won't be able to redownload it until you're back online. Your unsynced contributions will not be affected.",
+    french:
+      'Vous êtes actuellement hors ligne. Si vous supprimez ce téléchargement, vous ne pourrez pas le télécharger à nouveau tant que vous ne serez pas de nouveau en ligne. Vos contributions non synchronisées ne seront pas affectées.',
     spanish:
       'Actualmente estás sin conexión. Si eliminas esta descarga, no podrás volver a descargarla hasta que vuelvas a estar en línea. Tus contribuciones no sincronizadas no se verán afectadas.',
     brazilian_portuguese:
@@ -3128,6 +3396,7 @@ export const localizations = {
   },
   dontShowAgain: {
     english: "Don't show this message again",
+    french: 'Ne plus afficher ce message',
     spanish: 'No mostrar este mensaje nuevamente',
     brazilian_portuguese: 'Não mostrar esta mensagem novamente',
     tok_pisin: 'No soim dispela message gen',
@@ -3140,6 +3409,7 @@ export const localizations = {
   },
   cancel: {
     english: 'Cancel',
+    french: 'Annuler',
     spanish: 'Cancelar',
     brazilian_portuguese: 'Cancelar',
     tok_pisin: 'Cancel',
@@ -3152,6 +3422,7 @@ export const localizations = {
   },
   yes: {
     english: 'Yes',
+    french: 'Oui',
     spanish: 'Sí',
     brazilian_portuguese: 'Sim',
     tok_pisin: 'Yes',
@@ -3164,6 +3435,7 @@ export const localizations = {
   },
   no: {
     english: 'No',
+    french: 'Non',
     spanish: 'No',
     brazilian_portuguese: 'Não',
     tok_pisin: 'Nogat',
@@ -3176,6 +3448,7 @@ export const localizations = {
   },
   confirm: {
     english: 'Confirm',
+    french: 'Confirmer',
     spanish: 'Confirmar',
     brazilian_portuguese: 'Confirmar',
     tok_pisin: 'Confirm',
@@ -3188,6 +3461,7 @@ export const localizations = {
   },
   blockThisContent: {
     english: 'Block this content',
+    french: 'Bloquer ce contenu',
     spanish: 'Bloquear este contenido',
     brazilian_portuguese: 'Bloquear este conteúdo',
     tok_pisin: 'Blokim dispela content',
@@ -3200,6 +3474,7 @@ export const localizations = {
   },
   blockThisUser: {
     english: 'Block this user',
+    french: 'Bloquer cet utilisateur',
     spanish: 'Bloquear este usuario',
     brazilian_portuguese: 'Bloquear este usuário',
     tok_pisin: 'Blokim dispela user',
@@ -3213,6 +3488,7 @@ export const localizations = {
   // New backup-related translations
   backup: {
     english: 'Backup',
+    french: 'Sauvegarde',
     spanish: 'Respaldo',
     brazilian_portuguese: 'Backup',
     tok_pisin: 'Backup',
@@ -3225,6 +3501,7 @@ export const localizations = {
   },
   backingUp: {
     english: 'Backing Up...',
+    french: 'Sauvegarde...',
     spanish: 'Respaldando...',
     brazilian_portuguese: 'Fazendo Backup...',
     tok_pisin: 'Backup...',
@@ -3237,6 +3514,7 @@ export const localizations = {
   },
   restoreBackup: {
     english: 'Restore Backup',
+    french: 'Restaurer la sauvegarde',
     spanish: 'Restaurar Respaldo',
     brazilian_portuguese: 'Restaurar Backup',
     tok_pisin: 'Restore Backup',
@@ -3249,6 +3527,7 @@ export const localizations = {
   },
   restoring: {
     english: 'Restoring...',
+    french: 'Restauration...',
     spanish: 'Restaurando...',
     brazilian_portuguese: 'Restaurando...',
     tok_pisin: 'Restore...',
@@ -3261,6 +3540,7 @@ export const localizations = {
   },
   startBackupTitle: {
     english: 'Create Backup',
+    french: 'Créer une sauvegarde',
     spanish: 'Crear Respaldo',
     brazilian_portuguese: 'Criar Backup',
     tok_pisin: 'Mekim Backup',
@@ -3273,6 +3553,8 @@ export const localizations = {
   },
   startBackupMessageAudioOnly: {
     english: 'Would you like to back up your unsynced audio recordings?',
+    french:
+      'Souhaitez-vous sauvegarder vos enregistrements audio non synchronisés ?',
     spanish:
       '¿Desea hacer una copia de seguridad de sus grabaciones de audio no sincronizadas?',
     brazilian_portuguese:
@@ -3290,6 +3572,7 @@ export const localizations = {
   },
   backupAudioAction: {
     english: 'Backup audio and text',
+    french: "Sauvegarder l'audio et le texte",
     spanish: 'Respaldar audio y texto',
     brazilian_portuguese: 'Backup de áudio e texto',
     tok_pisin: 'Backup audio na text',
@@ -3302,6 +3585,7 @@ export const localizations = {
   },
   backupErrorTitle: {
     english: 'Backup Error',
+    french: 'Erreur de sauvegarde',
     spanish: 'Error de Respaldo',
     brazilian_portuguese: 'Erro de Backup',
     tok_pisin: 'Backup Rong',
@@ -3314,6 +3598,7 @@ export const localizations = {
   },
   backupCompleteTitle: {
     english: 'Backup Complete',
+    french: 'Sauvegarde terminée',
     spanish: 'Respaldo Completado',
     brazilian_portuguese: 'Backup Concluído',
     tok_pisin: 'Backup Pinis',
@@ -3326,6 +3611,7 @@ export const localizations = {
   },
   audioBackupStatus: {
     english: 'Successfully backed up {count} audio recordings',
+    french: 'Sauvegarde réussie de {count} enregistrements audio',
     spanish: 'Se respaldaron con éxito {count} grabaciones de audio',
     brazilian_portuguese:
       'Backup de {count} gravações de áudio concluído com sucesso',
@@ -3339,6 +3625,7 @@ export const localizations = {
   },
   criticalBackupError: {
     english: 'A critical error occurred: {error}',
+    french: "Une erreur critique s'est produite : {error}",
     spanish: 'Ocurrió un error crítico: {error}',
     brazilian_portuguese: 'Ocorreu um erro crítico: {error}',
     tok_pisin: 'Bikpela rong i kamap: {error}',
@@ -3351,6 +3638,7 @@ export const localizations = {
   },
   databaseNotReady: {
     english: 'Database is not ready. Please try again later.',
+    french: "La base de données n'est pas prête. Veuillez réessayer plus tard.",
     spanish: 'La base de datos no está lista. Por favor, inténtelo más tarde.',
     brazilian_portuguese:
       'O banco de dados não está pronto. Por favor, tente novamente mais tarde.',
@@ -3365,6 +3653,8 @@ export const localizations = {
   },
   storagePermissionDenied: {
     english: 'Storage permission denied. Backup cannot proceed.',
+    french:
+      'Autorisation de stockage refusée. La sauvegarde ne peut pas continuer.',
     spanish:
       'Permiso de almacenamiento denegado. El respaldo no puede continuar.',
     brazilian_portuguese:
@@ -3381,6 +3671,7 @@ export const localizations = {
   // Adding missing translation keys
   initializing: {
     english: 'Initializing',
+    french: 'Initialisation',
     spanish: 'Inicializando',
     brazilian_portuguese: 'Inicializando',
     tok_pisin: 'Initializing',
@@ -3393,6 +3684,7 @@ export const localizations = {
   },
   syncComplete: {
     english: 'Sync complete',
+    french: 'Synchronisation terminée',
     spanish: 'Sincronización completa',
     brazilian_portuguese: 'Sincronização completa',
     nepali: 'सिङ्क पूरा भयो',
@@ -3405,6 +3697,7 @@ export const localizations = {
   },
   syncProgress: {
     english: '{current} of {total} files',
+    french: '{current} fichiers sur {total}',
     spanish: '{current} de {total} archivos',
     brazilian_portuguese: '{current} de {total} arquivos',
     tok_pisin: '{current} long {total} files',
@@ -3417,6 +3710,7 @@ export const localizations = {
   },
   userNotLoggedIn: {
     english: 'You must be logged in to perform this action',
+    french: 'Vous devez être connecté pour effectuer cette action',
     spanish: 'Debe iniciar sesión para realizar esta acción',
     brazilian_portuguese: 'Você deve estar logado para realizar esta ação',
     tok_pisin: 'Yu mas login pastaim long mekim dispela samting',
@@ -3429,6 +3723,7 @@ export const localizations = {
   },
   cannotReportOwnTranslation: {
     english: 'You cannot report your own translation',
+    french: 'Vous ne pouvez pas signaler votre propre traduction',
     spanish: 'No puede reportar su propia traducción',
     brazilian_portuguese: 'Você não pode reportar sua própria tradução',
     tok_pisin: 'Yu no inap reportim translation bilong yu yet',
@@ -3441,6 +3736,7 @@ export const localizations = {
   },
   cannotReportInactiveTranslation: {
     english: 'You cannot report inactive translation',
+    french: 'Vous ne pouvez pas signaler une traduction inactive',
     spanish: 'No puede reportar traducción inactiva',
     brazilian_portuguese: 'Você não pode reportar tradução inativa',
     tok_pisin: 'Yu no inap reportim translation i no active',
@@ -3453,6 +3749,7 @@ export const localizations = {
   },
   cannotIdentifyUser: {
     english: 'Unable to identify user',
+    french: "Impossible d'identifier l'utilisateur",
     spanish: 'No se puede identificar al usuario',
     brazilian_portuguese: 'Não foi possível identificar o usuário',
     tok_pisin: 'No inap save user',
@@ -3465,6 +3762,7 @@ export const localizations = {
   },
   cannotChangeTranslationSettings: {
     english: 'Unathorized to change settings for this translation',
+    french: 'Non autorisé à modifier les paramètres de cette traduction',
     spanish:
       'No tiene autorización para cambiar la configuración de esta traducción',
     brazilian_portuguese:
@@ -3481,6 +3779,7 @@ export const localizations = {
   },
   alreadyReportedTranslation: {
     english: 'You have already reported this translation',
+    french: 'Vous avez déjà signalé cette traduction',
     spanish: 'Ya ha reportado esta traducción',
     brazilian_portuguese: 'Você já reportou esta tradução',
     tok_pisin: 'Yu reportim dispela translation pinis',
@@ -3493,6 +3792,7 @@ export const localizations = {
   },
   failedSaveAnalyticsPreference: {
     english: 'Failed to save analytics preference',
+    french: "Échec de l'enregistrement des préférences d'analyse",
     spanish: 'Error al guardar la preferencia de análisis',
     brazilian_portuguese: 'Falha ao salvar preferência de análise',
     tok_pisin: 'I no inap seivim analytics preference',
@@ -3505,6 +3805,7 @@ export const localizations = {
   },
   currentPasswordRequired: {
     english: 'Current password is required',
+    french: 'Le mot de passe actuel est requis',
     spanish: 'Se requiere la contraseña actual',
     brazilian_portuguese: 'A senha atual é obrigatória',
     tok_pisin: 'Password bilong nau i mas',
@@ -3517,6 +3818,7 @@ export const localizations = {
   },
   profileUpdateSuccess: {
     english: 'Profile updated successfully',
+    french: 'Profil mis à jour avec succès',
     spanish: 'Perfil actualizado con éxito',
     brazilian_portuguese: 'Perfil atualizado com sucesso',
     tok_pisin: 'Profile i update gut',
@@ -3529,6 +3831,7 @@ export const localizations = {
   },
   failedUpdateProfile: {
     english: 'Failed to update profile',
+    french: 'Échec de la mise à jour du profil',
     spanish: 'Error al actualizar el perfil',
     brazilian_portuguese: 'Falha ao atualizar perfil',
     tok_pisin: 'I no inap updateim profile',
@@ -3541,6 +3844,7 @@ export const localizations = {
   },
   assetNotFound: {
     english: 'Asset not found',
+    french: 'Actif introuvable',
     spanish: 'Recurso no encontrado',
     brazilian_portuguese: 'Recurso não encontrado',
     tok_pisin: 'Asset i no stap',
@@ -3553,6 +3857,7 @@ export const localizations = {
   },
   failedLoadAssetData: {
     english: 'Failed to load asset data',
+    french: "Échec du chargement des données d'actif",
     spanish: 'Error al cargar datos del recurso',
     brazilian_portuguese: 'Falha ao carregar dados do recurso',
     tok_pisin: 'I no inap loadim asset data',
@@ -3565,6 +3870,7 @@ export const localizations = {
   },
   failedLoadAssets: {
     english: 'Failed to load assets',
+    french: 'Échec du chargement des éléments',
     spanish: 'Error al cargar recursos',
     brazilian_portuguese: 'Falha ao carregar recursos',
     tok_pisin: 'I no inap loadim ol asset',
@@ -3577,6 +3883,7 @@ export const localizations = {
   },
   projectMembers: {
     english: 'Project Members',
+    french: 'Membres du projet',
     spanish: 'Miembros del Proyecto',
     brazilian_portuguese: 'Membros do Projeto',
     tok_pisin: 'Ol Member bilong Project',
@@ -3589,6 +3896,7 @@ export const localizations = {
   },
   members: {
     english: 'Members',
+    french: 'Membres',
     spanish: 'Miembros',
     brazilian_portuguese: 'Membros',
     tok_pisin: 'Ol Member',
@@ -3601,6 +3909,7 @@ export const localizations = {
   },
   invited: {
     english: 'Invited',
+    french: 'Invité',
     spanish: 'Invitados',
     brazilian_portuguese: 'Convidados',
     tok_pisin: 'Ol i invitim',
@@ -3613,6 +3922,7 @@ export const localizations = {
   },
   viewInvitation: {
     english: 'View Invitation',
+    french: "Voir l'invitation",
     spanish: 'Ver Invitación',
     brazilian_portuguese: 'Ver Convite',
     tok_pisin: 'Lukim Invitation',
@@ -3625,6 +3935,7 @@ export const localizations = {
   },
   inviteMembers: {
     english: 'Invite Members',
+    french: 'Inviter des membres',
     spanish: 'Invitar Miembros',
     brazilian_portuguese: 'Convidar Membros',
     tok_pisin: 'Invitim ol Member',
@@ -3637,6 +3948,7 @@ export const localizations = {
   },
   inviteAsOwner: {
     english: 'Invite as owner',
+    french: 'Inviter en tant que propriétaire',
     spanish: 'Invitar como propietario',
     brazilian_portuguese: 'Convidar como proprietário',
     tok_pisin: 'Invitim olsem owner',
@@ -3649,6 +3961,7 @@ export const localizations = {
   },
   sendInvitation: {
     english: 'Send Invitation',
+    french: 'Envoyer une invitation',
     spanish: 'Enviar Invitación',
     brazilian_portuguese: 'Enviar Convite',
     tok_pisin: 'Salim Invitation',
@@ -3661,6 +3974,7 @@ export const localizations = {
   },
   owner: {
     english: 'Owner',
+    french: 'Propriétaire',
     spanish: 'Propietario',
     brazilian_portuguese: 'Proprietário',
     tok_pisin: 'Owner',
@@ -3673,6 +3987,7 @@ export const localizations = {
   },
   member: {
     english: 'Member',
+    french: 'Membre',
     spanish: 'Miembro',
     brazilian_portuguese: 'Membro',
     tok_pisin: 'Member',
@@ -3685,6 +4000,7 @@ export const localizations = {
   },
   makeOwner: {
     english: 'Make Owner',
+    french: 'Rendre propriétaire',
     spanish: 'Hacer Propietario',
     brazilian_portuguese: 'Tornar Proprietário',
     tok_pisin: 'Mekim Owner',
@@ -3697,6 +4013,7 @@ export const localizations = {
   },
   remove: {
     english: 'Remove',
+    french: 'Retirer',
     spanish: 'Eliminar',
     brazilian_portuguese: 'Remover',
     tok_pisin: 'Rausim',
@@ -3709,6 +4026,7 @@ export const localizations = {
   },
   withdrawInvite: {
     english: 'Withdraw Invite',
+    french: "Retirer l'invitation",
     spanish: 'Retirar Invitación',
     brazilian_portuguese: 'Retirar Convite',
     tok_pisin: 'Rausim Invite',
@@ -3721,6 +4039,7 @@ export const localizations = {
   },
   you: {
     english: 'You',
+    french: 'Toi',
     spanish: 'Tú',
     brazilian_portuguese: 'Você',
     tok_pisin: 'Yu',
@@ -3733,6 +4052,7 @@ export const localizations = {
   },
   pendingInvitation: {
     english: 'Pending',
+    french: 'En attente',
     spanish: 'Pendiente',
     brazilian_portuguese: 'Pendente',
     tok_pisin: 'Wet',
@@ -3745,6 +4065,7 @@ export const localizations = {
   },
   noMembers: {
     english: 'No members yet',
+    french: 'Pas encore de membres',
     spanish: 'No hay miembros todavía',
     brazilian_portuguese: 'Ainda não há membros',
     tok_pisin: 'No gat member yet',
@@ -3757,6 +4078,7 @@ export const localizations = {
   },
   noInvitations: {
     english: 'No pending invitations',
+    french: 'Aucune invitation en attente',
     spanish: 'No hay invitaciones pendientes',
     brazilian_portuguese: 'Nenhum convite pendente',
     tok_pisin: 'No gat invitation i wet',
@@ -3770,6 +4092,8 @@ export const localizations = {
   ownerTooltip: {
     english:
       'Owners can create content, invite and promote other members, and cannot be demoted back to membership or removed from a project by other members.',
+    french:
+      "Les propriétaires peuvent créer du contenu, inviter et promouvoir d'autres membres, et ne peuvent pas être rétrogradés au rang de membre ou supprimés d'un projet par d'autres membres.",
     spanish:
       'Los propietarios pueden crear contenido, invitar y promover a otros miembros, y no pueden ser degradados a miembros o eliminados de un proyecto por otros miembros.',
     brazilian_portuguese:
@@ -3790,6 +4114,7 @@ export const localizations = {
   },
   confirmRemoveMessage: {
     english: 'Are you sure you want to remove {name} from this project?',
+    french: 'Êtes-vous sûr de vouloir supprimer {name} de ce projet ?',
     spanish: '¿Está seguro de que desea eliminar a {name} de este proyecto?',
     brazilian_portuguese:
       'Tem certeza de que deseja remover {name} deste projeto?',
@@ -3804,6 +4129,7 @@ export const localizations = {
   },
   confirmPromote: {
     english: 'Confirm Promote',
+    french: 'Confirmer la promotion',
     spanish: 'Confirmar Promoción',
     brazilian_portuguese: 'Confirmar Promoção',
     tok_pisin: 'Confirm Promote',
@@ -3817,6 +4143,8 @@ export const localizations = {
   confirmPromoteMessage: {
     english:
       'Are you sure you want to make {name} an owner? This action cannot be undone.',
+    french:
+      'Êtes-vous sûr de vouloir faire de {name} propriétaire ? Cette action ne peut pas être annulée.',
     spanish:
       '¿Está seguro de que desea hacer a {name} propietario? Esta acción no se puede deshacer.',
     brazilian_portuguese:
@@ -3836,6 +4164,7 @@ export const localizations = {
   },
   confirmLeave: {
     english: 'Leave Project',
+    french: 'Quitter le projet',
     spanish: 'Abandonar Proyecto',
     brazilian_portuguese: 'Sair do Projeto',
     tok_pisin: 'Lusim Project',
@@ -3848,6 +4177,7 @@ export const localizations = {
   },
   confirmLeaveMessage: {
     english: 'Are you sure you want to leave this project?',
+    french: 'Êtes-vous sûr de vouloir quitter ce projet ?',
     spanish: '¿Está seguro de que desea abandonar este proyecto?',
     brazilian_portuguese: 'Tem certeza de que deseja sair deste projeto?',
     tok_pisin: 'Yu tru laik lusim dispela project?',
@@ -3861,6 +4191,8 @@ export const localizations = {
   cannotLeaveAsOnlyOwner: {
     english:
       'You cannot leave this project as you are the only owner. Please promote another member to owner first.',
+    french:
+      "Vous ne pouvez pas quitter ce projet car vous en êtes le seul propriétaire. Veuillez d'abord promouvoir un autre membre au rang de propriétaire.",
     spanish:
       'No puede abandonar este proyecto porque es el único propietario. Por favor, promueva a otro miembro a propietario primero.',
     brazilian_portuguese:
@@ -3881,6 +4213,7 @@ export const localizations = {
   },
   invitationAlreadySent: {
     english: 'An invitation has already been sent to this email address.',
+    french: 'Une invitation a déjà été envoyée à cette adresse email.',
     spanish:
       'Ya se ha enviado una invitación a esta dirección de correo electrónico.',
     brazilian_portuguese:
@@ -3895,6 +4228,7 @@ export const localizations = {
   },
   invitationSent: {
     english: 'Invitation sent successfully',
+    french: 'Invitation envoyée avec succès',
     spanish: 'Invitación enviada con éxito',
     brazilian_portuguese: 'Convite enviado com sucesso',
     tok_pisin: 'Invitation i go gut',
@@ -3907,6 +4241,7 @@ export const localizations = {
   },
   expiredInvitation: {
     english: 'Expired',
+    french: 'Expiré',
     spanish: 'Expirado',
     brazilian_portuguese: 'Expirado',
     tok_pisin: 'Pinis',
@@ -3919,6 +4254,7 @@ export const localizations = {
   },
   declinedInvitation: {
     english: 'Declined',
+    french: 'Refusé',
     spanish: 'Rechazado',
     brazilian_portuguese: 'Recusado',
     tok_pisin: 'Refusim',
@@ -3931,6 +4267,7 @@ export const localizations = {
   },
   withdrawnInvitation: {
     english: 'Withdrawn',
+    french: 'Retiré',
     spanish: 'Retirado',
     brazilian_portuguese: 'Retirado',
     tok_pisin: 'Rausim',
@@ -3943,6 +4280,7 @@ export const localizations = {
   },
   sending: {
     english: 'Sending...',
+    french: 'Envoi...',
     spanish: 'Enviando...',
     brazilian_portuguese: 'Enviando...',
     tok_pisin: 'Salim...',
@@ -3955,6 +4293,7 @@ export const localizations = {
   },
   failedToRemoveMember: {
     english: 'Failed to remove member',
+    french: 'Échec de la suppression du membre',
     spanish: 'Error al eliminar miembro',
     brazilian_portuguese: 'Falha ao remover membro',
     tok_pisin: 'I no inap rausim member',
@@ -3967,6 +4306,7 @@ export const localizations = {
   },
   failedToPromoteMember: {
     english: 'Failed to promote member',
+    french: 'Échec de la promotion du membre',
     spanish: 'Error al promover miembro',
     brazilian_portuguese: 'Falha ao promover membro',
     tok_pisin: 'I no inap promotim member',
@@ -3979,6 +4319,7 @@ export const localizations = {
   },
   failedToLeaveProject: {
     english: 'Failed to leave project',
+    french: 'Impossible de quitter le projet',
     spanish: 'Error al abandonar el proyecto',
     brazilian_portuguese: 'Falha ao sair do projeto',
     tok_pisin: 'I no inap lusim project',
@@ -3991,6 +4332,7 @@ export const localizations = {
   },
   failedToWithdrawInvitation: {
     english: 'Failed to withdraw invitation',
+    french: "Échec du retrait de l'invitation",
     spanish: 'Error al retirar la invitación',
     brazilian_portuguese: 'Falha ao retirar o convite',
     tok_pisin: 'I no inap rausim invitation',
@@ -4003,6 +4345,7 @@ export const localizations = {
   },
   failedToSendInvitation: {
     english: 'Failed to send invitation',
+    french: "Échec de l'envoi de l'invitation",
     spanish: 'Error al enviar la invitación',
     brazilian_portuguese: 'Falha ao enviar o convite',
     tok_pisin: 'I no inap salim invitation',
@@ -4015,6 +4358,7 @@ export const localizations = {
   },
   privateProject: {
     english: 'Private Project',
+    french: 'Projet privé',
     spanish: 'Proyecto Privado',
     brazilian_portuguese: 'Projeto Privado',
     tok_pisin: 'Private Project',
@@ -4028,6 +4372,8 @@ export const localizations = {
   privateProjectDescription: {
     english:
       'The project is open for viewing by anyone, but only members can contribute.',
+    french:
+      'Le projet est ouvert à tous, mais seuls les membres peuvent y contribuer.',
     spanish:
       'El proyecto está abierto para visualización por cualquiera, pero solo los miembros pueden contribuir.',
     brazilian_portuguese:
@@ -4048,6 +4394,8 @@ export const localizations = {
   privateProjectInfo: {
     english:
       'To contribute to this project, you need to request membership. Project owners will review your request.',
+    french:
+      'Pour contribuer à ce projet, vous devez demander votre adhésion. Les porteurs de projet examineront votre demande.',
     spanish:
       'Para contribuir a este proyecto, debe solicitar membresía. Los propietarios del proyecto revisarán su solicitud.',
     brazilian_portuguese:
@@ -4069,6 +4417,8 @@ export const localizations = {
   privateProjectNotLoggedIn: {
     english:
       'This is a private project. You must be logged in to request access.',
+    french:
+      "Il s'agit d'un projet privé. Vous devez être connecté pour demander l'accès.",
     spanish:
       'Este es un proyecto privado. Debe iniciar sesión para solicitar acceso.',
     brazilian_portuguese:
@@ -4088,6 +4438,8 @@ export const localizations = {
   },
   privateProjectLoginRequired: {
     english: 'Please sign in to request membership to this private project.',
+    french:
+      "Veuillez vous connecter pour demander l'adhésion à ce projet privé.",
     spanish:
       'Por favor, inicie sesión para solicitar membresía a este proyecto privado.',
     brazilian_portuguese:
@@ -4105,6 +4457,7 @@ export const localizations = {
   },
   requestMembership: {
     english: 'Request Membership',
+    french: 'Demander une adhésion',
     spanish: 'Solicitar Membresía',
     brazilian_portuguese: 'Solicitar Associação',
     tok_pisin: 'Askim Membership',
@@ -4117,6 +4470,7 @@ export const localizations = {
   },
   requesting: {
     english: 'Requesting...',
+    french: 'Demander...',
     spanish: 'Solicitando...',
     brazilian_portuguese: 'Solicitando...',
     tok_pisin: 'Askim...',
@@ -4129,6 +4483,7 @@ export const localizations = {
   },
   requestPending: {
     english: 'Request Pending',
+    french: 'Demande en attente',
     spanish: 'Solicitud Pendiente',
     brazilian_portuguese: 'Solicitação Pendente',
     tok_pisin: 'Request i wet',
@@ -4141,6 +4496,8 @@ export const localizations = {
   },
   requestPendingDescription: {
     english: 'Your membership request is pending review by the project owners.',
+    french:
+      "Votre demande d'adhésion est en attente d'examen par les propriétaires du projet.",
     spanish:
       'Su solicitud de membresía está pendiente de revisión por los propietarios del proyecto.',
     brazilian_portuguese:
@@ -4160,6 +4517,7 @@ export const localizations = {
   },
   withdrawRequest: {
     english: 'Withdraw Request',
+    french: 'Demande de retrait',
     spanish: 'Retirar Solicitud',
     brazilian_portuguese: 'Retirar Solicitação',
     tok_pisin: 'Rausim Request',
@@ -4172,6 +4530,7 @@ export const localizations = {
   },
   withdrawing: {
     english: 'Withdrawing...',
+    french: 'Retrait...',
     spanish: 'Retirando...',
     brazilian_portuguese: 'Retirando...',
     tok_pisin: 'Rausim...',
@@ -4184,6 +4543,7 @@ export const localizations = {
   },
   confirmWithdraw: {
     english: 'Withdraw Request',
+    french: 'Demande de retrait',
     spanish: 'Retirar Solicitud',
     brazilian_portuguese: 'Retirar Solicitação',
     tok_pisin: 'Rausim Request',
@@ -4196,6 +4556,7 @@ export const localizations = {
   },
   confirmWithdrawRequestMessage: {
     english: 'Are you sure you want to withdraw your membership request?',
+    french: "Etes-vous sûr de vouloir retirer votre demande d'adhésion ?",
     spanish: '¿Está seguro de que desea retirar su solicitud de membresía?',
     brazilian_portuguese:
       'Tem certeza de que deseja retirar sua solicitação de associação?',
@@ -4209,6 +4570,7 @@ export const localizations = {
   },
   requestWithdrawn: {
     english: 'Request withdrawn successfully',
+    french: 'Demande retirée avec succès',
     spanish: 'Solicitud retirada con éxito',
     brazilian_portuguese: 'Solicitação retirada com sucesso',
     tok_pisin: 'Request i rausim gut',
@@ -4221,6 +4583,7 @@ export const localizations = {
   },
   requestExpired: {
     english: 'Request Expired',
+    french: 'Demande expirée',
     spanish: 'Solicitud Expirada',
     brazilian_portuguese: 'Solicitação Expirada',
     tok_pisin: 'Request i pinis',
@@ -4234,6 +4597,8 @@ export const localizations = {
   requestExpiredDescription: {
     english:
       'Your membership request has expired. You can submit a new request.',
+    french:
+      "Votre demande d'adhésion a expiré. Vous pouvez soumettre une nouvelle demande.",
     spanish:
       'Su solicitud de membresía ha expirado. Puede enviar una nueva solicitud.',
     brazilian_portuguese:
@@ -4253,6 +4618,7 @@ export const localizations = {
   },
   requestAgain: {
     english: 'Request Again',
+    french: 'Demander à nouveau',
     spanish: 'Solicitar Nuevamente',
     brazilian_portuguese: 'Solicitar Novamente',
     tok_pisin: 'Askim Gen',
@@ -4265,6 +4631,7 @@ export const localizations = {
   },
   requestDeclined: {
     english: 'Request Declined',
+    french: 'Demande refusée',
     spanish: 'Solicitud Rechazada',
     brazilian_portuguese: 'Solicitação Recusada',
     tok_pisin: 'Request i no',
@@ -4278,6 +4645,8 @@ export const localizations = {
   requestDeclinedCanRetry: {
     english:
       'Your membership request was declined. You have {attempts} more attempts to request membership.',
+    french:
+      "Votre demande d'adhésion a été refusée. Vous disposez de {attempts} tentatives supplémentaires pour demander votre adhésion.",
     spanish:
       'Su solicitud de membresía fue rechazada. Tiene {attempts} intentos más para solicitar membresía.',
     brazilian_portuguese:
@@ -4298,6 +4667,8 @@ export const localizations = {
   requestDeclinedNoRetry: {
     english:
       'Your membership request was declined and you have reached the maximum number of attempts.',
+    french:
+      "Votre demande d'adhésion a été refusée et vous avez atteint le nombre maximum de tentatives.",
     spanish:
       'Su solicitud de membresía fue rechazada y ha alcanzado el número máximo de intentos.',
     brazilian_portuguese:
@@ -4317,6 +4688,7 @@ export const localizations = {
   },
   requestWithdrawnTitle: {
     english: 'Request Withdrawn',
+    french: 'Demande retirée',
     spanish: 'Solicitud Retirada',
     brazilian_portuguese: 'Solicitação Retirada',
     nepali: 'अनुरोध फिर्ता लिइयो',
@@ -4330,6 +4702,8 @@ export const localizations = {
   requestWithdrawnDescription: {
     english:
       'You have withdrawn your membership request. You can submit a new request at any time.',
+    french:
+      "Vous avez retiré votre demande d'adhésion. Vous pouvez soumettre une nouvelle demande à tout moment.",
     spanish:
       'Ha retirado su solicitud de membresía. Puede enviar una nueva solicitud en cualquier momento.',
     brazilian_portuguese:
@@ -4349,6 +4723,7 @@ export const localizations = {
   },
   membershipRequestSent: {
     english: 'Membership request sent successfully',
+    french: "Demande d'adhésion envoyée avec succès",
     spanish: 'Solicitud de membresía enviada con éxito',
     brazilian_portuguese: 'Solicitação de associação enviada com sucesso',
     tok_pisin: 'Membership request i go gut',
@@ -4361,6 +4736,7 @@ export const localizations = {
   },
   failedToRequestMembership: {
     english: 'Failed to request membership',
+    french: "Échec de la demande d'adhésion",
     spanish: 'Error al solicitar membresía',
     brazilian_portuguese: 'Falha ao solicitar associação',
     tok_pisin: 'I no inap askim membership',
@@ -4373,6 +4749,7 @@ export const localizations = {
   },
   failedToWithdrawRequest: {
     english: 'Failed to withdraw request',
+    french: 'Échec du retrait de la demande',
     spanish: 'Error al retirar la solicitud',
     brazilian_portuguese: 'Falha ao retirar a solicitação',
     tok_pisin: 'I no inap rausim request',
@@ -4385,6 +4762,7 @@ export const localizations = {
   },
   goBack: {
     english: 'Go Back',
+    french: 'Retourner',
     spanish: 'Volver',
     brazilian_portuguese: 'Voltar',
     tok_pisin: 'Go Bek',
@@ -4397,6 +4775,7 @@ export const localizations = {
   },
   back: {
     english: 'Back',
+    french: 'Dos',
     spanish: 'Atrás',
     brazilian_portuguese: 'Voltar',
     tok_pisin: 'Go Bek',
@@ -4409,6 +4788,7 @@ export const localizations = {
   },
   confirmRemove: {
     english: 'Confirm Remove',
+    french: 'Confirmer la suppression',
     spanish: 'Confirmar Eliminación',
     brazilian_portuguese: 'Confirmar Remoção',
     tok_pisin: 'Confirm Rausim',
@@ -4421,6 +4801,7 @@ export const localizations = {
   },
   invitationResent: {
     english: 'Invitation resent successfully',
+    french: 'Invitation renvoyée avec succès',
     spanish: 'Invitación reenviada con éxito',
     brazilian_portuguese: 'Convite reenviado com sucesso',
     tok_pisin: 'Invitation i salim gen gut',
@@ -4433,6 +4814,7 @@ export const localizations = {
   },
   maxInviteAttemptsReached: {
     english: 'Maximum invitation attempts reached for this email',
+    french: "Nombre maximal de tentatives d'invitation atteint pour cet e-mail",
     spanish:
       'Se alcanzó el número máximo de intentos de invitación para este correo',
     brazilian_portuguese:
@@ -4448,6 +4830,8 @@ export const localizations = {
   invitationAcceptedButDownloadFailed: {
     english:
       'Invitation accepted, but project download failed. You can download it later from the projects page.',
+    french:
+      'Invitation acceptée, mais le téléchargement du projet a échoué. Vous pourrez le télécharger plus tard depuis la page des projets.',
     spanish:
       'Invitación aceptada, pero la descarga del proyecto falló. Puedes descargarlo más tarde desde la página de proyectos.',
     brazilian_portuguese:
@@ -4467,6 +4851,7 @@ export const localizations = {
   },
   invitationAcceptedSuccess: {
     english: 'Invitation accepted successfully!',
+    french: 'Invitation acceptée avec succès !',
     spanish: '¡Invitación aceptada con éxito!',
     brazilian_portuguese: 'Convite aceito com sucesso!',
     tok_pisin: 'Invitation i akseptim gut!',
@@ -4479,6 +4864,7 @@ export const localizations = {
   },
   invitationDeclined: {
     english: 'Invitation declined.',
+    french: 'Invitation refusée.',
     spanish: 'Invitación rechazada.',
     brazilian_portuguese: 'Convite recusado.',
     tok_pisin: 'Invitation i no.',
@@ -4491,6 +4877,7 @@ export const localizations = {
   },
   joinRequest: {
     english: 'Join Request',
+    french: "Demande d'adhésion",
     spanish: 'Solicitud de Unión',
     brazilian_portuguese: 'Solicitação de Adesão',
     tok_pisin: 'Join Request',
@@ -4503,6 +4890,7 @@ export const localizations = {
   },
   privateProjectAccess: {
     english: 'Private Project Access',
+    french: 'Accès au projet privé',
     spanish: 'Acceso a Proyecto Privado',
     brazilian_portuguese: 'Acesso ao Projeto Privado',
     tok_pisin: 'Private Project Access',
@@ -4515,6 +4903,7 @@ export const localizations = {
   },
   privateProjectDownload: {
     english: 'Private Project Download',
+    french: 'Téléchargement de projet privé',
     spanish: 'Descarga de Proyecto Privado',
     brazilian_portuguese: 'Download de Projeto Privado',
     tok_pisin: 'Private Project Download',
@@ -4528,6 +4917,8 @@ export const localizations = {
   privateProjectDownloadMessage: {
     english:
       'This project is private. You can download the content but will not be able to contribute translations or votes. Request access to join this project and start contributing.',
+    french:
+      'Ce projet est privé. Vous pouvez télécharger le contenu mais vous ne pourrez pas contribuer aux traductions ni aux votes. Demandez l’accès pour rejoindre ce projet et commencez à contribuer.',
     spanish:
       'Este proyecto es privado. Puedes descargar el contenido pero no podrás contribuir con traducciones o votos. Solicita acceso para unirte a este proyecto y comenzar a contribuir.',
     brazilian_portuguese:
@@ -4548,6 +4939,7 @@ export const localizations = {
   },
   privateProjectEditing: {
     english: 'Private Project Editing',
+    french: 'Édition de projets privés',
     spanish: 'Edición de Proyecto Privado',
     brazilian_portuguese: 'Edição de Projeto Privado',
     tok_pisin: 'Private Project Editing',
@@ -4561,6 +4953,8 @@ export const localizations = {
   privateProjectEditingMessage: {
     english:
       'This project is private. You need to be a member to edit transcriptions. Request access to join this project.',
+    french:
+      "Ce projet est privé. Vous devez être membre pour modifier les transcriptions. Demandez l'accès pour rejoindre ce projet.",
     spanish:
       'Este proyecto es privado. Necesitas ser miembro para editar transcripciones. Solicita acceso para unirte a este proyecto.',
     brazilian_portuguese:
@@ -4582,6 +4976,8 @@ export const localizations = {
   privateProjectGenericMessage: {
     english:
       'This project is private. You need to be a member to access this feature. Request access to join this project.',
+    french:
+      "Ce projet est privé. Vous devez être membre pour accéder à cette fonctionnalité. Demandez l'accès pour rejoindre ce projet.",
     spanish:
       'Este proyecto es privado. Necesitas ser miembro para acceder a esta función. Solicita acceso para unirte a este proyecto.',
     brazilian_portuguese:
@@ -4602,6 +4998,7 @@ export const localizations = {
   },
   privateProjectMembers: {
     english: 'Private Project Members',
+    french: 'Membres du projet privé',
     spanish: 'Miembros del Proyecto Privado',
     brazilian_portuguese: 'Membros do Projeto Privado',
     tok_pisin: 'Private Project Members',
@@ -4615,6 +5012,8 @@ export const localizations = {
   privateProjectMembersMessage: {
     english:
       'You need to be a member to view the member list and send invitations. Request access to join this project.',
+    french:
+      "Vous devez être membre pour consulter la liste des membres et envoyer des invitations. Demandez l'accès pour rejoindre ce projet.",
     spanish:
       'Necesitas ser miembro para ver la lista de miembros y enviar invitaciones. Solicita acceso para unirte a este proyecto.',
     brazilian_portuguese:
@@ -4634,6 +5033,7 @@ export const localizations = {
   },
   privateProjectNotLoggedInInline: {
     english: 'You need to be logged in to access this private project.',
+    french: 'Vous devez être connecté pour accéder à ce projet privé.',
     spanish: 'Necesitas iniciar sesión para acceder a este proyecto privado.',
     brazilian_portuguese:
       'Você precisa estar logado para acessar este projeto privado.',
@@ -4647,6 +5047,7 @@ export const localizations = {
   },
   privateProjectTranslation: {
     english: 'Private Project Translation',
+    french: 'Traduction de projets privés',
     spanish: 'Traducción de Proyecto Privado',
     brazilian_portuguese: 'Tradução de Projeto Privado',
     tok_pisin: 'Private Project Translation',
@@ -4660,6 +5061,8 @@ export const localizations = {
   privateProjectTranslationMessage: {
     english:
       'This project is private. You need to be a member to submit translations. Request access to join this project.',
+    french:
+      "Ce projet est privé. Vous devez être membre pour soumettre des traductions. Demandez l'accès pour rejoindre ce projet.",
     spanish:
       'Este proyecto es privado. Necesitas ser miembro para enviar traducciones. Solicita acceso para unirte a este proyecto.',
     brazilian_portuguese:
@@ -4680,6 +5083,7 @@ export const localizations = {
   },
   privateProjectVoting: {
     english: 'Private Project Voting',
+    french: 'Vote des projets privés',
     spanish: 'Votación de Proyecto Privado',
     brazilian_portuguese: 'Votação de Projeto Privado',
     tok_pisin: 'Private Project Voting',
@@ -4693,6 +5097,8 @@ export const localizations = {
   privateProjectVotingMessage: {
     english:
       'This project is private. You need to be a member to vote on translations. Request access to join this project.',
+    french:
+      "Ce projet est privé. Vous devez être membre pour voter sur les traductions. Demandez l'accès pour rejoindre ce projet.",
     spanish:
       'Este proyecto es privado. Necesitas ser miembro para votar en las traducciones. Solicita acceso para unirte a este proyecto.',
     brazilian_portuguese:
@@ -4713,6 +5119,7 @@ export const localizations = {
   },
   projectInvitation: {
     english: 'Project Invitation',
+    french: 'Invitation au projet',
     spanish: 'Invitación al Proyecto',
     brazilian_portuguese: 'Convite para o Projeto',
     tok_pisin: 'Project Invitation',
@@ -4725,6 +5132,8 @@ export const localizations = {
   },
   projectInvitationFrom: {
     english: '{sender} has invited you to join project "{project}" as {role}',
+    french:
+      '{sender} vous a invité à rejoindre le projet "{project}" en tant que {role}',
     spanish:
       '{sender} te ha invitado a unirte al proyecto "{project}" como {role}',
     brazilian_portuguese:
@@ -4744,6 +5153,8 @@ export const localizations = {
   },
   projectJoinRequestFrom: {
     english: '{sender} has requested to join project "{project}" as {role}',
+    french:
+      '{sender} a demandé à rejoindre le projet "{project}" en tant que {role}',
     spanish:
       '{sender} ha solicitado unirse al proyecto "{project}" como {role}',
     brazilian_portuguese:
@@ -4762,6 +5173,7 @@ export const localizations = {
   },
   projectWillRemainDownloaded: {
     english: 'Project will remain downloaded',
+    french: 'Le projet restera téléchargé',
     spanish: 'El proyecto permanecerá descargado',
     brazilian_portuguese: 'O projeto permanecerá baixado',
     tok_pisin: 'Project i pinis download',
@@ -4775,6 +5187,8 @@ export const localizations = {
   requestExpiredAttemptsRemaining: {
     english:
       'Your request expired after 7 days. You have {attempts} attempt{plural} remaining.',
+    french:
+      'Votre demande a expiré après 7 jours. Il vous reste {attempts} tentatives{plural}.',
     spanish:
       'Su solicitud expiró después de 7 días. Te quedan {attempts} intento{plural}.',
     brazilian_portuguese:
@@ -4795,6 +5209,8 @@ export const localizations = {
   requestExpiredInline: {
     english:
       'Your previous request expired after 7 days. You have {attempts} attempt{plural} remaining.',
+    french:
+      'Votre demande précédente a expiré après 7 jours. Il vous reste {attempts} tentatives{plural}.',
     spanish:
       'Su solicitud anterior expiró después de 7 días. Te quedan {attempts} intento{plural}.',
     brazilian_portuguese:
@@ -4815,6 +5231,7 @@ export const localizations = {
   },
   requestExpiredNoAttempts: {
     english: 'Your request expired and you have no more attempts remaining.',
+    french: 'Votre demande a expiré et il ne vous reste plus aucune tentative.',
     spanish: 'Su solicitud expiró y no te quedan más intentos.',
     brazilian_portuguese:
       'Sua solicitação expirou e você não tem mais tentativas restantes.',
@@ -4832,6 +5249,8 @@ export const localizations = {
   requestExpiredNoAttemptsInline: {
     english:
       'Your previous request expired after 7 days and you have no more attempts remaining.',
+    french:
+      'Votre demande précédente a expiré au bout de 7 jours et il ne vous reste plus aucune tentative.',
     spanish:
       'Su solicitud anterior expiró después de 7 días y no te quedan más intentos.',
     brazilian_portuguese:
@@ -4852,6 +5271,8 @@ export const localizations = {
   requestPendingInline: {
     english:
       "Your membership request is pending approval. You'll be notified when it's reviewed.",
+    french:
+      "Votre demande d'adhésion est en attente d'approbation. Vous serez averti lorsqu'il sera examiné.",
     spanish:
       'Su solicitud de membresía está pendiente de aprobación. Se le notificará cuando sea revisada.',
     brazilian_portuguese:
@@ -4872,6 +5293,8 @@ export const localizations = {
   requestDeclinedInline: {
     english:
       'Your request was declined. You have {attempts} attempt{plural} remaining.',
+    french:
+      'Votre demande a été refusée. Il vous reste {attempts} tentatives{plural}.',
     spanish:
       'Su solicitud fue rechazada. Te quedan {attempts} intento{plural}.',
     brazilian_portuguese:
@@ -4892,6 +5315,8 @@ export const localizations = {
   requestDeclinedNoRetryInline: {
     english:
       'Your request was declined and you have no more attempts remaining.',
+    french:
+      'Votre demande a été refusée et il ne vous reste plus aucune tentative.',
     spanish: 'Su solicitud fue rechazada y no te quedan más intentos.',
     brazilian_portuguese:
       'Sua solicitación fue recusada e você não tem mais tentativas restantes.',
@@ -4910,6 +5335,8 @@ export const localizations = {
   requestWithdrawnInline: {
     english:
       'You withdrew your previous request. You can send a new request anytime.',
+    french:
+      'Vous avez retiré votre demande précédente. Vous pouvez envoyer une nouvelle demande à tout moment.',
     spanish:
       'Retiraste tu solicitud anterior. Puedes enviar una nueva solicitud en cualquier momento.',
     brazilian_portuguese:
@@ -4929,6 +5356,7 @@ export const localizations = {
   },
   viewProject: {
     english: 'View Project',
+    french: 'Voir le projet',
     spanish: 'Ver Proyecto',
     brazilian_portuguese: 'Ver Projeto',
     tok_pisin: 'View Project',
@@ -4941,6 +5369,7 @@ export const localizations = {
   },
   loadingProjectDetails: {
     english: 'Loading project details...',
+    french: 'Chargement des détails du projet...',
     spanish: 'Cargando detalles del proyecto...',
     brazilian_portuguese: 'Carregando detalhes do projeto...',
     tok_pisin: 'Loadim project details...',
@@ -4953,6 +5382,7 @@ export const localizations = {
   },
   onlyOwnersCanInvite: {
     english: 'Only project owners can invite new members',
+    french: 'Seuls les porteurs de projets peuvent inviter de nouveaux membres',
     spanish:
       'Solo los propietarios del proyecto pueden invitar nuevos miembros',
     brazilian_portuguese:
@@ -4967,6 +5397,7 @@ export const localizations = {
   },
   failedToResendInvitation: {
     english: 'Failed to resend invitation',
+    french: "Échec du renvoi de l'invitation",
     spanish: 'Error al reenviar invitación',
     brazilian_portuguese: 'Falha ao reenviar convite',
     tok_pisin: 'I no inap resendim invitation',
@@ -4980,6 +5411,7 @@ export const localizations = {
   // Restore-related translations
   restoreAndroidOnly: {
     english: 'Restore is only available on Android',
+    french: "La restauration n'est disponible que sur Android",
     spanish: 'La restauración solo está disponible en Android',
     brazilian_portuguese: 'A restauração só está disponível no Android',
     tok_pisin: 'Restore i pinis long Android',
@@ -4992,6 +5424,7 @@ export const localizations = {
   },
   backupAndroidOnly: {
     english: 'Backup is only available on Android',
+    french: "La sauvegarde n'est disponible que sur Android",
     spanish: 'El respaldo solo está disponible en Android',
     brazilian_portuguese: 'O backup só está disponível no Android',
     tok_pisin: 'Backup i pinis long Android',
@@ -5004,6 +5437,7 @@ export const localizations = {
   },
   permissionDenied: {
     english: 'Permission Denied',
+    french: 'Autorisation refusée',
     spanish: 'Permiso Denegado',
     brazilian_portuguese: 'Permissão Negada',
     tok_pisin: 'Permission i no',
@@ -5016,6 +5450,7 @@ export const localizations = {
   },
   grantMicrophonePermission: {
     english: 'Grant Microphone Permission',
+    french: "Accorder l'autorisation du microphone",
     spanish: 'Otorgar Permiso de Microfono',
     brazilian_portuguese: 'Conceder Permissão de Microfone',
     tok_pisin: 'Grant Microphone Permission',
@@ -5028,6 +5463,7 @@ export const localizations = {
   },
   autoCalibrate: {
     english: 'Auto-Calibrate',
+    french: 'Calibrage automatique',
     spanish: 'Auto-Calibrar',
     brazilian_portuguese: 'Auto-Calibrar',
     tok_pisin: 'Olsem wanem yet',
@@ -5040,6 +5476,7 @@ export const localizations = {
   },
   calibrateMicrophone: {
     english: 'Calibrate your microphone',
+    french: 'Calibrez votre microphone',
     spanish: 'Calibra tu micrófono',
     brazilian_portuguese: 'Calibre seu microfone',
     tok_pisin: 'Stretim mikrofon bilong yu',
@@ -5052,6 +5489,8 @@ export const localizations = {
   },
   calibrateMicrophoneDescription: {
     english: 'Let us automatically adjust the sensitivity for your environment',
+    french:
+      'Laissez-nous ajuster automatiquement la sensibilité à votre environnement',
     spanish:
       'Permítenos ajustar automáticamente la sensibilidad para tu entorno',
     brazilian_portuguese:
@@ -5071,6 +5510,7 @@ export const localizations = {
   },
   skip: {
     english: 'Skip',
+    french: 'Sauter',
     spanish: 'Omitir',
     brazilian_portuguese: 'Pular',
     tok_pisin: 'Lusim',
@@ -5083,6 +5523,7 @@ export const localizations = {
   },
   confirmAudioRestore: {
     english: 'Confirm Audio Restore',
+    french: 'Confirmer la restauration audio',
     spanish: 'Confirmar Restauración de Audio',
     brazilian_portuguese: 'Confirmar Restauração de Áudio',
     tok_pisin: 'Confirm Audio Restore',
@@ -5095,6 +5536,8 @@ export const localizations = {
   },
   confirmAudioRestoreMessage: {
     english: 'This will restore your audio files from the backup. Continue?',
+    french:
+      'Cela restaurera vos fichiers audio à partir de la sauvegarde. Continuer?',
     spanish:
       'Esto restaurará sus archivos de audio desde la copia de seguridad. ¿Continuar?',
     brazilian_portuguese:
@@ -5111,6 +5554,7 @@ export const localizations = {
   },
   restoreAudioOnly: {
     english: 'Restore Audio',
+    french: "Restaurer l'audio",
     spanish: 'Restaurar Audio',
     brazilian_portuguese: 'Restaurar Áudio',
     tok_pisin: 'Restore Audio',
@@ -5123,6 +5567,7 @@ export const localizations = {
   },
   failedRestore: {
     english: 'Failed to restore: {error}',
+    french: 'Échec de la restauration : {error}',
     spanish: 'Error al restaurar: {error}',
     brazilian_portuguese: 'Falha ao restaurar: {error}',
     tok_pisin: 'I no inap restore: {error}',
@@ -5136,6 +5581,8 @@ export const localizations = {
   restoreCompleteBase: {
     english:
       'Restore completed: {audioCopied} audio files copied, {audioSkippedDueToError} skipped due to errors',
+    french:
+      "Restauration terminée : {audioCopied} fichiers audio copiés, {audioSkippedDueToError} ignorés en raison d'erreurs",
     spanish:
       'Restauración completada: {audioCopied} archivos de audio copiados, {audioSkippedDueToError} omitidos por errores',
     brazilian_portuguese:
@@ -5156,6 +5603,7 @@ export const localizations = {
   },
   restoreSkippedLocallyPart: {
     english: ', {audioSkippedLocally} skipped (already exists)',
+    french: ', {audioSkippedLocally} ignoré (existe déjà)',
     spanish: ', {audioSkippedLocally} omitidos (ya existen)',
     brazilian_portuguese: ', {audioSkippedLocally} ignorados (já existem)',
     tok_pisin: ', {audioSkippedLocally} i skip long local.',
@@ -5169,6 +5617,7 @@ export const localizations = {
   },
   restoreCompleteTitle: {
     english: 'Restore Complete',
+    french: 'Restauration terminée',
     spanish: 'Restauración Completa',
     brazilian_portuguese: 'Restauração Concluída',
     tok_pisin: 'Restore Complete',
@@ -5181,6 +5630,7 @@ export const localizations = {
   },
   restoreFailedTitle: {
     english: 'Restore Failed: {error}',
+    french: 'Échec de la restauration : {error}',
     spanish: 'Restauración Fallida: {error}',
     brazilian_portuguese: 'Restauração Falhou: {error}',
     tok_pisin: 'Restore i no: {error}',
@@ -5193,6 +5643,7 @@ export const localizations = {
   },
   projectInvitationTitle: {
     english: 'Project Invitation',
+    french: 'Invitation au projet',
     spanish: 'Invitación al Proyecto',
     brazilian_portuguese: 'Convite para o Projeto',
     tok_pisin: 'Project Invitation',
@@ -5205,6 +5656,7 @@ export const localizations = {
   },
   joinRequestTitle: {
     english: 'Join Request',
+    french: "Demande d'adhésion",
     spanish: 'Solicitud de Unión',
     brazilian_portuguese: 'Solicitação de Adesão',
     tok_pisin: 'Join Request',
@@ -5217,6 +5669,8 @@ export const localizations = {
   },
   invitedYouToJoin: {
     english: '{sender} invited you to join "{project}" as {role}',
+    french:
+      '{sender} vous a invité à rejoindre « {project} » en tant que {role}',
     spanish: '{sender} te invitó a unirte a "{project}" como {role}',
     brazilian_portuguese:
       '{sender} convidou você para participar de "{project}" como {role}',
@@ -5235,6 +5689,7 @@ export const localizations = {
   },
   requestedToJoin: {
     english: '{sender} requested to join "{project}" as {role}',
+    french: '{sender} a demandé à rejoindre « {project} » en tant que {role}',
     spanish: '{sender} solicitó unirse a "{project}" como {role}',
     brazilian_portuguese:
       '{sender} solicitou participar de "{project}" como {role}',
@@ -5253,6 +5708,7 @@ export const localizations = {
   },
   downloadProjectLabel: {
     english: 'Download Project',
+    french: 'Télécharger le projet',
     spanish: 'Descargar Proyecto',
     brazilian_portuguese: 'Baixar Projeto',
     tok_pisin: 'Download Project',
@@ -5265,6 +5721,7 @@ export const localizations = {
   },
   projectNotAvailableOfflineWarning: {
     english: 'Project will not be available offline without download',
+    french: 'Le projet ne sera pas disponible hors ligne sans téléchargement',
     spanish: 'El proyecto no estará disponible sin conexión sin descarga',
     brazilian_portuguese: 'O projeto não estará disponíel offline sem download',
     tok_pisin: 'Project i no pinis long download',
@@ -5278,6 +5735,7 @@ export const localizations = {
   },
   noNotificationsTitle: {
     english: 'No Notifications',
+    french: 'Aucune notification',
     spanish: 'Sin Notificaciones',
     brazilian_portuguese: 'Sem Notificações',
     tok_pisin: 'No Notification',
@@ -5290,6 +5748,8 @@ export const localizations = {
   },
   noNotificationsMessage: {
     english: "You'll see project invitations and join requests here",
+    french:
+      'Vous verrez les invitations à des projets et les demandes de participation ici',
     spanish: 'Aquí verás invitaciones a proyectos y solicitudes de unión',
     brazilian_portuguese:
       'Aqui você verá convites para projetos e solicitações de participação',
@@ -5307,6 +5767,7 @@ export const localizations = {
   },
   invitationAcceptedSuccessfully: {
     english: 'Invitation accepted successfully',
+    french: 'Invitation acceptée avec succès',
     spanish: 'Invitación aceptada exitosamente',
     brazilian_portuguese: 'Convite aceito com sucesso',
     tok_pisin: 'Invitation i accept gut',
@@ -5319,6 +5780,7 @@ export const localizations = {
   },
   invitationDeclinedSuccessfully: {
     english: 'Invitation declined',
+    french: 'Invitation refusée',
     spanish: 'Invitación rechazada',
     brazilian_portuguese: 'Convite recusado',
     tok_pisin: 'Invitation i no',
@@ -5331,6 +5793,7 @@ export const localizations = {
   },
   failedToAcceptInvite: {
     english: 'Failed to accept invitation',
+    french: "Échec de l'acceptation de l'invitation",
     spanish: 'Error al aceptar invitación',
     brazilian_portuguese: 'Falha ao aceitar convite',
     tok_pisin: 'I no inap accept invitation',
@@ -5343,6 +5806,7 @@ export const localizations = {
   },
   failedToDeclineInvite: {
     english: 'Failed to decline invitation',
+    french: "Échec du refus de l'invitation",
     spanish: 'Error al rechazar invitación',
     brazilian_portuguese: 'Falha ao recusar convite',
     tok_pisin: 'I no inap decline invitation',
@@ -5355,6 +5819,7 @@ export const localizations = {
   },
   invitationAcceptedDownloadFailed: {
     english: 'Invitation accepted but download failed',
+    french: 'Invitation acceptée mais le téléchargement a échoué',
     spanish: 'Invitación aceptada pero la descarga falló',
     brazilian_portuguese: 'Convite aceito mas o download falhou',
     tok_pisin: 'Invitation i accept but i no inap download',
@@ -5367,6 +5832,7 @@ export const localizations = {
   },
   unknownProject: {
     english: 'Unknown Project',
+    french: 'Projet inconnu',
     spanish: 'Proyecto Desconocido',
     brazilian_portuguese: 'Projeto Desconhecido',
     tok_pisin: 'Unknown Project',
@@ -5379,6 +5845,7 @@ export const localizations = {
   },
   ownerRole: {
     english: 'owner',
+    french: 'propriétaire',
     spanish: 'propietario',
     brazilian_portuguese: 'proprietário',
     tok_pisin: 'owner',
@@ -5391,6 +5858,7 @@ export const localizations = {
   },
   memberRole: {
     english: 'member',
+    french: 'membre',
     spanish: 'miembro',
     brazilian_portuguese: 'membro',
     tok_pisin: 'member',
@@ -5404,6 +5872,8 @@ export const localizations = {
   offlineNotificationMessage: {
     english:
       'You are offline. Any changes you make will sync when you are back online.',
+    french:
+      'Vous êtes hors ligne. Toutes les modifications que vous apportez seront synchronisées lorsque vous serez de nouveau en ligne.',
     spanish:
       'Estás sin conexión. Los cambios que hagas se sincronizarán cuando vuelvas a estar en línea.',
     brazilian_portuguese:
@@ -5423,6 +5893,7 @@ export const localizations = {
   },
   filesDownloaded: {
     english: 'files downloaded',
+    french: 'fichiers téléchargés',
     spanish: 'archivos descargados',
     brazilian_portuguese: 'arquivos baixados',
     tok_pisin: 'ol fail i download pinis',
@@ -5435,6 +5906,7 @@ export const localizations = {
   },
   downloading: {
     english: 'downloading',
+    french: 'téléchargement',
     spanish: 'descargando',
     brazilian_portuguese: 'baixando',
     tok_pisin: 'i download nau',
@@ -5447,6 +5919,7 @@ export const localizations = {
   },
   uploading: {
     english: 'uploading',
+    french: 'téléchargement',
     spanish: 'subiendo',
     brazilian_portuguese: 'enviando',
     tok_pisin: 'i upload nau',
@@ -5459,6 +5932,7 @@ export const localizations = {
   },
   files: {
     english: 'files',
+    french: 'fichiers',
     spanish: 'archivos',
     brazilian_portuguese: 'arquivos',
     tok_pisin: 'ol fail',
@@ -5471,6 +5945,7 @@ export const localizations = {
   },
   syncingDatabase: {
     english: 'syncing database',
+    french: 'synchronisation de la base de données',
     spanish: 'sincronizando base de datos',
     brazilian_portuguese: 'sincronizando banco de dados',
     tok_pisin: 'i sync database nau',
@@ -5483,6 +5958,7 @@ export const localizations = {
   },
   lastSync: {
     english: 'last sync',
+    french: 'dernière synchronisation',
     spanish: 'última sincronización',
     brazilian_portuguese: 'última sincronização',
     tok_pisin: 'las sync',
@@ -5495,6 +5971,7 @@ export const localizations = {
   },
   never: {
     english: 'Never',
+    french: 'Jamais',
     spanish: 'Nunca',
     brazilian_portuguese: 'Nunca',
     tok_pisin: 'Nogat',
@@ -5507,6 +5984,7 @@ export const localizations = {
   },
   unknown: {
     english: 'unknown',
+    french: 'inconnu',
     spanish: 'desconocido',
     brazilian_portuguese: 'desconhecido',
     tok_pisin: 'mi no save',
@@ -5519,6 +5997,7 @@ export const localizations = {
   },
   notSynced: {
     english: 'not synced',
+    french: 'non synchronisé',
     spanish: 'no sincronizado',
     brazilian_portuguese: 'não sincronizado',
     tok_pisin: 'i no sync yet',
@@ -5531,6 +6010,7 @@ export const localizations = {
   },
   connecting: {
     english: 'connecting',
+    french: 'de liaison',
     spanish: 'conectando',
     brazilian_portuguese: 'conectando',
     tok_pisin: 'i try long connect',
@@ -5543,6 +6023,7 @@ export const localizations = {
   },
   disconnected: {
     english: 'disconnected',
+    french: 'déconnecté',
     spanish: 'desconectado',
     brazilian_portuguese: 'desconectado',
     tok_pisin: 'i no connect',
@@ -5555,6 +6036,7 @@ export const localizations = {
   },
   syncingAttachments: {
     english: 'syncing attachments',
+    french: 'synchronisation des pièces jointes',
     spanish: 'sincronizando archivos adjuntos',
     brazilian_portuguese: 'sincronizando anexos',
     tok_pisin: 'i sync ol attachment',
@@ -5567,6 +6049,7 @@ export const localizations = {
   },
   attachmentSync: {
     english: 'attachment sync',
+    french: 'synchronisation des pièces jointes',
     spanish: 'sincronización de archivos adjuntos',
     brazilian_portuguese: 'sincronização de anexos',
     tok_pisin: 'attachment sync',
@@ -5579,6 +6062,7 @@ export const localizations = {
   },
   databaseSyncError: {
     english: 'database sync error',
+    french: 'erreur de synchronisation de la base de données',
     spanish: 'error de sincronización de base de datos',
     brazilian_portuguese: 'erro de sincronização de banco de dados',
     tok_pisin: 'database sync i gat problem',
@@ -5591,6 +6075,7 @@ export const localizations = {
   },
   attachmentSyncError: {
     english: 'attachment sync error',
+    french: 'erreur de synchronisation des pièces jointes',
     spanish: 'error de sincronización de archivos adjuntos',
     brazilian_portuguese: 'erro de sincronização de anexos',
     tok_pisin: 'attachment sync i gat problem',
@@ -5603,6 +6088,7 @@ export const localizations = {
   },
   uploadingData: {
     english: 'uploading data',
+    french: 'téléchargement de données',
     spanish: 'subiendo datos',
     brazilian_portuguese: 'enviando dados',
     tok_pisin: 'i upload data',
@@ -5615,6 +6101,7 @@ export const localizations = {
   },
   downloadingData: {
     english: 'downloading data',
+    french: 'téléchargement de données',
     spanish: 'descargando datos',
     brazilian_portuguese: 'baixando dados',
     tok_pisin: 'i download data',
@@ -5627,6 +6114,7 @@ export const localizations = {
   },
   syncError: {
     english: 'sync error',
+    french: 'erreur de synchronisation',
     spanish: 'error de sincronización',
     brazilian_portuguese: 'erro de sincronização',
     tok_pisin: 'sync i gat problem',
@@ -5639,6 +6127,7 @@ export const localizations = {
   },
   tapForDetails: {
     english: 'tap for details',
+    french: 'appuyez pour plus de détails',
     spanish: 'toca para ver detalles',
     brazilian_portuguese: 'toque para detalhes',
     tok_pisin: 'presim long lukim moa',
@@ -5651,6 +6140,7 @@ export const localizations = {
   },
   downloadComplete: {
     english: 'download complete',
+    french: 'téléchargement terminé',
     spanish: 'descarga completa',
     brazilian_portuguese: 'download completo',
     tok_pisin: 'download i pinis',
@@ -5663,6 +6153,7 @@ export const localizations = {
   },
   queued: {
     english: 'queued',
+    french: "en file d'attente",
     spanish: 'en cola',
     brazilian_portuguese: 'em fila',
     tok_pisin: 'i wet long lain',
@@ -5675,6 +6166,7 @@ export const localizations = {
   },
   queuedForDownload: {
     english: 'queued for download',
+    french: "en file d'attente pour le téléchargement",
     spanish: 'en cola para descargar',
     brazilian_portuguese: 'em fila para baixar',
     tok_pisin: 'i wet long lain long download',
@@ -5687,6 +6179,7 @@ export const localizations = {
   },
   complete: {
     english: 'complete',
+    french: 'complet',
     spanish: 'completo',
     brazilian_portuguese: 'completo',
     tok_pisin: 'pinis',
@@ -5699,6 +6192,7 @@ export const localizations = {
   },
   loadMore: {
     english: 'load more',
+    french: 'charger plus',
     spanish: 'cargar más',
     brazilian_portuguese: 'carregar mais',
     tok_pisin: 'bringim moa',
@@ -5711,6 +6205,7 @@ export const localizations = {
   },
   loading: {
     english: 'loading',
+    french: 'chargement',
     spanish: 'cargando',
     brazilian_portuguese: 'carregando',
     tok_pisin: 'loadim',
@@ -5723,6 +6218,7 @@ export const localizations = {
   },
   assetMadeInvisibleAllQuests: {
     english: 'The asset has been made invisible for all quests',
+    french: "L'actif a été rendu invisible pour toutes les quêtes",
     spanish: 'El asset ha sido hecho invisible para todas las quests',
     brazilian_portuguese: 'O asset foi feito invisível para todas as quests',
     tok_pisin: 'Asset i make invisible long all quest',
@@ -5735,6 +6231,7 @@ export const localizations = {
   },
   assetMadeVisibleAllQuests: {
     english: 'The asset has been made visible for all quests',
+    french: "L'atout a été rendu visible pour toutes les quêtes",
     spanish: 'El asset ha sido hecho visible para todas las quests',
     brazilian_portuguese: 'O asset foi feito visível para todas as quests',
     tok_pisin: 'Asset i make visible long all quest',
@@ -5748,6 +6245,7 @@ export const localizations = {
   },
   assetMadeInactiveAllQuests: {
     english: 'The asset has been made inactive for all quests',
+    french: "L'actif a été rendu inactif pour toutes les quêtes",
     spanish: 'El asset ha sido hecho inactivo para todas las quests',
     brazilian_portuguese: 'O asset foi feito inativo para todas as quests',
     tok_pisin: 'Asset i make inactive long all quest',
@@ -5761,6 +6259,7 @@ export const localizations = {
   },
   assetMadeActiveAllQuests: {
     english: 'The asset has been made active for all quests',
+    french: "L'atout a été rendu actif pour toutes les quêtes",
     spanish: 'El asset ha sido hecho activo para todas las quests',
     brazilian_portuguese: 'O asset foi feito ativo para todas as quests',
     tok_pisin: 'Asset i make active long all quest',
@@ -5774,6 +6273,7 @@ export const localizations = {
   },
   failedToUpdateAssetSettings: {
     english: 'Failed to update asset settings',
+    french: "Échec de la mise à jour des paramètres de l'élément",
     spanish: 'Error al actualizar los ajustes del asset',
     brazilian_portuguese: 'Falha ao atualizar os ajustes do asset',
     tok_pisin: 'I no inap update asset settings',
@@ -5786,6 +6286,7 @@ export const localizations = {
   },
   assetMadeInvisibleQuest: {
     english: 'The asset has been made invisible for this quest',
+    french: "L'actif a été rendu invisible pour cette quête",
     spanish: 'El asset ha sido hecho invisible para esta quest',
     brazilian_portuguese: 'O asset foi feito invisível para esta quest',
     tok_pisin: 'Asset i make invisible long quest',
@@ -5798,6 +6299,7 @@ export const localizations = {
   },
   assetMadeVisibleQuest: {
     english: 'The asset has been made visible for this quest',
+    french: "L'actif a été rendu visible pour cette quête",
     spanish: 'El asset ha sido hecho visible para esta quest',
     brazilian_portuguese: 'O asset foi feito visível para esta quest',
     tok_pisin: 'Asset i make visible long quest',
@@ -5810,6 +6312,7 @@ export const localizations = {
   },
   assetMadeInactiveQuest: {
     english: 'The asset has been made inactive for this quest',
+    french: "L'actif a été rendu inactif pour cette quête",
     spanish: 'El asset ha sido hecho inactivo para esta quest',
     brazilian_portuguese: 'O asset foi feito inativo para esta quest',
     tok_pisin: 'Asset i make inactive long quest',
@@ -5822,6 +6325,7 @@ export const localizations = {
   },
   assetMadeActiveQuest: {
     english: 'The asset has been made active for this quest',
+    french: "L'actif a été rendu actif pour cette quête",
     spanish: 'El asset ha sido hecho activo para esta quest',
     brazilian_portuguese: 'O asset foi feito ativo para esta quest',
     tok_pisin: 'Asset i make active long quest',
@@ -5834,6 +6338,7 @@ export const localizations = {
   },
   assetSettings: {
     english: 'Asset Settings',
+    french: 'Paramètres des actifs',
     spanish: 'Ajustes del Asset',
     brazilian_portuguese: 'Ajustes do Asset',
     tok_pisin: 'Asset Settings',
@@ -5846,6 +6351,7 @@ export const localizations = {
   },
   assetSettingsLoadError: {
     english: 'Error loading asset settings.',
+    french: "Erreur lors du chargement des paramètres de l'élément.",
     spanish: 'Error al cargar la configuración de asset.',
     brazilian_portuguese: 'Erro ao carregar as configurações do asset.',
     tok_pisin: 'I no inap load asset settings',
@@ -5858,6 +6364,7 @@ export const localizations = {
   },
   general: {
     english: 'General',
+    french: 'Général',
     spanish: 'General',
     brazilian_portuguese: 'Geral',
     tok_pisin: 'General',
@@ -5870,6 +6377,7 @@ export const localizations = {
   },
   currentQuest: {
     english: 'Current Quest',
+    french: 'Quête actuelle',
     spanish: 'Quest Actual',
     brazilian_portuguese: 'Quest Atual',
     tok_pisin: 'Current Quest',
@@ -5882,6 +6390,7 @@ export const localizations = {
   },
   visibility: {
     english: 'Visibility',
+    french: 'Visibilité',
     spanish: 'Visibilidad',
     brazilian_portuguese: 'Visibilidade',
     tok_pisin: 'Visibility',
@@ -5894,6 +6403,7 @@ export const localizations = {
   },
   active: {
     english: 'Active',
+    french: 'Actif',
     spanish: 'Activo',
     brazilian_portuguese: 'Ativo',
     tok_pisin: 'Active',
@@ -5907,6 +6417,8 @@ export const localizations = {
   visibilityDescription: {
     english:
       'The asset is visible by default in all quests, unless hidden individually.',
+    french:
+      "L'actif est visible par défaut dans toutes les quêtes, à moins qu'il ne soit masqué individuellement.",
     spanish:
       'El asset es visible por defecto en todas las quests, a menos que se oculte individualmente.',
     brazilian_portuguese:
@@ -5926,6 +6438,8 @@ export const localizations = {
   activeDescription: {
     english:
       'The asset is active and can be used in all quests, unless deactivated individually.',
+    french:
+      "L'actif est actif et peut être utilisé dans toutes les quêtes, à moins qu'il ne soit désactivé individuellement.",
     spanish:
       'El asset está activo y puede ser usado en todas las quests, a menos que se desactive individualmente.',
     brazilian_portuguese:
@@ -5946,6 +6460,8 @@ export const localizations = {
   visibilityDescriptionQuest: {
     english:
       'The asset is visible by default in this quest, unless hidden individually.',
+    french:
+      "L'actif est visible par défaut dans cette quête, à moins qu'il ne soit masqué individuellement.",
     spanish:
       'El asset es visible por defecto en esta quest, a menos que se oculte individualmente.',
     brazilian_portuguese:
@@ -5965,6 +6481,8 @@ export const localizations = {
   assetHiddenAllQuests: {
     english:
       'The asset is hidden in all quests and cannot be made visible in any of them.',
+    french:
+      "L'actif est caché dans toutes les quêtes et ne peut être rendu visible dans aucune d'entre elles.",
     spanish:
       'El asset está oculto en todas las quests y no puede hacerse visible en ninguna de ellas.',
     brazilian_portuguese:
@@ -5984,6 +6502,8 @@ export const localizations = {
   assetDisabledAllQuests: {
     english:
       'The asset is disabled across all quests and cannot be used anywhere.',
+    french:
+      "L'atout est désactivé dans toutes les quêtes et ne peut être utilisé nulle part.",
     spanish:
       'El asset está deshabilitado en todas las quests y no puede usarse en ningún lugar.',
     brazilian_portuguese:
@@ -6001,6 +6521,8 @@ export const localizations = {
   },
   assetGeneralSettingsDescription: {
     english: 'These settings affect how the asset behaves across all quests.',
+    french:
+      "Ces paramètres affectent le comportement de l'actif dans toutes les quêtes.",
     spanish:
       'Estos ajustes afectan cómo se comporta el asset en todas las quests.',
     brazilian_portuguese:
@@ -6019,6 +6541,8 @@ export const localizations = {
   questSpecificSettingsDescription: {
     english:
       'These settings affect how the asset behaves in this specific quest.',
+    french:
+      "Ces paramètres affectent le comportement de l'actif dans cette quête spécifique.",
     spanish:
       'Estos ajustes afectan cómo se comporta el asset en esta quest específica.',
     brazilian_portuguese:
@@ -6039,6 +6563,8 @@ export const localizations = {
   assetDisabledWarning: {
     english:
       'This asset is disabled globally. You cannot change its settings for this quest.',
+    french:
+      'Cet actif est désactivé globalement. Vous ne pouvez pas modifier ses paramètres pour cette quête.',
     spanish:
       'Este asset está deshabilitado globalmente. No puedes cambiar sus ajustes para esta quest.',
     brazilian_portuguese:
@@ -6058,6 +6584,7 @@ export const localizations = {
   },
   assetVisibleThisQuest: {
     english: 'The asset is shown in this quest. Unless hidden globally.',
+    french: "L'atout est affiché dans cette quête. Sauf si caché globalement.",
     spanish:
       'El asset se muestra en esta quest. A menos que esté oculto globalmente.',
     brazilian_portuguese:
@@ -6076,6 +6603,7 @@ export const localizations = {
   },
   assetHiddenThisQuest: {
     english: 'The asset is hidden in this quest.',
+    french: "L'atout est caché dans cette quête.",
     spanish: 'El asset está oculto en esta quest.',
     brazilian_portuguese: 'O asset está oculto nesta quest.',
     tok_pisin: 'Asset i hait long dispela quest.',
@@ -6089,6 +6617,8 @@ export const localizations = {
   assetActiveThisQuest: {
     english:
       'The asset can be used in this quest. Unless deactivated globally.',
+    french:
+      "L'atout peut être utilisé dans cette quête. Sauf désactivation globale.",
     spanish:
       'El asset puede usarse en esta quest. A menos que esté desactivado globalmente.',
     brazilian_portuguese:
@@ -6108,6 +6638,7 @@ export const localizations = {
   },
   assetInactiveThisQuest: {
     english: 'The asset is not available in this quest.',
+    french: "L'actif n'est pas disponible dans cette quête.",
     spanish: 'El asset no está disponible en esta quest.',
     brazilian_portuguese: 'O asset não está disponível nesta quest.',
     tok_pisin: 'Asset i no stap long dispela quest.',
@@ -6120,6 +6651,7 @@ export const localizations = {
   },
   downloadProjectConfirmation: {
     english: 'Download this project for offline use?',
+    french: 'Télécharger ce projet pour une utilisation hors ligne ?',
     spanish: '¿Descargar este proyecto para uso sin conexión?',
     brazilian_portuguese: 'Baixar este projeto para uso offline?',
     tok_pisin: 'Daunim dispela project long usim taim i no gat internet?',
@@ -6133,6 +6665,7 @@ export const localizations = {
   },
   downloadQuestConfirmation: {
     english: 'Download this quest for offline use?',
+    french: 'Télécharger cette quête pour une utilisation hors ligne ?',
     spanish: '¿Descargar esta quest para uso sin conexión?',
     brazilian_portuguese: 'Baixar esta quest para uso offline?',
     tok_pisin: 'Daunim dispela quest long usim taim i no gat internet?',
@@ -6146,6 +6679,7 @@ export const localizations = {
   },
   thisWillDownload: {
     english: 'This will download:',
+    french: 'Cela téléchargera :',
     spanish: 'Esto descargará:',
     brazilian_portuguese: 'Isso baixará:',
     tok_pisin: 'Dispela bai daunim:',
@@ -6158,6 +6692,7 @@ export const localizations = {
   },
   translations: {
     english: 'Translations',
+    french: 'Traductions',
     spanish: 'Traducciones',
     brazilian_portuguese: 'Traduções',
     tok_pisin: 'Ol Translation',
@@ -6170,6 +6705,7 @@ export const localizations = {
   },
   doRecord: {
     english: 'Record',
+    french: 'Enregistrer',
     spanish: 'Grabar',
     brazilian_portuguese: 'Gravar',
     tok_pisin: 'Rekodem',
@@ -6182,6 +6718,7 @@ export const localizations = {
   },
   isRecording: {
     english: 'Recording...',
+    french: 'Enregistrement...',
     spanish: 'Grabando...',
     brazilian_portuguese: 'Gravando...',
     tok_pisin: 'Recording...',
@@ -6194,6 +6731,7 @@ export const localizations = {
   },
   recordTo: {
     english: 'Record to',
+    french: 'Enregistrer sur',
     spanish: 'Grabar en',
     brazilian_portuguese: 'Gravar em',
     tok_pisin: 'Rekodem long',
@@ -6206,6 +6744,7 @@ export const localizations = {
   },
   after: {
     english: 'After',
+    french: 'Après',
     spanish: 'Después de',
     brazilian_portuguese: 'Depois de',
     tok_pisin: 'Despela',
@@ -6218,6 +6757,7 @@ export const localizations = {
   },
   noLabelSelected: {
     english: 'No label selected',
+    french: 'Aucun libellé sélectionné',
     spanish: 'Sin etiqueta seleccionada',
     brazilian_portuguese: 'Nenhum rótulo selecionado',
     tok_pisin: 'No label i stap',
@@ -6230,6 +6770,7 @@ export const localizations = {
   },
   readyToRecord: {
     english: 'Ready to record',
+    french: 'Prêt à enregistrer',
     spanish: 'Listo para grabar',
     brazilian_portuguese: 'Pronto para gravar',
     tok_pisin: 'Redi long rekodim',
@@ -6238,6 +6779,7 @@ export const localizations = {
   },
   recordingSession: {
     english: 'Recording Session',
+    french: "Séance d'enregistrement",
     spanish: 'Sesión de Grabación',
     brazilian_portuguese: 'Sessão de Gravação',
     tok_pisin: 'Rekoding Sesen',
@@ -6246,6 +6788,7 @@ export const localizations = {
   },
   startRecordingSession: {
     english: 'Start Recording Session',
+    french: 'Démarrer l’enregistrement',
     spanish: 'Iniciar Sesión de Grabación',
     brazilian_portuguese: 'Iniciar Sessão de Gravação',
     tok_pisin: 'Stat Rekodem Taim',
@@ -6258,6 +6801,7 @@ export const localizations = {
   },
   typeToConfirm: {
     english: 'Type {text} to confirm',
+    french: 'Tapez {text} pour confirmer',
     spanish: 'Escriba {text} para confirmar',
     brazilian_portuguese: 'Digite {text} para confirmar',
     tok_pisin: 'Raitim {text} bilong siaim',
@@ -6270,6 +6814,7 @@ export const localizations = {
   },
   confirmDeletion: {
     english: 'Confirm Deletion',
+    french: 'Confirmer la suppression',
     spanish: 'Confirmar Eliminación',
     brazilian_portuguese: 'Confirmar Exclusão',
     tok_pisin: 'Siaim Rausim',
@@ -6282,6 +6827,7 @@ export const localizations = {
   },
   deleting: {
     english: 'Deleting...',
+    french: 'Suppression...',
     spanish: 'Eliminando...',
     brazilian_portuguese: 'Excluindo...',
     tok_pisin: 'Rausim nau...',
@@ -6294,6 +6840,7 @@ export const localizations = {
   },
   audioSegments: {
     english: 'Audio Segments',
+    french: 'Segments audio',
     spanish: 'Pistas de Audio',
     brazilian_portuguese: 'Pistas de Áudio',
     tok_pisin: 'Ol audio track',
@@ -6306,6 +6853,7 @@ export const localizations = {
   },
   audioSegment: {
     english: 'Audio Segment',
+    french: 'Segment audio',
     spanish: 'Pista de Audio',
     brazilian_portuguese: 'Pista de Áudio',
     tok_pisin: 'Ol audio track',
@@ -6318,6 +6866,7 @@ export const localizations = {
   },
   asAssets: {
     english: 'as Assets',
+    french: 'comme actifs',
     spanish: 'como Assets',
     brazilian_portuguese: 'como Assets',
     tok_pisin: 'as Assets',
@@ -6330,6 +6879,7 @@ export const localizations = {
   },
   asAsset: {
     english: 'as Asset',
+    french: 'comme atout',
     spanish: 'como Asset',
     brazilian_portuguese: 'como Asset',
     tok_pisin: 'as Asset',
@@ -6342,6 +6892,7 @@ export const localizations = {
   },
   save: {
     english: 'Save',
+    french: 'Sauvegarder',
     spanish: 'Guardar',
     brazilian_portuguese: 'Salvar',
     tok_pisin: 'Save',
@@ -6354,6 +6905,7 @@ export const localizations = {
   },
   projectDirectory: {
     english: 'Project Directory',
+    french: 'Répertoire des projets',
     spanish: 'Directorio de Proyecto',
     brazilian_portuguese: 'Diretório de Projeto',
     tok_pisin: 'Project Directory',
@@ -6366,6 +6918,7 @@ export const localizations = {
   },
   projectMadePublic: {
     english: 'The project has been made public',
+    french: 'Le projet a été rendu public',
     spanish: 'El proyecto se ha hecho público',
     brazilian_portuguese: 'O projeto foi tornado público',
     tok_pisin: 'Project i mekim public nau',
@@ -6378,6 +6931,7 @@ export const localizations = {
   },
   projectMadePrivate: {
     english: 'The project has been made private',
+    french: 'Le projet a été rendu privé',
     spanish: 'El proyecto se ha hecho privado',
     brazilian_portuguese: 'O projeto foi tornado privado',
     tok_pisin: 'Project i mekim private nau',
@@ -6390,6 +6944,7 @@ export const localizations = {
   },
   projectMadeInvisible: {
     english: 'The project has been made invisible',
+    french: 'Le projet est devenu invisible',
     spanish: 'El proyecto se ha hecho invisible',
     brazilian_portuguese: 'O projeto foi tornado invisível',
     tok_pisin: 'Project i mekim hait nau',
@@ -6402,6 +6957,7 @@ export const localizations = {
   },
   projectMadeVisible: {
     english: 'The project has been made visible',
+    french: 'Le projet a été rendu visible',
     spanish: 'El proyecto se ha hecho visible',
     brazilian_portuguese: 'O projeto foi tornado visível',
     tok_pisin: 'Project i mekim save nau',
@@ -6414,6 +6970,7 @@ export const localizations = {
   },
   projectMadeInactive: {
     english: 'The project has been made inactive',
+    french: 'Le projet a été rendu inactif',
     spanish: 'El proyecto se ha hecho inactivo',
     brazilian_portuguese: 'O projeto foi tornado inativo',
     tok_pisin: 'Project i mekim stop nau',
@@ -6426,6 +6983,7 @@ export const localizations = {
   },
   projectMadeActive: {
     english: 'The project has been made active',
+    french: 'Le projet a été rendu actif',
     spanish: 'El proyecto se ha hecho activo',
     brazilian_portuguese: 'O projeto foi tornado ativo',
     tok_pisin: 'Project i mekim active nau',
@@ -6438,6 +6996,7 @@ export const localizations = {
   },
   failedToUpdateProjectSettings: {
     english: 'Failed to update project settings',
+    french: 'Échec de la mise à jour des paramètres du projet',
     spanish: 'Error al actualizar la configuración del proyecto',
     brazilian_portuguese: 'Falha ao atualizar as configurações do projeto',
     tok_pisin: 'I no inap update project settings',
@@ -6450,6 +7009,7 @@ export const localizations = {
   },
   failedToUpdateProjectVisibility: {
     english: 'Failed to update project visibility',
+    french: 'Échec de la mise à jour de la visibilité du projet',
     spanish: 'Error al actualizar la visibilidad del proyecto',
     brazilian_portuguese: 'Falha ao atualizar a visibilidade do projeto',
     tok_pisin: 'I no inap update project visibility',
@@ -6462,6 +7022,7 @@ export const localizations = {
   },
   failedToUpdateProjectActiveStatus: {
     english: 'Failed to update project active status',
+    french: 'Échec de la mise à jour du statut actif du projet',
     spanish: 'Error al actualizar el estado activo del proyecto',
     brazilian_portuguese: 'Falha ao atualizar o status ativo do projeto',
     tok_pisin: 'I no inap update project active status',
@@ -6473,19 +7034,21 @@ export const localizations = {
     mandarin: '更新项目活动状态失败'
   },
   projectSettingsLoadError: {
-    english: 'Error loading quest settings.',
-    spanish: 'Error al cargar la configuración de quest.',
-    brazilian_portuguese: 'Erro ao carregar as configurações da quest.',
-    tok_pisin: 'I no inap load quest settings.',
-    indonesian: 'Gagal memuat pengaturan quest.',
-    nepali: 'क्वेस्ट सेटिङहरू लोड गर्दा त्रुटि।',
-    hindi: 'क्वेस्ट सेटिंग लोड करने में त्रुटि।',
-    burmese: 'စွမ်းဆောင်ရည် ဆက်တင်များကို ဖွင့်ရာတွင် အမှားအယွင်း။',
-    thai: 'เกิดข้อผิดพลาดในการโหลดการตั้งค่าเควสต์',
-    mandarin: '加载任务设置时出错。'
+    english: 'Error loading project settings.',
+    french: 'Erreur lors du chargement des paramètres du projet.',
+    spanish: 'Error al cargar la configuración del proyecto.',
+    brazilian_portuguese: 'Erro ao carregar as configurações do projeto.',
+    tok_pisin: 'I no inap load project settings.',
+    indonesian: 'Gagal memuat pengaturan proyek.',
+    nepali: 'प्रोजेक्ट सेटिङहरू लोड गर्दा त्रुटि।',
+    hindi: 'प्रोजेक्ट सेटिंग लोड करने में त्रुटि।',
+    burmese: 'ပရောဂျက် ဆက်တင်များကို ဖွင့်ရာတွင် အမှားအယွင်း။',
+    thai: 'เกิดข้อผิดพลาดในการโหลดการตั้งค่าโปรเจกต์',
+    mandarin: '加载项目设置时出错。'
   },
   projectSettings: {
     english: 'Project Settings',
+    french: 'Paramètres du projet',
     spanish: 'Configuración del Proyecto',
     brazilian_portuguese: 'Configurações do Projeto',
     tok_pisin: 'Project Settings',
@@ -6498,6 +7061,7 @@ export const localizations = {
   },
   publicProjectDescription: {
     english: 'Anyone can view and contribute to this project',
+    french: 'Tout le monde peut voir et contribuer à ce projet',
     spanish: 'Cualquiera puede ver y contribuir a este proyecto',
     brazilian_portuguese:
       'Qualquer pessoa pode ver e contribuir para este projeto',
@@ -6512,6 +7076,8 @@ export const localizations = {
   visibleProjectDescription: {
     english:
       'This project appears in public listings and can be discovered by all users.',
+    french:
+      'Ce projet apparaît dans les listes publiques et peut être découvert par tous les utilisateurs.',
     spanish:
       'Este proyecto aparece en listados públicos y puede ser descubierto por todos los usuarios.',
     brazilian_portuguese:
@@ -6532,6 +7098,8 @@ export const localizations = {
   invisibleProjectDescription: {
     english:
       'This project is not displayed in project directories or search results.',
+    french:
+      "Ce projet n'est pas affiché dans les répertoires de projets ni dans les résultats de recherche.",
     spanish:
       'Este proyecto no se muestra en los directorios de proyectos ni en los resultados de búsqueda.',
     brazilian_portuguese:
@@ -6550,6 +7118,8 @@ export const localizations = {
   },
   activeProjectDescription: {
     english: 'The project is currently open for viewing and contributions.',
+    french:
+      'Le projet est actuellement ouvert à la visualisation et aux contributions.',
     spanish:
       'El proyecto está actualmente abierto para visualización y contribuciones.',
     brazilian_portuguese:
@@ -6566,6 +7136,8 @@ export const localizations = {
   inactiveProjectDescription: {
     english:
       'This project is currently inactive and not accepting contributions.',
+    french:
+      "Ce projet est actuellement inactif et n'accepte pas de contributions.",
     spanish:
       'Este proyecto está actualmente inactivo y no acepta contribuciones.',
     brazilian_portuguese:
@@ -6583,6 +7155,7 @@ export const localizations = {
   },
   loadingOptions: {
     english: 'Loading options...',
+    french: 'Options de chargement...',
     spanish: 'Cargando opciones...',
     brazilian_portuguese: 'Carregando opções...',
     tok_pisin: 'I loadim ol option...',
@@ -6595,6 +7168,7 @@ export const localizations = {
   },
   loadingTagCategories: {
     english: 'Loading tag categories...',
+    french: 'Chargement des catégories de balises...',
     spanish: 'Cargando categorías de etiquetas...',
     brazilian_portuguese: 'Carregando categorias de etiquetas...',
     tok_pisin: 'I loadim ol tag category...',
@@ -6607,6 +7181,7 @@ export const localizations = {
   },
   questSettings: {
     english: 'Quest Settings',
+    french: 'Paramètres de quête',
     spanish: 'Configuración de la Misión',
     brazilian_portuguese: 'Configurações da Missão',
     tok_pisin: 'Quest Settings',
@@ -6619,6 +7194,7 @@ export const localizations = {
   },
   questSettingsLoadError: {
     english: 'Error loading quest settings.',
+    french: 'Erreur lors du chargement des paramètres de quête.',
     spanish: 'Error al cargar la configuración de quest.',
     brazilian_portuguese: 'Erro ao carregar as configurações da quest.',
     tok_pisin: 'I no inap load quest settings.',
@@ -6631,6 +7207,7 @@ export const localizations = {
   },
   visibleQuestDescription: {
     english: 'This quest is visible to users',
+    french: 'Cette quête est visible par les utilisateurs',
     spanish: 'Esta misión es visible para los usuarios',
     brazilian_portuguese: 'Esta missão é visível para os usuários',
     tok_pisin: 'Dispela quest i save long ol user',
@@ -6643,6 +7220,7 @@ export const localizations = {
   },
   invisibleQuestDescription: {
     english: 'This quest is hidden from users',
+    french: 'Cette quête est cachée aux utilisateurs',
     spanish: 'Esta misión está oculta para los usuarios',
     brazilian_portuguese: 'Esta missão está oculta dos usuários',
     tok_pisin: 'Dispela quest i hait long ol user',
@@ -6655,6 +7233,7 @@ export const localizations = {
   },
   activeQuestDescription: {
     english: 'This quest is available for completion',
+    french: 'Cette quête peut être complétée',
     spanish: 'Esta misión está disponible para completar',
     brazilian_portuguese: 'Esta missão está disponível para conclusão',
     tok_pisin: 'Dispela quest i redi long pinisim',
@@ -6667,6 +7246,7 @@ export const localizations = {
   },
   inactiveQuestDescription: {
     english: 'This quest is temporarily disabled',
+    french: 'Cette quête est temporairement désactivée',
     spanish: 'Esta misión está temporalmente deshabilitada',
     brazilian_portuguese: 'Esta missão está temporariamente desabilitada',
     tok_pisin: 'Dispela quest i stop liklik taim',
@@ -6679,6 +7259,7 @@ export const localizations = {
   },
   questMadeInvisible: {
     english: 'The quest has been made invisible',
+    french: 'La quête a été rendue invisible',
     spanish: 'La misión se ha hecho invisible',
     brazilian_portuguese: 'A missão foi tornada invisível',
     tok_pisin: 'Quest i mekim hait nau',
@@ -6691,6 +7272,7 @@ export const localizations = {
   },
   questMadeVisible: {
     english: 'The quest has been made visible',
+    french: 'La quête a été rendue visible',
     spanish: 'La misión se ha hecho visible',
     brazilian_portuguese: 'A missão foi tornada visível',
     tok_pisin: 'Quest i mekim save nau',
@@ -6703,6 +7285,7 @@ export const localizations = {
   },
   questMadeInactive: {
     english: 'The quest has been made inactive',
+    french: 'La quête a été rendue inactive',
     spanish: 'La misión se ha hecho inactiva',
     brazilian_portuguese: 'A missão foi tornada inativa',
     tok_pisin: 'Quest i mekim stop nau',
@@ -6715,6 +7298,7 @@ export const localizations = {
   },
   questMadeActive: {
     english: 'The quest has been made active',
+    french: 'La quête a été rendue active',
     spanish: 'La misión se ha hecho activa',
     brazilian_portuguese: 'A missão foi tornada ativa',
     tok_pisin: 'Quest i mekim active nau',
@@ -6727,6 +7311,7 @@ export const localizations = {
   },
   failedToUpdateQuestSettings: {
     english: 'Failed to update quest settings',
+    french: 'Échec de la mise à jour des paramètres de quête',
     spanish: 'Error al actualizar la configuración de la misión',
     brazilian_portuguese: 'Falha ao atualizar as configurações da missão',
     tok_pisin: 'I no inap update quest settings',
@@ -6739,6 +7324,7 @@ export const localizations = {
   },
   loadingAudio: {
     english: 'Loading audio...',
+    french: 'Chargement du son...',
     spanish: 'Cargando audio...',
     brazilian_portuguese: 'Carregando áudio...',
     tok_pisin: 'I loadim audio...',
@@ -6751,6 +7337,7 @@ export const localizations = {
   },
   updateAvailable: {
     english: 'A new update is available!',
+    french: 'Une nouvelle mise à jour est disponible !',
     spanish: '¡Una nueva actualización está disponible!',
     brazilian_portuguese: 'Uma nova atualização está disponível!',
     tok_pisin: 'Nupela update i stap!',
@@ -6763,6 +7350,7 @@ export const localizations = {
   },
   updateNow: {
     english: 'Update Now',
+    french: 'Mettre à jour maintenant',
     spanish: 'Actualizar Ahora',
     brazilian_portuguese: 'Atualizar Agora',
     tok_pisin: 'Update Nau',
@@ -6775,6 +7363,7 @@ export const localizations = {
   },
   updateFailed: {
     english: 'Update failed',
+    french: 'La mise à jour a échoué',
     spanish: 'Actualización fallida',
     brazilian_portuguese: 'Atualização falhou',
     tok_pisin: 'Update i pundaun',
@@ -6787,6 +7376,7 @@ export const localizations = {
   },
   updateErrorTryAgain: {
     english: 'Please try again or dismiss',
+    french: 'Veuillez réessayer ou ignorer',
     spanish: 'Por favor intente nuevamente o descarte',
     brazilian_portuguese: 'Por favor tente novamente ou descarte',
     tok_pisin: 'Traim gen o rausim',
@@ -6799,6 +7389,7 @@ export const localizations = {
   },
   retry: {
     english: 'Retry',
+    french: 'Réessayer',
     spanish: 'Reintentar',
     brazilian_portuguese: 'Tentar novamente',
     tok_pisin: 'Traim gen',
@@ -6811,6 +7402,7 @@ export const localizations = {
   },
   enterCommentOptional: {
     english: 'Enter your comment (optional)',
+    french: 'Entrez votre commentaire (facultatif)',
     spanish: 'Escribe tu comentario (opcional)',
     brazilian_portuguese: 'Escreva seu comentário (opcional)',
     tok_pisin: 'Raitim comment bilong yu (yu ken o nogat)',
@@ -6823,6 +7415,7 @@ export const localizations = {
   },
   auth_init_error_title: {
     english: 'Initialization Error',
+    french: "Erreur d'initialisation",
     spanish: 'Error de Inicialización',
     brazilian_portuguese: 'Erro de Inicialização',
     tok_pisin: 'Initialization Error',
@@ -6836,6 +7429,8 @@ export const localizations = {
   auth_init_error_message: {
     english:
       'Failed to initialize the app. Please try logging out and back in.',
+    french:
+      "Échec de l'initialisation de l'application. Veuillez essayer de vous déconnecter et de vous reconnecter.",
     spanish:
       'Error al inicializar la aplicación. Por favor, intenta cerrar sesión y volver a iniciar sesión.',
     brazilian_portuguese:
@@ -6853,6 +7448,7 @@ export const localizations = {
   },
   auth_init_error_ok: {
     english: 'OK',
+    french: "D'ACCORD",
     spanish: 'OK',
     brazilian_portuguese: 'OK',
     tok_pisin: 'Orait',
@@ -6865,6 +7461,7 @@ export const localizations = {
   },
   projectDownloaded: {
     english: 'Project downloaded',
+    french: 'Projet téléchargé',
     spanish: 'Proyecto descargado',
     brazilian_portuguese: 'Projeto baixado',
     tok_pisin: 'Project i daun pinis',
@@ -6877,6 +7474,7 @@ export const localizations = {
   },
   passwordMustBeAtLeast6Characters: {
     english: 'Password must be at least 6 characters',
+    french: 'Le mot de passe doit contenir au moins 6 caractères',
     spanish: 'La contraseña debe tener al menos 6 caracteres',
     brazilian_portuguese: 'A senha deve ter pelo menos 6 caracteres',
     tok_pisin: 'Password i mas gat 6 character o moa',
@@ -6889,6 +7487,7 @@ export const localizations = {
   },
   passwordUpdateFailed: {
     english: 'Failed to update password',
+    french: 'Échec de la mise à jour du mot de passe',
     spanish: 'Error al actualizar la contraseña',
     brazilian_portuguese: 'Falha ao atualizar a senha',
     tok_pisin: 'I no inap update password',
@@ -6901,6 +7500,7 @@ export const localizations = {
   },
   clearCache: {
     english: 'Clear Cache',
+    french: 'Vider le cache',
     spanish: 'Limpiar caché',
     brazilian_portuguese: 'Limpar cache',
     tok_pisin: 'Klinim Cache',
@@ -6913,6 +7513,8 @@ export const localizations = {
   },
   clearCacheConfirmation: {
     english: 'Are you sure you want to clear all cached data?',
+    french:
+      'Êtes-vous sûr de vouloir effacer toutes les données mises en cache ?',
     spanish: '¿Estás seguro de querer limpiar todos los datos en caché?',
     brazilian_portuguese:
       'Tem certeza que deseja limpar todos os dados em cache?',
@@ -6926,6 +7528,7 @@ export const localizations = {
   },
   cacheClearedSuccess: {
     english: 'Cache cleared successfully',
+    french: 'Cache vidé avec succès',
     spanish: 'Caché limpiada correctamente',
     brazilian_portuguese: 'Cache limpa com sucesso',
     tok_pisin: 'Cache i klin gut pinis',
@@ -6938,6 +7541,7 @@ export const localizations = {
   },
   exportRequiresInternet: {
     english: 'This feature requires an internet connection',
+    french: 'Cette fonctionnalité nécessite une connexion Internet',
     spanish: 'Esta característica requiere una conexión a internet',
     brazilian_portuguese:
       'Esta funcionalidade requer uma conexão com a internet',
@@ -6951,6 +7555,7 @@ export const localizations = {
   },
   exportDataComingSoon: {
     english: 'Data export feature coming soon',
+    french: "Fonctionnalité d'exportation de données bientôt disponible",
     spanish: 'La exportación de datos está próxima',
     brazilian_portuguese: 'A exportação de dados está próxima',
     tok_pisin: 'Data export feature i kam bihain',
@@ -6963,6 +7568,7 @@ export const localizations = {
   },
   info: {
     english: 'Info',
+    french: 'Informations',
     spanish: 'Información',
     brazilian_portuguese: 'Informação',
     tok_pisin: 'Info',
@@ -6975,6 +7581,7 @@ export const localizations = {
   },
   enableNotifications: {
     english: 'Enable Notifications',
+    french: 'Activer les notifications',
     spanish: 'Habilitar notificaciones',
     brazilian_portuguese: 'Habilitar notificações',
     tok_pisin: 'Onim Notification',
@@ -6987,6 +7594,8 @@ export const localizations = {
   },
   notificationsDescription: {
     english: 'Receive notifications for app updates and important information',
+    french:
+      "Recevez des notifications pour les mises à jour de l'application et les informations importantes",
     spanish:
       'Recibir notificaciones para actualizaciones de la aplicación y información importante',
     brazilian_portuguese:
@@ -7003,6 +7612,7 @@ export const localizations = {
   },
   contentPreferences: {
     english: 'Content Preferences',
+    french: 'Préférences de contenu',
     spanish: 'Preferencias de contenido',
     brazilian_portuguese: 'Preferências de conteúdo',
     tok_pisin: 'Content Preferences',
@@ -7015,6 +7625,7 @@ export const localizations = {
   },
   showHiddenContent: {
     english: 'Show Hidden Content',
+    french: 'Afficher le contenu masqué',
     spanish: 'Mostrar contenido oculto',
     brazilian_portuguese: 'Mostrar conteúdo oculto',
     tok_pisin: 'Soim Hait Content',
@@ -7027,6 +7638,7 @@ export const localizations = {
   },
   showHiddenContentDescription: {
     english: 'Allow displaying content that has been marked as invisible',
+    french: "Autoriser l'affichage du contenu marqué comme invisible",
     spanish: 'Permitir mostrar contenido que ha sido marcado como invisible',
     brazilian_portuguese:
       'Permitir mostrar conteúdo que foi marcado como invisível',
@@ -7041,6 +7653,7 @@ export const localizations = {
   },
   dataAndStorage: {
     english: 'Data & Storage',
+    french: 'Données et stockage',
     spanish: 'Datos y almacenamiento',
     brazilian_portuguese: 'Dados e armazenamento',
     tok_pisin: 'Data na Storage',
@@ -7053,6 +7666,7 @@ export const localizations = {
   },
   downloadOnWifiOnly: {
     english: 'Download on WiFi Only',
+    french: 'Télécharger sur WiFi uniquement',
     spanish: 'Descargar solo en WiFi',
     brazilian_portuguese: 'Baixar apenas em WiFi',
     tok_pisin: 'Daunim long WiFi tasol',
@@ -7065,6 +7679,8 @@ export const localizations = {
   },
   downloadOnWifiOnlyDescription: {
     english: 'Only download content when connected to WiFi',
+    french:
+      'Téléchargez du contenu uniquement lorsque vous êtes connecté au WiFi',
     spanish: 'Descargar contenido solo cuando esté conectado a WiFi',
     brazilian_portuguese:
       'Baixar conteúdo apenas quando estiver conectado à WiFi',
@@ -7078,6 +7694,7 @@ export const localizations = {
   },
   autoBackup: {
     english: 'Auto Backup',
+    french: 'Sauvegarde automatique',
     spanish: 'Copia de seguridad automática',
     brazilian_portuguese: 'Backup automático',
     tok_pisin: 'Auto Backup',
@@ -7090,6 +7707,7 @@ export const localizations = {
   },
   autoBackupDescription: {
     english: 'Automatically backup your data to the cloud',
+    french: 'Sauvegardez automatiquement vos données sur le cloud',
     spanish: 'Hacer una copia de seguridad automática de tus datos en la nube',
     brazilian_portuguese: 'Fazer um backup automático dos seus dados na nuvem',
     tok_pisin: 'Otomatik backup data bilong yu long cloud',
@@ -7102,6 +7720,8 @@ export const localizations = {
   },
   clearCacheDescription: {
     english: 'Clear all cached data to free up storage space',
+    french:
+      "Effacez toutes les données mises en cache pour libérer de l'espace de stockage",
     spanish:
       'Limpiar todos los datos en caché para liberar espacio de almacenamiento',
     brazilian_portuguese:
@@ -7116,6 +7736,7 @@ export const localizations = {
   },
   exportData: {
     english: 'Export Data',
+    french: 'Exporter des données',
     spanish: 'Exportar datos',
     brazilian_portuguese: 'Exportar dados',
     tok_pisin: 'Export Data',
@@ -7128,6 +7749,7 @@ export const localizations = {
   },
   exportDataDescription: {
     english: 'Export your data for backup or transfer',
+    french: 'Exportez vos données pour une sauvegarde ou un transfert',
     spanish: 'Exportar tus datos para respaldo o transferencia',
     brazilian_portuguese: 'Exportar seus dados para backup ou transferência',
     tok_pisin: 'Export data bilong yu long backup o transfer',
@@ -7140,6 +7762,7 @@ export const localizations = {
   },
   support: {
     english: 'Support',
+    french: 'Soutien',
     spanish: 'Soporte',
     brazilian_portuguese: 'Suporte',
     tok_pisin: 'Support',
@@ -7152,6 +7775,7 @@ export const localizations = {
   },
   helpCenter: {
     english: 'Help Center',
+    french: "Centre d'aide",
     spanish: 'Centro de ayuda',
     brazilian_portuguese: 'Centro de ajuda',
     tok_pisin: 'Help Center',
@@ -7164,6 +7788,7 @@ export const localizations = {
   },
   helpCenterComingSoon: {
     english: 'Help center feature coming soon',
+    french: "Fonctionnalité du centre d'aide bientôt disponible",
     spanish: 'El centro de ayuda está próximo',
     brazilian_portuguese: 'O centro de ajuda está próximo',
     tok_pisin: 'Help center feature i kam bihain',
@@ -7176,6 +7801,7 @@ export const localizations = {
   },
   contactSupport: {
     english: 'Contact Support',
+    french: "Contacter l'assistance",
     spanish: 'Contactar soporte',
     brazilian_portuguese: 'Contatar suporte',
     tok_pisin: 'Contact Support',
@@ -7188,6 +7814,7 @@ export const localizations = {
   },
   contactSupportComingSoon: {
     english: 'Contact support feature coming soon',
+    french: 'Fonctionnalité de support de contact à venir',
     spanish: 'La función de contacto con el soporte está próxima',
     brazilian_portuguese:
       'A funcionalidade de contato com o suporte está próxima',
@@ -7201,6 +7828,7 @@ export const localizations = {
   },
   termsAndConditions: {
     english: 'Terms & Conditions',
+    french: 'Conditions générales',
     spanish: 'Términos y condiciones',
     brazilian_portuguese: 'Termos e condições',
     tok_pisin: 'Terms na Conditions',
@@ -7213,6 +7841,7 @@ export const localizations = {
   },
   termsAndConditionsComingSoon: {
     english: 'Terms & Conditions feature coming soon',
+    french: 'Fonctionnalité de conditions générales à venir',
     spanish: 'La función de términos y condiciones está próxima',
     brazilian_portuguese: 'A funcionalidade de termos e condições está próxima',
     tok_pisin: 'Terms na Conditions feature i kam bihain',
@@ -7226,6 +7855,7 @@ export const localizations = {
   },
   experimentalFeatures: {
     english: 'Experimental Features',
+    french: 'Fonctionnalités expérimentales',
     spanish: 'Características Experimentales',
     brazilian_portuguese: 'Recursos Experimentais',
     tok_pisin: 'Experimental Features',
@@ -7238,6 +7868,7 @@ export const localizations = {
   },
   aiSuggestions: {
     english: 'AI Suggestions',
+    french: "Suggestions d'IA",
     spanish: 'Sugerencias de IA',
     brazilian_portuguese: 'Sugestões de IA',
     tok_pisin: 'AI Suggestions',
@@ -7251,6 +7882,8 @@ export const localizations = {
   aiSuggestionsDescription: {
     english:
       'Enable AI-powered translation suggestions based on nearby translations',
+    french:
+      "Activez les suggestions de traduction basées sur l'IA basées sur les traductions à proximité",
     spanish:
       'Habilitar sugerencias de traducción impulsadas por IA basadas en traducciones cercanas',
     brazilian_portuguese:
@@ -7269,6 +7902,7 @@ export const localizations = {
   },
   playAll: {
     english: 'Play All Assets',
+    french: 'Lire tous les éléments',
     spanish: 'Reproducir Todos los Recursos',
     brazilian_portuguese: 'Reproduzir Todos os Recursos',
     tok_pisin: 'Playim Olgeta Assets',
@@ -7282,6 +7916,8 @@ export const localizations = {
   playAllDescription: {
     english:
       'Enable the play all assets feature to play all audio assets in sequence',
+    french:
+      "Activer la fonctionnalité de lecture de tous les éléments pour lire tous les éléments audio dans l'ordre",
     spanish:
       'Habilitar la función de reproducir todos los recursos para reproducir todos los recursos de audio en secuencia',
     brazilian_portuguese:
@@ -7301,6 +7937,7 @@ export const localizations = {
   },
   advanced: {
     english: 'Advanced',
+    french: 'Avancé',
     spanish: 'Avanzado',
     brazilian_portuguese: 'Avançado',
     tok_pisin: 'Advanced',
@@ -7313,6 +7950,7 @@ export const localizations = {
   },
   debugMode: {
     english: 'Debug Mode',
+    french: 'Mode débogage',
     spanish: 'Modo de depuración',
     brazilian_portuguese: 'Modo de depuração',
     tok_pisin: 'Debug Mode',
@@ -7325,6 +7963,8 @@ export const localizations = {
   },
   debugModeDescription: {
     english: 'Enable debug mode for development features',
+    french:
+      'Activer le mode débogage pour les fonctionnalités de développement',
     spanish: 'Habilitar modo de depuración para características de desarrollo',
     brazilian_portuguese:
       'Habilitar modo de depuração para funcionalidades de desenvolvimento',
@@ -7338,6 +7978,7 @@ export const localizations = {
   },
   settingsRequireInternet: {
     english: 'Some settings require an internet connection',
+    french: 'Certains paramètres nécessitent une connexion Internet',
     spanish: 'Algunas configuraciones requieren una conexión a internet',
     brazilian_portuguese:
       'Algumas configurações requerem uma conexão com a internet',
@@ -7351,6 +7992,7 @@ export const localizations = {
   },
   internetConnectionRequired: {
     english: 'Internet connection required',
+    french: 'Connexion Internet requise',
     spanish: 'Se requiere conexión a internet',
     brazilian_portuguese: 'Conexão com a internet necessária',
     tok_pisin: 'Internet connection i mas',
@@ -7363,6 +8005,7 @@ export const localizations = {
   },
   clear: {
     english: 'Clear',
+    french: 'Clair',
     spanish: 'Limpiar',
     brazilian_portuguese: 'Limpar',
     tok_pisin: 'Klinim',
@@ -7375,6 +8018,7 @@ export const localizations = {
   },
   unnamedAsset: {
     english: 'Unnamed Asset',
+    french: 'Actif sans nom',
     spanish: 'Actividad sin nombre',
     brazilian_portuguese: 'Atividade sem nome',
     tok_pisin: 'Asset i no gat nem',
@@ -7387,6 +8031,7 @@ export const localizations = {
   },
   noAssetSelected: {
     english: 'No Asset Selected',
+    french: 'Aucun actif sélectionné',
     spanish: 'No hay actividades seleccionadas',
     brazilian_portuguese: 'Nenhuma atividade selecionada',
     tok_pisin: 'Yu no makim wanpela asset',
@@ -7399,6 +8044,7 @@ export const localizations = {
   },
   assetNotAvailableOffline: {
     english: 'Asset not available offline',
+    french: 'Élément non disponible hors connexion',
     spanish: 'La actividad no está disponible sin conexión',
     brazilian_portuguese: 'A atividade não está disponível offline',
     tok_pisin: 'Asset i no stap taim i no gat internet',
@@ -7411,6 +8057,7 @@ export const localizations = {
   },
   cloudError: {
     english: 'Cloud error: {error}',
+    french: 'Erreur cloud : {error}',
     spanish: 'Error en la nube: {error}',
     brazilian_portuguese: 'Erro na nuvem: {error}',
     tok_pisin: 'Cloud error: {error}',
@@ -7423,6 +8070,7 @@ export const localizations = {
   },
   assetNotFoundOnline: {
     english: 'Asset not found online',
+    french: 'Actif introuvable en ligne',
     spanish: 'La actividad no se encontró en línea',
     brazilian_portuguese: 'A atividade não foi encontrada online',
     tok_pisin: 'Asset i no stap long internet',
@@ -7435,6 +8083,7 @@ export const localizations = {
   },
   trySwitchingToCloudDataSource: {
     english: 'Try switching to Cloud data source above',
+    french: 'Essayez de passer à la source de données Cloud ci-dessus',
     spanish: 'Intenta cambiar a la fuente de datos en la nube',
     brazilian_portuguese: 'Tente mudar para a fonte de dados na nuvem',
     tok_pisin: 'Traim senisim long Cloud data source antap',
@@ -7447,6 +8096,7 @@ export const localizations = {
   },
   trySwitchingToOfflineDataSource: {
     english: 'Try switching to Offline data source above',
+    french: 'Essayez de passer à la source de données hors ligne ci-dessus',
     spanish: 'Intenta cambiar a la fuente de datos sin conexión',
     brazilian_portuguese: 'Tente mudar para a fonte de datos offline',
     tok_pisin: 'Traim senisim long Offline data source antap',
@@ -7459,6 +8109,7 @@ export const localizations = {
   },
   assetMayNotBeSynchronized: {
     english: 'This asset may not be synchronized or may not exist',
+    french: "Cet actif n'est peut-être pas synchronisé ou peut ne pas exister",
     spanish: 'Esta actividad puede no estar sincronizada o puede no existir',
     brazilian_portuguese:
       'Esta atividade pode não estar sincronizada ou pode não existir',
@@ -7472,6 +8123,7 @@ export const localizations = {
   },
   noContentAvailable: {
     english: 'No content available',
+    french: 'Aucun contenu disponible',
     spanish: 'No hay contenido disponible',
     brazilian_portuguese: 'Nenhum conteúdo disponível',
     tok_pisin: 'I no gat content',
@@ -7484,6 +8136,7 @@ export const localizations = {
   },
   audioReady: {
     english: 'Audio ready',
+    french: 'Audio prêt',
     spanish: 'Audio listo',
     brazilian_portuguese: 'Áudio pronto',
     tok_pisin: 'Audio i redi',
@@ -7496,6 +8149,7 @@ export const localizations = {
   },
   audioNotAvailable: {
     english: 'Audio not available',
+    french: 'Audio non disponible',
     spanish: 'Audio no disponible',
     brazilian_portuguese: 'Áudio não disponível',
     tok_pisin: 'Audio i no stap',
@@ -7508,6 +8162,7 @@ export const localizations = {
   },
   imagesAvailable: {
     english: 'Images available',
+    french: 'Images disponibles',
     spanish: 'Imágenes disponibles',
     brazilian_portuguese: 'Imagens disponíveis',
     tok_pisin: 'Ol piksa i stap',
@@ -7520,6 +8175,7 @@ export const localizations = {
   },
   language: {
     english: 'Language',
+    french: 'Langue',
     spanish: 'Idioma',
     brazilian_portuguese: 'Idioma',
     tok_pisin: 'Tokples',
@@ -7532,6 +8188,7 @@ export const localizations = {
   },
   template: {
     english: 'Template',
+    french: 'Modèle',
     spanish: 'Plantilla',
     brazilian_portuguese: 'Plantilla',
     tok_pisin: 'Template',
@@ -7545,6 +8202,7 @@ export const localizations = {
   // template options
   bible: {
     english: 'Bible',
+    french: 'Bible',
     spanish: 'Biblia',
     brazilian_portuguese: 'Bíblia',
     tok_pisin: 'Bible',
@@ -7557,6 +8215,7 @@ export const localizations = {
   },
   unstructured: {
     english: 'Custom',
+    french: 'Coutume',
     spanish: 'Personalizado',
     brazilian_portuguese: 'Personalizado',
     tok_pisin: 'Custom',
@@ -7569,6 +8228,7 @@ export const localizations = {
   },
   fia: {
     english: 'FIA',
+    french: 'FIA',
     spanish: 'FIA',
     brazilian_portuguese: 'FIA',
     tok_pisin: 'FIA',
@@ -7581,6 +8241,7 @@ export const localizations = {
   },
   fiaDescription: {
     english: 'Familiarize-Internalize-Articulate',
+    french: 'Familiariser-Intérioriser-Articuler',
     spanish: 'Familiarizar-Internalizar-Articular',
     brazilian_portuguese: 'Familiarizar-Internalizar-Articular',
     tok_pisin: 'Familiarize-Internalize-Articulate',
@@ -7593,6 +8254,7 @@ export const localizations = {
   },
   fiaContentLanguage: {
     english: 'FIA content language',
+    french: 'Langue du contenu de la FIA',
     spanish: 'Idioma del contenido FIA',
     brazilian_portuguese: 'Idioma do conteúdo FIA',
     tok_pisin: 'FIA content language',
@@ -7605,6 +8267,7 @@ export const localizations = {
   },
   fiaComingSoon: {
     english: 'FIA project creation coming soon',
+    french: "Bientôt la création d'un projet FIA",
     spanish: 'Creación de proyectos FIA próximamente',
     brazilian_portuguese: 'Criação de projetos FIA em breve',
     tok_pisin: 'FIA project creation i kam',
@@ -7617,6 +8280,7 @@ export const localizations = {
   },
   createFiaProject: {
     english: 'FIA Project',
+    french: 'Projet FIA',
     spanish: 'Proyecto FIA',
     brazilian_portuguese: 'Projeto FIA',
     tok_pisin: 'FIA Project',
@@ -7629,6 +8293,7 @@ export const localizations = {
   },
   createFiaProjectDescription: {
     english: 'Translate FIA content into your language',
+    french: 'Traduisez le contenu de la FIA dans votre langue',
     spanish: 'Traduce contenido FIA a tu idioma',
     brazilian_portuguese: 'Traduza conteúdo FIA para o seu idioma',
     tok_pisin: 'Translatem FIA content long tok ples bilong yu',
@@ -7641,6 +8306,7 @@ export const localizations = {
   },
   audioTracks: {
     english: 'Audio tracks',
+    french: 'Pistes audio',
     spanish: 'Pistas de audio',
     brazilian_portuguese: 'Pistas de áudio',
     tok_pisin: 'Ol audio track',
@@ -7653,6 +8319,7 @@ export const localizations = {
   },
   membersOnly: {
     english: 'Members Only',
+    french: 'Membres uniquement',
     spanish: 'Solo para miembros',
     brazilian_portuguese: 'Só para membros',
     tok_pisin: 'Member tasol',
@@ -7665,6 +8332,7 @@ export const localizations = {
   },
   cloud: {
     english: 'Cloud',
+    french: 'Nuage',
     spanish: 'Nube',
     brazilian_portuguese: 'Nuvem',
     tok_pisin: 'Cloud',
@@ -7677,6 +8345,7 @@ export const localizations = {
   },
   syncing: {
     english: 'Syncing',
+    french: 'Synchronisation',
     spanish: 'Sincronizando',
     brazilian_portuguese: 'Sincronizando',
     tok_pisin: 'I sync',
@@ -7689,6 +8358,7 @@ export const localizations = {
   },
   synced: {
     english: 'Synced',
+    french: 'Synchronisé',
     spanish: 'Sincronizado',
     brazilian_portuguese: 'Sincronizado',
     tok_pisin: 'Sync pinis',
@@ -7701,6 +8371,7 @@ export const localizations = {
   },
   questSyncedToCloud: {
     english: 'Quest is synced to cloud',
+    french: 'La quête est synchronisée avec le cloud',
     spanish: 'La misión está sincronizada en la nube',
     brazilian_portuguese: 'A missão está sincronizada na nuvem',
     tok_pisin: 'Quest i sync pinis long cloud',
@@ -7713,6 +8384,7 @@ export const localizations = {
   },
   failed: {
     english: 'Failed',
+    french: 'Échoué',
     spanish: 'Fallado',
     brazilian_portuguese: 'Falhado',
     tok_pisin: 'I pail',
@@ -7725,6 +8397,7 @@ export const localizations = {
   },
   state: {
     english: 'State',
+    french: 'État',
     spanish: 'Estado',
     brazilian_portuguese: 'Estado',
     tok_pisin: 'State',
@@ -7737,6 +8410,7 @@ export const localizations = {
   },
   noQuestSelected: {
     english: 'No Quest Selected',
+    french: 'Aucune quête sélectionnée',
     spanish: 'No hay proyecto seleccionado',
     brazilian_portuguese: 'Nenhum projeto selecionado',
     tok_pisin: 'Yu no makim wanpela quest',
@@ -7749,6 +8423,7 @@ export const localizations = {
   },
   liveAttachmentStates: {
     english: 'Live Attachment States',
+    french: 'États des pièces jointes actives',
     spanish: 'Estados de adjuntos en vivo',
     brazilian_portuguese: 'Estados de anexos em tempo real',
     tok_pisin: 'Live Attachment States',
@@ -7761,6 +8436,7 @@ export const localizations = {
   },
   searching: {
     english: 'Searching',
+    french: 'Recherche',
     spanish: 'Buscando',
     brazilian_portuguese: 'Buscando',
     tok_pisin: 'I painim',
@@ -7773,6 +8449,7 @@ export const localizations = {
   },
   translationSubmittedSuccessfully: {
     english: 'Translation submitted successfully',
+    french: 'Traduction soumise avec succès',
     spanish: 'Traducción enviada correctamente',
     brazilian_portuguese: 'Tradução enviada com sucesso',
     tok_pisin: 'Translation i go gut pinis',
@@ -7785,6 +8462,7 @@ export const localizations = {
   },
   transcriptionSubmittedSuccessfully: {
     english: 'Transcription submitted successfully',
+    french: 'Transcription soumise avec succès',
     spanish: 'Transcripción enviada correctamente',
     brazilian_portuguese: 'Transcrição enviada com sucesso',
     tok_pisin: 'Transcription i go gut pinis',
@@ -7797,6 +8475,7 @@ export const localizations = {
   },
   text: {
     english: 'Text',
+    french: 'Texte',
     spanish: 'Texto',
     brazilian_portuguese: 'Texto',
     tok_pisin: 'Text',
@@ -7809,6 +8488,7 @@ export const localizations = {
   },
   audio: {
     english: 'Audio',
+    french: 'Audio',
     spanish: 'Audio',
     brazilian_portuguese: 'Áudio',
     tok_pisin: 'Audio',
@@ -7821,6 +8501,7 @@ export const localizations = {
   },
   targetLanguage: {
     english: 'Target Language',
+    french: 'Langue cible',
     spanish: 'Idioma de destino',
     brazilian_portuguese: 'Idioma de destino',
     tok_pisin: 'Target Tokples',
@@ -7833,6 +8514,7 @@ export const localizations = {
   },
   sourceLanguage: {
     english: 'Source Language',
+    french: 'Langue source',
     spanish: 'Idioma de origen',
     brazilian_portuguese: 'Idioma de origem',
     tok_pisin: 'Source Tokples',
@@ -7845,6 +8527,7 @@ export const localizations = {
   },
   your: {
     english: 'Your',
+    french: 'Ton',
     spanish: 'Tu',
     brazilian_portuguese: 'Seu',
     tok_pisin: 'Bilong yu',
@@ -7857,6 +8540,7 @@ export const localizations = {
   },
   translation: {
     english: 'Translation',
+    french: 'Traduction',
     spanish: 'Traducción',
     brazilian_portuguese: 'Tradução',
     tok_pisin: 'Translation',
@@ -7869,6 +8553,7 @@ export const localizations = {
   },
   readyToSubmit: {
     english: 'Ready to submit',
+    french: 'Prêt à soumettre',
     spanish: 'Listo para enviar',
     brazilian_portuguese: 'Pronto para enviar',
     tok_pisin: 'Redi long salim',
@@ -7881,6 +8566,7 @@ export const localizations = {
   },
   online: {
     english: 'Online',
+    french: 'En ligne',
     spanish: 'En línea',
     brazilian_portuguese: 'Online',
     tok_pisin: 'Online',
@@ -7893,6 +8579,7 @@ export const localizations = {
   },
   allProjects: {
     english: 'All Projects',
+    french: 'Tous les projets',
     spanish: 'Todos los proyectos',
     brazilian_portuguese: 'Todos os projetos',
     tok_pisin: 'Olgeta Project',
@@ -7905,6 +8592,7 @@ export const localizations = {
   },
   searchProjects: {
     english: 'Search projects...',
+    french: 'Rechercher des projets...',
     spanish: 'Buscar proyectos...',
     brazilian_portuguese: 'Buscar projetos...',
     tok_pisin: 'Painim ol project...',
@@ -7917,6 +8605,7 @@ export const localizations = {
   },
   noProjectSelected: {
     english: 'No Project Selected',
+    french: 'Aucun projet sélectionné',
     spanish: 'No hay proyecto seleccionado',
     brazilian_portuguese: 'Nenhum projeto selecionado',
     tok_pisin: 'Yu no makim wanpela project',
@@ -7929,6 +8618,7 @@ export const localizations = {
   },
   noQuestsFound: {
     english: 'No quests found',
+    french: 'Aucune quête trouvée',
     spanish: 'No se encontraron misiones',
     brazilian_portuguese: 'Nenhuma missão encontrada',
     tok_pisin: 'I no gat quest',
@@ -7941,6 +8631,7 @@ export const localizations = {
   },
   noQuestsAvailable: {
     english: 'No quests available',
+    french: 'Aucune quête disponible',
     spanish: 'No hay misiones disponibles',
     brazilian_portuguese: 'Nenhuma missão disponível',
     tok_pisin: 'I no gat quest long usim',
@@ -7953,6 +8644,7 @@ export const localizations = {
   },
   pleaseLogInToVote: {
     english: 'Please log in to vote',
+    french: 'Veuillez vous connecter pour voter',
     spanish: 'Por favor, inicia sesión para votar',
     brazilian_portuguese: 'Por favor, faça login para votar',
     tok_pisin: 'Plis login pastaim long vote',
@@ -7965,6 +8657,7 @@ export const localizations = {
   },
   pleaseLogInToTranscribe: {
     english: 'Please log in to transcribe audio',
+    french: "Veuillez vous connecter pour transcrire l'audio",
     spanish: 'Por favor, inicia sesión para transcribir audio',
     brazilian_portuguese: 'Por favor, faça login para transcrever áudio',
     tok_pisin: 'Plis login pastaim long transcribe audio',
@@ -7977,6 +8670,7 @@ export const localizations = {
   },
   transcriptionFailed: {
     english: 'Failed to transcribe audio. Please try again.',
+    french: "Échec de la transcription de l'audio. Veuillez réessayer.",
     spanish: 'Error al transcribir el audio. Por favor, inténtelo de nuevo.',
     brazilian_portuguese:
       'Falha ao transcrever áudio. Por favor, tente novamente.',
@@ -7990,6 +8684,7 @@ export const localizations = {
   },
   yourTranscriptionHasBeenSubmitted: {
     english: 'Your transcription has been submitted',
+    french: 'Votre transcription a été soumise',
     spanish: 'Tu transcripción ha sido enviada',
     brazilian_portuguese: 'Sua transcrição foi enviada',
     tok_pisin: 'Transcription bilong yu i go pinis',
@@ -8002,6 +8697,7 @@ export const localizations = {
   },
   failedToCreateTranscription: {
     english: 'Failed to create transcription',
+    french: 'Échec de la création de la transcription',
     spanish: 'Error al crear la transcripción',
     brazilian_portuguese: 'Falha ao criar a transcrição',
     tok_pisin: 'I no inap mekim transcription',
@@ -8014,6 +8710,7 @@ export const localizations = {
   },
   enterYourTranscription: {
     english: 'Enter your transcription',
+    french: 'Entrez votre transcription',
     spanish: 'Escribe tu transcripción',
     brazilian_portuguese: 'Digite sua transcrição',
     tok_pisin: 'Raitim transcription bilong yu',
@@ -8026,6 +8723,7 @@ export const localizations = {
   },
   submitTranscription: {
     english: 'Submit Transcription',
+    french: 'Soumettre la transcription',
     spanish: 'Enviar transcripción',
     brazilian_portuguese: 'Enviar transcrição',
     tok_pisin: 'Salim Transcription',
@@ -8038,6 +8736,7 @@ export const localizations = {
   },
   good: {
     english: 'Good',
+    french: 'Bien',
     spanish: 'Bueno',
     brazilian_portuguese: 'Bom',
     tok_pisin: 'Gut',
@@ -8050,6 +8749,7 @@ export const localizations = {
   },
   needsWork: {
     english: 'Needs Work',
+    french: 'A besoin de travail',
     spanish: 'Necesita trabajo',
     brazilian_portuguese: 'Precisa de trabalho',
     tok_pisin: 'I nidim wok moa',
@@ -8062,6 +8762,7 @@ export const localizations = {
   },
   pleaseLogInToVoteOnTranslations: {
     english: 'Please log in to vote on translations',
+    french: 'Veuillez vous connecter pour voter sur les traductions',
     spanish: 'Por favor, inicia sesión para votar en traducciones',
     brazilian_portuguese: 'Por favor, faça login para votar em traduções',
     tok_pisin: 'Plis login pastaim long vote long ol translation',
@@ -8074,6 +8775,7 @@ export const localizations = {
   },
   translationNotFound: {
     english: 'Translation not found',
+    french: 'Traduction non trouvée',
     spanish: 'Traducción no encontrada',
     brazilian_portuguese: 'Tradução não encontrada',
     tok_pisin: 'Translation i no stap',
@@ -8086,6 +8788,7 @@ export const localizations = {
   },
   noTranslationsYet: {
     english: 'No translations yet. Be the first to translate!',
+    french: 'Pas encore de traductions. Soyez le premier à traduire !',
     spanish: 'No hay traducciones aún. Sé el primero en traducir!',
     brazilian_portuguese: 'Nenhuma tradução ainda. Seja o primeiro a traduzir!',
     tok_pisin: 'I no gat translation yet. Yu ken namba wan long translate!',
@@ -8098,6 +8801,7 @@ export const localizations = {
   },
   viewProjectLimitedAccess: {
     english: 'View Project (Limited Access)',
+    french: 'Voir le projet (accès limité)',
     spanish: 'Ver proyecto (Acceso limitado)',
     brazilian_portuguese: 'Ver projeto (Acesso limitado)',
     tok_pisin: 'Lukim Project (Limited Access)',
@@ -8110,6 +8814,7 @@ export const localizations = {
   },
   languages: {
     english: 'Languages',
+    french: 'Langues',
     spanish: 'Idiomas',
     brazilian_portuguese: 'Idiomas',
     tok_pisin: 'Ol Tokples',
@@ -8122,6 +8827,7 @@ export const localizations = {
   },
   downloadRequired: {
     english: 'Download required',
+    french: 'Téléchargement requis',
     spanish: 'Descarga requerida',
     brazilian_portuguese: 'Download requerido',
     tok_pisin: 'Yu mas daunim',
@@ -8134,6 +8840,7 @@ export const localizations = {
   },
   myProjects: {
     english: 'My Projects',
+    french: 'Mes projets',
     spanish: 'Mis proyectos',
     brazilian_portuguese: 'Meus projetos',
     tok_pisin: 'Ol Project Bilong Mi',
@@ -8147,6 +8854,8 @@ export const localizations = {
   statusTranslationActive: {
     english:
       'This translation is currently active. An active translation is also visible.',
+    french:
+      'Cette traduction est actuellement active. Une traduction active est également visible.',
     spanish:
       'Esta traducción está actualmente activa. Una traducción activa también es visible.',
     brazilian_portuguese:
@@ -8165,6 +8874,8 @@ export const localizations = {
   statusTranslationInactive: {
     english:
       'This translation is inactive. No actions can be performed unless it is reactivated.',
+    french:
+      "Cette traduction est inactive. Aucune action ne peut être effectuée à moins d'être réactivée.",
     spanish:
       'Esta traducción está inactiva. No se pueden realizar acciones a menos que se reactive.',
     brazilian_portuguese:
@@ -8184,6 +8895,7 @@ export const localizations = {
   },
   statusTranslationVisible: {
     english: 'This translation is visible to other users.',
+    french: 'Cette traduction est visible par les autres utilisateurs.',
     spanish: 'Esta traducción es visible para otros usuarios.',
     brazilian_portuguese: 'Esta tradução está visível para outros usuários.',
     tok_pisin: 'Dispela translation i save long ol narapela user.',
@@ -8197,6 +8909,8 @@ export const localizations = {
   statusTranslationInvisible: {
     english:
       'This translation is hidden and will not be shown to other users. An invisible translation is also inactive.',
+    french:
+      'Cette traduction est masquée et ne sera pas montrée aux autres utilisateurs. Une traduction invisible est également inactive.',
     spanish:
       'Esta traducción está oculta y no se mostrará a otros usuarios. Una traducción invisible también está inactiva.',
     brazilian_portuguese:
@@ -8216,6 +8930,7 @@ export const localizations = {
   },
   statusTranslationMadeVisible: {
     english: 'The translation has been made visible',
+    french: 'La traduction a été rendue visible',
     spanish: 'La traducción se ha hecho visible',
     brazilian_portuguese: 'A tradução foi tornada visível',
     tok_pisin: 'Translation i mekim save nau',
@@ -8228,6 +8943,7 @@ export const localizations = {
   },
   statusTranslationMadeInvisible: {
     english: 'The translation has been made invisible',
+    french: 'La traduction a été rendue invisible',
     spanish: 'La traducción se ha hecho invisible',
     brazilian_portuguese: 'A tradução foi tornada invisível',
     tok_pisin: 'Translation i mekim hait nau',
@@ -8240,6 +8956,7 @@ export const localizations = {
   },
   statusTranslationMadeActive: {
     english: 'The translation has been made active',
+    french: 'La traduction a été rendue active',
     spanish: 'La traducción se ha activado',
     brazilian_portuguese: 'A tradução foi ativada',
     tok_pisin: 'Translation i mekim active nau',
@@ -8252,6 +8969,7 @@ export const localizations = {
   },
   statusTranslationMadeInactive: {
     english: 'The translation has been made inactive',
+    french: 'La traduction a été rendue inactive',
     spanish: 'La traducción ha sido desactivada',
     brazilian_portuguese: 'A tradução foi desativada',
     tok_pisin: 'Translation i mekim stop nau',
@@ -8264,6 +8982,7 @@ export const localizations = {
   },
   statusTranslationUpdateFailed: {
     english: 'Failed to update translation settings',
+    french: 'Échec de la mise à jour des paramètres de traduction',
     spanish: 'Error al actualizar la configuración de la traducción',
     brazilian_portuguese: 'Falha ao atualizar as configurações da tradução',
     tok_pisin: 'I no inap update translation settings',
@@ -8276,6 +8995,7 @@ export const localizations = {
   },
   translationSettingsLoadError: {
     english: 'Error loading translation settings.',
+    french: 'Erreur lors du chargement des paramètres de traduction.',
     spanish: 'Error al cargar la configuración de traducción.',
     brazilian_portuguese: 'Erro ao carregar as configurações de tradução.',
     tok_pisin: 'I no inap load translation settings.',
@@ -8288,6 +9008,7 @@ export const localizations = {
   },
   contentText: {
     english: 'Content Text',
+    french: 'Texte du contenu',
     spanish: 'Texto del Contenido',
     brazilian_portuguese: 'Texto do Conteúdo',
     tok_pisin: 'Content Text',
@@ -8300,6 +9021,7 @@ export const localizations = {
   },
   enterContentText: {
     english: 'Enter content text...',
+    french: 'Saisissez le texte du contenu...',
     spanish: 'Ingrese el texto del contenido...',
     brazilian_portuguese: 'Digite o texto do conteúdo...',
     tok_pisin: 'Putim content text...',
@@ -8312,6 +9034,7 @@ export const localizations = {
   },
   saving: {
     english: 'Saving...',
+    french: 'Économie...',
     spanish: 'Guardando...',
     brazilian_portuguese: 'Salvando...',
     tok_pisin: 'Seivim...',
@@ -8324,6 +9047,8 @@ export const localizations = {
   },
   localAssetEditHint: {
     english: 'This asset is local only. Text can be edited until published.',
+    french:
+      "Cet actif est local uniquement. Le texte peut être modifié jusqu'à sa publication.",
     spanish:
       'Este recurso es solo local. El texto se puede editar hasta que se publique.',
     brazilian_portuguese:
@@ -8343,6 +9068,7 @@ export const localizations = {
   },
   requests: {
     english: 'Requests',
+    french: 'Demandes',
     spanish: 'Solicitudes',
     brazilian_portuguese: 'Solicitações',
     tok_pisin: 'Ol askim',
@@ -8355,6 +9081,7 @@ export const localizations = {
   },
   noPendingRequests: {
     english: 'No pending membership requests',
+    french: "Aucune demande d'adhésion en attente",
     spanish: 'No hay solicitudes de membresía pendientes',
     brazilian_portuguese: 'Sem solicitações de adesão pendentes',
     tok_pisin: 'I no gat askim i stap',
@@ -8367,6 +9094,7 @@ export const localizations = {
   },
   confirmApprove: {
     english: 'Approve Request',
+    french: 'Approuver la demande',
     spanish: 'Aprobar Solicitud',
     brazilian_portuguese: 'Aprovar Solicitação',
     tok_pisin: 'Orait long askim',
@@ -8379,6 +9107,7 @@ export const localizations = {
   },
   confirmApproveMessage: {
     english: 'Add {name} as a member of this project?',
+    french: 'Ajouter {name} en tant que membre de ce projet ?',
     spanish: '¿Agregar a {name} como miembro de este proyecto?',
     brazilian_portuguese: 'Adicionar {name} como membro deste projeto?',
     tok_pisin: 'Putim {name} i kamap memba bilong projek?',
@@ -8391,6 +9120,7 @@ export const localizations = {
   },
   requestApproved: {
     english: 'Request approved',
+    french: 'Demande approuvée',
     spanish: 'Solicitud aprobada',
     brazilian_portuguese: 'Solicitação aprovada',
     tok_pisin: 'Askim i orait',
@@ -8403,6 +9133,7 @@ export const localizations = {
   },
   confirmDeny: {
     english: 'Deny Request',
+    french: 'Refuser la demande',
     spanish: 'Rechazar Solicitud',
     brazilian_portuguese: 'Negar Solicitação',
     tok_pisin: 'Tambu askim',
@@ -8415,6 +9146,7 @@ export const localizations = {
   },
   confirmDenyMessage: {
     english: 'Deny membership request from {name}?',
+    french: "Refuser la demande d'adhésion de {name} ?",
     spanish: '¿Rechazar solicitud de membresía de {name}?',
     brazilian_portuguese: 'Negar solicitação de adesão de {name}?',
     tok_pisin: 'Tambu askim bilong {name}?',
@@ -8427,6 +9159,7 @@ export const localizations = {
   },
   requestDenied: {
     english: 'Request denied',
+    french: 'Demande refusée',
     spanish: 'Solicitud rechazada',
     brazilian_portuguese: 'Solicitação negada',
     tok_pisin: 'Askim i tambu',
@@ -8439,6 +9172,7 @@ export const localizations = {
   },
   failedToApproveRequest: {
     english: 'Failed to approve request',
+    french: "Échec de l'approbation de la demande",
     spanish: 'Error al aprobar solicitud',
     brazilian_portuguese: 'Falha ao aprovar solicitação',
     tok_pisin: 'Askim i no inap orait',
@@ -8451,6 +9185,7 @@ export const localizations = {
   },
   failedToDenyRequest: {
     english: 'Failed to deny request',
+    french: 'Échec du refus de la demande',
     spanish: 'Error al rechazar solicitud',
     brazilian_portuguese: 'Falha ao negar solicitação',
     tok_pisin: 'Askim i no inap tambu',
@@ -8463,6 +9198,7 @@ export const localizations = {
   },
   downloadQuestToView: {
     english: 'This quest must be downloaded before you can view it.',
+    french: 'Cette quête doit être téléchargée avant de pouvoir la visualiser.',
     spanish: 'Este quest debe descargarse antes de poder verlo.',
     brazilian_portuguese: 'Esta quest deve ser baixada antes de visualizá-la.',
     tok_pisin: 'Yu mas daunim dispela quest pastaim long lukim.',
@@ -8475,6 +9211,7 @@ export const localizations = {
   },
   downloadNow: {
     english: 'Download Now',
+    french: 'Télécharger maintenant',
     spanish: 'Descargar Ahora',
     brazilian_portuguese: 'Baixar Agora',
     tok_pisin: 'Daunim nau',
@@ -8487,6 +9224,7 @@ export const localizations = {
   },
   vadTitle: {
     english: 'Voice Activity',
+    french: 'Activité vocale',
     spanish: 'Actividad de Voz',
     brazilian_portuguese: 'Atividade de Voz',
     tok_pisin: 'Wok bilong vois',
@@ -8499,6 +9237,7 @@ export const localizations = {
   },
   vadDescription: {
     english: 'Records automatically when you speak',
+    french: 'Enregistre automatiquement lorsque vous parlez',
     spanish: 'Graba automáticamente cuando hablas',
     brazilian_portuguese: 'Grava automaticamente quando você fala',
     tok_pisin: 'Em i save record pastaim taim yu toktok',
@@ -8511,6 +9250,7 @@ export const localizations = {
   },
   vadCurrentLevel: {
     english: 'Current Level',
+    french: 'Niveau actuel',
     spanish: 'Nivel Actual',
     brazilian_portuguese: 'Nível Atual',
     tok_pisin: 'Level nau',
@@ -8523,6 +9263,7 @@ export const localizations = {
   },
   vadRecordingNow: {
     english: 'Recording',
+    french: 'Enregistrement',
     spanish: 'Grabando',
     brazilian_portuguese: 'Gravando',
     tok_pisin: 'I save nau',
@@ -8535,6 +9276,7 @@ export const localizations = {
   },
   vadWaiting: {
     english: 'Waiting',
+    french: 'En attendant',
     spanish: 'Esperando',
     brazilian_portuguese: 'Aguardando',
     tok_pisin: 'Wetim',
@@ -8547,6 +9289,7 @@ export const localizations = {
   },
   vadPaused: {
     english: 'Paused',
+    french: 'En pause',
     spanish: 'Pausado',
     brazilian_portuguese: 'Pausado',
     tok_pisin: 'I stop liklik',
@@ -8559,6 +9302,7 @@ export const localizations = {
   },
   vadThreshold: {
     english: 'Sensitivity',
+    french: 'Sensibilité',
     spanish: 'Sensibilidad',
     brazilian_portuguese: 'Sensibilidade',
     tok_pisin: 'Strong bilong harim',
@@ -8571,6 +9315,7 @@ export const localizations = {
   },
   vadSilenceDuration: {
     english: 'Pause Length',
+    french: 'Durée de la pause',
     spanish: 'Duración de Pausa',
     brazilian_portuguese: 'Duração da Pausa',
     tok_pisin: 'Taim bilong pas',
@@ -8583,6 +9328,8 @@ export const localizations = {
   },
   vadSilenceDescription: {
     english: 'How much silence is needed to determine segment boundaries.',
+    french:
+      'Quelle quantité de silence est nécessaire pour déterminer les limites des segments.',
     spanish:
       'Cuánto silencio se necesita para determinar los límites del segmento.',
     brazilian_portuguese:
@@ -8598,6 +9345,7 @@ export const localizations = {
   },
   vadMinSegmentLength: {
     english: 'Minimum Segment Length',
+    french: 'Longueur minimale des segments',
     spanish: 'Longitud Mínima de Segmento',
     brazilian_portuguese: 'Comprimento Mínimo do Segmento',
     tok_pisin: 'Liklik Taim Inap Bilong Toktok',
@@ -8610,6 +9358,8 @@ export const localizations = {
   },
   vadMinSegmentLengthDescription: {
     english: 'Discard segments below this duration (filter brief noises)',
+    french:
+      'Supprimer les segments en dessous de cette durée (filtrer les bruits brefs)',
     spanish:
       'Descartar segmentos por debajo de esta duración (filtrar ruidos breves)',
     brazilian_portuguese:
@@ -8626,6 +9376,7 @@ export const localizations = {
   },
   vadNoFilter: {
     english: 'No filter',
+    french: 'Pas de filtre',
     spanish: 'Sin filtro',
     brazilian_portuguese: 'Sem filtro',
     tok_pisin: 'No filta',
@@ -8638,6 +9389,7 @@ export const localizations = {
   },
   vadLightFilter: {
     english: 'Light filter',
+    french: 'Filtre de lumière',
     spanish: 'Filtro ligero',
     brazilian_portuguese: 'Filtro leve',
     tok_pisin: 'Liklik filta',
@@ -8650,6 +9402,7 @@ export const localizations = {
   },
   vadMediumFilter: {
     english: 'Medium filter',
+    french: 'Filtre moyen',
     spanish: 'Filtro medio',
     brazilian_portuguese: 'Filtro médio',
     tok_pisin: 'Namel filta',
@@ -8662,6 +9415,7 @@ export const localizations = {
   },
   vadStrongFilter: {
     english: 'Strong filter',
+    french: 'Filtre puissant',
     spanish: 'Filtro fuerte',
     brazilian_portuguese: 'Filtro forte',
     tok_pisin: 'Strongpela filta',
@@ -8674,6 +9428,7 @@ export const localizations = {
   },
   vadSensitive: {
     english: 'Sensitive',
+    french: 'Sensible',
     spanish: 'Sensible',
     brazilian_portuguese: 'Sensível',
     tok_pisin: 'I harim gut',
@@ -8686,6 +9441,7 @@ export const localizations = {
   },
   vadNormal: {
     english: 'Normal',
+    french: 'Normale',
     spanish: 'Normal',
     brazilian_portuguese: 'Normal',
     tok_pisin: 'Nambawan',
@@ -8698,6 +9454,7 @@ export const localizations = {
   },
   vadLoud: {
     english: 'Loud',
+    french: 'Fort',
     spanish: 'Alto',
     brazilian_portuguese: 'Alto',
     tok_pisin: 'Bikpela nois',
@@ -8710,6 +9467,7 @@ export const localizations = {
   },
   vadVerySensitive: {
     english: 'Very Sensitive',
+    french: 'Très sensible',
     spanish: 'Muy Sensible',
     brazilian_portuguese: 'Muito Sensível',
     tok_pisin: 'I harim tumas',
@@ -8722,6 +9480,7 @@ export const localizations = {
   },
   vadLoudOnly: {
     english: 'Loud Only',
+    french: 'Fort seulement',
     spanish: 'Solo Alto',
     brazilian_portuguese: 'Apenas Alto',
     tok_pisin: 'Bikpela nois tasol',
@@ -8734,6 +9493,7 @@ export const localizations = {
   },
   vadVeryLoud: {
     english: 'Very Loud',
+    french: 'Très fort',
     spanish: 'Muy Alto',
     brazilian_portuguese: 'Muito Alto',
     tok_pisin: 'Bikpela nois tumas',
@@ -8746,6 +9506,7 @@ export const localizations = {
   },
   vadQuickSegments: {
     english: 'Quick',
+    french: 'Rapide',
     spanish: 'Rápido',
     brazilian_portuguese: 'Rápido',
     tok_pisin: 'Kwik',
@@ -8758,6 +9519,7 @@ export const localizations = {
   },
   vadBalanced: {
     english: 'Balanced',
+    french: 'Équilibré',
     spanish: 'Equilibrado',
     brazilian_portuguese: 'Equilibrado',
     tok_pisin: 'Naispela',
@@ -8770,6 +9532,7 @@ export const localizations = {
   },
   vadCompleteThoughts: {
     english: 'Complete',
+    french: 'Complet',
     spanish: 'Completo',
     brazilian_portuguese: 'Completo',
     tok_pisin: 'Olgeta',
@@ -8782,6 +9545,7 @@ export const localizations = {
   },
   vadDisplayMode: {
     english: 'Display Mode',
+    french: "Mode d'affichage",
     spanish: 'Modo de Visualización',
     brazilian_portuguese: 'Modo de Exibição',
     tok_pisin: 'Kaim bilong lukim',
@@ -8794,6 +9558,7 @@ export const localizations = {
   },
   vadFullScreen: {
     english: 'Full Screen',
+    french: 'Plein écran',
     spanish: 'Pantalla Completa',
     brazilian_portuguese: 'Tela Cheia',
     tok_pisin: 'Fulap skrin',
@@ -8806,6 +9571,7 @@ export const localizations = {
   },
   vadFooter: {
     english: 'Footer',
+    french: 'Pied de page',
     spanish: 'Pie de Página',
     brazilian_portuguese: 'Rodapé',
     tok_pisin: 'Asdaun',
@@ -8818,6 +9584,8 @@ export const localizations = {
   },
   vadDisplayDescription: {
     english: 'Choose how the waveform appears when recording',
+    french:
+      "Choisissez comment la forme d'onde apparaît lors de l'enregistrement",
     spanish: 'Elige cómo aparece la forma de onda al grabar',
     brazilian_portuguese: 'Escolha como a forma de onda aparece ao gravar',
     tok_pisin: 'Makim olsem wanem wevpom i kamap taim yu save record',
@@ -8830,6 +9598,7 @@ export const localizations = {
   },
   vadStop: {
     english: 'Stop Recording',
+    french: "Arrêter l'enregistrement",
     spanish: 'Detener Grabación',
     brazilian_portuguese: 'Parar Gravação',
     tok_pisin: 'Stopim rekod',
@@ -8842,6 +9611,7 @@ export const localizations = {
   },
   vadHelpTitle: {
     english: 'How It Works',
+    french: 'Comment ça marche',
     spanish: 'Cómo Funciona',
     brazilian_portuguese: 'Como Funciona',
     tok_pisin: 'Olsem wanem em i wok',
@@ -8855,6 +9625,8 @@ export const localizations = {
   vadHelpAutomatic: {
     english:
       'When sound is detected a segment will automatically start recording. After some silence the segment will be saved. You may record multiple segments like this in sequence while recording is activated.',
+    french:
+      "Lorsqu'un son est détecté, un segment démarre automatiquement l'enregistrement. Après un moment de silence, le segment sera enregistré. Vous pouvez enregistrer plusieurs segments comme celui-ci en séquence pendant que l'enregistrement est activé.",
     spanish:
       'Cuando se detecta sonido, un segmento comenzará a grabarse automáticamente. Después de un silencio, el segmento se guardará. Puedes grabar múltiples segmentos así en secuencia mientras la grabación está activada.',
     brazilian_portuguese:
@@ -8876,6 +9648,8 @@ export const localizations = {
   vadHelpSensitivity: {
     english:
       'Sensitivity sets the threshold to determine when a clip starts and ends. Lower sensitivity picks up quieter speech, but also other potential noises.',
+    french:
+      "La sensibilité définit le seuil pour déterminer quand un clip commence et se termine. Une sensibilité plus faible capte les paroles plus calmes, mais également d'autres bruits potentiels.",
     spanish:
       'La sensibilidad controla el umbral que determina cuándo un clip comienza y termina. Con mayor sensibilidad se detecta habla más silenciosa, pero también más ruido de fondo.',
     brazilian_portuguese:
@@ -8897,6 +9671,8 @@ export const localizations = {
   vadHelpPause: {
     english:
       'A shorter Pause Length will break your recording into more segments at smaller pauses.',
+    french:
+      'Une durée de pause plus courte divisera votre enregistrement en plusieurs segments avec des pauses plus petites.',
     spanish:
       'Una longitud de pausa más corta dividirá tu grabación en más segmentos en pausas más pequeñas.',
     brazilian_portuguese:
@@ -8917,6 +9693,8 @@ export const localizations = {
   vadHelpMinSegment: {
     english:
       'Minimum Segment Length prevents saving of very short segments below the set duration, such as coughs or door slams.',
+    french:
+      "La longueur minimale de segment empêche l'enregistrement de segments très courts en dessous de la durée définie, comme la toux ou les claquements de porte.",
     spanish:
       'La Longitud Mínima de Segmento evita guardar segmentos muy cortos por debajo de la duración establecida, como toses o portazos.',
     brazilian_portuguese:
@@ -8936,6 +9714,7 @@ export const localizations = {
   },
   vadRecordingSettings: {
     english: 'VAD recording settings',
+    french: "Paramètres d'enregistrement VAD",
     spanish: 'Configuración de grabación VAD',
     brazilian_portuguese: 'Configurações de gravação VAD',
     tok_pisin: 'VAD rekoding seting',
@@ -8948,6 +9727,7 @@ export const localizations = {
   },
   startRecording: {
     english: 'Record',
+    french: 'Enregistrer',
     spanish: 'Grabar',
     brazilian_portuguese: 'Gravar',
     tok_pisin: 'Rekodim',
@@ -8960,6 +9740,7 @@ export const localizations = {
   },
   stopRecording: {
     english: 'Stop Recording',
+    french: "Arrêter l'enregistrement",
     spanish: 'Detener Grabación',
     brazilian_portuguese: 'Parar Gravação',
     tok_pisin: 'Stopim Rekodim',
@@ -8972,6 +9753,7 @@ export const localizations = {
   },
   vadRecordingActive: {
     english: 'VAD recording active',
+    french: 'Enregistrement VAD actif',
     spanish: 'Grabación VAD activa',
     brazilian_portuguese: 'Gravação VAD ativa',
     tok_pisin: 'VAD rekoding i wok',
@@ -8984,6 +9766,7 @@ export const localizations = {
   },
   recordingHelpTitle: {
     english: 'Two ways to record',
+    french: "Deux façons d'enregistrer",
     spanish: 'Dos formas de grabar',
     brazilian_portuguese: 'Duas formas de gravar',
     tok_pisin: 'Tupela rot bilong rekodim',
@@ -8997,6 +9780,8 @@ export const localizations = {
   recordingHelpVAD: {
     english:
       'the record button to start Voice Activity Detection (VAD) recording. This will automatically create new audio segments whenever you pause as you talk. Tap again to end the VAD session.',
+    french:
+      "le bouton d'enregistrement pour démarrer l'enregistrement de détection d'activité vocale (VAD). Cela créera automatiquement de nouveaux segments audio chaque fois que vous faites une pause pendant que vous parlez. Appuyez à nouveau pour mettre fin à la session VAD.",
     spanish:
       'el botón de grabación para iniciar la grabación con Detección de Actividad de Voz (VAD). Esto creará automáticamente nuevos segmentos de audio cada vez que hagas una pausa mientras hablas. Toca de nuevo para finalizar la sesión VAD.',
     brazilian_portuguese:
@@ -9017,6 +9802,8 @@ export const localizations = {
   },
   recordingHelpPushToTalk: {
     english: 'to record a single segment, release to stop recording.',
+    french:
+      "pour enregistrer un seul segment, relâchez pour arrêter l'enregistrement.",
     spanish: 'para grabar un solo segmento, suelta para detener la grabación.',
     brazilian_portuguese:
       'para gravar um único segmento, solte para parar a gravação.',
@@ -9032,6 +9819,7 @@ export const localizations = {
   },
   tap: {
     english: 'Tap',
+    french: 'Robinet',
     spanish: 'Toca',
     brazilian_portuguese: 'Toque',
     tok_pisin: 'Paitim',
@@ -9044,6 +9832,7 @@ export const localizations = {
   },
   pressAndHold: {
     english: 'Press and hold',
+    french: 'Appuyez et maintenez',
     spanish: 'Mantén presionado',
     brazilian_portuguese: 'Pressione e segure',
     tok_pisin: 'Presim na holim',
@@ -9056,6 +9845,7 @@ export const localizations = {
   },
   vadAutoCalibrate: {
     english: 'Auto-Calibrate',
+    french: 'Calibrage automatique',
     spanish: 'Auto-Calibrar',
     brazilian_portuguese: 'Auto-Calibrar',
     tok_pisin: 'Olsem wanem yet',
@@ -9068,6 +9858,7 @@ export const localizations = {
   },
   vadCalibrating: {
     english: 'Calibrating...',
+    french: 'Calibrage...',
     spanish: 'Calibrando...',
     brazilian_portuguese: 'Calibrando...',
     tok_pisin: 'Wokim nau...',
@@ -9080,6 +9871,8 @@ export const localizations = {
   },
   vadCalibrationFailed: {
     english: 'Calibration failed. Please try again in a quieter environment.',
+    french:
+      "L'étalonnage a échoué. Veuillez réessayer dans un environnement plus calme.",
     spanish:
       'La calibración falló. Por favor, inténtalo de nuevo en un entorno más silencioso.',
     brazilian_portuguese:
@@ -9098,6 +9891,8 @@ export const localizations = {
   vadCalibrateHint: {
     english:
       'During auto-calibration remain silent or only allow sounds that you want to be below the sensitivity threshold.',
+    french:
+      "Pendant l'auto-calibrage, restez silencieux ou autorisez uniquement les sons que vous souhaitez être inférieurs au seuil de sensibilité.",
     spanish:
       'Durante la auto-calibración permanece en silencio o solo permite sonidos que deseas que estén por debajo del umbral de sensibilidad.',
     brazilian_portuguese:
@@ -9117,6 +9912,7 @@ export const localizations = {
   },
   appUpgradeRequired: {
     english: 'App Upgrade Required',
+    french: "Mise à niveau de l'application requise",
     spanish: 'Actualización de App Requerida',
     brazilian_portuguese: 'Atualização do App Necessária',
     tok_pisin: 'Yu mas upgreidim app',
@@ -9130,6 +9926,8 @@ export const localizations = {
   appUpgradeServerAhead: {
     english:
       'A new version of the app is required to access the latest features. Please update to continue.',
+    french:
+      "Une nouvelle version de l'application est requise pour accéder aux dernières fonctionnalités. Veuillez mettre à jour pour continuer.",
     spanish:
       'Se requiere una nueva versión de la aplicación para acceder a las últimas funciones. Por favor actualice para continuar.',
     brazilian_portuguese:
@@ -9150,6 +9948,8 @@ export const localizations = {
   appUpgradeServerBehind: {
     english:
       'Your app version is newer than the server. Please contact support or wait for the server to be updated.',
+    french:
+      'La version de votre application est plus récente que celle du serveur. Veuillez contacter le support ou attendre que le serveur soit mis à jour.',
     spanish:
       'Su versión de la aplicación es más nueva que el servidor. Por favor contacte al soporte o espere a que se actualice el servidor.',
     brazilian_portuguese:
@@ -9169,6 +9969,7 @@ export const localizations = {
   },
   upgradeToVersion: {
     english: 'Please upgrade to version {version}',
+    french: 'Veuillez passer à la version {version}',
     spanish: 'Por favor actualice a la versión {version}',
     brazilian_portuguese: 'Por favor atualize para a versão {version}',
     tok_pisin: 'Plis upgreidim long version {version}',
@@ -9181,6 +9982,7 @@ export const localizations = {
   },
   currentVersion: {
     english: 'Current Version',
+    french: 'Version actuelle',
     spanish: 'Versión Actual',
     brazilian_portuguese: 'Versão Atual',
     tok_pisin: 'Version nau',
@@ -9193,6 +9995,7 @@ export const localizations = {
   },
   requiredVersion: {
     english: 'Required Version',
+    french: 'Version requise',
     spanish: 'Versión Requerida',
     brazilian_portuguese: 'Versão Necessária',
     tok_pisin: 'Version yu mas gat',
@@ -9205,6 +10008,7 @@ export const localizations = {
   },
   upgradeApp: {
     english: 'Upgrade App',
+    french: "Mettre à niveau l'application",
     spanish: 'Actualizar App',
     brazilian_portuguese: 'Atualizar App',
     tok_pisin: 'Upgreidim App',
@@ -9217,6 +10021,7 @@ export const localizations = {
   },
   checkingSchemaVersion: {
     english: 'Checking schema compatibility...',
+    french: 'Vérification de la compatibilité des schémas...',
     spanish: 'Verificando compatibilidad del esquema...',
     brazilian_portuguese: 'Verificando compatibilidade do esquema...',
     tok_pisin: 'Checkim schema compatibility...',
@@ -9229,6 +10034,7 @@ export const localizations = {
   },
   scanningCorruptedAttachments: {
     english: 'Scanning for corrupted attachments...',
+    french: 'Recherche de pièces jointes corrompues...',
     spanish: 'Buscando archivos adjuntos corruptos...',
     brazilian_portuguese: 'Procurando anexos corrompidos...',
     tok_pisin: 'Lukluk long ol bagarap fayl...',
@@ -9241,6 +10047,7 @@ export const localizations = {
   },
   noCorruptedAttachments: {
     english: 'No Corrupted Attachments',
+    french: 'Aucune pièce jointe corrompue',
     spanish: 'No hay archivos adjuntos corruptos',
     brazilian_portuguese: 'Sem Anexos Corrompidos',
     tok_pisin: 'I no gat bagarap fayl',
@@ -9254,6 +10061,8 @@ export const localizations = {
   attachmentDatabaseHealthy: {
     english:
       'Your attachment database is healthy. All attachment records are valid.',
+    french:
+      'Votre base de données de pièces jointes est saine. Tous les enregistrements de pièces jointes sont valides.',
     spanish:
       'Su base de datos de archivos adjuntos está en buen estado. Todos los registros son válidos.',
     brazilian_portuguese:
@@ -9271,6 +10080,7 @@ export const localizations = {
   },
   corruptedAttachments: {
     english: 'Corrupted Attachments',
+    french: 'Pièces jointes corrompues',
     spanish: 'Archivos Adjuntos Corruptos',
     brazilian_portuguese: 'Anexos Corrompidos',
     tok_pisin: 'Ol Bagarap Fayl',
@@ -9284,6 +10094,8 @@ export const localizations = {
   foundCorruptedAttachments: {
     english:
       'Found {count} corrupted attachment with blob URLs in the database. These are causing sync errors and should be cleaned up.',
+    french:
+      '{count} pièce jointe corrompue contenant des URL de blob a été trouvée dans la base de données. Ceux-ci provoquent des erreurs de synchronisation et doivent être nettoyés.',
     spanish:
       'Se encontró {count} archivo adjunto corrupto con URLs blob en la base de datos. Estos están causando errores de sincronización y deben limpiarse.',
     brazilian_portuguese:
@@ -9305,6 +10117,8 @@ export const localizations = {
   foundCorruptedAttachmentsPlural: {
     english:
       'Found {count} corrupted attachments with blob URLs in the database. These are causing sync errors and should be cleaned up.',
+    french:
+      '{count} pièces jointes corrompues contenant des URL de blob ont été trouvées dans la base de données. Ceux-ci provoquent des erreurs de synchronisation et doivent être nettoyés.',
     spanish:
       'Se encontraron {count} archivos adjuntos corruptos con URLs blob en la base de datos. Estos están causando errores de sincronización y deben limpiarse.',
     brazilian_portuguese:
@@ -9325,6 +10139,7 @@ export const localizations = {
   },
   cleanAll: {
     english: 'Clean All ({count})',
+    french: 'Tout nettoyer ({count})',
     spanish: 'Limpiar Todo ({count})',
     brazilian_portuguese: 'Limpar Tudo ({count})',
     tok_pisin: 'Klinim Olgeta ({count})',
@@ -9337,6 +10152,7 @@ export const localizations = {
   },
   cleaning: {
     english: 'Cleaning...',
+    french: 'Nettoyage...',
     spanish: 'Limpiando...',
     brazilian_portuguese: 'Limpando...',
     tok_pisin: 'Mi klinim nau...',
@@ -9349,6 +10165,7 @@ export const localizations = {
   },
   size: {
     english: 'Size',
+    french: 'Taille',
     spanish: 'Tamaño',
     brazilian_portuguese: 'Tamanho',
     tok_pisin: 'Saiz',
@@ -9361,6 +10178,7 @@ export const localizations = {
   },
   attachmentId: {
     english: 'Attachment ID',
+    french: 'ID de pièce jointe',
     spanish: 'ID del Archivo Adjunto',
     brazilian_portuguese: 'ID do Anexo',
     tok_pisin: 'ID bilong Fayl',
@@ -9373,6 +10191,7 @@ export const localizations = {
   },
   localUri: {
     english: 'Local URI',
+    french: 'URI locale',
     spanish: 'URI Local',
     brazilian_portuguese: 'URI Local',
     tok_pisin: 'Local URI',
@@ -9385,6 +10204,7 @@ export const localizations = {
   },
   associatedAssets: {
     english: 'Associated Assets ({count})',
+    french: 'Actifs associés ({count})',
     spanish: 'Activos Asociados ({count})',
     brazilian_portuguese: 'Ativos Associados ({count})',
     tok_pisin: 'Ol Asset i go wantaim ({count})',
@@ -9397,6 +10217,7 @@ export const localizations = {
   },
   contentLinks: {
     english: 'Content Links ({count})',
+    french: 'Liens de contenu ({count})',
     spanish: 'Enlaces de Contenido ({count})',
     brazilian_portuguese: 'Links de Conteúdo ({count})',
     tok_pisin: 'Ol Link bilong Content ({count})',
@@ -9409,6 +10230,7 @@ export const localizations = {
   },
   cleanThis: {
     english: 'Clean This',
+    french: 'Nettoyer ceci',
     spanish: 'Limpiar Esto',
     brazilian_portuguese: 'Limpar Isto',
     tok_pisin: 'Klinim Dispela',
@@ -9421,6 +10243,7 @@ export const localizations = {
   },
   cleanCorruptedAttachment: {
     english: 'Clean Corrupted Attachment',
+    french: 'Nettoyer la pièce jointe corrompue',
     spanish: 'Limpiar Archivo Adjunto Corrupto',
     brazilian_portuguese: 'Limpar Anexo Corrompido',
     tok_pisin: 'Klinim Bagarap Fayl',
@@ -9434,6 +10257,8 @@ export const localizations = {
   cleanCorruptedAttachmentConfirm: {
     english:
       'This will remove the corrupted attachment record and its references from the database. This action cannot be undone.',
+    french:
+      "Cela supprimera l'enregistrement de pièce jointe corrompu et ses références de la base de données. Cette action ne peut pas être annulée.",
     spanish:
       'Esto eliminará el registro del archivo adjunto corrupto y sus referencias de la base de datos. Esta acción no se puede deshacer.',
     brazilian_portuguese:
@@ -9453,6 +10278,7 @@ export const localizations = {
   },
   clean: {
     english: 'Clean',
+    french: 'Faire le ménage',
     spanish: 'Limpiar',
     brazilian_portuguese: 'Limpar',
     tok_pisin: 'Klinim',
@@ -9465,6 +10291,7 @@ export const localizations = {
   },
   corruptedAttachmentCleanedSuccess: {
     english: 'Corrupted attachment cleaned successfully.',
+    french: 'La pièce jointe corrompue a été nettoyée avec succès.',
     spanish: 'Archivo adjunto corrupto limpiado exitosamente.',
     brazilian_portuguese: 'Anexo corrompido limpo com sucesso.',
     tok_pisin: 'Bagarap fayl i klinim gut pinis.',
@@ -9477,6 +10304,7 @@ export const localizations = {
   },
   failedToCleanAttachment: {
     english: 'Failed to clean attachment: {error}',
+    french: 'Échec du nettoyage de la pièce jointe : {error}',
     spanish: 'Error al limpiar el archivo adjunto: {error}',
     brazilian_portuguese: 'Falha ao limpar anexo: {error}',
     tok_pisin: 'I no inap klinim fayl: {error}',
@@ -9489,6 +10317,7 @@ export const localizations = {
   },
   cleanAllCorruptedAttachments: {
     english: 'Clean All Corrupted Attachments',
+    french: 'Nettoyer toutes les pièces jointes corrompues',
     spanish: 'Limpiar Todos los Archivos Adjuntos Corruptos',
     brazilian_portuguese: 'Limpar Todos os Anexos Corrompidos',
     tok_pisin: 'Klinim Olgeta Bagarap Fayl',
@@ -9502,6 +10331,8 @@ export const localizations = {
   cleanAllConfirm: {
     english:
       'This will clean up {count} corrupted attachment. This action cannot be undone.',
+    french:
+      'Cela nettoiera la pièce jointe corrompue {count}. Cette action ne peut pas être annulée.',
     spanish:
       'Esto limpiará {count} archivo adjunto corrupto. Esta acción no se puede deshacer.',
     brazilian_portuguese:
@@ -9522,6 +10353,8 @@ export const localizations = {
   cleanAllConfirmPlural: {
     english:
       'This will clean up {count} corrupted attachments. This action cannot be undone.',
+    french:
+      'Cela nettoiera {count} pièces jointes corrompues. Cette action ne peut pas être annulée.',
     spanish:
       'Esto limpiará {count} archivos adjuntos corruptos. Esta acción no se puede deshacer.',
     brazilian_portuguese:
@@ -9541,6 +10374,7 @@ export const localizations = {
   },
   partialSuccess: {
     english: 'Partial Success',
+    french: 'Succès partiel',
     spanish: 'Éxito Parcial',
     brazilian_portuguese: 'Sucesso Parcial',
     tok_pisin: 'Sampela i Orait',
@@ -9554,6 +10388,8 @@ export const localizations = {
   cleanedAttachmentsWithErrors: {
     english:
       'Cleaned {cleaned} attachment. {errorCount} error occurred:\n\n{errors}',
+    french:
+      "Pièce jointe {cleaned} nettoyée. Une erreur {errorCount} s'est produite :\n\n{errors}",
     spanish:
       'Se limpió {cleaned} archivo adjunto. Ocurrió {errorCount} error:\n\n{errors}',
     brazilian_portuguese:
@@ -9571,6 +10407,8 @@ export const localizations = {
   cleanedAttachmentsWithErrorsPlural: {
     english:
       'Cleaned {cleaned} attachments. {errorCount} errors occurred:\n\n{errors}',
+    french:
+      'Pièces jointes {cleaned} nettoyées. {errorCount} erreurs se sont produites :\n\n{errors}',
     spanish:
       'Se limpiaron {cleaned} archivos adjuntos. Ocurrieron {errorCount} errores:\n\n{errors}',
     brazilian_portuguese:
@@ -9589,6 +10427,7 @@ export const localizations = {
   },
   successfullyCleanedAttachments: {
     english: 'Successfully cleaned {cleaned} corrupted attachment.',
+    french: '{cleaned} pièce jointe corrompue a été nettoyée avec succès.',
     spanish: 'Se limpió exitosamente {cleaned} archivo adjunto corrupto.',
     brazilian_portuguese: 'Limpou com sucesso {cleaned} anexo corrompido.',
     tok_pisin: 'Klinim gut {cleaned} bagarap fayl.',
@@ -9602,6 +10441,8 @@ export const localizations = {
   },
   successfullyCleanedAttachmentsPlural: {
     english: 'Successfully cleaned {cleaned} corrupted attachments.',
+    french:
+      '{cleaned} pièces jointes corrompues ont été nettoyées avec succès.',
     spanish: 'Se limpiaron exitosamente {cleaned} archivos adjuntos corruptos.',
     brazilian_portuguese: 'Limpou com sucesso {cleaned} anexos corrompidos.',
     tok_pisin: 'Klinim gut {cleaned} bagarap fayl.',
@@ -9615,6 +10456,7 @@ export const localizations = {
   },
   failedToCleanAttachments: {
     english: 'Failed to clean attachments: {error}',
+    french: 'Échec du nettoyage des pièces jointes : {error}',
     spanish: 'Error al limpiar los archivos adjuntos: {error}',
     brazilian_portuguese: 'Falha ao limpar anexos: {error}',
     tok_pisin: 'I no inap klinim ol fayl: {error}',
@@ -9627,6 +10469,8 @@ export const localizations = {
   },
   failedToLoadCorruptedAttachments: {
     english: 'Failed to load corrupted attachments. Please try again.',
+    french:
+      'Échec du chargement des pièces jointes corrompues. Veuillez réessayer.',
     spanish:
       'Error al cargar los archivos adjuntos corruptos. Por favor, intente de nuevo.',
     brazilian_portuguese:
@@ -9642,6 +10486,7 @@ export const localizations = {
   },
   unnamed: {
     english: 'Unnamed',
+    french: 'Anonyme',
     spanish: 'Sin nombre',
     brazilian_portuguese: 'Sem nome',
     tok_pisin: 'I no gat nem',
@@ -9654,6 +10499,7 @@ export const localizations = {
   },
   backToProjects: {
     english: 'Back to Projects',
+    french: 'Retour aux projets',
     spanish: 'Volver a Proyectos',
     brazilian_portuguese: 'Voltar aos Projetos',
     tok_pisin: 'Go bek long ol Projek',
@@ -9666,6 +10512,7 @@ export const localizations = {
   },
   downloaded: {
     english: 'Downloaded',
+    french: 'Téléchargé',
     spanish: 'Descargado',
     brazilian_portuguese: 'Baixado',
     tok_pisin: 'Downloaded',
@@ -9678,6 +10525,7 @@ export const localizations = {
   },
   freeUpSpace: {
     english: 'Free Up Space',
+    french: "Libérez de l'espace",
     spanish: 'Liberar Espacio',
     brazilian_portuguese: 'Liberar Espaço',
     tok_pisin: 'Free Up Space',
@@ -9690,6 +10538,7 @@ export const localizations = {
   },
   storageUsed: {
     english: 'Storage Used',
+    french: 'Stockage utilisé',
     spanish: 'Espacio Usado',
     brazilian_portuguese: 'Espaço Usado',
     tok_pisin: 'Storage Used',
@@ -9702,6 +10551,7 @@ export const localizations = {
   },
   notDownloaded: {
     english: 'Not Downloaded',
+    french: 'Non téléchargé',
     spanish: 'No Descargado',
     brazilian_portuguese: 'Não Baixado',
     tok_pisin: 'Not Downloaded',
@@ -9714,6 +10564,7 @@ export const localizations = {
   },
   missingCloudData: {
     english: 'Missing Cloud Data',
+    french: 'Données cloud manquantes',
     spanish: 'Falta Datos en la Nube',
     brazilian_portuguese: 'Dados na Nuvem Faltando',
     tok_pisin: 'No gat ol data long cloud',
@@ -9726,6 +10577,7 @@ export const localizations = {
   },
   deleteAccount: {
     english: 'Delete Account',
+    french: 'Supprimer le compte',
     spanish: 'Eliminar Cuenta',
     brazilian_portuguese: 'Excluir Conta',
     tok_pisin: 'Rausim Account',
@@ -9738,6 +10590,7 @@ export const localizations = {
   },
   accountDeletionTitle: {
     english: 'Delete Your Account',
+    french: 'Supprimez votre compte',
     spanish: 'Eliminar Tu Cuenta',
     brazilian_portuguese: 'Excluir Sua Conta',
     tok_pisin: 'Rausim Account Bilong Yu',
@@ -9751,6 +10604,8 @@ export const localizations = {
   accountDeletionWarning: {
     english:
       'After deleting your account, you will not be able to register or log in while offline. You must be online to create a new account or log in.',
+    french:
+      'Après avoir supprimé votre compte, vous ne pourrez plus vous inscrire ni vous connecter hors ligne. Vous devez être en ligne pour créer un nouveau compte ou vous connecter.',
     spanish:
       'Después de eliminar tu cuenta, no podrás registrarte ni iniciar sesión sin conexión. Debes estar en línea para crear una nueva cuenta o iniciar sesión.',
     brazilian_portuguese:
@@ -9772,6 +10627,8 @@ export const localizations = {
   accountDeletionPIIWarning: {
     english:
       'Your account will be deactivated (soft delete). All your data will be preserved, but you will not be able to access the app until you restore your account. You can restore your account at any time, but you must be online to do so.',
+    french:
+      "Votre compte sera désactivé (suppression logicielle). Toutes vos données seront conservées, mais vous ne pourrez pas accéder à l'application tant que vous n'aurez pas restauré votre compte. Vous pouvez restaurer votre compte à tout moment, mais vous devez être en ligne pour le faire.",
     spanish:
       'Tu cuenta será desactivada (eliminación suave). Todos tus datos se conservarán, pero no podrás acceder a la aplicación hasta que restaures tu cuenta. Puedes restaurar tu cuenta en cualquier momento, pero debes estar en línea para hacerlo.',
     brazilian_portuguese:
@@ -9793,6 +10650,8 @@ export const localizations = {
   accountDeletionContributionsInfo: {
     english:
       'All your contributions (projects, quests, assets, translations, votes) will be preserved and will remain public following the terms you already agreed to when you joined. Your account can be restored at any time, and all your data will be accessible again.',
+    french:
+      'Toutes vos contributions (projets, quêtes, ressources, traductions, votes) seront conservées et resteront publiques selon les conditions que vous avez déjà acceptées lors de votre adhésion. Votre compte pourra être restauré à tout moment et toutes vos données seront à nouveau accessibles.',
     spanish:
       'Todas tus contribuciones (proyectos, búsquedas, activos, traducciones, votos) se conservarán y permanecerán públicas según los términos que ya aceptaste al unirte. Tu cuenta puede ser restaurada en cualquier momento, y todos tus datos volverán a estar accesibles.',
     brazilian_portuguese:
@@ -9814,6 +10673,8 @@ export const localizations = {
   accountDeletionConfirm: {
     english:
       'Are you absolutely sure you want to delete your account? You can restore it later, but you will need to be online to do so.',
+    french:
+      'Êtes-vous absolument sûr de vouloir supprimer votre compte ? Vous pourrez le restaurer plus tard, mais vous devrez être en ligne pour le faire.',
     spanish:
       '¿Estás absolutamente seguro de que deseas eliminar tu cuenta? Puedes restaurarla más tarde, pero necesitarás estar en línea para hacerlo.',
     brazilian_portuguese:
@@ -9834,6 +10695,8 @@ export const localizations = {
   accountDeletionConfirmMessage: {
     english:
       'Your account will be deleted (soft delete). You can restore it later from the login screen, but you must be online to restore it.',
+    french:
+      "Votre compte sera supprimé (soft delete). Vous pouvez le restaurer plus tard à partir de l'écran de connexion, mais vous devez être en ligne pour le restaurer.",
     spanish:
       'Tu cuenta será eliminada (eliminación suave). Puedes restaurarla más tarde desde la pantalla de inicio de sesión, pero debes estar en línea para restaurarla.',
     brazilian_portuguese:
@@ -9854,6 +10717,7 @@ export const localizations = {
   },
   accountDeletionStep1Title: {
     english: 'Step 1: Understand the Consequences',
+    french: 'Étape 1 : Comprendre les conséquences',
     spanish: 'Paso 1: Entender las Consecuencias',
     brazilian_portuguese: 'Etapa 1: Entender as Consequências',
     tok_pisin: 'Step 1: Save ol Samting Bai Kamap',
@@ -9866,6 +10730,7 @@ export const localizations = {
   },
   accountDeletionStep2Title: {
     english: 'Step 2: Final Confirmation',
+    french: 'Étape 2 : Confirmation finale',
     spanish: 'Paso 2: Confirmación Final',
     brazilian_portuguese: 'Etapa 2: Confirmação Final',
     tok_pisin: 'Step 2: Final Confirm',
@@ -9879,6 +10744,8 @@ export const localizations = {
   accountDeletionSuccess: {
     english:
       'Your account has been successfully deleted (soft delete). You can restore it later, but you must be online to do so. You will be signed out now.',
+    french:
+      'Votre compte a été supprimé avec succès (suppression logicielle). Vous pourrez le restaurer plus tard, mais vous devez être en ligne pour le faire. Vous serez déconnecté maintenant.',
     spanish:
       'Tu cuenta ha sido eliminada exitosamente (eliminación suave). Puedes restaurarla más tarde, pero debes estar en línea para hacerlo. Serás desconectado ahora.',
     brazilian_portuguese:
@@ -9899,6 +10766,7 @@ export const localizations = {
   },
   accountDeletionError: {
     english: 'Failed to delete account: {error}',
+    french: 'Échec de la suppression du compte : {error}',
     spanish: 'Error al eliminar la cuenta: {error}',
     brazilian_portuguese: 'Falha ao excluir conta: {error}',
     tok_pisin: 'I no inap rausim account: {error}',
@@ -9911,6 +10779,7 @@ export const localizations = {
   },
   accountDeletedTitle: {
     english: 'Account Deleted',
+    french: 'Compte supprimé',
     spanish: 'Cuenta Eliminada',
     brazilian_portuguese: 'Conta Excluída',
     tok_pisin: 'Account i Raus',
@@ -9924,6 +10793,8 @@ export const localizations = {
   accountDeletedMessage: {
     english:
       'Your account has been deleted. You can restore it to regain access to all your data, or you can log out and return to the login screen.',
+    french:
+      "Votre compte a été supprimé. Vous pouvez le restaurer pour retrouver l'accès à toutes vos données, ou vous pouvez vous déconnecter et revenir à l'écran de connexion.",
     spanish:
       'Tu cuenta ha sido eliminada. Puedes restaurarla para recuperar el acceso a todos tus datos, o puedes cerrar sesión y volver a la pantalla de inicio de sesión.',
     brazilian_portuguese:
@@ -9944,6 +10815,7 @@ export const localizations = {
   },
   restoreAccount: {
     english: 'Restore Account',
+    french: 'Restaurer le compte',
     spanish: 'Restaurar Cuenta',
     brazilian_portuguese: 'Restaurar Conta',
     tok_pisin: 'Restore Account',
@@ -9956,6 +10828,7 @@ export const localizations = {
   },
   restoreAccountConfirmTitle: {
     english: 'Restore Account?',
+    french: 'Restaurer le compte ?',
     spanish: '¿Restaurar Cuenta?',
     brazilian_portuguese: 'Restaurar Conta?',
     tok_pisin: 'Restore Account?',
@@ -9969,6 +10842,8 @@ export const localizations = {
   restoreAccountConfirmMessage: {
     english:
       'Your account will be fully restored. All your data will be accessible again, and you can continue using the app normally.',
+    french:
+      "Votre compte sera entièrement restauré. Toutes vos données seront à nouveau accessibles et vous pourrez continuer à utiliser l'application normalement.",
     spanish:
       'Tu cuenta será restaurada por completo. Todos tus datos volverán a estar accesibles y podrás seguir usando la aplicación con normalidad.',
     brazilian_portuguese:
@@ -9989,6 +10864,7 @@ export const localizations = {
   },
   accountRestoreSuccess: {
     english: 'Your account has been successfully restored. Welcome back!',
+    french: 'Votre compte a été restauré avec succès. Content de te revoir!',
     spanish: 'Tu cuenta ha sido restaurada exitosamente. ¡Bienvenido de nuevo!',
     brazilian_portuguese:
       'Sua conta foi restaurada com sucesso. Bem-vindo de volta!',
@@ -10003,6 +10879,7 @@ export const localizations = {
   },
   accountRestoreError: {
     english: 'Failed to restore account: {error}',
+    french: 'Échec de la restauration du compte : {error}',
     spanish: 'Error al restaurar la cuenta: {error}',
     brazilian_portuguese: 'Falha ao restaurar conta: {error}',
     tok_pisin: 'I no inap restore account: {error}',
@@ -10015,6 +10892,7 @@ export const localizations = {
   },
   signInRequired: {
     english: 'Sign In Required',
+    french: 'Connexion requise',
     spanish: 'Inicio de Sesión Requerido',
     brazilian_portuguese: 'Login Necessário',
     tok_pisin: 'Mas I Mas Sign In',
@@ -10028,6 +10906,8 @@ export const localizations = {
   blockContentLoginMessage: {
     english:
       'We store information about what to block on your account. Please register to ensure blocked content can be properly hidden.',
+    french:
+      "Nous stockons des informations sur ce qu'il faut bloquer sur votre compte. Veuillez vous inscrire pour vous assurer que le contenu bloqué peut être correctement masqué.",
     spanish:
       'Almacenamos información sobre qué bloquear en tu cuenta. Por favor regístrate para asegurar que el contenido bloqueado pueda ocultarse correctamente.',
     brazilian_portuguese:
@@ -10048,6 +10928,7 @@ export const localizations = {
   },
   connected: {
     english: 'Connected',
+    french: 'Connecté',
     spanish: 'Conectado',
     brazilian_portuguese: 'Conectado',
     tok_pisin: 'i connect pinis',
@@ -10060,6 +10941,7 @@ export const localizations = {
   },
   downloadStatus: {
     english: 'Download Status',
+    french: 'Statut du téléchargement',
     spanish: 'Estado de Descarga',
     brazilian_portuguese: 'Status de Download',
     tok_pisin: 'Download Status',
@@ -10072,6 +10954,7 @@ export const localizations = {
   },
   powersyncStatus: {
     english: 'PowerSync Status',
+    french: 'Statut PowerSync',
     spanish: 'Estado de PowerSync',
     brazilian_portuguese: 'Status do PowerSync',
     tok_pisin: 'PowerSync Status',
@@ -10084,6 +10967,7 @@ export const localizations = {
   },
   networkStatus: {
     english: 'Network Status',
+    french: 'État du réseau',
     spanish: 'Estado de Red',
     brazilian_portuguese: 'Status da Rede',
     tok_pisin: 'Network Status',
@@ -10096,6 +10980,7 @@ export const localizations = {
   },
   attachmentDownloadProgress: {
     english: 'Attachment Download Progress',
+    french: 'Progression du téléchargement des pièces jointes',
     spanish: 'Progreso de Descarga de Archivos',
     brazilian_portuguese: 'Progresso de Download de Anexos',
     tok_pisin: 'Attachment Download Progress',
@@ -10108,6 +10993,7 @@ export const localizations = {
   },
   overallProgress: {
     english: 'Overall Progress',
+    french: 'Progrès global',
     spanish: 'Progreso General',
     brazilian_portuguese: 'Progresso Geral',
     tok_pisin: 'Overall Progress',
@@ -10120,6 +11006,7 @@ export const localizations = {
   },
   currentDownload: {
     english: 'Current Download',
+    french: 'Téléchargement actuel',
     spanish: 'Descarga Actual',
     brazilian_portuguese: 'Download Atual',
     tok_pisin: 'Current Download',
@@ -10132,6 +11019,7 @@ export const localizations = {
   },
   currentUpload: {
     english: 'Current Upload',
+    french: 'Téléchargement actuel',
     spanish: 'Carga Actual',
     brazilian_portuguese: 'Upload Atual',
     tok_pisin: 'Current Upload',
@@ -10144,6 +11032,7 @@ export const localizations = {
   },
   queueStatus: {
     english: 'Queue Status',
+    french: "Statut de la file d'attente",
     spanish: 'Estado de Cola',
     brazilian_portuguese: 'Status da Fila',
     tok_pisin: 'Queue Status',
@@ -10156,6 +11045,7 @@ export const localizations = {
   },
   allSynced: {
     english: 'All files synced',
+    french: 'Tous les fichiers synchronisés',
     spanish: 'Todos los archivos sincronizados',
     brazilian_portuguese: 'Todos os arquivos sincronizados',
     tok_pisin: 'Olgeta file i sync pinis',
@@ -10168,6 +11058,8 @@ export const localizations = {
   },
   signInToViewDownloadStatus: {
     english: 'Please sign in to view download status and sync information.',
+    french:
+      "Veuillez vous connecter pour afficher l'état du téléchargement et les informations de synchronisation.",
     spanish:
       'Por favor inicia sesión para ver el estado de descarga e información de sincronización.',
     brazilian_portuguese:
@@ -10184,6 +11076,7 @@ export const localizations = {
   },
   unsynced: {
     english: 'Unsynced',
+    french: 'Non synchronisé',
     spanish: 'No sincronizado',
     brazilian_portuguese: 'Não sincronizado',
     tok_pisin: 'i no sync yet',
@@ -10196,6 +11089,7 @@ export const localizations = {
   },
   onboardingCreateProjectTitle: {
     english: 'Record a Bible, or any other content',
+    french: 'Enregistrez une Bible, ou tout autre contenu',
     spanish: 'Graba una Biblia o cualquier otro contenido',
     brazilian_portuguese: 'Grave uma Bíblia ou qualquer outro conteúdo',
     tok_pisin: 'Rekodim Baibel o ol narapela samting',
@@ -10208,6 +11102,7 @@ export const localizations = {
   },
   onboardingCreateProjectSubtitle: {
     english: 'Start by creating your first project',
+    french: 'Commencez par créer votre premier projet',
     spanish: 'Comienza creando tu primer proyecto',
     brazilian_portuguese: 'Comece criando seu primeiro projeto',
     tok_pisin: 'Stat long mekim nupela projek',
@@ -10220,6 +11115,7 @@ export const localizations = {
   },
   onboardingCreateProjectExample: {
     english: 'Stories',
+    french: 'Histoires',
     spanish: 'Historias',
     brazilian_portuguese: 'Histórias',
     tok_pisin: 'Stori',
@@ -10232,6 +11128,7 @@ export const localizations = {
   },
   onboardingCreateProjectDescription: {
     english: 'Example project name',
+    french: 'Exemple de nom de projet',
     spanish: 'Nombre de proyecto de ejemplo',
     brazilian_portuguese: 'Nome do projeto de exemplo',
     tok_pisin: 'Nem bilong projek olsem',
@@ -10244,6 +11141,7 @@ export const localizations = {
   },
   onboardingCreateProject: {
     english: 'Create Project',
+    french: 'Créer un projet',
     spanish: 'Crear Proyecto',
     brazilian_portuguese: 'Criar Projeto',
     tok_pisin: 'Mekim Projek',
@@ -10256,6 +11154,7 @@ export const localizations = {
   },
   onboardingCreateQuestTitle: {
     english: 'Organize your content',
+    french: 'Organisez votre contenu',
     spanish: 'Organiza tu contenido',
     brazilian_portuguese: 'Organize seu conteúdo',
     tok_pisin: 'Oganaisim samting bilong yu',
@@ -10268,6 +11167,7 @@ export const localizations = {
   },
   onboardingCreateQuestSubtitle: {
     english: 'Add quests to break down your project into manageable pieces',
+    french: 'Ajoutez des quêtes pour diviser votre projet en éléments gérables',
     spanish: 'Agrega misiones para dividir tu proyecto en partes manejables',
     brazilian_portuguese:
       'Adicione missões para dividir seu projeto em partes gerenciáveis',
@@ -10285,6 +11185,7 @@ export const localizations = {
   },
   onboardingQuestExample1: {
     english: 'Story 1',
+    french: 'Histoire 1',
     spanish: 'Historia 1',
     brazilian_portuguese: 'História 1',
     tok_pisin: 'Stori 1',
@@ -10297,6 +11198,7 @@ export const localizations = {
   },
   onboardingQuestExample2: {
     english: 'Story 2',
+    french: 'Histoire 2',
     spanish: 'Historia 2',
     brazilian_portuguese: 'História 2',
     tok_pisin: 'Stori 2',
@@ -10309,6 +11211,7 @@ export const localizations = {
   },
   onboardingCreateQuest: {
     english: 'Create Quest',
+    french: 'Créer une quête',
     spanish: 'Crear Misión',
     brazilian_portuguese: 'Criar Missão',
     tok_pisin: 'Mekim Kwest',
@@ -10321,6 +11224,7 @@ export const localizations = {
   },
   onboardingRecordAudioTitle: {
     english: 'Start recording',
+    french: "Commencer l'enregistrement",
     spanish: 'Comienza a grabar',
     brazilian_portuguese: 'Comece a gravar',
     tok_pisin: 'Stat long rekodim',
@@ -10333,6 +11237,8 @@ export const localizations = {
   },
   onboardingRecordAudioSubtitle: {
     english: 'Hold the button to record, or slide to record anytime you talk',
+    french:
+      'Maintenez le bouton enfoncé pour enregistrer ou faites glisser pour enregistrer à chaque fois que vous parlez',
     spanish:
       'Mantén presionado el botón para grabar, o desliza para grabar cuando hables',
     brazilian_portuguese:
@@ -10352,6 +11258,7 @@ export const localizations = {
   },
   onboardingRecordMethod1: {
     english: 'Hold button to record',
+    french: 'Maintenez le bouton enfoncé pour enregistrer',
     spanish: 'Mantén presionado para grabar',
     brazilian_portuguese: 'Mantenha pressionado para gravar',
     tok_pisin: 'Holim button long rekodim',
@@ -10364,6 +11271,7 @@ export const localizations = {
   },
   onboardingRecordMethod2: {
     english: 'Slide to record anytime you talk',
+    french: 'Faites glisser pour enregistrer chaque fois que vous parlez',
     spanish: 'Desliza para grabar cuando hables',
     brazilian_portuguese: 'Deslize para gravar quando falar',
     tok_pisin: 'Slipim long rekodim taim yu toktok',
@@ -10376,6 +11284,7 @@ export const localizations = {
   },
   onboardingStartRecording: {
     english: 'Start Recording',
+    french: "Commencer l'enregistrement",
     spanish: 'Comenzar Grabación',
     brazilian_portuguese: 'Iniciar Gravação',
     tok_pisin: 'Stat Rekodim',
@@ -10388,6 +11297,7 @@ export const localizations = {
   },
   onboardingInviteTitle: {
     english: 'Work together',
+    french: 'Travailler ensemble',
     spanish: 'Trabaja en equipo',
     brazilian_portuguese: 'Trabalhe juntos',
     tok_pisin: 'Wok wantaim',
@@ -10401,6 +11311,8 @@ export const localizations = {
   onboardingInviteSubtitle: {
     english:
       "Invite others to collaborate. They'll receive a notification and see your project in their list",
+    french:
+      'Invitez les autres à collaborer. Ils recevront une notification et verront votre projet dans leur liste',
     spanish:
       'Invita a otros a colaborar. Recibirán una notificación y verán tu proyecto en su lista',
     brazilian_portuguese:
@@ -10420,6 +11332,7 @@ export const localizations = {
   },
   onboardingInviteBenefit1: {
     english: 'They receive a notification',
+    french: 'Ils reçoivent une notification',
     spanish: 'Reciben una notificación',
     brazilian_portuguese: 'Eles recebem uma notificação',
     tok_pisin: 'Ol kisim notis',
@@ -10432,6 +11345,7 @@ export const localizations = {
   },
   onboardingInviteBenefit2: {
     english: 'Project appears in their list',
+    french: 'Le projet apparaît dans leur liste',
     spanish: 'El proyecto aparece en su lista',
     brazilian_portuguese: 'O projeto aparece em sua lista',
     tok_pisin: 'Projek i kamap long list bilong ol',
@@ -10444,6 +11358,7 @@ export const localizations = {
   },
   onboardingInviteCollaborators: {
     english: 'Invite Collaborators',
+    french: 'Inviter des collaborateurs',
     spanish: 'Invitar Colaboradores',
     brazilian_portuguese: 'Convidar Colaboradores',
     tok_pisin: 'Singim Ol Wokman',
@@ -10456,6 +11371,7 @@ export const localizations = {
   },
   onboardingContinue: {
     english: 'Continue',
+    french: 'Continuer',
     spanish: 'Continuar',
     brazilian_portuguese: 'Continuar',
     tok_pisin: 'Gohet',
@@ -10468,6 +11384,7 @@ export const localizations = {
   },
   onboardingBible: {
     english: 'Bible',
+    french: 'Bible',
     spanish: 'Biblia',
     brazilian_portuguese: 'Bíblia',
     tok_pisin: 'Baibel',
@@ -10480,6 +11397,7 @@ export const localizations = {
   },
   onboardingOther: {
     english: 'Other',
+    french: 'Autre',
     spanish: 'Otro',
     brazilian_portuguese: 'Outro',
     tok_pisin: 'Narapela',
@@ -10492,6 +11410,7 @@ export const localizations = {
   },
   onboardingBibleSelectBookTitle: {
     english: 'Select a Book',
+    french: 'Sélectionnez un livre',
     spanish: 'Selecciona un Libro',
     brazilian_portuguese: 'Selecione um Livro',
     tok_pisin: 'Pilim Buk',
@@ -10504,6 +11423,7 @@ export const localizations = {
   },
   onboardingBibleSelectBookSubtitle: {
     english: 'Choose which book of the Bible to translate',
+    french: 'Choisissez quel livre de la Bible traduire',
     spanish: 'Elige qué libro de la Biblia traducir',
     brazilian_portuguese: 'Escolha qual livro da Bíblia traduzir',
     tok_pisin: 'Pilim wanpela buk bilong Baibel long tanim',
@@ -10516,6 +11436,7 @@ export const localizations = {
   },
   onboardingBibleBookExample1: {
     english: 'Genesis',
+    french: 'Genèse',
     spanish: 'Génesis',
     brazilian_portuguese: 'Gênesis',
     tok_pisin: 'Jenesis',
@@ -10528,6 +11449,7 @@ export const localizations = {
   },
   onboardingBibleBookExample2: {
     english: 'Matthew',
+    french: 'Matthieu',
     spanish: 'Mateo',
     brazilian_portuguese: 'Mateus',
     tok_pisin: 'Matyu',
@@ -10540,6 +11462,7 @@ export const localizations = {
   },
   onboardingBibleCreateChapterTitle: {
     english: 'Create Chapter Quests',
+    french: 'Créer des quêtes de chapitre',
     spanish: 'Crear Quests de Capítulos',
     brazilian_portuguese: 'Criar Quests de Capítulos',
     tok_pisin: 'Mekim Ol Kwest bilong Kapitol',
@@ -10552,6 +11475,8 @@ export const localizations = {
   },
   onboardingBibleCreateChapterSubtitle: {
     english: 'Each chapter becomes a quest you can work on',
+    french:
+      'Chaque chapitre devient une quête sur laquelle vous pouvez travailler',
     spanish:
       'Cada capítulo se convierte en una quest en la que puedes trabajar',
     brazilian_portuguese:
@@ -10566,6 +11491,7 @@ export const localizations = {
   },
   onboardingBibleChapterExample1: {
     english: 'Chapter 1',
+    french: 'Chapitre 1',
     spanish: 'Capítulo 1',
     brazilian_portuguese: 'Capítulo 1',
     tok_pisin: 'Kapitol 1',
@@ -10578,6 +11504,7 @@ export const localizations = {
   },
   onboardingBibleChapterExample2: {
     english: 'Chapter 2',
+    french: 'Chapitre 2',
     spanish: 'Capítulo 2',
     brazilian_portuguese: 'Capítulo 2',
     tok_pisin: 'Kapitol 2',
@@ -10590,6 +11517,7 @@ export const localizations = {
   },
   onboardingVisionTitle: {
     english: 'Every language. Every culture.',
+    french: 'Chaque langue. Chaque culture.',
     spanish: 'Cada idioma. Cada cultura.',
     brazilian_portuguese: 'Cada idioma. Cada cultura.',
     tok_pisin: 'Olgeta tokples. Olgeta kalsa.',
@@ -10603,6 +11531,8 @@ export const localizations = {
   onboardingVisionSubtitle: {
     english:
       'Collect text and audio language data quickly. Local-first, sync when connected. Collaborate, translate, validate.',
+    french:
+      "Collectez rapidement des données textuelles et audio. Local d'abord, synchronisez une fois connecté. Collaborez, traduisez, validez.",
     spanish:
       'Recopila datos de texto y audio de idiomas rápidamente. Primero local, sincroniza cuando estés conectado. Colabora, traduce, valida.',
     brazilian_portuguese:
@@ -10623,6 +11553,7 @@ export const localizations = {
   },
   onboardingVisionStatement1: {
     english: "Every language having access to the world's knowledge.",
+    french: 'Chaque langue ayant accès aux connaissances du monde.',
     spanish: 'Cada idioma con acceso al conocimiento del mundo.',
     brazilian_portuguese: 'Cada idioma tendo acesso ao conhecimento do mundo.',
     tok_pisin: 'Olgeta tokples i gat akses long save bilong wol.',
@@ -10635,6 +11566,7 @@ export const localizations = {
   },
   onboardingVisionStatement2: {
     english: 'Every culture sharing its meaning with the world.',
+    french: 'Chaque culture partage sa signification avec le monde.',
     spanish: 'Cada cultura compartiendo su significado con el mundo.',
     brazilian_portuguese:
       'Cada cultura compartilhando seu significado com o mundo.',
@@ -10648,6 +11580,8 @@ export const localizations = {
   },
   onboardingVisionCC0: {
     english: 'CC0/public domain data ensures no party can stop this vision.',
+    french:
+      'Les données CC0/domaine public garantissent qu’aucune partie ne peut arrêter cette vision.',
     spanish:
       'Los datos CC0/dominio público garantizan que ninguna parte pueda detener esta visión.',
     brazilian_portuguese:
@@ -10667,6 +11601,7 @@ export const localizations = {
   },
   onboardingOurVision: {
     english: 'Our Vision',
+    french: 'Notre vision',
     spanish: 'Nuestra Visión',
     brazilian_portuguese: 'Nossa Visão',
     tok_pisin: 'Visen Bilong Mipela',
@@ -10679,6 +11614,7 @@ export const localizations = {
   },
   onboardingSelectLanguageTitle: {
     english: 'Choose Your Language',
+    french: 'Choisissez votre langue',
     spanish: 'Elige Tu Idioma',
     brazilian_portuguese: 'Escolha Seu Idioma',
     tok_pisin: 'Pilim Tokples Bilong Yu',
@@ -10691,6 +11627,8 @@ export const localizations = {
   },
   onboardingSelectLanguageSubtitle: {
     english: "Select the language you'd like to use for the app interface",
+    french:
+      "Sélectionnez la langue que vous souhaitez utiliser pour l'interface de l'application",
     spanish:
       'Selecciona el idioma que deseas usar para la interfaz de la aplicación',
     brazilian_portuguese:
@@ -10705,6 +11643,7 @@ export const localizations = {
   },
   exportProgress: {
     english: 'Export Progress',
+    french: 'Progrès des exportations',
     spanish: 'Progreso de Exportación',
     brazilian_portuguese: 'Progresso de Exportação',
     tok_pisin: 'Export Progress',
@@ -10717,6 +11656,7 @@ export const localizations = {
   },
   exporting: {
     english: 'Exporting chapter... This may take a few moments.',
+    french: 'Exportation du chapitre... Cela peut prendre quelques instants.',
     spanish: 'Exportando capítulo... Esto puede tomar unos momentos.',
     brazilian_portuguese:
       'Exportando capítulo... Isso pode levar alguns momentos.',
@@ -10730,6 +11670,7 @@ export const localizations = {
   },
   exportReady: {
     english: 'Export is ready!',
+    french: "L'exportation est prête !",
     spanish: 'Exportación lista!',
     brazilian_portuguese: 'Exportação pronta!',
     tok_pisin: 'Export is ready!',
@@ -10740,8 +11681,31 @@ export const localizations = {
     thai: 'การส่งออกพร้อมแล้ว!',
     mandarin: '导出已就绪！'
   },
+  contentShared: {
+    english: 'Content shared successfully',
+    french: 'Contenu partagé avec succès',
+    spanish: 'Contenido compartido con éxito',
+    brazilian_portuguese: 'Conteúdo compartilhado com sucesso',
+    tok_pisin: 'Konten i bin share gut',
+    indonesian: 'Konten berhasil dibagikan',
+    nepali: 'सामग्री सफलतापूर्वक साझा भयो'
+  },
+  download: {
+    english: 'Download',
+    french: 'Télécharger',
+    spanish: 'Descargar',
+    brazilian_portuguese: 'Baixar',
+    tok_pisin: 'Download',
+    indonesian: 'Unduh',
+    nepali: 'डाउनलोड गर्नुहोस्',
+    hindi: 'डाउनलोड करें',
+    burmese: 'ဒေါင်းလုဒ်လုပ်ပါ',
+    thai: 'ดาวน์โหลด',
+    mandarin: '下载'
+  },
   share: {
     english: 'Share',
+    french: 'Partager',
     spanish: 'Compartir',
     brazilian_portuguese: 'Compartilhar',
     tok_pisin: 'Share',
@@ -10754,6 +11718,7 @@ export const localizations = {
   },
   exportFailed: {
     english: 'Export failed',
+    french: "Échec de l'exportation",
     spanish: 'Exportación fallida',
     brazilian_portuguese: 'Exportação falhou',
     tok_pisin: 'Export failed',
@@ -10766,6 +11731,7 @@ export const localizations = {
   },
   close: {
     english: 'Close',
+    french: 'Fermer',
     spanish: 'Cerrar',
     brazilian_portuguese: 'Fechar',
     tok_pisin: 'Close',
@@ -10778,6 +11744,7 @@ export const localizations = {
   },
   exportForDistribution: {
     english: 'Export for Distribution',
+    french: 'Exportation pour distribution',
     spanish: 'Exportar para distribución',
     brazilian_portuguese: 'Exportar para distribuição',
     tok_pisin: 'Export for Distribution',
@@ -10790,6 +11757,8 @@ export const localizations = {
   },
   exportForDistributionDescription: {
     english: 'This export is intended for public distribution and sharing.',
+    french:
+      'Cette exportation est destinée à la distribution et au partage publics.',
     spanish:
       'Esta exportación está destinada a la distribución y el intercambio públicos.',
     brazilian_portuguese:
@@ -10806,6 +11775,7 @@ export const localizations = {
   },
   exportForFeedback: {
     english: 'Export for Feedback',
+    french: 'Exporter pour obtenir des commentaires',
     spanish: 'Exportar para feedback',
     brazilian_portuguese: 'Exportar para feedback',
     tok_pisin: 'Export for Feedback',
@@ -10818,6 +11788,7 @@ export const localizations = {
   },
   exportForFeedbackDescription: {
     english: 'This export is intended for feedback and sharing.',
+    french: 'Cette exportation est destinée aux commentaires et au partage.',
     spanish: 'Esta exportación está destinada a feedback y compartido.',
     brazilian_portuguese:
       'Esta exportação é destinada a feedback e compartilhado.',
@@ -10831,6 +11802,7 @@ export const localizations = {
   },
   selectExportType: {
     english: 'Select Export Type',
+    french: "Sélectionnez le type d'exportation",
     spanish: 'Seleccionar tipo de exportación',
     brazilian_portuguese: 'Selecionar tipo de exportação',
     tok_pisin: 'Makim kain export',
@@ -10843,6 +11815,7 @@ export const localizations = {
   },
   shareLocally: {
     english: 'Share File',
+    french: 'Partager un fichier',
     spanish: 'Compartir archivo',
     brazilian_portuguese: 'Compartilhar arquivo',
     tok_pisin: 'Shareim file',
@@ -10855,6 +11828,7 @@ export const localizations = {
   },
   shareLocallyDescription: {
     english: 'Create a local audio file to save or share',
+    french: 'Créez un fichier audio local à enregistrer ou à partager',
     spanish: 'Crear un archivo de audio local para guardar o compartir',
     brazilian_portuguese:
       'Criar um arquivo de áudio local para salvar ou compartilhar',
@@ -10868,6 +11842,7 @@ export const localizations = {
   },
   questExport: {
     english: 'Quest Export',
+    french: 'Exportation de quête',
     spanish: 'Exportación de Quest',
     brazilian_portuguese: 'Exportação de Quest',
     tok_pisin: 'Quest Export',
@@ -10881,6 +11856,8 @@ export const localizations = {
   questExportDescription: {
     english:
       'Export bible chapters as audio files for sharing and distribution',
+    french:
+      'Exportez des chapitres de la Bible sous forme de fichiers audio pour le partage et la distribution',
     spanish:
       'Exportar capítulos de la biblia como archivos de audio para compartir y distribuir',
     brazilian_portuguese:
@@ -10898,8 +11875,166 @@ export const localizations = {
     thai: 'ส่งออกบทพระคัมภีร์เป็นไฟล์เสียงเพื่อแชร์และแจกจ่าย',
     mandarin: '将圣经章节导出为音频文件以供共享和分发'
   },
+  exportQuestTitle: {
+    english: 'Export Quest',
+    french: "Quête d'exportation",
+    spanish: 'Exportar misión',
+    brazilian_portuguese: 'Exportar missão',
+    tok_pisin: 'Exportim quest',
+    indonesian: 'Ekspor misi',
+    nepali: 'क्वेस्ट निर्यात गर्नुहोस्',
+    hindi: 'क्वेस्ट निर्यात करें',
+    burmese: 'Quest ကို တင်ပို့ပါ',
+    thai: 'ส่งออกเควสต์',
+    mandarin: '导出任务'
+  },
+  mergeAudio: {
+    english: 'Merge Audio',
+    french: "Fusionner l'audio",
+    spanish: 'Combinar audio',
+    brazilian_portuguese: 'Mesclar áudio',
+    tok_pisin: 'Joinim audio',
+    indonesian: 'Gabungkan audio',
+    nepali: 'अडियो मर्ज गर्नुहोस्',
+    hindi: 'ऑडियो मर्ज करें',
+    burmese: 'အသံဖိုင်များကို ပေါင်းပါ',
+    thai: 'รวมเสียง',
+    mandarin: '合并音频'
+  },
+  includeText: {
+    english: 'Include Text',
+    french: 'Inclure du texte',
+    spanish: 'Incluir texto',
+    brazilian_portuguese: 'Incluir texto',
+    tok_pisin: 'Putim text tu',
+    indonesian: 'Sertakan teks',
+    nepali: 'पाठ समावेश गर्नुहोस्',
+    hindi: 'पाठ शामिल करें',
+    burmese: 'စာသားကို ထည့်သွင်းပါ',
+    thai: 'รวมข้อความ',
+    mandarin: '包含文本'
+  },
+  singleZip: {
+    english: 'Single Zip',
+    french: 'Un seul fichier ZIP',
+    spanish: 'ZIP único',
+    brazilian_portuguese: 'ZIP único',
+    tok_pisin: 'Wanpela zip tasol',
+    indonesian: 'Satu ZIP',
+    nepali: 'एउटै ZIP',
+    hindi: 'एकल ZIP',
+    burmese: 'ZIP တစ်ခုတည်း',
+    thai: 'ไฟล์ ZIP เดียว',
+    mandarin: '单个 ZIP'
+  },
+  translationsAndTranscriptionsNotIncluded: {
+    english: 'Translations and transcriptions are not included.',
+    french: 'Les traductions et transcriptions ne sont pas incluses.',
+    spanish: 'Las traducciones y transcripciones no están incluidas.',
+    brazilian_portuguese: 'Traduções e transcrições não estão incluídas.',
+    tok_pisin: 'Translation na transcription i no stap insait.',
+    indonesian: 'Terjemahan dan transkripsi tidak disertakan.',
+    nepali: 'अनुवाद र ट्रान्सक्रिप्सन समावेश गरिएको छैन।',
+    hindi: 'अनुवाद और प्रतिलेख शामिल नहीं हैं।',
+    burmese: 'ဘာသာပြန်ချက်များနှင့် စာသားကူးယူမှုများ မပါဝင်ပါ။',
+    thai: 'ไม่รวมคำแปลและคำถอดเสียง',
+    mandarin: '不包含翻译和转录内容。'
+  },
+  filesMergedAndSharedSingleFile: {
+    english: 'Files will be merged and shared as a single file.',
+    french: 'Les fichiers seront fusionnés et partagés en un seul fichier.',
+    spanish: 'Los archivos se combinarán y compartirán como un solo archivo.',
+    brazilian_portuguese:
+      'Os arquivos serão mesclados e compartilhados como um único arquivo.',
+    tok_pisin: 'Ol fail bai join na share olsem wanpela fail tasol.',
+    indonesian: 'File akan digabungkan dan dibagikan sebagai satu file.',
+    nepali: 'फाइलहरू मर्ज भएर एकल फाइलको रूपमा साझा गरिनेछ।',
+    hindi: 'फ़ाइलें मर्ज होकर एक ही फ़ाइल के रूप में साझा की जाएंगी।',
+    burmese: 'ဖိုင်များကို ပေါင်းစည်းပြီး ဖိုင်တစ်ခုအဖြစ် မျှဝေမည်။',
+    thai: 'ไฟล์จะถูกรวมและแชร์เป็นไฟล์เดียว',
+    mandarin: '文件将合并并作为单个文件共享。'
+  },
+  untitledAsset: {
+    english: 'Untitled asset',
+    french: 'Actif sans titre',
+    spanish: 'Recurso sin título',
+    brazilian_portuguese: 'Recurso sem título',
+    tok_pisin: 'Asset i no gat taitol',
+    indonesian: 'Aset tanpa judul',
+    nepali: 'शीर्षक नभएको एसेट',
+    hindi: 'बिना शीर्षक एसेट',
+    burmese: 'ခေါင်းစဉ်မရှိသော asset',
+    thai: 'สินทรัพย์ไม่มีชื่อ',
+    mandarin: '未命名资产'
+  },
+  noAssetsFoundForQuest: {
+    english: 'No assets found for this quest.',
+    french: 'Aucun élément trouvé pour cette quête.',
+    spanish: 'No se encontraron recursos para esta misión.',
+    brazilian_portuguese: 'Nenhum recurso encontrado para esta missão.',
+    tok_pisin: 'No gat asset bilong dispela quest.',
+    indonesian: 'Tidak ada aset yang ditemukan untuk misi ini.',
+    nepali: 'यो क्वेस्टका लागि कुनै एसेट फेला परेन।',
+    hindi: 'इस क्वेस्ट के लिए कोई एसेट नहीं मिला।',
+    burmese: 'ဤ quest အတွက် asset မတွေ့ပါ။',
+    thai: 'ไม่พบสินทรัพย์สำหรับเควสต์นี้',
+    mandarin: '未找到此任务的资产。'
+  },
+  questAudio: {
+    english: 'Quest Audio',
+    french: 'Audio de la quête',
+    spanish: 'Audio de misión',
+    brazilian_portuguese: 'Áudio da missão',
+    tok_pisin: 'Quest audio',
+    indonesian: 'Audio misi',
+    nepali: 'क्वेस्ट अडियो',
+    hindi: 'क्वेस्ट ऑडियो',
+    burmese: 'Quest အသံဖိုင်',
+    thai: 'เสียงเควสต์',
+    mandarin: '任务音频'
+  },
+  saveExport: {
+    english: 'Save export',
+    french: "Enregistrer l'exportation",
+    spanish: 'Guardar exportación',
+    brazilian_portuguese: 'Salvar exportação',
+    tok_pisin: 'Sevim export',
+    indonesian: 'Simpan ekspor',
+    nepali: 'निर्यात बचत गर्नुहोस्',
+    hindi: 'निर्यात सहेजें',
+    burmese: 'တင်ပို့မှုကို သိမ်းဆည်းပါ',
+    thai: 'บันทึกการส่งออก',
+    mandarin: '保存导出'
+  },
+  failedToExportAudio: {
+    english: 'Failed to export audio',
+    french: "Échec de l'exportation de l'audio",
+    spanish: 'No se pudo exportar el audio',
+    brazilian_portuguese: 'Falha ao exportar áudio',
+    tok_pisin: 'No inap exportim audio',
+    indonesian: 'Gagal mengekspor audio',
+    nepali: 'अडियो निर्यात गर्न असफल भयो',
+    hindi: 'ऑडियो निर्यात करने में विफल',
+    burmese: 'အသံတင်ပို့ရာတွင် မအောင်မြင်ပါ',
+    thai: 'ส่งออกเสียงไม่สำเร็จ',
+    mandarin: '导出音频失败'
+  },
+  filesDownloadedSuccessfully: {
+    english: 'Files downloaded successfully',
+    french: 'Fichiers téléchargés avec succès',
+    spanish: 'Archivos descargados correctamente',
+    brazilian_portuguese: 'Arquivos baixados com sucesso',
+    tok_pisin: 'Ol fail i download gut',
+    indonesian: 'File berhasil diunduh',
+    nepali: 'फाइलहरू सफलतापूर्वक डाउनलोड भए',
+    hindi: 'फ़ाइलें सफलतापूर्वक डाउनलोड हुईं',
+    burmese: 'ဖိုင်များကို အောင်မြင်စွာ ဒေါင်းလုဒ်လုပ်ပြီးပါပြီ',
+    thai: 'ดาวน์โหลดไฟล์สำเร็จ',
+    mandarin: '文件下载成功'
+  },
   transcription: {
     english: 'Transcription',
+    french: 'Transcription',
     spanish: 'Transcripción',
     brazilian_portuguese: 'Transcrição',
     tok_pisin: 'Transcription',
@@ -10912,6 +12047,7 @@ export const localizations = {
   },
   transcriptions: {
     english: 'Transcriptions',
+    french: 'Transcriptions',
     spanish: 'Transcripciones',
     brazilian_portuguese: 'Transcrições',
     tok_pisin: 'Ol Transcription',
@@ -10924,6 +12060,8 @@ export const localizations = {
   },
   noTranscriptionsYet: {
     english: 'No transcriptions yet. Be the first to transcribe!',
+    french:
+      "Aucune transcription pour l'instant. Soyez le premier à transcrire !",
     spanish: 'No hay transcripciones aún. ¡Sé el primero en transcribir!',
     brazilian_portuguese:
       'Nenhuma transcrição ainda. Seja o primeiro a transcrever!',
@@ -10939,6 +12077,7 @@ export const localizations = {
   },
   transcriptionDescription: {
     english: 'Enable automatic transcription of audio recordings',
+    french: 'Activer la transcription automatique des enregistrements audio',
     spanish: 'Habilitar transcripción automática de grabaciones de audio',
     brazilian_portuguese:
       'Habilitar transcrição automática de gravações de áudio',
@@ -10952,6 +12091,7 @@ export const localizations = {
   },
   transcriptionComplete: {
     english: 'Transcription Complete',
+    french: 'Transcription terminée',
     spanish: 'Transcripción completada',
     brazilian_portuguese: 'Transcrição concluída',
     tok_pisin: 'Transcription i pinis',
@@ -10964,6 +12104,7 @@ export const localizations = {
   },
   copyFeedbackLink: {
     english: 'Copy Feedback Link',
+    french: 'Copier le lien de commentaires',
     spanish: 'Copiar enlace de feedback',
     brazilian_portuguese: 'Copiar link de feedback',
     tok_pisin: 'Kopim feedback link',
@@ -10976,6 +12117,7 @@ export const localizations = {
   },
   copyFeedbackLinkDescription: {
     english: 'Copy a link to share for feedback',
+    french: 'Copiez un lien à partager pour obtenir des commentaires',
     spanish: 'Copiar un enlace para compartir para feedback',
     brazilian_portuguese: 'Copiar um link para compartilhar para feedback',
     tok_pisin: 'Kopim link long shareim bilong feedback',
@@ -10989,6 +12131,8 @@ export const localizations = {
   feedbackLinkNote: {
     english:
       'Note: We plan to implement a link to the LangQuest website where exports can be viewed and commented on in the future.',
+    french:
+      "Remarque : Nous prévoyons de mettre en œuvre un lien vers le site Web LangQuest où les exportations pourront être consultées et commentées à l'avenir.",
     spanish:
       'Nota: Planeamos implementar un enlace al sitio web de LangQuest donde las exportaciones se pueden ver y comentar en el futuro.',
     brazilian_portuguese:
@@ -11009,6 +12153,7 @@ export const localizations = {
   },
   linkCopied: {
     english: 'Link copied to clipboard!',
+    french: 'Lien copié dans le presse-papier !',
     spanish: '¡Enlace copiado al portapapeles!',
     brazilian_portuguese: 'Link copiado para a área de transferência!',
     tok_pisin: 'Link kopim igo long clipboard!',
@@ -11021,6 +12166,7 @@ export const localizations = {
   },
   verseMarkers: {
     english: 'Verse Labels',
+    french: 'Étiquettes de versets',
     spanish: 'Etiquetas de Versículos',
     brazilian_portuguese: 'Etiquetas de Versículos',
     tok_pisin: 'Verse Labels',
@@ -11033,6 +12179,7 @@ export const localizations = {
   },
   enableVerseLabelsQuestion: {
     english: 'Enable Verse Labels?',
+    french: 'Activer les étiquettes de versets ?',
     spanish: '¿Habilitar etiquetas de versículos?',
     brazilian_portuguese: 'Habilitar etiquetas de versículos?',
     tok_pisin: 'Enablem verse labels?',
@@ -11046,6 +12193,8 @@ export const localizations = {
   enableVerseLabelsDescription: {
     english:
       'This experimental feature helps organize Bible resources using verse labels. You can enable / disable it anytime at the Settings menu.',
+    french:
+      "Cette fonctionnalité expérimentale permet d'organiser les ressources bibliques à l'aide d'étiquettes de versets. Vous pouvez l'activer/le désactiver à tout moment dans le menu Paramètres.",
     spanish:
       'Esta función experimental ayuda a organizar los recursos de la Biblia usando etiquetas de versículos. Puedes habilitarla / deshabilitarla en cualquier momento desde el menú de Configuración.',
     brazilian_portuguese:
@@ -11066,6 +12215,8 @@ export const localizations = {
   },
   verseMarkersDescription: {
     english: 'Enable verse labels to help organize Bible resources',
+    french:
+      'Activer les étiquettes de versets pour aider à organiser les ressources bibliques',
     spanish:
       'Habilitar etiquetas de versículos para ayudar a organizar recursos de la Biblia',
     brazilian_portuguese:
@@ -11084,6 +12235,7 @@ export const localizations = {
   // Languoid Link Suggestion strings
   languoidLinkSuggestionTitle: {
     english: 'Link your language?',
+    french: 'Lier votre langue ?',
     spanish: '¿Vincular tu idioma?',
     brazilian_portuguese: '¿Vincular seu idioma?',
     tok_pisin: 'Joinim tok ples bilong yu?',
@@ -11096,6 +12248,7 @@ export const localizations = {
   },
   languoidLinkSuggestionDrawerTitle: {
     english: 'Link to existing language',
+    french: 'Lien vers la langue existante',
     spanish: 'Vincular a un idioma existente',
     brazilian_portuguese: 'Vincular a um idioma existente',
     tok_pisin: 'Joinim wanpela tok ples',
@@ -11109,6 +12262,8 @@ export const localizations = {
   languoidLinkSuggestionDescription: {
     english:
       'We found existing languages that may match the one you created. Would you like to link to an existing language?',
+    french:
+      'Nous avons trouvé des langues existantes qui peuvent correspondre à celle que vous avez créée. Souhaitez-vous créer un lien vers une langue existante ?',
     spanish:
       'Encontramos idiomas existentes que pueden coincidir con el que creaste. ¿Te gustaría vincular a un idioma existente?',
     brazilian_portuguese:
@@ -11129,6 +12284,7 @@ export const localizations = {
   },
   yourLanguage: {
     english: 'Your language',
+    french: 'Votre langue',
     spanish: 'Tu idioma',
     brazilian_portuguese: 'Seu idioma',
     tok_pisin: 'Tok ples bilong yu',
@@ -11141,6 +12297,7 @@ export const localizations = {
   },
   seeLanguageSuggestions: {
     english: 'See language suggestions',
+    french: 'Voir les suggestions de langues',
     spanish: 'Ver sugerencias de idioma',
     brazilian_portuguese: 'Ver sugestões de idioma',
     tok_pisin: 'Lukim ol tok ples bilong en',
@@ -11153,6 +12310,7 @@ export const localizations = {
   },
   keepMyLanguage: {
     english: 'Keep my language',
+    french: 'Garde ma langue',
     spanish: 'Mantener mi idioma',
     brazilian_portuguese: 'Manter meu idioma',
     tok_pisin: 'Holim tok ples bilong mi',
@@ -11165,6 +12323,7 @@ export const localizations = {
   },
   chooseThisLanguage: {
     english: 'Choose this language',
+    french: 'Choisissez cette langue',
     spanish: 'Elegir este idioma',
     brazilian_portuguese: 'Escolher este idioma',
     tok_pisin: 'Pilim dispela tok ples',
@@ -11177,6 +12336,7 @@ export const localizations = {
   },
   exactMatch: {
     english: 'Exact match',
+    french: 'Correspondance exacte',
     spanish: 'Coincidencia exacta',
     brazilian_portuguese: 'Correspondência exata',
     tok_pisin: 'Sem tru',
@@ -11189,6 +12349,7 @@ export const localizations = {
   },
   partialMatch: {
     english: 'Partial match',
+    french: 'Correspondance partielle',
     spanish: 'Coincidencia parcial',
     brazilian_portuguese: 'Correspondência parcial',
     tok_pisin: 'Luk olsem',
@@ -11201,6 +12362,7 @@ export const localizations = {
   },
   matchedByName: {
     english: 'Matched by name',
+    french: 'Correspondant par nom',
     spanish: 'Coincide por nombre',
     brazilian_portuguese: 'Correspondido por nome',
     tok_pisin: 'Painim long nem',
@@ -11213,6 +12375,7 @@ export const localizations = {
   },
   matchedByAlias: {
     english: 'Matched by alias',
+    french: 'Correspondant par pseudonyme',
     spanish: 'Coincide por alias',
     brazilian_portuguese: 'Correspondido por alias',
     tok_pisin: 'Painim long narapela nem',
@@ -11225,6 +12388,7 @@ export const localizations = {
   },
   matchedByIsoCode: {
     english: 'Matched by ISO code',
+    french: 'Correspondant au code ISO',
     spanish: 'Coincide por código ISO',
     brazilian_portuguese: 'Correspondido por código ISO',
     tok_pisin: 'Painim long ISO kod',
@@ -11237,6 +12401,7 @@ export const localizations = {
   },
   languageLinkSuccess: {
     english: 'Language linked successfully',
+    french: 'Langue liée avec succès',
     spanish: 'Idioma vinculado con éxito',
     brazilian_portuguese: 'Idioma vinculado com sucesso',
     tok_pisin: 'Tok ples joinim gut',
@@ -11249,6 +12414,7 @@ export const localizations = {
   },
   languageLinkError: {
     english: 'Failed to link language',
+    french: 'Échec de la liaison de la langue',
     spanish: 'Error al vincular idioma',
     brazilian_portuguese: 'Falha ao vincular idioma',
     tok_pisin: 'No inap joinim tok ples',
@@ -11261,6 +12427,7 @@ export const localizations = {
   },
   keepLanguageSuccess: {
     english: 'Your custom language has been kept',
+    french: 'Votre langue personnalisée a été conservée',
     spanish: 'Tu idioma personalizado ha sido conservado',
     brazilian_portuguese: 'Seu idioma personalizado foi mantido',
     tok_pisin: 'Tok ples bilong yu i stap yet',
@@ -11273,6 +12440,7 @@ export const localizations = {
   },
   enableLanguoidLinkSuggestions: {
     english: 'Language link suggestions',
+    french: 'Suggestions de liens linguistiques',
     spanish: 'Sugerencias de vinculación de idioma',
     brazilian_portuguese: 'Sugestões de vinculação de idioma',
     tok_pisin: 'Ol tok ples bilong joinim',
@@ -11286,6 +12454,8 @@ export const localizations = {
   enableLanguoidLinkSuggestionsDescription: {
     english:
       'Get suggestions to link your custom-created languages to existing ones in the database',
+    french:
+      'Obtenez des suggestions pour lier vos langues créées sur mesure à celles existantes dans la base de données',
     spanish:
       'Recibe sugerencias para vincular tus idiomas personalizados con los existentes en la base de datos',
     brazilian_portuguese:
@@ -11305,6 +12475,7 @@ export const localizations = {
   },
   enableMerge: {
     english: 'Merge assets',
+    french: 'Fusionner les actifs',
     spanish: 'Fusionar activos',
     brazilian_portuguese: 'Mesclar ativos',
     tok_pisin: 'Joinim ol aset',
@@ -11318,6 +12489,8 @@ export const localizations = {
   enableMergeDescription: {
     english:
       'Allow merging multiple audio assets into a single asset. Use with caution — segment order may need manual adjustment after merging.',
+    french:
+      "Autoriser la fusion de plusieurs ressources audio en une seule ressource. À utiliser avec prudence : l'ordre des segments peut nécessiter un ajustement manuel après la fusion.",
     spanish:
       'Permitir fusionar múltiples activos de audio en un solo activo. Usar con precaución — el orden de los segmentos puede necesitar ajuste manual después de fusionar.',
     brazilian_portuguese:
@@ -11338,6 +12511,7 @@ export const localizations = {
   },
   enableFia: {
     english: 'FIA Projects',
+    french: 'Projets FIA',
     spanish: 'Proyectos FIA',
     brazilian_portuguese: 'Projetos FIA',
     tok_pisin: 'FIA Projek',
@@ -11351,6 +12525,8 @@ export const localizations = {
   enableFiaDescription: {
     english:
       'Enable FIA project features. This is an experimental project type under active development.',
+    french:
+      "Activez les fonctionnalités du projet FIA. Il s'agit d'un type de projet expérimental en développement actif.",
     spanish:
       'Habilitar las funciones de proyectos FIA. Este es un tipo de proyecto experimental en desarrollo activo.',
     brazilian_portuguese:
@@ -11370,6 +12546,7 @@ export const localizations = {
   },
   fiaExperimentalTitle: {
     english: 'FIA Projects are Experimental',
+    french: 'Les projets de la FIA sont expérimentaux',
     spanish: 'Los proyectos FIA son experimentales',
     brazilian_portuguese: 'Projetos FIA são experimentais',
     tok_pisin: 'FIA Projek em i eksperimental',
@@ -11383,6 +12560,8 @@ export const localizations = {
   fiaExperimentalDescription: {
     english:
       'To use this project, enable FIA Projects in Settings under Experimental Features.',
+    french:
+      'Pour utiliser ce projet, activez les projets FIA dans Paramètres sous Fonctionnalités expérimentales.',
     spanish:
       'Para usar este proyecto, habilite Proyectos FIA en Configuración bajo Características Experimentales.',
     brazilian_portuguese:
@@ -11402,6 +12581,7 @@ export const localizations = {
   },
   openSettings: {
     english: 'Open Settings',
+    french: 'Ouvrir les paramètres',
     spanish: 'Abrir configuración',
     brazilian_portuguese: 'Abrir configurações',
     tok_pisin: 'Openim Settings',
@@ -11411,6 +12591,41 @@ export const localizations = {
     burmese: 'ဆက်တင်များကို ဖွင့်ပါ',
     thai: 'เปิดการตั้งค่า',
     mandarin: '打开设置'
+  },
+  enable: {
+    english: 'Enable',
+    french: 'Activer',
+    spanish: 'Habilitar',
+    brazilian_portuguese: 'Ativar',
+    tok_pisin: 'Openim',
+    indonesian: 'Aktifkan',
+    nepali: 'सक्षम गर्नुहोस्',
+    hindi: 'सक्षम करें',
+    burmese: 'ဖွင့်ပါ',
+    thai: 'เปิดใช้งาน',
+    mandarin: '启用'
+  },
+  enableFiaPrompt: {
+    english:
+      'FIA is an experimental project type under active development. Would you like to enable it?',
+    french:
+      "FIA est un type de projet expérimental en développement actif. Voulez-vous l'activer ?",
+    spanish:
+      'FIA es un tipo de proyecto experimental en desarrollo activo. ¿Desea habilitarlo?',
+    brazilian_portuguese:
+      'FIA é um tipo de projeto experimental em desenvolvimento ativo. Deseja ativá-lo?',
+    tok_pisin:
+      'FIA em i wanpela kain projek eksperimental we ol i wok long developim yet. Yu laik openim?',
+    indonesian:
+      'FIA adalah jenis proyek eksperimental yang sedang dalam pengembangan aktif. Apakah Anda ingin mengaktifkannya?',
+    nepali:
+      'FIA सक्रिय विकासमा रहेको प्रयोगात्मक परियोजना प्रकार हो। के तपाईं यसलाई सक्षम गर्न चाहनुहुन्छ?',
+    hindi:
+      'FIA सक्रिय विकास के तहत एक प्रयोगात्मक परियोजना प्रकार है। क्या आप इसे सक्षम करना चाहते हैं?',
+    burmese:
+      'FIA သည် တက်ကြွစွာ ဖွံ့ဖြိုးတိုးတက်နေသော စမ်းသပ်မှု စီမံကိန်း အမျိုးအစားတစ်ခု ဖြစ်သည်။ ၎င်းကို ဖွင့်လိုပါသလား?',
+    thai: 'FIA เป็นประเภทโครงการทดลองที่อยู่ระหว่างการพัฒนาอย่างต่อเนื่อง คุณต้องการเปิดใช้งานหรือไม่?',
+    mandarin: 'FIA是一个正在积极开发中的实验性项目类型。您想要启用它吗？'
   }
 } as const;
 

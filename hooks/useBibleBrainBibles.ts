@@ -1,4 +1,5 @@
 import { useAuth } from '@/contexts/AuthContext';
+import { fiaBibleApiQueryOptions } from '@/utils/fiaBibleQueryCache';
 import {
   lookupIso639_3,
   lookupSourceLanguoidId
@@ -7,19 +8,25 @@ import { useQuery } from '@tanstack/react-query';
 
 // --- Types matching the edge function response ---
 
+export type Testament = 'OT' | 'NT';
+
 export interface BibleBrainBible {
   id: string;
   name: string;
   vname: string | null;
   hasText: boolean;
   hasAudio: boolean;
-  textFilesetId: string | null;
-  audioFilesetId: string | null;
+  textTestaments: Testament[];
+  audioTestaments: Testament[];
+  iso: string;
+  languageName: string;
 }
 
 interface ListBiblesResponse {
   bibles: BibleBrainBible[];
 }
+
+const EMPTY_BIBLES: BibleBrainBible[] = [];
 
 export function useBibleBrainBibles(projectId: string | undefined) {
   const { session } = useAuth();
@@ -64,12 +71,12 @@ export function useBibleBrainBibles(projectId: string | undefined) {
       return response.json();
     },
     enabled: !!projectId && !!supabaseUrl,
-    staleTime: Infinity,
+    ...fiaBibleApiQueryOptions,
     retry: 2
   });
 
   return {
-    bibles: data?.bibles ?? [],
+    bibles: data?.bibles ?? EMPTY_BIBLES,
     isLoading,
     error
   };

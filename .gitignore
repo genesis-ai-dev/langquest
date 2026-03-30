@@ -18,6 +18,7 @@ llm_supp_files/
 *.swp
 .vercel
 gitignore_scripts/
+quest_backup*
 
 /modules/**/android/build
 /public/@powersync

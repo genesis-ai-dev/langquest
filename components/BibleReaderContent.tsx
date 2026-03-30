@@ -1,7 +1,7 @@
+import { CheckpointMediaPlayer } from '@/components/CheckpointMediaPlayer';
 import { DrawerScrollView } from '@/components/ui/drawer';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
-import { Slider } from '@/components/ui/slider';
 import { Text } from '@/components/ui/text';
 import { useAudio } from '@/contexts/AudioContext';
 import {
@@ -11,14 +11,18 @@ import {
 import {
   useBibleBrainContent,
   type BibleBrainAudioChapter,
+  type BibleBrainCopyright,
   type BibleBrainVerse
 } from '@/hooks/useBibleBrainContent';
-import { useLocalStore } from '@/store/localStore';
-import { getThemeColor } from '@/utils/styleUtils';
-import { Ionicons } from '@expo/vector-icons';
+import {
+  useLocalStore,
+  type BibleDownloadTranslation
+} from '@/store/localStore';
+import { cn, getThemeColor, useThemeColor } from '@/utils/styleUtils';
 import {
   BookOpenIcon,
   HeadphonesIcon,
+  PlusIcon,
   SearchIcon,
   TypeIcon
 } from 'lucide-react-native';
@@ -29,10 +33,52 @@ import React, {
   useRef,
   useState
 } from 'react';
-import { ActivityIndicator, TouchableOpacity, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Linking,
+  TouchableOpacity,
+  View
+} from 'react-native';
 import { Dropdown } from 'react-native-element-dropdown';
 
 const EMPTY_STRING_ARRAY: string[] = [];
+const EMPTY_DOWNLOAD_TRANSLATIONS: BibleDownloadTranslation[] = [];
+
+const NT_BOOKS = new Set([
+  'MAT',
+  'MRK',
+  'LUK',
+  'JHN',
+  'ACT',
+  'ROM',
+  '1CO',
+  '2CO',
+  'GAL',
+  'EPH',
+  'PHP',
+  'COL',
+  '1TH',
+  '2TH',
+  '1TI',
+  '2TI',
+  'TIT',
+  'PHM',
+  'HEB',
+  'JAS',
+  '1PE',
+  '2PE',
+  '1JN',
+  '2JN',
+  '3JN',
+  'JUD',
+  'REV'
+]);
+
+function guessTestament(bookId: string): 'OT' | 'NT' {
+  return NT_BOOKS.has(bookId.toUpperCase()) ? 'NT' : 'OT';
+}
+
+const AUDIO_SEEK_STEP_MS = 10000;
 
 // --- Verse highlighting from timestamps ---
 
@@ -78,107 +124,6 @@ function getActiveVerseKey(
   return verseKeyFromTimestamps(last, localSec);
 }
 
-// --- Audio Player ---
-
-function BibleAudioPlayer({
-  audioUrls,
-  audioId,
-  savedPositionMs
-}: {
-  audioUrls: string[];
-  audioId: string;
-  savedPositionMs?: number;
-}) {
-  const {
-    playSound,
-    playSoundSequence,
-    pauseSound,
-    resumeSound,
-    isPlaying,
-    isPaused,
-    currentAudioId,
-    position,
-    duration,
-    setPosition
-  } = useAudio();
-
-  const isThisPlaying = isPlaying && currentAudioId === audioId;
-  const isThisPaused = isPaused && currentAudioId === audioId;
-  const isThisActive = isThisPlaying || isThisPaused;
-
-  const handlePlayPause = async () => {
-    if (audioUrls.length === 0) return;
-    if (isThisPlaying) {
-      await pauseSound();
-    } else if (isThisPaused) {
-      await resumeSound();
-    } else if (audioUrls.length === 1) {
-      await playSound(audioUrls[0]!, audioId);
-      if (savedPositionMs && savedPositionMs > 0) {
-        await setPosition(savedPositionMs);
-      }
-    } else {
-      await playSoundSequence(audioUrls, audioId);
-      if (savedPositionMs && savedPositionMs > 0) {
-        await setPosition(savedPositionMs);
-      }
-    }
-  };
-
-  const handleSeek = (ms: number) => {
-    void setPosition(ms);
-  };
-
-  const formatTime = (ms: number) => {
-    const totalSeconds = Math.floor(ms / 1000);
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-  };
-
-  if (audioUrls.length === 0) return null;
-
-  const currentPos = isThisActive ? position : 0;
-  const currentDur = isThisActive ? duration : 0;
-
-  return (
-    <View className="gap-1 border-b border-border bg-card px-4 py-2">
-      <View className="flex-row items-center gap-3">
-        <TouchableOpacity
-          onPress={handlePlayPause}
-          className="h-10 w-10 items-center justify-center rounded-full bg-primary"
-        >
-          <Ionicons
-            name={isThisPlaying ? 'pause' : 'play'}
-            size={20}
-            color="white"
-          />
-        </TouchableOpacity>
-        <View className="flex-1">
-          <Slider
-            minimumValue={0}
-            maximumValue={currentDur || 1}
-            value={currentPos}
-            onValueChange={handleSeek}
-            disabled={!isThisActive}
-            animated={false}
-          />
-        </View>
-      </View>
-      <View className="flex-row justify-between px-1">
-        <Text className="text-xs text-muted-foreground">
-          {formatTime(currentPos)}
-        </Text>
-        {currentDur > 0 ? (
-          <Text className="text-xs text-muted-foreground">
-            {formatTime(currentDur)}
-          </Text>
-        ) : null}
-      </View>
-    </View>
-  );
-}
-
 // --- Translation Picker (searchable Dropdown) ---
 
 interface DropdownItem {
@@ -186,19 +131,24 @@ interface DropdownItem {
   label: string;
   hasText: boolean;
   hasAudio: boolean;
+  textTestaments: string[];
+  audioTestaments: string[];
   isRecent: boolean;
+  languageName: string;
 }
 
 function TranslationPicker({
   bibles,
   selectedId,
   onSelect,
-  recentIds
+  recentIds,
+  onAddPress
 }: {
   bibles: BibleBrainBible[];
   selectedId: string | null;
   onSelect: (bible: BibleBrainBible) => void;
   recentIds: string[];
+  onAddPress: () => void;
 }) {
   const [search, setSearch] = useState('');
 
@@ -209,140 +159,201 @@ function TranslationPicker({
       label: formatBibleLabel(b),
       hasText: b.hasText,
       hasAudio: b.hasAudio,
-      isRecent: recentSet.has(b.id)
+      textTestaments: b.textTestaments ?? [],
+      audioTestaments: b.audioTestaments ?? [],
+      isRecent: recentSet.has(b.id),
+      languageName: b.languageName || b.iso
     }));
 
-    // Sort: recent first (in order), then the rest by name
-    items.sort((a, b) => {
-      if (a.isRecent && !b.isRecent) return -1;
-      if (!a.isRecent && b.isRecent) return 1;
-      if (a.isRecent && b.isRecent) {
-        return recentIds.indexOf(a.value) - recentIds.indexOf(b.value);
+    const langOrder = new Map<string, number>();
+    for (const id of recentIds) {
+      const item = items.find((i) => i.value === id);
+      if (item && !langOrder.has(item.languageName)) {
+        langOrder.set(item.languageName, langOrder.size);
       }
+    }
+    for (const item of items) {
+      if (!langOrder.has(item.languageName)) {
+        langOrder.set(item.languageName, langOrder.size);
+      }
+    }
+
+    items.sort((a, b) => {
+      const langA = langOrder.get(a.languageName) ?? 0;
+      const langB = langOrder.get(b.languageName) ?? 0;
+      if (langA !== langB) return langA - langB;
+      const recentA = recentIds.indexOf(a.value);
+      const recentB = recentIds.indexOf(b.value);
+      if (recentA !== -1 && recentB !== -1) return recentA - recentB;
+      if (recentA !== -1) return -1;
+      if (recentB !== -1) return 1;
       return a.label.localeCompare(b.label);
     });
 
     return items;
   }, [bibles, recentIds]);
 
+  const categoryHeaders = useMemo(() => {
+    const headers = new Set<string>();
+    let lastLang = '';
+    for (const item of dropdownData) {
+      if (item.languageName !== lastLang) {
+        headers.add(item.value);
+        lastLang = item.languageName;
+      }
+    }
+    return headers;
+  }, [dropdownData]);
+
   return (
-    <View className="px-4 py-2">
-      <Dropdown
-        style={{
-          height: 44,
-          borderWidth: 1,
-          borderRadius: 8,
-          paddingHorizontal: 12,
-          backgroundColor: getThemeColor('card'),
-          borderColor: getThemeColor('border')
-        }}
-        placeholderStyle={{
-          fontSize: 14,
-          color: getThemeColor('muted-foreground')
-        }}
-        selectedTextStyle={{
-          fontSize: 14,
-          color: getThemeColor('foreground')
-        }}
-        containerStyle={{
-          borderRadius: 8,
-          overflow: 'hidden',
-          borderWidth: 1,
-          marginTop: 4,
-          backgroundColor: getThemeColor('card'),
-          borderColor: getThemeColor('border')
-        }}
-        dropdownPosition="auto"
-        itemTextStyle={{
-          fontSize: 14,
-          color: getThemeColor('foreground')
-        }}
-        itemContainerStyle={{
-          borderRadius: 6,
-          overflow: 'hidden'
-        }}
-        activeColor={getThemeColor('accent')}
-        data={dropdownData}
-        search
-        maxHeight={350}
-        labelField="label"
-        valueField="value"
-        placeholder="Select translation..."
-        value={selectedId}
-        onChange={(item) => {
-          const bible = bibles.find((b) => b.id === item.value);
-          if (bible) onSelect(bible);
-          setSearch('');
-        }}
-        renderInputSearch={(onSearchInternal) => (
-          <View className="overflow-hidden border-b border-border">
-            <Input
-              value={search}
-              onChangeText={(text) => {
-                setSearch(text);
-                onSearchInternal(text);
-              }}
-              placeholder="Search translations..."
-              prefix={SearchIcon}
-              size="sm"
-              className="border-0"
-              autoCapitalize="none"
-              autoCorrect={false}
+    <View className="flex-row items-center gap-2">
+      <View className="flex-1">
+        <Dropdown
+          style={{
+            height: 44,
+            borderWidth: 1,
+            borderRadius: 8,
+            paddingHorizontal: 12,
+            backgroundColor: getThemeColor('card'),
+            borderColor: getThemeColor('border')
+          }}
+          placeholderStyle={{
+            fontSize: 14,
+            color: getThemeColor('muted-foreground')
+          }}
+          selectedTextStyle={{
+            fontSize: 14,
+            color: getThemeColor('foreground')
+          }}
+          containerStyle={{
+            borderRadius: 8,
+            overflow: 'hidden',
+            borderWidth: 1,
+            marginTop: 4,
+            backgroundColor: getThemeColor('card'),
+            borderColor: getThemeColor('border')
+          }}
+          dropdownPosition="auto"
+          itemTextStyle={{
+            fontSize: 14,
+            color: getThemeColor('foreground')
+          }}
+          itemContainerStyle={{
+            borderRadius: 6,
+            overflow: 'hidden'
+          }}
+          activeColor={getThemeColor('accent')}
+          data={dropdownData}
+          search
+          maxHeight={350}
+          labelField="label"
+          valueField="value"
+          placeholder="Select translation..."
+          value={selectedId}
+          onChange={(item) => {
+            const bible = bibles.find((b) => b.id === item.value);
+            if (bible) onSelect(bible);
+            setSearch('');
+          }}
+          renderInputSearch={(onSearchInternal) => (
+            <View className="overflow-hidden border-b border-border">
+              <Input
+                value={search}
+                onChangeText={(text) => {
+                  setSearch(text);
+                  onSearchInternal(text);
+                }}
+                placeholder="Search translations..."
+                prefix={SearchIcon}
+                size="sm"
+                className="border-0"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+            </View>
+          )}
+          flatListProps={{
+            style: { backgroundColor: getThemeColor('card') },
+            keyboardShouldPersistTaps: 'handled' as const,
+            nestedScrollEnabled: true
+          }}
+          renderLeftIcon={() => (
+            <Icon
+              as={BookOpenIcon}
+              className="mr-2 text-muted-foreground"
+              size={16}
             />
-          </View>
-        )}
-        flatListProps={{
-          style: { backgroundColor: getThemeColor('card') },
-          keyboardShouldPersistTaps: 'handled' as const,
-          nestedScrollEnabled: true
-        }}
-        renderLeftIcon={() => (
-          <Icon
-            as={BookOpenIcon}
-            className="mr-2 text-muted-foreground"
-            size={16}
-          />
-        )}
-        renderItem={(item, selected) => (
-          <View
-            className={`flex-row items-center px-3 py-3 ${selected ? 'bg-accent' : ''}`}
-          >
-            <View className="flex-1">
-              <Text
-                className={`text-sm ${selected ? 'font-medium text-accent-foreground' : 'text-foreground'}`}
-                numberOfLines={2}
+          )}
+          renderItem={(item, selected) => (
+            <View>
+              {categoryHeaders.has(item.value) && (
+                <View className="border-t border-border bg-muted/50 px-3 py-1.5">
+                  <Text className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    {item.languageName}
+                  </Text>
+                </View>
+              )}
+              <View
+                className={cn(
+                  'flex-row items-center px-3 py-3',
+                  selected && 'bg-accent'
+                )}
               >
-                {item.label}
-              </Text>
-              {item.isRecent && (
-                <Text className="text-xs text-muted-foreground">
-                  Recently used
-                </Text>
-              )}
-            </View>
-            <View className="ml-2 flex-row gap-1">
-              {item.hasText && (
-                <View className="rounded-full bg-secondary/50 px-1.5 py-0.5">
-                  <Icon
-                    as={TypeIcon}
-                    size={10}
-                    className="text-muted-foreground"
-                  />
+                <View className="flex-1">
+                  <Text
+                    className={cn(
+                      'text-sm',
+                      selected
+                        ? 'font-medium text-accent-foreground'
+                        : 'text-foreground'
+                    )}
+                    numberOfLines={2}
+                  >
+                    {item.label}
+                  </Text>
                 </View>
-              )}
-              {item.hasAudio && (
-                <View className="rounded-full bg-secondary/50 px-1.5 py-0.5">
-                  <Icon
-                    as={HeadphonesIcon}
-                    size={10}
-                    className="text-muted-foreground"
-                  />
+                <View className="ml-2 flex-row gap-1">
+                  {item.hasText && (
+                    <View className="flex-row items-center gap-0.5 rounded-full bg-secondary/50 px-1.5 py-0.5">
+                      <Icon
+                        as={TypeIcon}
+                        size={10}
+                        className="text-muted-foreground"
+                      />
+                      {item.textTestaments.length === 1 && (
+                        <Text className="text-[9px] text-muted-foreground">
+                          {item.textTestaments[0]}
+                        </Text>
+                      )}
+                    </View>
+                  )}
+                  {item.hasAudio && (
+                    <View className="flex-row items-center gap-0.5 rounded-full bg-secondary/50 px-1.5 py-0.5">
+                      <Icon
+                        as={HeadphonesIcon}
+                        size={10}
+                        className="text-muted-foreground"
+                      />
+                      {item.audioTestaments.length === 1 && (
+                        <Text className="text-[9px] text-muted-foreground">
+                          {item.audioTestaments[0]}
+                        </Text>
+                      )}
+                    </View>
+                  )}
                 </View>
-              )}
+              </View>
             </View>
-          </View>
-        )}
-      />
+          )}
+        />
+      </View>
+      <TouchableOpacity
+        onPress={onAddPress}
+        className="h-11 w-11 items-center justify-center rounded-lg border border-border bg-card"
+        hitSlop={8}
+      >
+        <Icon as={PlusIcon} size={18} className="text-primary" />
+      </TouchableOpacity>
     </View>
   );
 }
@@ -381,7 +392,7 @@ function VerseDisplay({
           <View
             key={key}
             onLayout={(e) => onVerseLayout(key, e.nativeEvent.layout.y)}
-            className={`rounded px-1 py-0.5 ${isActive ? 'bg-primary/15' : ''}`}
+            className={cn('rounded px-1 py-0.5', isActive && 'bg-primary/15')}
           >
             <Text className="text-base leading-7">
               <Text className="text-xs font-bold text-primary">
@@ -396,27 +407,99 @@ function VerseDisplay({
   );
 }
 
+// --- Copyright Notice ---
+
+function CopyrightNotice({
+  copyright
+}: {
+  copyright: BibleBrainCopyright | null;
+}) {
+  if (!copyright?.copyright) return null;
+
+  const isPublicDomain = copyright.copyright
+    .toLowerCase()
+    .includes('public domain');
+
+  return (
+    <View className="px-4 py-3">
+      <Text className="text-xs leading-5 text-muted-foreground">
+        {copyright.copyright}
+      </Text>
+      {!isPublicDomain &&
+        (() => {
+          const orgsWithUrl = copyright.organizations.filter((org) => org.url);
+          if (orgsWithUrl.length === 0) return null;
+          return (
+            <Text className="mt-1 text-xs text-muted-foreground">
+              {orgsWithUrl.map((org, i) => (
+                <React.Fragment key={org.name}>
+                  {i > 0 && (
+                    <Text className="text-xs text-muted-foreground">, </Text>
+                  )}
+                  <Text
+                    className="text-xs text-primary"
+                    onPress={() => Linking.openURL(org.url!)}
+                  >
+                    {org.name}
+                  </Text>
+                </React.Fragment>
+              ))}
+            </Text>
+          );
+        })()}
+    </View>
+  );
+}
+
 // --- Main Component ---
 
 interface BibleReaderContentProps {
   projectId: string | undefined;
+  pericopeId: string | undefined;
   fiaBookId: string | undefined;
   verseRange: string | undefined;
+  onOpenTranslationDrawer?: () => void;
 }
 
 export function BibleReaderContent({
   projectId,
+  pericopeId,
   fiaBookId,
-  verseRange
+  verseRange,
+  onOpenTranslationDrawer
 }: BibleReaderContentProps) {
   const {
-    bibles,
+    bibles: apiBibles,
     isLoading: biblesLoading,
     error: biblesError
   } = useBibleBrainBibles(projectId);
   const [selectedBible, setSelectedBible] = useState<BibleBrainBible | null>(
     null
   );
+  // Saved translations from the store (user-curated list)
+  const savedDownloads = useLocalStore((s) =>
+    projectId
+      ? (s.bibleDownloadTranslations[projectId] ?? EMPTY_DOWNLOAD_TRANSLATIONS)
+      : EMPTY_DOWNLOAD_TRANSLATIONS
+  );
+
+  // When the user has curated translations, show those; otherwise show all API bibles
+  const displayBibles: BibleBrainBible[] = useMemo(() => {
+    if (savedDownloads.length > 0) {
+      return savedDownloads.map((t) => ({
+        id: t.bibleId,
+        name: t.name,
+        vname: t.vname,
+        hasText: t.hasText,
+        hasAudio: t.hasAudio,
+        textTestaments: t.textTestaments ?? [],
+        audioTestaments: t.audioTestaments ?? [],
+        iso: t.iso,
+        languageName: t.languageName
+      }));
+    }
+    return apiBibles;
+  }, [savedDownloads, apiBibles]);
 
   // Persistence
   const savedTranslation = useLocalStore((s) =>
@@ -428,24 +511,34 @@ export function BibleReaderContent({
       : EMPTY_STRING_ARRAY
   );
   const setBibleTranslation = useLocalStore((s) => s.setBibleTranslation);
-  const bibleAudioPositions = useLocalStore((s) => s.bibleAudioPositions);
-  const setBibleAudioPosition = useLocalStore((s) => s.setBibleAudioPosition);
 
   // Auto-select: saved translation > best match > first
   useEffect(() => {
-    if (bibles.length === 0 || selectedBible) return;
+    if (displayBibles.length === 0) return;
 
     if (savedTranslation) {
-      const saved = bibles.find((b) => b.id === savedTranslation.bibleId);
+      const saved = displayBibles.find(
+        (b) => b.id === savedTranslation.bibleId
+      );
       if (saved) {
-        setSelectedBible(saved);
+        if (saved.id !== selectedBible?.id) {
+          setSelectedBible(saved);
+        }
         return;
       }
     }
 
-    const best = bibles.find((b) => b.hasText && b.hasAudio) ?? bibles[0]!;
-    setSelectedBible(best);
-  }, [bibles, selectedBible, savedTranslation]);
+    if (
+      !selectedBible ||
+      !displayBibles.some((b) => b.id === selectedBible.id)
+    ) {
+      const best =
+        displayBibles.find((b) => b.hasText && b.hasAudio) ?? displayBibles[0]!;
+      if (best.id !== selectedBible?.id) {
+        setSelectedBible(best);
+      }
+    }
+  }, [displayBibles, selectedBible, savedTranslation]);
 
   const handleSelectBible = useCallback(
     (bible: BibleBrainBible) => {
@@ -455,8 +548,6 @@ export function BibleReaderContent({
           bibleId: bible.id,
           name: bible.name,
           vname: bible.vname,
-          textFilesetId: bible.textFilesetId,
-          audioFilesetId: bible.audioFilesetId,
           hasText: bible.hasText,
           hasAudio: bible.hasAudio
         });
@@ -469,27 +560,104 @@ export function BibleReaderContent({
     data: content,
     isLoading: contentLoading,
     error: contentError
-  } = useBibleBrainContent(
-    selectedBible?.textFilesetId,
-    selectedBible?.audioFilesetId,
-    fiaBookId,
-    verseRange
-  );
+  } = useBibleBrainContent(selectedBible?.id, fiaBookId, verseRange);
+
+  const passageLoadingColor = useThemeColor('primary');
 
   const audioUrls = useMemo(
     () => (content?.audio ?? []).map((a) => a.url).filter(Boolean),
     [content?.audio]
   );
 
-  const audioId = `bible-${selectedBible?.id}-${fiaBookId}-${verseRange}`;
+  // Diagnostic: log content shape when a translation loads
+  useEffect(() => {
+    if (contentLoading || !selectedBible) return;
+    const bible = selectedBible;
+    const audioChapters = content?.audio ?? [];
+    const verses = content?.verses ?? [];
+    const hasTimestamps = audioChapters.some(
+      (ch) => ch.timestamps && ch.timestamps.length > 0
+    );
+    console.log(
+      `[Bible] content loaded for "${bible.vname || bible.name}" (${bible.id})`,
+      JSON.stringify({
+        hasText: bible.hasText,
+        hasAudio: bible.hasAudio,
+        verseCount: verses.length,
+        audioChapters: audioChapters.map((ch) => ({
+          chapter: ch.chapter,
+          duration: ch.duration,
+          timestampCount: ch.timestamps?.length ?? 0
+        })),
+        hasTimestamps
+      })
+    );
+    if (contentError) {
+      console.log('[Bible] content error:', contentError);
+    }
+  }, [content, contentLoading, contentError, selectedBible]);
 
-  // --- Audio state (single call) ---
-  const { isPlaying, isPaused, currentAudioId, position } = useAudio({
+  // Pericope bounds on the combined audio timeline (ms + tick percentages)
+  const pericopeBounds = useMemo(() => {
+    const audio = content?.audio;
+    if (!audio?.length || !verseRange) return null;
+    if (audio.some((ch) => !ch.timestamps?.length)) return null;
+
+    const match = verseRange.match(
+      /^(\d+):(\d+)[a-z]?-(?:(\d+):)?(\d+)[a-z]?$/
+    );
+    if (!match) return null;
+
+    const startChapter = parseInt(match[1]!, 10);
+    const startVerse = parseInt(match[2]!, 10);
+    const endChapter = match[3] ? parseInt(match[3], 10) : startChapter;
+    const endVerse = parseInt(match[4]!, 10);
+
+    let startMs: number | undefined;
+    let endMs: number | undefined;
+    let cumulativeMs = 0;
+
+    for (const ch of audio) {
+      const ts = ch.timestamps!;
+      if (ch.chapter === startChapter) {
+        const entry = ts.find((t) => t.verseStart >= startVerse);
+        if (entry) startMs = cumulativeMs + entry.timestamp * 1000;
+      }
+      if (ch.chapter === endChapter) {
+        const sorted = [...ts].sort((a, b) => a.verseStart - b.verseStart);
+        const afterEnd = sorted.find((t) => t.verseStart > endVerse);
+        endMs = afterEnd
+          ? cumulativeMs + afterEnd.timestamp * 1000
+          : cumulativeMs + ch.duration * 1000;
+      }
+      cumulativeMs += ch.duration * 1000;
+    }
+
+    if (startMs == null || endMs == null) return null;
+
+    const ticks: { pct: number }[] = [];
+    if (startMs > 0) ticks.push({ pct: (startMs / cumulativeMs) * 100 });
+    if (endMs < cumulativeMs) ticks.push({ pct: (endMs / cumulativeMs) * 100 });
+
+    return { startMs, endMs, ticks: ticks.length > 0 ? ticks : undefined };
+  }, [content?.audio, verseRange]);
+
+  const bibleModelKeyPart = selectedBible?.id
+    ? `bible-model:${selectedBible.id}`
+    : 'bible-model:default';
+  const bibleAudioCheckpointKey =
+    projectId && pericopeId
+      ? `${projectId}:${pericopeId}:${bibleModelKeyPart}`
+      : null;
+
+  const audioContext = useAudio({
     stopOnUnmount: false
   });
 
+  const { isPlaying, isPaused, currentAudioId, position } = audioContext;
+
   const isThisAudioActive =
-    (isPlaying || isPaused) && currentAudioId === audioId;
+    (isPlaying || isPaused) && currentAudioId === bibleAudioCheckpointKey;
 
   // --- Verse highlighting ---
   const activeVerseKey = useMemo(() => {
@@ -518,43 +686,8 @@ export function BibleReaderContent({
     }
   }, [activeVerseKey]);
 
-  // --- Audio position persistence ---
-  const positionKey = `${selectedBible?.id}:${fiaBookId}:${verseRange}`;
-  const savedPosition = bibleAudioPositions[positionKey];
-
-  const prevPlayingRef = useRef(false);
-
-  useEffect(() => {
-    const wasPlaying = prevPlayingRef.current;
-    const nowPaused = isPaused && currentAudioId === audioId;
-    prevPlayingRef.current = isPlaying && currentAudioId === audioId;
-
-    if (wasPlaying && nowPaused && position > 0) {
-      setBibleAudioPosition(positionKey, position);
-    }
-  }, [
-    isPaused,
-    isPlaying,
-    currentAudioId,
-    audioId,
-    position,
-    positionKey,
-    setBibleAudioPosition
-  ]);
-
-  // Save position on unmount
-  useEffect(() => {
-    return () => {
-      const pos = prevPlayingRef.current ? position : 0;
-      if (pos > 0) {
-        setBibleAudioPosition(positionKey, pos);
-      }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [positionKey]);
-
   // Loading states
-  if (biblesLoading) {
+  if (biblesLoading && displayBibles.length === 0) {
     return (
       <View className="flex-1 items-center justify-center p-8">
         <ActivityIndicator size="large" />
@@ -565,7 +698,7 @@ export function BibleReaderContent({
     );
   }
 
-  if (biblesError) {
+  if (biblesError && displayBibles.length === 0) {
     return (
       <View className="flex-1 items-center justify-center p-8">
         <Text className="text-destructive">
@@ -578,36 +711,51 @@ export function BibleReaderContent({
     );
   }
 
-  if (bibles.length === 0) {
+  if (displayBibles.length === 0) {
     return (
       <View className="flex-1 items-center justify-center p-8">
         <Text className="text-muted-foreground">
-          No Bible translations available for this language.
+          No Bible translations available.
         </Text>
+        <Text className="mt-1 text-sm text-muted-foreground">
+          Tap the + button to add translations.
+        </Text>
+        <TouchableOpacity
+          onPress={onOpenTranslationDrawer}
+          className="mt-4 h-11 w-11 items-center justify-center rounded-lg border border-border bg-card"
+        >
+          <Icon as={PlusIcon} size={18} className="text-primary" />
+        </TouchableOpacity>
       </View>
     );
   }
 
   return (
-    <View className="flex-1">
+    <View className="flex flex-1 flex-col gap-2">
       <TranslationPicker
-        bibles={bibles}
+        bibles={displayBibles}
         selectedId={selectedBible?.id ?? null}
         onSelect={handleSelectBible}
         recentIds={recentIds}
+        onAddPress={onOpenTranslationDrawer ?? (() => {})}
       />
 
       {selectedBible?.hasAudio && audioUrls.length > 0 && (
-        <BibleAudioPlayer
-          audioUrls={audioUrls}
-          audioId={audioId}
-          savedPositionMs={savedPosition}
+        <CheckpointMediaPlayer
+          className="rounded-none border-0 border-b border-border bg-card px-4 py-2"
+          title={formatBibleLabel(selectedBible)}
+          checkpointKey={bibleAudioCheckpointKey}
+          audioUris={audioUrls}
+          seekStepMs={AUDIO_SEEK_STEP_MS}
+          ticks={pericopeBounds?.ticks}
+          initialPositionMs={pericopeBounds?.startMs}
+          autoStopMs={pericopeBounds?.endMs}
         />
       )}
 
       {contentLoading ? (
         <View className="flex-1 items-center justify-center p-8">
-          <ActivityIndicator size="small" />
+          <ActivityIndicator color={passageLoadingColor} size="small" />
           <Text className="mt-2 text-sm text-muted-foreground">
             Loading passage...
           </Text>
@@ -626,19 +774,43 @@ export function BibleReaderContent({
               activeVerseKey={activeVerseKey}
               onVerseLayout={handleVerseLayout}
             />
-          ) : selectedBible?.hasText ? (
-            <View className="items-center justify-center p-8">
-              <Text className="text-muted-foreground">
-                No text found for this passage.
-              </Text>
-            </View>
           ) : (
             <View className="items-center justify-center p-8">
-              <Text className="text-muted-foreground">
-                This translation has audio only.
+              <Text className="text-center text-muted-foreground">
+                {(() => {
+                  const testament = fiaBookId
+                    ? guessTestament(fiaBookId)
+                    : null;
+                  const testaments = selectedBible?.textTestaments ?? [];
+                  if (
+                    testament &&
+                    testaments.length > 0 &&
+                    !testaments.includes(testament)
+                  ) {
+                    const available = testaments.join(' & ');
+                    return `This translation only has text for the ${available === 'OT' ? 'Old' : available === 'NT' ? 'New' : available} Testament.`;
+                  }
+                  if (!selectedBible?.hasText) {
+                    const audioTs = selectedBible?.audioTestaments ?? [];
+                    if (
+                      testament &&
+                      audioTs.length > 0 &&
+                      !audioTs.includes(testament)
+                    ) {
+                      const available = audioTs.join(' & ');
+                      return `This translation only has audio for the ${available === 'OT' ? 'Old' : available === 'NT' ? 'New' : available} Testament.`;
+                    }
+                    if (selectedBible?.hasAudio) {
+                      return 'This translation has audio only.';
+                    }
+                    return 'No content available for this translation.';
+                  }
+                  return 'No text found for this passage.';
+                })()}
               </Text>
             </View>
           )}
+          <CopyrightNotice copyright={content?.copyright ?? null} />
         </DrawerScrollView>
       )}
     </View>

@@ -16,13 +16,15 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { useNotifications } from '@/hooks/useNotifications';
 import { usePowerSyncStatus } from '@/hooks/usePowerSyncStatus';
 import { isDegradedMode } from '@/services/degradedModeService';
+import { useFiaAttachmentQueueSummary } from '@/services/FiaAttachmentQueue';
 import { useLocalStore } from '@/store/localStore';
-import { cn } from '@/utils/styleUtils';
+import { cn, useThemeColor } from '@/utils/styleUtils';
 import * as Updates from 'expo-updates';
 import type { LucideIcon } from 'lucide-react-native';
 import {
   AlertTriangle,
   BellIcon,
+  BookOpenIcon,
   CheckCircle2,
   CloudDownload,
   CloudOff,
@@ -35,12 +37,13 @@ import {
   XCircle
 } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Keyboard, View } from 'react-native';
+import { ActivityIndicator, Keyboard, View } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withTiming
 } from 'react-native-reanimated';
+import { blue } from 'tailwindcss/colors';
 import { Badge } from './ui/badge';
 
 interface DrawerItemType {
@@ -90,6 +93,9 @@ export default function AppDrawer({
   const { progress: stableProgress, syncProgress } = useAttachmentProgress(
     drawerIsVisible && isAuthenticated
   );
+
+  const fiaQueueSummary = useFiaAttachmentQueueSummary();
+  const primaryColor = useThemeColor('primary');
 
   // Debounced animated values for progress bars - allows animations to complete smoothly
   const animatedSyncProgress = useSharedValue(0);
@@ -596,6 +602,58 @@ export default function AppDrawer({
                         />
                       )}
                     </View>
+                    {/* FIA Content Queue — aligned with progress bar */}
+                    {fiaQueueSummary.total > 0 && (
+                      <View className="mt-1.5 flex-row flex-wrap items-center gap-1.5">
+                        <View className="flex-row items-center gap-1">
+                          <Icon
+                            as={BookOpenIcon}
+                            size={10}
+                            className={cn(
+                              fiaQueueSummary.hasActivity
+                                ? 'text-blue-500'
+                                : fiaQueueSummary.failed > 0
+                                  ? 'text-destructive'
+                                  : 'text-muted-foreground'
+                            )}
+                          />
+                          <Text className="text-xs text-foreground">
+                            FIA content
+                          </Text>
+                        </View>
+                        {fiaQueueSummary.downloading > 0 && (
+                          <View className="flex-row items-center gap-1">
+                            <ActivityIndicator
+                              size={10}
+                              color={blue[500]}
+                              style={{ transform: [{ scale: 0.7 }] }}
+                            />
+                            <Text className="text-xs text-blue-500">
+                              {fiaQueueSummary.downloading} downloading
+                            </Text>
+                          </View>
+                        )}
+                        {fiaQueueSummary.pending > 0 && (
+                          <Text className="text-xs text-muted-foreground">
+                            {fiaQueueSummary.pending} queued
+                          </Text>
+                        )}
+                        {fiaQueueSummary.failed > 0 && (
+                          <Text className="text-xs text-destructive">
+                            {fiaQueueSummary.failed} failed
+                            {fiaQueueSummary.lastError
+                              ? `: ${fiaQueueSummary.lastError}`
+                              : ''}
+                          </Text>
+                        )}
+                        {!fiaQueueSummary.hasActivity &&
+                          fiaQueueSummary.failed === 0 && (
+                            <Text className="text-xs text-muted-foreground">
+                              {fiaQueueSummary.completed} cached
+                            </Text>
+                          )}
+                      </View>
+                    )}
                   </View>
                 </View>
               </View>

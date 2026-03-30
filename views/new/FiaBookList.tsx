@@ -14,8 +14,9 @@ import { BOOK_ICON_MAP } from '@/utils/BOOK_GRAPHICS';
 import { cn, useThemeColor } from '@/utils/styleUtils';
 import { LegendList } from '@legendapp/list';
 import { BookOpenIcon, PlusCircleIcon } from 'lucide-react-native';
+import { Image } from 'expo-image';
 import React from 'react';
-import { ActivityIndicator, Dimensions, Image, View } from 'react-native';
+import { ActivityIndicator, Dimensions, View } from 'react-native';
 
 interface FiaBookListProps {
   books: FiaBook[];
@@ -141,7 +142,7 @@ export function FiaBookList({
               height: 80,
               tintColor: primaryColor
             }}
-            resizeMode="contain"
+            contentFit="contain"
           />
         ) : (
           <Icon as={BookOpenIcon} size={40} className="text-primary" />

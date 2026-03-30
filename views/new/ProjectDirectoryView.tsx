@@ -61,7 +61,7 @@ import { useLocalStore } from '@/store/localStore';
 import { bulkDownloadQuest } from '@/utils/bulkDownload';
 import { resolveTable } from '@/utils/dbUtils';
 import { offloadQuest } from '@/utils/questOffloadUtils';
-import { getThemeColor } from '@/utils/styleUtils';
+import { getThemeColor, useThemeColor } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -107,6 +107,7 @@ export default function ProjectDirectoryView() {
   const queryClient = useQueryClient();
   const { setCloudLoading } = useCloudLoading();
   const insets = useSafeAreaInsets();
+  const primaryColor = useThemeColor('primary');
 
   // Track cloud loading states from child components
   const [questListCloudLoading, setQuestListCloudLoading] =
@@ -396,6 +397,7 @@ export default function ProjectDirectoryView() {
 
   const _showHiddenContent = useLocalStore((state) => state.showHiddenContent);
   const enableFia = useLocalStore((state) => state.enableFia);
+  const setEnableFia = useLocalStore((state) => state.setEnableFia);
 
   // Query existing books for Bible projects (after isMember is defined)
   const { books: existingBooks = [], isCloudLoading: booksCloudLoading } =
@@ -990,7 +992,7 @@ export default function ProjectDirectoryView() {
               {t('fiaExperimentalTitle')}
             </Text>
             <Text className="text-center text-muted-foreground">
-              {t('fiaExperimentalDescription')}
+              {t('enableFiaPrompt')}
             </Text>
             <Button variant="default" onPress={() => router.push('/(app)/settings')}>
               <Icon as={SettingsIcon} size={16} />

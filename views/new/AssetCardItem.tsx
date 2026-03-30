@@ -16,7 +16,6 @@ import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 // import { useTagStore } from '@/hooks/useTagStore';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
-import { cn } from '@/utils/styleUtils';
 import type { AttachmentRecord } from '@powersync/attachments';
 import {
   CheckSquareIcon,
@@ -33,7 +32,6 @@ import {
 import React from 'react';
 import { Pressable, View } from 'react-native';
 // import { TagModal } from '../../components/TagModal';
-import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import { useItemDownload, useItemDownloadStatus } from './useHybridData';
 
@@ -52,6 +50,7 @@ export interface AssetCardItemProps {
   questId: string;
   onUpdate?: () => void;
   onPlay?: (assetId: string) => void | Promise<void>;
+  playDisabled?: boolean;
   attachmentState?: AttachmentRecord;
   isCurrentlyPlaying?: boolean;
   // Drag & Drop props
@@ -78,6 +77,7 @@ const AssetCardItemComponent: React.FC<AssetCardItemProps> = ({
   isPublished,
   onUpdate: _onUpdate,
   onPlay,
+  playDisabled = false,
   attachmentState: _attachmentState,
   showDragHandle = false,
   isDragFixed = false,
@@ -279,35 +279,14 @@ const AssetCardItemComponent: React.FC<AssetCardItemProps> = ({
   return (
     <Pressable onPress={handlePress} onLongPress={handleLongPress}>
       <Card
-        className={cn(
-          !allowEditing && 'opacity-50',
-          invisible && 'opacity-30',
-          isCurrentlyPlaying && 'border-2 border-primary bg-primary/5',
-          isSelected && 'border-2 border-primary bg-primary/10',
-          isSelectedForRecording && 'border-2 border-primary bg-primary/15',
-          'relative overflow-hidden p-3'
-        )}
+        className={`${
+          !allowEditing ? 'opacity-50' : ''
+        } ${invisible ? 'opacity-30' : ''} ${
+          isCurrentlyPlaying ? 'border-2 border-primary bg-primary/5' : ''
+        } ${isSelected ? 'border-2 border-primary bg-primary/10' : ''} ${
+          isSelectedForRecording ? 'border-2 border-primary bg-primary/15' : ''
+        } relative overflow-hidden p-3`}
       >
-        {/* Highlight indicator triangle */}
-        {/* { isHighlighted && <View className="absolute -ml-[10px] top-0 left-0 border-r-[10px] border-l-[10px] border-t-[12px] border-l-transparent border-r-transparent border-t-primary"/> } */}
-        {/* Highlight indicator border right */}
-        {/* { isHighlighted && <View className="absolute top-0 right-0 bg-primary/50 w-10 rounded-l-lg -mt-2 h-4"></View> } */}
-        {/* Highlight indicator border right asterisk */}
-        {/* { isHighlighted && <View className="absolute top-0 left-0 bg-primary w-6 rounded-lg -ml-2 h-5 -mt-2">
-          <Icon
-                        as={Asterisk}
-                        size={12}
-                        className="text-primary-foreground top-2 left-2.5"
-                      />
-        </View> } */}
-        {/* Highlight indicator border left dot */}
-        {/* { isHighlighted && <View className="absolute top-2 left-2 bg-primary w-1.5 rounded-lg h-1.5"> </View> } */}
-        {/* Highlight indicator background */}
-        {/* { isHighlighted && <View className="absolute top-0 left-0 bottom-0 right-0 bg-primary/5"> </View> } */}
-        {/* Highlight indicator border top line */}
-        {/* { isHighlighted && <View className="absolute top-0 left-2 right-2 bg-primary/40 h-0.5"> </View> } */}
-        {/* Highlight indicator badge */}
-
         <CardHeader className="flex flex-row items-start justify-between p-0">
           <View className="flex flex-1 gap-1">
             <View className="flex flex-row items-center justify-between gap-1.5">
@@ -338,11 +317,12 @@ const AssetCardItemComponent: React.FC<AssetCardItemProps> = ({
                   {/* Play button - only show if onPlay is provided */}
                   {onPlay && (
                     <Pressable
+                      disabled={playDisabled}
                       onPress={(e) => {
                         e.stopPropagation();
                         void onPlay(asset.id);
                       }}
-                      className="ml-2 flex h-7 w-7 items-center justify-center rounded-full bg-primary/20 active:bg-primary/40"
+                      className={`ml-2 flex h-7 w-7 items-center justify-center rounded-full bg-primary/20 ${playDisabled ? 'opacity-40' : 'active:bg-primary/40'}`}
                       hitSlop={8}
                     >
                       <Icon
@@ -392,7 +372,7 @@ const AssetCardItemComponent: React.FC<AssetCardItemProps> = ({
                 </Pressable>
               </View> */}
               {/* Actions: Edit name + Open details (hidden in selection mode) */}
-              <View className="flex flex-row items-center gap-2 px-2">
+              <View className="flex flex-row items-center gap-2">
                 {/* Highlight indicator badge */}
                 {isHighlighted && (
                   <View className="rounded-lg bg-primary/50 px-2">
@@ -411,8 +391,8 @@ const AssetCardItemComponent: React.FC<AssetCardItemProps> = ({
                       e.stopPropagation();
                       onRename(asset.id, asset.name);
                     }}
-                    className="flex size-7 items-center justify-center rounded-full bg-primary/20 active:bg-primary/40"
-                    hitSlop={6}
+                    className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/20 active:bg-primary/40"
+                    hitSlop={8}
                   >
                     <Icon
                       as={PencilLineIcon}
@@ -425,27 +405,26 @@ const AssetCardItemComponent: React.FC<AssetCardItemProps> = ({
                     isFlaggedForDownload={isDownloaded}
                     isLoading={isDownloading}
                     onPress={handleDownloadToggle}
-                    size={20}
+                    size={16}
                     iconColor="text-primary/50"
                   />
                 )}
 
                 {!isSelectionMode && (
-                  <Button
-                    variant="plain"
-                    size="auto"
+                  <Pressable
                     onPress={(e) => {
                       e.stopPropagation();
                       handleOpenAsset();
                     }}
-                    hitSlop={2}
+                    className="mr-2"
+                    hitSlop={8}
                   >
                     <Icon
                       as={SquareArrowOutUpRightIcon}
-                      size={20}
+                      size={16}
                       className="text-primary"
                     />
-                  </Button>
+                  </Pressable>
                 )}
               </View>
             </View>
@@ -493,7 +472,8 @@ const arePropsEqual = (
     prevProps.isDragFixed !== nextProps.isDragFixed ||
     prevProps.isSelectionMode !== nextProps.isSelectionMode ||
     prevProps.isSelected !== nextProps.isSelected ||
-    prevProps.isSelectedForRecording !== nextProps.isSelectedForRecording
+    prevProps.isSelectedForRecording !== nextProps.isSelectedForRecording ||
+    prevProps.playDisabled !== nextProps.playDisabled
   ) {
     return false; // Props changed, need to re-render
   }

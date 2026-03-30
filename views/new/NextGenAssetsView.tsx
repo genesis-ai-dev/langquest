@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unnecessary-condition */
 import { QuestSettingsModal } from '@/components/QuestSettingsModal';
+import { AudioPlayerControls } from '@/components/AudioPlayerControls';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
@@ -25,14 +26,17 @@ import { useDebouncedState } from '@/hooks/use-debounced-state';
 import { useProjectById } from '@/hooks/db/useProjects';
 import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
+import { useAudioPlaybackCheckpoint } from '@/hooks/useAudioPlaybackCheckpoint';
 import { useLocalization } from '@/hooks/useLocalization';
+import { usePlayAllAudioController } from '@/hooks/usePlayAllAudioController';
+import { useSingleAudioController } from '@/hooks/useSingleAudioController';
 import { useQuestDownloadStatusLive } from '@/hooks/useQuestDownloadStatusLive';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useLocalStore } from '@/store/localStore';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { LegendList } from '@legendapp/list';
-import { createAudioPlayer, type AudioPlayer } from 'expo-audio';
+import { useKeepAwake } from 'expo-keep-awake';
 import {
   ArrowBigDownDashIcon,
   CheckCheck,
@@ -43,10 +47,10 @@ import {
   ListVideo,
   LockIcon,
   MicIcon,
-  PauseIcon,
   RefreshCwIcon,
   SearchIcon,
   SettingsIcon,
+  SquareIcon,
   ShieldOffIcon,
   UserPlusIcon
 } from 'lucide-react-native';
@@ -70,7 +74,11 @@ import { ModalDetails } from '@/components/ModalDetails';
 import { ReportModal } from '@/components/NewReportModal';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { QuestOffloadVerificationDrawer } from '@/components/QuestOffloadVerificationDrawer';
-import { renameAsset } from '@/database_services/assetService';
+import {
+  getNextOrderIndex,
+  renameAsset,
+  updateContentLinkOrder
+} from '@/database_services/assetService';
 import { audioSegmentService } from '@/database_services/audioSegmentService';
 import { createQuestRecordingSession } from '@/database_services/questService';
 import { AppConfig } from '@/db/supabase/AppConfig';
@@ -85,7 +93,7 @@ import { offloadQuest } from '@/utils/questOffloadUtils';
 import { getThemeColor } from '@/utils/styleUtils';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { eq } from 'drizzle-orm';
+import { asc, eq } from 'drizzle-orm';
 import { AssetCardItem } from './AssetCardItem';
 import { RecordSelectionControls } from './recording/components/RecordSelectionControls';
 import { RenameAssetDrawer } from './recording/components/RenameAssetDrawer';
@@ -99,6 +107,12 @@ type AssetQuestLink = Asset & {
 };
 
 const DEFAULT_RECORDING_INITIAL_ORDER_INDEX = 1000000;
+const PLAY_ALL_AUDIO_ID = 'play-all-assets';
+
+function KeepAwakeGuard() {
+  useKeepAwake();
+  return null;
+}
 
 export default function NextGenAssetsView() {
   const {
@@ -141,15 +155,65 @@ export default function NextGenAssetsView() {
   const [currentlyPlayingAssetId, setCurrentlyPlayingAssetId] = React.useState<
     string | null
   >(null);
+  const [showPlayAllControls, setShowPlayAllControls] = React.useState(false);
+  const [currentPlayAllSegmentIndex, setCurrentPlayAllSegmentIndex] =
+    React.useState<number | null>(null);
+  const [currentPlayAllTotalSegments, setCurrentPlayAllTotalSegments] =
+    React.useState<number | null>(null);
   // const assetUriMapRef = React.useRef<Map<string, string>>(new Map()); // URI -> assetId
   // const assetOrderRef = React.useRef<string[]>([]); // Ordered list of asset IDs
   // const uriOrderRef = React.useRef<string[]>([]); // Ordered list of URIs matching assetOrderRef
   // const segmentDurationsRef = React.useRef<number[]>([]); // Duration of each URI segment in ms
 
   // New PlayAll state (starts from selected asset)
-  const [isPlayAllRunning, setIsPlayAllRunning] = React.useState(false);
-  const isPlayAllRunningRef = React.useRef(false);
-  const currentPlayAllSoundRef = React.useRef<AudioPlayer | null>(null);
+  const playbackCheckpoint = useAudioPlaybackCheckpoint();
+  const {
+    isPlayAllRunning,
+    isPlayAllPaused,
+    isPlayAllRunningRef,
+    togglePlayAll,
+    stopPlayAll,
+    stopAndResetPlayAll,
+    togglePlayPausePlayAll,
+    nextPlayAllItem,
+    previousPlayAllItem,
+    rewindPlayAll,
+    forwardPlayAll
+  } = usePlayAllAudioController({
+    checkpointStore: playbackCheckpoint,
+    onCurrentAssetChange: ({ assetId }) => {
+      setCurrentlyPlayingAssetId(assetId);
+    },
+    onPlaybackStatusUpdate: (status, payload) => {
+      if (status.playing) {
+        audioContext.positionShared.value = payload.assetPositionMs;
+        audioContext.durationShared.value = payload.assetDurationMs;
+        setCurrentPlayAllSegmentIndex(payload.uriIndex + 1);
+        setCurrentPlayAllTotalSegments(payload.item.uris.length);
+      }
+    },
+    onStopped: () => {
+      audioContext.positionShared.value = 0;
+      audioContext.durationShared.value = 0;
+      setCurrentPlayAllSegmentIndex(null);
+      setCurrentPlayAllTotalSegments(null);
+      setShowPlayAllControls(false);
+    },
+    onFinished: () => {
+      audioContext.positionShared.value = 0;
+      audioContext.durationShared.value = 0;
+      setCurrentPlayAllSegmentIndex(null);
+      setCurrentPlayAllTotalSegments(null);
+      setShowPlayAllControls(false);
+    },
+    onError: () => {
+      audioContext.positionShared.value = 0;
+      audioContext.durationShared.value = 0;
+      setCurrentPlayAllSegmentIndex(null);
+      setCurrentPlayAllTotalSegments(null);
+      setShowPlayAllControls(false);
+    }
+  });
   const timeoutIdsRef = React.useRef<Set<ReturnType<typeof setTimeout>>>(
     new Set()
   );
@@ -159,8 +223,6 @@ export default function NextGenAssetsView() {
   >((_assetId: string) => {
     // No-op: replaced by handlePlayAsset
   });
-
-  const currentPlayingAssetIdRef = React.useRef<string | null>(null);
 
   // Ref to hold latest audioContext for cleanup (avoids stale closure)
   const audioContextRef = React.useRef(audioContext);
@@ -474,7 +536,15 @@ export default function NextGenAssetsView() {
                   const srcContent = await system.db
                     .select()
                     .from(asset_content_link)
-                    .where(eq(asset_content_link.asset_id, src.id));
+                    .where(eq(asset_content_link.asset_id, src.id))
+                    .orderBy(
+                      asc(asset_content_link.order_index),
+                      asc(asset_content_link.created_at)
+                    );
+
+                  let nextOrder = await getNextOrderIndex(target.id, {
+                    localOverride: true
+                  });
 
                   for (const c of srcContent) {
                     if (!c.audio) continue;
@@ -485,12 +555,27 @@ export default function NextGenAssetsView() {
                         c.languoid_id ?? c.source_language_id ?? null,
                       text: c.text || '',
                       audio: c.audio,
-                      download_profiles: [currentUser.id]
+                      download_profiles: [currentUser.id],
+                      order_index: nextOrder++
                     });
                   }
 
                   await audioSegmentService.deleteAudioSegment(src.id);
                 }
+
+                const allContent = await system.db
+                  .select({ id: contentLocal.id })
+                  .from(contentLocal)
+                  .where(eq(contentLocal.asset_id, target.id))
+                  .orderBy(
+                    asc(contentLocal.order_index),
+                    asc(contentLocal.created_at)
+                  );
+                await updateContentLinkOrder(
+                  target.id,
+                  allContent.map((c) => c.id),
+                  { localOverride: true }
+                );
 
                 cancelSelection();
                 void queryClient.invalidateQueries({ queryKey: ['assets'] });
@@ -536,10 +621,13 @@ export default function NextGenAssetsView() {
     [renameAssetId, queryClient, refetch, t]
   );
 
-  const stableOnPlay = React.useCallback(
-    (assetId: string) => handlePlayAssetRef.current(assetId),
-    []
-  );
+  const blockIndividualPlayRef = React.useRef(false);
+  const stableOnPlay = React.useCallback((assetId: string) => {
+    if (blockIndividualPlayRef.current) {
+      return;
+    }
+    handlePlayAssetRef.current(assetId);
+  }, []);
 
   const renderItem = React.useCallback(
     ({
@@ -574,6 +662,7 @@ export default function NextGenAssetsView() {
             attachmentState={safeAttachmentStates.get(item.id)}
             questId={questId || ''}
             isCurrentlyPlaying={isPlaying}
+            playDisabled={showPlayAllControls || isPlayAllRunning}
             isHighlighted={isHighlighted && !isPublished}
             onPlay={stableOnPlay}
             onUpdate={handleAssetUpdate}
@@ -592,6 +681,8 @@ export default function NextGenAssetsView() {
       questId,
       safeAttachmentStates,
       currentlyPlayingAssetId,
+      showPlayAllControls,
+      isPlayAllRunning,
       stableOnPlay,
       handleAssetUpdate,
       handleRenameAsset,
@@ -1021,198 +1112,114 @@ export default function NextGenAssetsView() {
   //   currentlyPlayingAssetId
   // ]);
 
+  const showSingleControls =
+    !showPlayAllControls &&
+    !!audioContext.currentAudioId &&
+    audioContext.currentAudioId !== PLAY_ALL_AUDIO_ID &&
+    (audioContext.isPlaying || audioContext.isPaused);
+  const isIndividualPlayerActive = showSingleControls;
+  const isPlayAllPlayerActive = showPlayAllControls || isPlayAllRunning;
+
+  const currentPlayAllAssetName = React.useMemo(() => {
+    if (!currentlyPlayingAssetId) {
+      return null;
+    }
+    return (
+      assets.find((asset) => asset.id === currentlyPlayingAssetId)?.name ?? null
+    );
+  }, [assets, currentlyPlayingAssetId]);
+
+  const currentSingleAssetName = React.useMemo(() => {
+    const assetId = audioContext.currentAudioId;
+    if (!assetId) {
+      return null;
+    }
+    return assets.find((asset) => asset.id === assetId)?.name ?? null;
+  }, [assets, audioContext.currentAudioId]);
+
   // Handle play all - plays all assets sequentially starting from selected asset
   const handlePlayAll = React.useCallback(async () => {
-    currentPlayingAssetIdRef.current = null;
-    try {
-      // Check if already playing - toggle to stop
-      if (isPlayAllRunningRef.current) {
-        isPlayAllRunningRef.current = false;
-        setIsPlayAllRunning(false);
-
-        // Stop current sound immediately
-        if (currentPlayAllSoundRef.current) {
-          try {
-            currentPlayAllSoundRef.current.pause();
-            currentPlayAllSoundRef.current.release();
-            currentPlayAllSoundRef.current = null;
-          } catch (error) {
-            console.error('Error stopping sound:', error);
-          }
-        }
-        currentPlayingAssetIdRef.current = null;
-        setCurrentlyPlayingAssetId(null);
-        console.log('⏸️ Stopped play all');
-        return;
-      }
-
-      // Determine which assets to process based on selection state
-      let assetsToProcess: AssetQuestLink[];
-
-      // If there's a selected asset, start from it
-      if (selectedAssetIds.size > 0) {
-        const firstSelectedIndex = assets.findIndex((a) =>
-          selectedAssetIds.has(a.id)
-        );
-        if (firstSelectedIndex >= 0) {
-          assetsToProcess = assets.slice(firstSelectedIndex);
-          console.log(
-            `🎵 Starting from first selected asset at index ${firstSelectedIndex}`
-          );
-        } else {
-          assetsToProcess = assets;
-        }
-      } else {
-        // No selection, play all
-        assetsToProcess = assets;
-      }
-
-      if (assetsToProcess.length === 0) {
-        console.warn('⚠️ No assets to play');
-        return;
-      }
-
-      console.log(
-        `🎵 Starting play all from ${assetsToProcess.length} assets...`
-      );
-
-      // Mark as running
-      isPlayAllRunningRef.current = true;
-      setIsPlayAllRunning(true);
-
-      // Build playlist: Array<{assetId, uris}>
-      const playlist: { assetId: string; uris: string[] }[] = [];
-
-      for (const asset of assetsToProcess) {
-        // Check if cancelled
-        if (!isPlayAllRunningRef.current) {
-          console.log('⏸️ Play all cancelled during playlist build');
-          return;
-        }
-
-        // Get URIs for this asset
-        const uris = await getAssetAudioUris(asset.id);
-        if (uris.length > 0) {
-          playlist.push({ assetId: asset.id, uris });
-        }
-      }
-
-      if (playlist.length === 0) {
-        console.error('❌ No audio URIs found for any assets');
-        isPlayAllRunningRef.current = false;
-        setIsPlayAllRunning(false);
-        return;
-      }
-
-      console.log(
-        `▶️ Playing ${playlist.reduce((sum, p) => sum + p.uris.length, 0)} audio segments from ${playlist.length} assets`
-      );
-
-      // Play each asset sequentially with direct linking
-      for (let i = 0; i < playlist.length; i++) {
-        // Check if cancelled
-        if (!isPlayAllRunningRef.current) {
-          console.log('⏸️ Play all cancelled');
-          currentPlayingAssetIdRef.current = null;
-          setCurrentlyPlayingAssetId(null);
-          return;
-        }
-
-        const item = playlist[i]!;
-
-        // HIGHLIGHT THIS ASSET - direct link!
-        currentPlayingAssetIdRef.current = item.assetId;
-        setCurrentlyPlayingAssetId(item.assetId);
-        console.log(
-          `▶️ [${i + 1}/${playlist.length}] Playing asset ${item.assetId.slice(0, 8)} (assetId: ${currentPlayingAssetIdRef.current}, ${item.uris.length} segments)`
-        );
-
-        // Play all URIs for this asset sequentially
-        for (const uri of item.uris) {
-          // Check if cancelled
-          if (!isPlayAllRunningRef.current) {
-            currentPlayingAssetIdRef.current = null;
-            setCurrentlyPlayingAssetId(null);
-            return;
-          }
-
-          // Play this URI and wait for it to finish
-          await new Promise<void>((resolve) => {
-            try {
-              const player = createAudioPlayer(uri);
-              currentPlayAllSoundRef.current = player;
-              player.play();
-
-              player.addListener('playbackStatusUpdate', (status) => {
-                if (!status.didJustFinish) return;
-                currentPlayAllSoundRef.current = null;
-                player.release();
-                resolve();
-              });
-            } catch (error) {
-              console.error('Failed to play audio:', error);
-              currentPlayAllSoundRef.current = null;
-              resolve(); // Continue to next even on error
-            }
-          });
-        }
-      }
-
-      // Finished playing all
-      console.log('✅ Finished playing all assets');
-      currentPlayingAssetIdRef.current = null;
-      setCurrentlyPlayingAssetId(null);
-      isPlayAllRunningRef.current = false;
-      setIsPlayAllRunning(false);
-      currentPlayAllSoundRef.current = null;
-    } catch (error) {
-      console.error('❌ Error playing all assets:', error);
-      setCurrentlyPlayingAssetId(null);
-      isPlayAllRunningRef.current = false;
-      setIsPlayAllRunning(false);
-      currentPlayAllSoundRef.current = null;
+    if (isIndividualPlayerActive) {
+      return;
     }
-  }, [assets, getAssetAudioUris, selectedAssetIds]);
 
-  // Handle play individual asset (same behavior as BibleAssetsView)
-  const handlePlayAsset = React.useCallback(
-    async (assetId: string) => {
-      try {
-        const isThisAssetPlaying =
-          audioContext.isPlaying && audioContext.currentAudioId === assetId;
+    // Determine which assets to process based on selection state
+    let assetsToProcess: AssetQuestLink[];
 
-        if (isThisAssetPlaying) {
-          console.log('⏸️ Stopping asset:', assetId.slice(0, 8));
-          await audioContext.stopCurrentSound();
-          setCurrentlyPlayingAssetId(null);
-        } else {
-          console.log('▶️ Playing asset:', assetId.slice(0, 8));
-          const uris = await getAssetAudioUris(assetId);
+    if (selectedAssetIds.size > 0) {
+      const firstSelectedIndex = assets.findIndex((a) =>
+        selectedAssetIds.has(a.id)
+      );
+      assetsToProcess =
+        firstSelectedIndex >= 0 ? assets.slice(firstSelectedIndex) : assets;
+    } else {
+      assetsToProcess = assets;
+    }
 
-          if (uris.length === 0) {
-            console.warn('⚠️ No audio URIs found for asset:', assetId);
-            return;
-          }
+    if (assetsToProcess.length === 0) {
+      console.warn('⚠️ No assets to play');
+      return;
+    }
 
-          // Visual feedback immediately
-          setCurrentlyPlayingAssetId(assetId);
-
-          if (uris.length === 1 && uris[0]) {
-            await audioContext.playSound(uris[0], assetId);
-          } else if (uris.length > 1) {
-            await audioContext.playSoundSequence(uris, assetId);
-          }
-        }
-      } catch (error) {
-        console.error('❌ Failed to play audio:', error);
-        setCurrentlyPlayingAssetId(null);
+    const playlist: { assetId: string; uris: string[] }[] = [];
+    for (const asset of assetsToProcess) {
+      const uris = await getAssetAudioUris(asset.id);
+      if (uris.length > 0) {
+        playlist.push({ assetId: asset.id, uris });
       }
+    }
+
+    if (playlist.length === 0) {
+      console.warn('⚠️ No audio URIs found for any assets');
+      return;
+    }
+
+    setShowPlayAllControls(true);
+    await togglePlayAll({ playlist });
+  }, [
+    assets,
+    getAssetAudioUris,
+    isIndividualPlayerActive,
+    selectedAssetIds,
+    togglePlayAll
+  ]);
+
+  const {
+    playAsset: handlePlayAsset,
+    toggleCurrentAssetPlayPause,
+    stopAndResetCurrentAsset,
+    rewindCurrentAsset,
+    forwardCurrentAsset
+  } = useSingleAudioController({
+    audioContext,
+    checkpointStore: playbackCheckpoint,
+    getAssetAudioUris,
+    onCurrentAssetChange: (assetId) => {
+      setCurrentlyPlayingAssetId(assetId);
     },
-    [audioContext, getAssetAudioUris]
-  );
+    onNoAudioFound: (assetId) => {
+      console.warn('⚠️ No audio URIs found for asset:', assetId);
+    },
+    onError: (error) => {
+      console.error('❌ Failed to play audio:', error);
+      setCurrentlyPlayingAssetId(null);
+    },
+    log: (action, assetId) => {
+      if (action === 'pause') {
+        console.log('⏸️ Pausing asset:', assetId.slice(0, 8));
+      } else if (action === 'resume') {
+        console.log('▶️ Resuming asset:', assetId.slice(0, 8));
+      } else {
+        console.log('▶️ Playing asset:', assetId.slice(0, 8));
+      }
+    }
+  });
 
   // Update ref so renderItem can use stable callback
   handlePlayAssetRef.current = handlePlayAsset;
+  React.useEffect(() => {
+    blockIndividualPlayRef.current = isPlayAllPlayerActive;
+  }, [isPlayAllPlayerActive]);
 
   // Keep card highlight/pause in sync for individual playback.
   // PlayAll manages currentlyPlayingAssetId directly, so skip while it's active.
@@ -1396,22 +1403,7 @@ export default function NextGenAssetsView() {
   const handleGoToRecording = React.useCallback(async () => {
     // Stop PlayAll if running
     if (isPlayAllRunningRef.current) {
-      isPlayAllRunningRef.current = false;
-      setIsPlayAllRunning(false);
-
-      // Stop current sound immediately
-      if (currentPlayAllSoundRef.current) {
-        try {
-          currentPlayAllSoundRef.current.pause();
-          currentPlayAllSoundRef.current.release();
-          currentPlayAllSoundRef.current = null;
-        } catch (error) {
-          console.error('Error stopping sound:', error);
-        }
-      }
-
-      currentPlayingAssetIdRef.current = null;
-      setCurrentlyPlayingAssetId(null);
+      stopPlayAll();
     }
 
     // Stop any other audio from audioContext
@@ -1453,7 +1445,9 @@ export default function NextGenAssetsView() {
     questId,
     projectId,
     assets,
-    selectedAssetForRecording
+    selectedAssetForRecording,
+    isPlayAllRunningRef,
+    stopPlayAll
   ]);
 
   // Cleanup effect: Clear all refs and stop audio when component unmounts
@@ -1470,18 +1464,7 @@ export default function NextGenAssetsView() {
 
       // Stop PlayAll if running
       if (isPlayAllRunningRef.current) {
-        isPlayAllRunningRef.current = false;
-
-        // Stop current sound immediately
-        if (currentPlayAllSoundRef.current) {
-          try {
-            currentPlayAllSoundRef.current.pause();
-            currentPlayAllSoundRef.current.release();
-          } catch {
-            // Ignore errors during cleanup
-          }
-          currentPlayAllSoundRef.current = null;
-        }
+        stopPlayAll();
       }
 
       // Clear all pending timeouts
@@ -1489,11 +1472,10 @@ export default function NextGenAssetsView() {
       timeoutIds.clear();
 
       // Reset state
-      currentPlayingAssetIdRef.current = null;
+      playbackCheckpoint.clearAllCheckpoints();
       setCurrentlyPlayingAssetId(null);
-      setIsPlayAllRunning(false);
     };
-  }, []);
+  }, [isPlayAllRunningRef, playbackCheckpoint, stopPlayAll]);
 
   if (!questId) {
     return (
@@ -1509,6 +1491,7 @@ export default function NextGenAssetsView() {
   return (
     <View className="flex flex-1 flex-col gap-6 p-6 pt-0">
       {selectedQuest?.name && <Stack.Screen options={{ title: selectedQuest.name }} />}
+      {isPlayAllPlayerActive && <KeepAwakeGuard />}
       <View className="flex flex-row items-center justify-between">
         <View className="flex flex-row items-center gap-2">
           <Text className="text-xl font-semibold">{t('assets')}</Text>
@@ -1541,11 +1524,19 @@ export default function NextGenAssetsView() {
               <Button
                 variant="ghost"
                 size="icon"
-                onPress={handlePlayAll}
+                disabled={isIndividualPlayerActive && !isPlayAllPlayerActive}
+                onPress={() => {
+                  if (isPlayAllPlayerActive) {
+                    stopAndResetPlayAll();
+                    setShowPlayAllControls(false);
+                    return;
+                  }
+                  void handlePlayAll();
+                }}
                 className="h-10 w-10"
               >
                 <Icon
-                  as={isPlayAllRunning ? PauseIcon : ListVideo}
+                  as={isPlayAllPlayerActive ? SquareIcon : ListVideo}
                   size={20}
                   className="text-primary"
                 />
@@ -1577,6 +1568,7 @@ export default function NextGenAssetsView() {
                     questName={selectedQuest?.name}
                     disabled={isPublishing || !isOnline}
                     membership={membership}
+                    passedQuestPublished={isPublished}
                   />
                 )}
               </>
@@ -1834,7 +1826,9 @@ export default function NextGenAssetsView() {
       )}
 
       {/* Sticky Record Button Footer - only show for authenticated users */}
-      {!isPublished &&
+      {!showPlayAllControls &&
+        !showSingleControls &&
+        !isPublished &&
         currentUser &&
         (isSelectionMode ? (
           <View
@@ -1860,11 +1854,11 @@ export default function NextGenAssetsView() {
             className="px-2"
           >
             <Pressable
-              className="ml-14 w-full flex-row items-center justify-around gap-2 rounded-lg bg-primary p-2 px-4"
+              className="ml-14 w-full flex-row items-center justify-around gap-2 rounded-lg bg-primary p-2 px-2"
               onPress={() => void handleGoToRecording()}
             >
               <Icon as={MicIcon} size={24} className="text-secondary" />
-              <View className="ml-2 flex-col items-start justify-start gap-0">
+              <View className="ml-1 flex-col items-start justify-start gap-0">
                 <Text className="text-center text-base font-semibold text-secondary">
                   {t('startRecordingSession')}
                 </Text>
@@ -1883,6 +1877,53 @@ export default function NextGenAssetsView() {
             </Pressable>
           </View>
         ))}
+
+      {showPlayAllControls && (
+        <AudioPlayerControls
+          mode="playAll"
+          position="footer"
+          currentAssetName={currentPlayAllAssetName}
+          currentSegmentIndex={currentPlayAllSegmentIndex}
+          totalSegments={currentPlayAllTotalSegments}
+          isPlaying={isPlayAllRunning && !isPlayAllPaused}
+          isPaused={isPlayAllPaused}
+          positionShared={audioContext.positionShared}
+          durationShared={audioContext.durationShared}
+          onPrevious={previousPlayAllItem}
+          onRewind={rewindPlayAll}
+          onPlayPause={togglePlayPausePlayAll}
+          onStop={() => {
+            stopAndResetPlayAll();
+            setShowPlayAllControls(false);
+          }}
+          onForward={forwardPlayAll}
+          onNext={nextPlayAllItem}
+        />
+      )}
+
+      {showSingleControls && (
+        <AudioPlayerControls
+          mode="individual"
+          position="footer"
+          currentAssetName={currentSingleAssetName}
+          isPlaying={audioContext.isPlaying}
+          isPaused={audioContext.isPaused}
+          positionShared={audioContext.positionShared}
+          durationShared={audioContext.durationShared}
+          onRewind={() => {
+            void rewindCurrentAsset();
+          }}
+          onPlayPause={() => {
+            void toggleCurrentAssetPlayPause();
+          }}
+          onStop={() => {
+            void stopAndResetCurrentAsset();
+          }}
+          onForward={() => {
+            void forwardCurrentAsset();
+          }}
+        />
+      )}
 
       {showRenameDrawer && (
         <RenameAssetDrawer
@@ -1904,6 +1945,7 @@ export default function NextGenAssetsView() {
           onClose={() => setShowSettingsModal(false)}
           questId={questId}
           projectId={projectId || ''}
+          questSource={selectedQuest?.source}
         />
       )}
       {selectedQuest && (

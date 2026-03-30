@@ -775,3 +775,435 @@ export async function concatenateAndShareQuestAudio(
     throw error;
   }
 }
+
+/** ONLY WORKS FOR LOCAL ASSETS **/
+export interface QuestAudioAssetItem {
+  assetId: string;
+  assetOrderIndex: number;
+  assetName: string | null;
+  text: string | null;
+  metadata: unknown;
+  languoidName: string | null;
+  segmentOrder: number;
+  uri: string;
+  newFileName?: string;
+  createdAt: string | null;
+}
+
+export interface ConcatenateAudioListResult {
+  outputPath: string;
+  audioItems: QuestAudioAssetItem[];
+}
+
+export async function getQuestAudioUrisByAssetList(
+  assetIds: string[]
+): Promise<QuestAudioAssetItem[]> {
+  if (assetIds.length === 0) {
+    return [];
+  }
+
+  // Local-only source (requested): no synced fallback.
+  const assetContentLinkLocal = resolveTable('asset_content_link', {
+    localOverride: true
+  });
+
+  const assetsInfo = await system.db
+    .select({
+      id: asset.id,
+      order_index: asset.order_index,
+      name: asset.name,
+      metadata: asset.metadata
+    })
+    .from(asset)
+    .where(inArray(asset.id, assetIds));
+
+  const contentLinks = await system.db
+    .select({
+      asset_id: assetContentLinkLocal.asset_id,
+      audio: assetContentLinkLocal.audio,
+      order_index: assetContentLinkLocal.order_index,
+      created_at: assetContentLinkLocal.created_at,
+      text: assetContentLinkLocal.text,
+      languoid_name: languoid.name
+    })
+    .from(assetContentLinkLocal)
+    .leftJoin(languoid, eq(assetContentLinkLocal.languoid_id, languoid.id))
+    .where(
+      and(
+        inArray(assetContentLinkLocal.asset_id, assetIds),
+        isNotNull(assetContentLinkLocal.audio)
+      )
+    );
+
+  const assetById = new Map(assetsInfo.map((a) => [a.id, a]));
+  const linksByAssetId = new Map<string, typeof contentLinks>();
+
+  for (const link of contentLinks) {
+    const list = linksByAssetId.get(link.asset_id) ?? [];
+    list.push(link);
+    linksByAssetId.set(link.asset_id, list);
+  }
+
+  const output: QuestAudioAssetItem[] = [];
+  const seenKeys = new Set<string>();
+
+  for (const selectedAssetId of assetIds) {
+    const assetInfo = assetById.get(selectedAssetId);
+    const assetLinks = linksByAssetId.get(selectedAssetId) ?? [];
+
+    assetLinks.sort((a, b) => {
+      const aOrder = a.order_index || 0;
+      const bOrder = b.order_index || 0;
+      if (aOrder !== bOrder) return aOrder - bOrder;
+      const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
+      return aTime - bTime;
+    });
+
+    for (const contentLink of assetLinks) {
+      if (!contentLink.audio?.length) continue;
+
+      for (const audioValue of contentLink.audio) {
+        if (typeof audioValue !== 'string' || !audioValue) continue;
+
+        let localUri: string | null = null;
+        if (audioValue.startsWith('local/')) {
+          localUri = await getLocalAttachmentUriWithOPFS(audioValue);
+        } else if (audioValue.startsWith('file://')) {
+          localUri = audioValue;
+        } else if (system.permAttachmentQueue) {
+          const attachment = await system.powersync.getOptional<{
+            id: string;
+            local_uri: string | null;
+          }>(`SELECT * FROM ${system.permAttachmentQueue.table} WHERE id = ?`, [
+            audioValue
+          ]);
+          if (attachment?.local_uri) {
+            localUri = system.permAttachmentQueue.getLocalUri(
+              attachment.local_uri
+            );
+          }
+        }
+
+        if (!localUri || !(await fileExists(localUri))) {
+          continue;
+        }
+
+        const normalizedUri = normalizeFileUri(localUri);
+        const dedupeKey = `${selectedAssetId}:${contentLink.order_index || 0}:${normalizedUri}`;
+        if (seenKeys.has(dedupeKey)) continue;
+        seenKeys.add(dedupeKey);
+
+        output.push({
+          assetId: selectedAssetId,
+          assetOrderIndex: assetInfo?.order_index ?? 0,
+          assetName: assetInfo?.name ?? null,
+          text: contentLink.text ?? null,
+          metadata: assetInfo?.metadata ?? null,
+          languoidName: contentLink.languoid_name ?? null,
+          segmentOrder: contentLink.order_index || 0,
+          uri: localUri,
+          createdAt: contentLink.created_at
+        });
+      }
+    }
+  }
+
+  return output;
+}
+
+export async function concatenateAudioListToFile(
+  questId: string,
+  assetIds: string[],
+  questName?: string,
+  projectName?: string,
+  languoidName?: string
+): Promise<ConcatenateAudioListResult> {
+  // Check if we're on web platform
+  if (Platform.OS === 'web') {
+    throw new Error(
+      'Audio concatenation is not available on web. Please use a native device.'
+    );
+  }
+
+  // Check if native module is available
+  if (!concatAudioFiles || !convertToM4a) {
+    throw new Error(
+      'Audio concatenation module is not available. Please ensure react-native-audio-concat is properly installed.'
+    );
+  }
+
+  try {
+    // Get audio URIs only for the selected assets
+    const audioItems = await getQuestAudioUrisByAssetList(assetIds);
+    const audioUris = audioItems.map((item) => item.uri);
+
+    if (audioUris.length === 0) {
+      throw new Error('No audio files found for this quest');
+    }
+
+    // Convert .wav files to .m4a first (library may not support .wav directly)
+    // Also ensure all files are in a format the library can handle
+    const convertedUris: string[] = [];
+    const tempFiles: string[] = [];
+
+    for (let i = 0; i < audioUris.length; i++) {
+      const uri = audioUris[i];
+      if (!uri) {
+        console.warn(`Skipping undefined URI at index ${i}`);
+        continue;
+      }
+
+      // Normalize URI and get native path
+      const normalizedUri = normalizeFileUri(uri);
+      const nativePath = getNativePath(normalizedUri);
+
+      // Double-check file exists with normalized path
+      if (!(await fileExists(normalizedUri))) {
+        console.warn(`File does not exist (normalized): ${normalizedUri}`);
+        continue;
+      }
+
+      const isWav = normalizedUri.toLowerCase().endsWith('.wav');
+
+      if (isWav) {
+        // Convert .wav to .m4a
+        const cacheDir = Paths.cache.uri;
+        const tempM4aPath = `${cacheDir}/temp_${Date.now()}_${i}.m4a`;
+        const tempM4aNativePath = getNativePath(tempM4aPath);
+        tempFiles.push(tempM4aPath);
+        console.log(`Converting ${nativePath} to ${tempM4aNativePath}...`);
+        try {
+          // Use native paths (without file://) for the library
+          const convertedPath = await convertToM4a(
+            nativePath,
+            tempM4aNativePath
+          );
+          // Convert back to file:// URI format for consistency
+          const convertedUri = convertedPath.startsWith('file://')
+            ? convertedPath
+            : `file://${convertedPath}`;
+          if (convertedUri && (await fileExists(convertedUri))) {
+            convertedUris.push(convertedUri);
+          } else {
+            console.warn(
+              `Converted file not found: ${convertedUri}, skipping this file`
+            );
+            // Don't fall back to original - if conversion fails, skip it
+          }
+        } catch (error) {
+          console.warn(`Failed to convert ${nativePath}, skipping:`, error);
+          // Don't use original .wav file - library can't handle it
+        }
+      } else {
+        // Already in a supported format (likely .m4a)
+        convertedUris.push(normalizedUri);
+      }
+    }
+
+    if (convertedUris.length === 0) {
+      throw new Error('No valid audio files found after conversion');
+    }
+
+    // Fetch project, languoid, and user names for filename
+    let resolvedProjectName = projectName || '';
+    let resolvedLanguoidName = languoidName || '';
+    let userName = '';
+
+    // Get current user's username
+    try {
+      const {
+        data: { session }
+      } = await system.supabaseConnector.client.auth.getSession();
+      const userId = session?.user.id;
+      if (userId) {
+        const profileData = await system.db
+          .select({ username: profile.username })
+          .from(profile)
+          .where(eq(profile.id, userId))
+          .limit(1);
+
+        const profileRecord = profileData[0] as
+          | { username: string | null }
+          | undefined;
+        if (profileRecord?.username) {
+          userName = profileRecord.username;
+        } else if (session.user.email) {
+          // Fallback to email prefix if no username
+          const emailPrefix = session.user.email.split('@')[0];
+          if (emailPrefix) {
+            userName = emailPrefix;
+          }
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to fetch username for filename:', error);
+    }
+
+    try {
+      // Get quest to find project_id
+      const questData = await system.db
+        .select({ project_id: quest.project_id })
+        .from(quest)
+        .where(eq(quest.id, questId))
+        .limit(1);
+
+      const questRecord = questData[0] as
+        | { project_id: string | null }
+        | undefined;
+      const projectId = questRecord?.project_id;
+      if (projectId) {
+        if (!resolvedProjectName) {
+          // Get project name only when not provided by caller
+          const projectData = await system.db
+            .select({ name: project.name })
+            .from(project)
+            .where(eq(project.id, projectId))
+            .limit(1);
+
+          const projectRecord = projectData[0] as
+            | { name: string | null }
+            | undefined;
+          if (projectRecord?.name) {
+            resolvedProjectName = projectRecord.name;
+          }
+        }
+
+        if (!resolvedLanguoidName) {
+          // Get target languoid name only when not provided by caller
+          const languoidLink = await system.db
+            .select({ languoid_id: project_language_link.languoid_id })
+            .from(project_language_link)
+            .where(
+              and(
+                eq(project_language_link.project_id, projectId),
+                eq(project_language_link.language_type, 'target'),
+                isNotNull(project_language_link.languoid_id)
+              )
+            )
+            .limit(1);
+
+          const languoidLinkRecord = languoidLink[0] as
+            | { languoid_id: string | null }
+            | undefined;
+          const languoidId = languoidLinkRecord?.languoid_id;
+          if (languoidId) {
+            const languoidData = await system.db
+              .select({ name: languoid.name })
+              .from(languoid)
+              .where(eq(languoid.id, languoidId))
+              .limit(1);
+
+            const languoidRecord = languoidData[0] as
+              | { name: string | null }
+              | undefined;
+            if (languoidRecord?.name) {
+              resolvedLanguoidName = languoidRecord.name;
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.warn(
+        'Failed to fetch project/languoid names for filename:',
+        error
+      );
+      // Continue with just quest name if fetch fails
+    }
+
+    // Create output file path (use native path format)
+    // Use little-endian date format (DDMMYYYY)
+    const now = new Date();
+    const day = String(now.getDate()).padStart(2, '0');
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const year = String(now.getFullYear());
+    const dateStr = `${day}${month}${year}`; // DDMMYYYY format
+
+    // Sanitize names for filename
+    const sanitize = (name: string) =>
+      name
+        .replace(/[^a-zA-Z0-9\s]/g, '')
+        .trim()
+        .replace(/\s+/g, '-');
+
+    // Build filename parts: username-project-languoid-quest-date
+    const parts: string[] = [];
+    if (questName) parts.push(sanitize(questName));
+    if (resolvedProjectName) parts.push(sanitize(resolvedProjectName));
+    if (resolvedLanguoidName) parts.push(sanitize(resolvedLanguoidName));
+    if (userName) parts.push(sanitize(userName));
+    if (parts.length === 0) parts.push('quest');
+
+    const outputFileName = `${parts.join('-')}-${dateStr}.m4a`;
+    const cacheDir = Paths.cache.uri;
+    const outputPath = `${cacheDir}/${outputFileName}`;
+    const outputNativePath = getNativePath(outputPath);
+
+    // Convert audio URIs to the format expected by concatAudioFiles
+    // The API expects an array of objects with filePath property
+    // Use native paths (without file://) for the library
+    const audioData = convertedUris
+      .filter((uri) => uri && uri.length > 0)
+      .map((uri) => ({ filePath: getNativePath(uri) }));
+
+    if (audioData.length === 0) {
+      throw new Error('No valid audio files to concatenate');
+    }
+
+    // Concatenate audio files (use native paths)
+    console.log(`Concatenating ${audioData.length} audio files...`);
+    console.log(
+      'Audio files:',
+      audioData.map((d) => d.filePath)
+    );
+    const concatResult = await concatAudioFiles(audioData, outputNativePath);
+    console.log('Concatenation result:', concatResult);
+
+    // Clean up temporary converted files
+    for (const tempFile of tempFiles) {
+      try {
+        const file = new File(tempFile);
+        if (file.exists) {
+          file.delete();
+        }
+      } catch (error) {
+        console.warn(`Failed to delete temp file ${tempFile}:`, error);
+      }
+    }
+
+    console.log(`Audio concatenated successfully: ${outputPath}`);
+
+    return {
+      outputPath,
+      audioItems
+    };
+  } catch (error) {
+    console.error('Failed to concatenate audio file:', error);
+    throw error;
+  }
+}
+
+export async function concatenateAndShareAudioList(
+  questId: string,
+  assetIds: string[],
+  questName?: string
+): Promise<void> {
+  const { outputPath } = await concatenateAudioListToFile(
+    questId,
+    assetIds,
+    questName
+  );
+
+  const isAvailable = await Sharing.isAvailableAsync();
+  if (!isAvailable) {
+    throw new Error('Sharing is not available on this device');
+  }
+
+  await Sharing.shareAsync(outputPath, {
+    mimeType: 'audio/mp4',
+    UTI: 'com.apple.m4a-audio', // iOS-specific type identifier for M4A
+    dialogTitle: questName || 'Quest Audio'
+  });
+
+  console.log('Audio share dialog opened successfully');
+}
