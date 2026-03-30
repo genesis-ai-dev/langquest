@@ -35,7 +35,6 @@ import {
   useLanguoidLinkSuggestions
 } from '@/hooks/db/useLanguoidLinkSuggestions';
 import { useUserMemberships } from '@/hooks/db/useProfiles';
-import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useLocalStore } from '@/store/localStore';
@@ -48,7 +47,6 @@ import {
   AlertTriangle,
   BellIcon,
   CheckIcon,
-  HomeIcon,
   LinkIcon,
   MailIcon,
   UserPlusIcon,
@@ -269,7 +267,6 @@ function LanguoidLinkSuggestionGroup({
 export default function NotificationsView() {
   const { t } = useLocalization();
   const { currentUser } = useAuth();
-  const { goToProjects } = useNavigationHelpers();
   const queryClient = useQueryClient();
   const isOnline = useNetworkStatus();
   const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
@@ -1128,14 +1125,6 @@ export default function NotificationsView() {
                   <Text className="max-w-sm px-6 text-center text-sm text-muted-foreground">
                     {t('noNotificationsMessage')}
                   </Text>
-                  <Button
-                    variant="default"
-                    size="icon-lg"
-                    onPress={goToProjects}
-                    className="mt-4"
-                  >
-                    <Icon as={HomeIcon} className="text-primary-foreground" />
-                  </Button>
                 </View>
               </View>
             </View>

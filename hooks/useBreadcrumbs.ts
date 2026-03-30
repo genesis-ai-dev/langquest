@@ -121,16 +121,28 @@ export function useBreadcrumbs(): Breadcrumb[] {
 
   const isOnRecording = pathname.endsWith('/recording');
 
+  const standaloneRoute = pathname.endsWith('/settings')
+    ? 'settings'
+    : pathname.endsWith('/notifications')
+      ? 'notifications'
+      : pathname.endsWith('/profile')
+        ? 'profile'
+        : null;
+
   return useMemo(() => {
     const crumbs: Breadcrumb[] = [];
 
+    const isDeeper = !!(projectId || questId || assetId || standaloneRoute);
+
     crumbs.push({
       label: t('projects'),
-      onPress:
-        projectId || questId || assetId
-          ? () => router.dismissTo(href('/(app)/'))
-          : undefined
+      onPress: isDeeper ? () => router.dismissTo(href('/(app)/')) : undefined
     });
+
+    if (standaloneRoute) {
+      crumbs.push({ label: t(standaloneRoute) });
+      return crumbs;
+    }
 
     if (project && projectId) {
       crumbs.push({
@@ -186,6 +198,7 @@ export function useBreadcrumbs(): Breadcrumb[] {
     questId,
     assetId,
     isOnRecording,
+    standaloneRoute,
     router,
     t,
     pathname

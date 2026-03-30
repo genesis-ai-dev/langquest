@@ -43,7 +43,6 @@ import { Link } from 'expo-router';
 import {
   ChevronDown,
   ChevronRight,
-  HomeIcon,
   InfoIcon,
   MailIcon,
   MoreVertical,
@@ -61,7 +60,7 @@ export default function ProfileView() {
   // const { currentUser, setCurrentUser } = useAuth();
   const { currentUser } = useAuth();
   const { t } = useLocalization();
-  const { goToProjects, router } = useNavigationHelpers();
+  const { router } = useNavigationHelpers();
   const isOnline = useNetworkStatus();
   const systemReady = useLocalStore((state) => state.systemReady);
   const posthog = usePostHog();
@@ -240,9 +239,6 @@ export default function ProfileView() {
           <Text className="text-2xl font-bold text-foreground">
             {t('profile')}
           </Text>
-          <Button variant="default" size="icon-lg" onPress={goToProjects}>
-            <Icon as={HomeIcon} className="text-primary-foreground" />
-          </Button>
         </View>
         {__DEV__ && (
           <View className="flex flex-col gap-2">
