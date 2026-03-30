@@ -50,7 +50,6 @@ import { createAudioPlayer, type AudioPlayer } from 'expo-audio';
 import { useKeepAwake } from 'expo-keep-awake';
 import { Stack } from 'expo-router';
 import {
-  ArrowLeft,
   BookOpenIcon,
   ChevronLeft,
   Ellipsis,
@@ -265,7 +264,7 @@ const RecordingView = () => {
     };
   }, []);
 
-  const { questId, projectId, router } = useNavigationHelpers();
+  const { questId, projectId } = useNavigationHelpers();
 
   // Get recording-specific data from Zustand store (set before navigating)
   const recordingData = useLocalStore(
@@ -2818,6 +2817,16 @@ const RecordingView = () => {
     const timeoutIds = timeoutIdsRef.current;
 
     return () => {
+      // Normalize order_index for any recorded verses before leaving
+      const recordedVerses = Array.from(recordedVersesRef.current);
+      if (recordedVerses.length > 0 && questId) {
+        void normalizeOrderIndexForVerses(questId, recordedVerses).catch(
+          (error) =>
+            console.error('Failed to normalize order_index:', error)
+        );
+      }
+      void queryClient.invalidateQueries({ queryKey: ['assets'] });
+
       // Stop audio playback if playing (access via ref for latest state)
       if (audioContextCurrentRef.current.isPlaying) {
         void audioContextCurrentRef.current.stopCurrentSound();
@@ -2850,7 +2859,7 @@ const RecordingView = () => {
 
       debugLog('🧹 Cleaned up BibleRecordingView on unmount');
     };
-  }, [isPlayAllRunningRef, playbackCheckpoint, stopPlayAll]);
+  }, [isPlayAllRunningRef, playbackCheckpoint, stopPlayAll, questId, queryClient]);
 
   // ============================================================================
   // RENDER HELPERS
@@ -3284,38 +3293,6 @@ const RecordingView = () => {
       )}
 
       {/* Header */}
-      <View className="flex-row items-center justify-between px-4 pb-2">
-        <View className="flex-row items-center gap-3">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="self-start p-0"
-            onPress={async () => {
-              // Normalize order_index for recorded verses before navigating back
-              const recordedVerses = Array.from(recordedVersesRef.current);
-              if (recordedVerses.length > 0 && questId) {
-                console.log(
-                  `📤 Returning with ${recordedVerses.length} recorded verse(s): [${recordedVerses.join(', ')}]`
-                );
-                try {
-                  await normalizeOrderIndexForVerses(
-                    questId,
-                    recordedVerses
-                  );
-                } catch (error) {
-                  console.error('Failed to normalize order_index:', error);
-                }
-              }
-              // Invalidate all asset queries so the parent list picks up new/deleted recordings
-              void queryClient.invalidateQueries({ queryKey: ['assets'] });
-              router.back();
-            }}
-          >
-            <Icon as={ArrowLeft} />
-            <Text>{t('back')}</Text>
-          </Button>
-        </View>
-      </View>
       <View className="flex-row items-center justify-between px-4 pb-2">
         <View className="flex-col">
           <Text className="text-base font-semibold text-foreground">

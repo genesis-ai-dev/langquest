@@ -39,7 +39,6 @@ import RNAlert from '@blazejkustra/react-native-alert';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useKeepAwake } from 'expo-keep-awake';
 import {
-  ArrowLeftIcon,
   BookmarkPlusIcon,
   BookOpenIcon,
   BrushCleaning,
@@ -120,7 +119,7 @@ import { resolveTable } from '@/utils/dbUtils';
 import { fileExists, getLocalAttachmentUriWithOPFS } from '@/utils/fileUtils';
 import { publishQuest as publishQuestUtils } from '@/utils/publishQuest';
 import { offloadQuest } from '@/utils/questOffloadUtils';
-import { getThemeColor } from '@/utils/styleUtils';
+import { cn, getThemeColor } from '@/utils/styleUtils';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { and, asc, eq, gte, lte } from 'drizzle-orm';
@@ -3679,16 +3678,7 @@ export default function BibleAssetsView() {
     <View className="flex flex-1 flex-col gap-4 px-6 pb-6 pt-1">
       {selectedQuest?.name && <Stack.Screen options={{ title: selectedQuest.name }} />}
       {isPlayAllPlayerActive && <KeepAwakeGuard />}
-      <View className="flex flex-row items-center justify-between">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="self-start p-0"
-          onPress={() => router.back()}
-        >
-          <Icon as={ArrowLeftIcon} />
-          <Text>{t('back')}</Text>
-        </Button>
+      <View className="flex flex-row items-center justify-end">
         <View className="flex flex-row items-center gap-2">
           <View className="flex flex-row items-center gap-2">
             {isPublished ? (

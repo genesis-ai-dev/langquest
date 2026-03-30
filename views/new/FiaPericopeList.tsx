@@ -21,26 +21,27 @@ import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
 import { system } from '@/db/powersync/system';
 import { useProjectById } from '@/hooks/db/useProjects';
-import { useNavigationHelpers } from '@/hooks/useNavigation';
 import type { FiaBook, FiaPericope } from '@/hooks/useFiaBooks';
-import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useFiaPericopeCreation } from '@/hooks/useFiaPericopeCreation';
 import {
   useFiaPericopes,
   type FiaPericopeGroup,
   type FiaPericopeQuest
 } from '@/hooks/useFiaPericopes';
+import { useNavigationHelpers } from '@/hooks/useNavigation';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useQuestDownloadDiscovery } from '@/hooks/useQuestDownloadDiscovery';
 import { useQuestDownloadStatusLive } from '@/hooks/useQuestDownloadStatusLive';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { enqueue as enqueueFiaAttachment } from '@/services/FiaAttachmentQueue';
 import { syncCallbackService } from '@/services/syncCallbackService';
-import { BOOK_ICON_MAP } from '@/utils/BOOK_GRAPHICS';
 import { bulkDownloadQuest } from '@/utils/bulkDownload';
+import { BOOK_ICON_MAP } from '@/utils/BOOK_GRAPHICS';
 import { formatRelativeDate } from '@/utils/dateUtils';
 import { cn, useThemeColor } from '@/utils/styleUtils';
 import { LegendList } from '@legendapp/list';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Image } from 'expo-image';
 import {
   BookOpenIcon,
   FileStackIcon,
@@ -48,23 +49,8 @@ import {
   PlusCircleIcon,
   UserIcon
 } from 'lucide-react-native';
-import { Image } from 'expo-image';
 import React from 'react';
 import { ActivityIndicator, Pressable, View } from 'react-native';
-
-const FIA_TO_BIBLE_BOOK_ID: Record<string, string> = {
-  mrk: 'mar',
-  php: 'phi',
-  jol: 'joe',
-  nam: 'nah'
-};
-
-function getFiaBookIcon(fiaBookId: string) {
-  if (BOOK_ICON_MAP[fiaBookId]) return BOOK_ICON_MAP[fiaBookId];
-  const mappedId = FIA_TO_BIBLE_BOOK_ID[fiaBookId];
-  if (mappedId && BOOK_ICON_MAP[mappedId]) return BOOK_ICON_MAP[mappedId];
-  return null;
-}
 
 // --- Version card inside the picker drawer ---
 
@@ -365,7 +351,6 @@ export function FiaPericopeList({
   const { project } = useProjectById(projectId);
   const isPrivate = project?.private ?? false;
   const primaryColor = useThemeColor('primary');
-  const iconSource = getFiaBookIcon(book.id);
 
   const { membership } = useUserPermissions(
     projectId,
@@ -661,29 +646,32 @@ export function FiaPericopeList({
 
   return (
     <View className="flex-1">
-      <View className="mb-4 flex-row items-center gap-3 px-4">
-        {iconSource ? (
-          <Image
-            source={iconSource}
-            style={{ width: 48, height: 48, tintColor: primaryColor }}
-            contentFit="contain"
-          />
-        ) : (
-          <Icon as={BookOpenIcon} size={32} className="text-primary" />
-        )}
-        <View>
-          <Text variant="h4">{book.title}</Text>
-          <Text className="text-sm text-muted-foreground">
-            {book.pericopes.length} pericopes
-          </Text>
-        </View>
-      </View>
-
       <LegendList
         data={pericopeItems}
         keyExtractor={(item) => item.id}
         numColumns={3}
         estimatedItemSize={90}
+        ListHeaderComponent={
+          <View className="mb-4 w-full flex-row items-center gap-3">
+            {BOOK_ICON_MAP[book.id] ? (
+              <Image
+                source={BOOK_ICON_MAP[book.id]}
+                style={{ width: 48, height: 48, tintColor: primaryColor }}
+                contentFit="contain"
+              />
+            ) : (
+              <Icon as={BookOpenIcon} size={32} className="text-primary" />
+            )}
+            <View className="min-w-0 flex-1 flex-col items-start">
+              <Text variant="h4" className="w-full text-left">
+                {book.title}
+              </Text>
+              <Text className="w-full text-left text-sm text-muted-foreground">
+                {book.pericopes.length} pericopes
+              </Text>
+            </View>
+          </View>
+        }
         contentContainerStyle={{ paddingHorizontal: 16 }}
         columnWrapperStyle={{ gap: 8 }}
         recycleItems
@@ -708,7 +696,8 @@ export function FiaPericopeList({
         onOpenChange={(open) => {
           if (!open) setPickerPericopeId(null);
         }}
-        snapPoints={['50%']}
+        snapPoints={['40%']}
+        enableDynamicSizing={false}
       >
         <DrawerContent>
           <DrawerHeader>
@@ -721,35 +710,41 @@ export function FiaPericopeList({
             </DrawerDescription>
           </DrawerHeader>
 
-          {pickerGroup?.versions.map((version) => (
-            <VersionCard
-              key={version.id}
-              version={version}
-              isCurrentUser={version.creator_id === currentUser?.id}
-              onPress={() => navigateToVersion(version)}
-              onDownloadClick={handleDownloadClick}
-              isDownloading={downloadingQuestIds.has(version.id)}
-            />
-          ))}
+          <View className={cn('gap-3')}>
+            {pickerGroup?.versions.map((version) => (
+              <VersionCard
+                key={version.id}
+                version={version}
+                isCurrentUser={version.creator_id === currentUser?.id}
+                onPress={() => navigateToVersion(version)}
+                onDownloadClick={handleDownloadClick}
+                isDownloading={downloadingQuestIds.has(version.id)}
+              />
+            ))}
 
-          {canCreateNew && pickerPericope && (
-            <Pressable
-              onPress={() => createNewVersion(pickerPericope)}
-              className="flex-row items-center gap-3 rounded-lg border border-dashed border-border p-4 active:opacity-70"
-            >
-              <View className="h-10 w-10 items-center justify-center rounded-full bg-muted">
-                <Icon as={PlusCircleIcon} size={20} className="text-primary" />
-              </View>
-              <View className="flex-1">
-                <Text className="font-semibold text-primary">
-                  Create new version
-                </Text>
-                <Text className="text-sm text-muted-foreground">
-                  Start a new recording for this pericope
-                </Text>
-              </View>
-            </Pressable>
-          )}
+            {canCreateNew && pickerPericope && (
+              <Pressable
+                onPress={() => createNewVersion(pickerPericope)}
+                className="flex-row items-center gap-3 rounded-lg border border-dashed border-border p-4 active:opacity-70"
+              >
+                <View className="h-10 w-10 items-center justify-center rounded-full bg-muted">
+                  <Icon
+                    as={PlusCircleIcon}
+                    size={20}
+                    className="text-primary"
+                  />
+                </View>
+                <View className="flex-1">
+                  <Text className="font-semibold text-primary">
+                    Create new version
+                  </Text>
+                  <Text className="text-sm text-muted-foreground">
+                    Start a new recording for this pericope
+                  </Text>
+                </View>
+              </Pressable>
+            )}
+          </View>
         </DrawerContent>
       </Drawer>
 

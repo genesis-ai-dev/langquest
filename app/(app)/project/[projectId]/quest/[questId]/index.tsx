@@ -7,7 +7,7 @@ import BibleAssetsView from '@/views/new/BibleAssetsView';
 import { BibleChapterList } from '@/views/new/BibleChapterList';
 import { FiaPericopeList } from '@/views/new/FiaPericopeList';
 import NextGenAssetsView from '@/views/new/NextGenAssetsView';
-import { useGlobalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { useMemo, useRef } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 
@@ -47,7 +47,7 @@ function FiaBookRoute({ projectId, bookId }: { projectId: string; bookId: string
 }
 
 export default function QuestRoute() {
-  const { projectId, questId } = useGlobalSearchParams<{
+  const { projectId, questId } = useLocalSearchParams<{
     projectId: string;
     questId: string;
   }>();

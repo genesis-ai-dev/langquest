@@ -22,7 +22,6 @@ import { getBibleBook } from '@/constants/bibleStructure';
 import { useAuth } from '@/contexts/AuthContext';
 import { system } from '@/db/powersync/system';
 import { useProjectById } from '@/hooks/db/useProjects';
-import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useBibleChapterCreation } from '@/hooks/useBibleChapterCreation';
 import {
   useBibleChapters,
@@ -30,6 +29,7 @@ import {
   type BibleChapterQuest
 } from '@/hooks/useBibleChapters';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useQuestDownloadDiscovery } from '@/hooks/useQuestDownloadDiscovery';
 import { useQuestDownloadStatusLive } from '@/hooks/useQuestDownloadStatusLive';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
@@ -583,52 +583,59 @@ export function BibleChapterList({
   const hasNoChapters = chapterGroups.length === 0;
   const showEmptyState = !isLoadingChapters && hasNoChapters && !canCreateNew;
 
+  const renderBookHeader = (rowClassName?: string) => (
+    <View className={cn('flex-row items-center gap-3', rowClassName)}>
+      {bookIconSource ? (
+        <Image
+          source={bookIconSource}
+          style={{ width: 48, height: 48, tintColor: primaryColor }}
+          contentFit="contain"
+        />
+      ) : (
+        <Text className="text-4xl">
+          <Icon as={BookOpenIcon} size={32} className="text-primary" />
+        </Text>
+      )}
+      <View className="min-w-0 flex-1 flex-col items-start">
+        <Text variant="h3" className="w-full text-left">
+          {book.name}
+        </Text>
+        <Text className="w-full text-left text-sm text-muted-foreground">
+          {book.chapters} {t('chapters')}
+        </Text>
+      </View>
+    </View>
+  );
+
   return (
     <View className="flex-1">
       <View className="flex-1 flex-col gap-6">
-        {/* Header */}
-        <View className="flex-row items-center gap-3 px-4">
-          {bookIconSource ? (
-            <Image
-              source={bookIconSource}
-              style={{ width: 48, height: 48, tintColor: primaryColor }}
-              contentFit="contain"
-            />
-          ) : (
-            <Text className="text-4xl">
-              <Icon as={BookOpenIcon} size={32} className="text-primary" />
-            </Text>
-          )}
-          <View className="flex-col">
-            <Text variant="h3">{book.name}</Text>
-            <Text className="text-sm text-muted-foreground">
-              {book.chapters} {t('chapters')}
-            </Text>
-          </View>
-        </View>
-
         {showEmptyState ? (
-          <View className="flex-1 items-center justify-center gap-4 px-6">
-            <Icon
-              as={BookOpenIcon}
-              size={48}
-              className="text-muted-foreground"
-            />
-            <View className="flex-col items-center gap-2">
-              <Text variant="h4" className="text-center">
-                {t('noQuestsAvailable')}
-              </Text>
-              <Text className="text-center text-muted-foreground">
-                {t('noContentAvailable')}
-              </Text>
+          <>
+            {renderBookHeader('px-4')}
+            <View className="flex-1 items-center justify-center gap-4 px-6">
+              <Icon
+                as={BookOpenIcon}
+                size={48}
+                className="text-muted-foreground"
+              />
+              <View className="flex-col items-center gap-2">
+                <Text variant="h4" className="text-center">
+                  {t('noQuestsAvailable')}
+                </Text>
+                <Text className="text-center text-muted-foreground">
+                  {t('noContentAvailable')}
+                </Text>
+              </View>
             </View>
-          </View>
+          </>
         ) : (
           <LegendList
             data={chapterItems}
             keyExtractor={(item) => item.id.toString()}
             numColumns={4}
             estimatedItemSize={90}
+            ListHeaderComponent={renderBookHeader('mb-6 w-full')}
             contentContainerStyle={{ paddingHorizontal: 16 }}
             columnWrapperStyle={{ gap: 8 }}
             recycleItems
@@ -656,7 +663,8 @@ export function BibleChapterList({
         onOpenChange={(open) => {
           if (!open) setPickerChapterNum(null);
         }}
-        snapPoints={['50%']}
+        snapPoints={['40%']}
+        enableDynamicSizing={false}
       >
         <DrawerContent>
           <DrawerHeader>
@@ -669,35 +677,41 @@ export function BibleChapterList({
             </DrawerDescription>
           </DrawerHeader>
 
-          {pickerGroup?.versions.map((version) => (
-            <VersionCard
-              key={version.id}
-              version={version}
-              isCurrentUser={version.creator_id === currentUser?.id}
-              onPress={() => navigateToVersion(version)}
-              onDownloadClick={handleDownloadClick}
-              isDownloading={downloadingQuestIds.has(version.id)}
-            />
-          ))}
+          <View className={cn('gap-3')}>
+            {pickerGroup?.versions.map((version) => (
+              <VersionCard
+                key={version.id}
+                version={version}
+                isCurrentUser={version.creator_id === currentUser?.id}
+                onPress={() => navigateToVersion(version)}
+                onDownloadClick={handleDownloadClick}
+                isDownloading={downloadingQuestIds.has(version.id)}
+              />
+            ))}
 
-          {canCreateNew && pickerChapterNum && (
-            <Pressable
-              onPress={() => createNewVersion(pickerChapterNum)}
-              className="flex-row items-center gap-3 rounded-lg border border-dashed border-border p-4 active:opacity-70"
-            >
-              <View className="h-10 w-10 items-center justify-center rounded-full bg-muted">
-                <Icon as={PlusCircleIcon} size={20} className="text-primary" />
-              </View>
-              <View className="flex-1">
-                <Text className="font-semibold text-primary">
-                  Create new version
-                </Text>
-                <Text className="text-sm text-muted-foreground">
-                  Start a new recording for this chapter
-                </Text>
-              </View>
-            </Pressable>
-          )}
+            {canCreateNew && pickerChapterNum && (
+              <Pressable
+                onPress={() => createNewVersion(pickerChapterNum)}
+                className="flex-row items-center gap-3 rounded-lg border border-dashed border-border p-4 active:opacity-70"
+              >
+                <View className="h-10 w-10 items-center justify-center rounded-full bg-muted">
+                  <Icon
+                    as={PlusCircleIcon}
+                    size={20}
+                    className="text-primary"
+                  />
+                </View>
+                <View className="flex-1">
+                  <Text className="font-semibold text-primary">
+                    Create new version
+                  </Text>
+                  <Text className="text-sm text-muted-foreground">
+                    Start a new recording for this chapter
+                  </Text>
+                </View>
+              </Pressable>
+            )}
+          </View>
         </DrawerContent>
       </Drawer>
 
