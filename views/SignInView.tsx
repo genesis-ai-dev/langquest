@@ -15,6 +15,7 @@ import { Text } from '@/components/ui/text';
 import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
+import { cn } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
@@ -88,7 +89,7 @@ export default function SignInView() {
 
   return (
     <Form {...form}>
-      <View className="relative flex-1">
+      <View className={cn('relative flex-1 bg-background')}>
         <KeyboardAwareScrollView
           className="mb-[62px] flex-1"
           contentContainerClassName="m-safe flex flex-col gap-4 p-6"
