@@ -1,6 +1,6 @@
 /**
  * AssetCard - Individual asset display with actions
- *
+ * -------------------------------------------------
  * Features:
  * - Tap card to play/pause audio (except when tapping label to rename)
  * - Visual progress bar during playback

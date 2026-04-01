@@ -1,8 +1,8 @@
 /**
- * Background download queue for FIA pericope content and images.
+ * Background download queue for FIA pericope content, images, and audio.
  * Singleton service that processes queued pericopes: fetches steps data from
- * the edge function, downloads all referenced images to the local filesystem,
- * and persists the response for offline use.
+ * the edge function, downloads all referenced images and step audio to the
+ * local filesystem, and persists the response for offline use.
  *
  * State is tracked in the local store so the AppDrawer can display progress.
  */
@@ -12,6 +12,7 @@ import type { FiaPericopeStepsResponse } from '@/hooks/useFiaPericopeSteps';
 import type { FiaAttachmentQueueItem } from '@/store/localStore';
 import { useLocalStore } from '@/store/localStore';
 import { useShallow } from 'zustand/react/shallow';
+import { getCachedAudioUri } from '@/utils/audioCache';
 import {
   downloadFile,
   ensureDir,
@@ -66,6 +67,14 @@ function extractImageUrls(data: FiaPericopeStepsResponse): string[] {
   }
   for (const map of data.maps) {
     if (map.imageUrl) urls.push(map.imageUrl);
+  }
+  return urls;
+}
+
+function extractAudioUrls(data: FiaPericopeStepsResponse): string[] {
+  const urls: string[] = [];
+  for (const step of data.steps) {
+    if (step.audioUrl) urls.push(step.audioUrl);
   }
   return urls;
 }
@@ -188,6 +197,12 @@ async function processItem(item: FiaAttachmentQueueItem) {
     );
     await downloadImages(imageUrls);
 
+    const audioUrls = extractAudioUrls(data);
+    console.log(
+      `[FiaAttachmentQueue] Downloading ${audioUrls.length} step audio files for ${pericopeId}...`
+    );
+    await downloadAudioFiles(audioUrls);
+
     writeFile(pericopeDataPath(pericopeId), JSON.stringify(data));
 
     getStore().updateFiaAttachment(pericopeId, {
@@ -196,7 +211,7 @@ async function processItem(item: FiaAttachmentQueueItem) {
     });
 
     console.log(
-      `[FiaAttachmentQueue] ✓ ${pericopeId} (${imageUrls.length} images)`
+      `[FiaAttachmentQueue] ✓ ${pericopeId} (${imageUrls.length} images, ${audioUrls.length} audio)`
     );
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
@@ -300,6 +315,29 @@ async function downloadImages(urls: string[]) {
   };
 
   for (let i = 0; i < Math.min(IMAGE_CONCURRENCY, urls.length); i++) {
+    active.push(next());
+  }
+  await Promise.allSettled(active);
+}
+
+const AUDIO_CONCURRENCY = 3;
+
+async function downloadAudioFiles(urls: string[]) {
+  const queue = [...urls];
+  const active: Promise<void>[] = [];
+
+  const next = async () => {
+    while (queue.length > 0) {
+      const url = queue.shift()!;
+      try {
+        await getCachedAudioUri(url);
+      } catch (e) {
+        console.warn(`[FiaAttachmentQueue] Audio download failed: ${url}`, e);
+      }
+    }
+  };
+
+  for (let i = 0; i < Math.min(AUDIO_CONCURRENCY, urls.length); i++) {
     active.push(next());
   }
   await Promise.allSettled(active);
