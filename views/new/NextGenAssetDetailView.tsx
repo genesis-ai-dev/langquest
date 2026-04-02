@@ -174,12 +174,7 @@ export default function NextGenAssetDetailView() {
   const { t } = useLocalization();
   const { isAuthenticated } = useAuth();
 
-  const {
-    assetId,
-    projectId,
-    questId,
-    router
-  } = useNavigationHelpers();
+  const { assetId, projectId, questId, router } = useNavigationHelpers();
 
   // Debug logging moved to useEffect to prevent render loop
   useEffect(() => {
@@ -822,7 +817,9 @@ export default function NextGenAssetDetailView() {
 
   return (
     <View className="mb-safe flex-1 px-4">
-      {activeAsset?.name && <Stack.Screen options={{ title: activeAsset.name }} />}
+      {activeAsset?.name && (
+        <Stack.Screen options={{ title: activeAsset.name }} />
+      )}
       {/* Header */}
       <View className="flex-row items-center justify-between gap-1">
         <View className="flex-1 flex-row items-center gap-4">

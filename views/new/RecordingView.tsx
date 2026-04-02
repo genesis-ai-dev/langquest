@@ -267,9 +267,7 @@ const RecordingView = () => {
   const { questId, projectId } = useNavigationHelpers();
 
   // Get recording-specific data from Zustand store (set before navigating)
-  const recordingData = useLocalStore(
-    (state) => state.currentRecordingData
-  );
+  const recordingData = useLocalStore((state) => state.currentRecordingData);
   const { t } = useLocalization();
   const bookChapterLabel =
     recordingData?.bookChapterLabel || t('recordingSession');
@@ -1883,12 +1881,7 @@ const RecordingView = () => {
         debugLog('💾 Saving recording | order_index:', targetOrder);
 
         // Validate required data
-        if (
-          !projectId ||
-          !questId ||
-          !currentProject ||
-          !currentUser
-        ) {
+        if (!projectId || !questId || !currentProject || !currentUser) {
           console.error('❌ Missing required data');
           return;
         }
@@ -2821,8 +2814,7 @@ const RecordingView = () => {
       const recordedVerses = Array.from(recordedVersesRef.current);
       if (recordedVerses.length > 0 && questId) {
         void normalizeOrderIndexForVerses(questId, recordedVerses).catch(
-          (error) =>
-            console.error('Failed to normalize order_index:', error)
+          (error) => console.error('Failed to normalize order_index:', error)
         );
       }
       void queryClient.invalidateQueries({ queryKey: ['assets'] });
@@ -2859,7 +2851,13 @@ const RecordingView = () => {
 
       debugLog('🧹 Cleaned up BibleRecordingView on unmount');
     };
-  }, [isPlayAllRunningRef, playbackCheckpoint, stopPlayAll, questId, queryClient]);
+  }, [
+    isPlayAllRunningRef,
+    playbackCheckpoint,
+    stopPlayAll,
+    questId,
+    queryClient
+  ]);
 
   // ============================================================================
   // RENDER HELPERS
@@ -3276,7 +3274,9 @@ const RecordingView = () => {
 
   return (
     <View className="flex-1 bg-background">
-      {bookChapterLabelFull && <Stack.Screen options={{ title: bookChapterLabelFull }} />}
+      {bookChapterLabelFull && (
+        <Stack.Screen options={{ title: bookChapterLabelFull }} />
+      )}
       {(isVADActive || isPlayAllPlayerActive) && <KeepAwakeGuard />}
       {/* Full-screen VAD overlay - takes over entire screen */}
       {showFullScreenOverlay && (

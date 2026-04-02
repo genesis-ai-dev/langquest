@@ -29,9 +29,7 @@ const SimpleOnboardingFlow = React.lazy(() =>
 function AppContent() {
   const { isAuthenticated, currentUser } = useAuth();
   const { profile } = useProfileByUserId(currentUser?.id || '');
-  const setTriggerOnboarding = useLocalStore(
-    (s) => s.setTriggerOnboarding
-  );
+  const setTriggerOnboarding = useLocalStore((s) => s.setTriggerOnboarding);
   const dateTermsAccepted = useLocalStore((s) => s.dateTermsAccepted);
   const triggerOnboarding = useLocalStore((s) => s.triggerOnboarding);
   const onboardingIsOpen = useLocalStore((s) => s.onboardingIsOpen);
