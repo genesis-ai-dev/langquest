@@ -110,13 +110,22 @@ file_size_limit = "50MiB"
 allowed_mime_types = ["image/png", "image/jpeg", "audio/mpeg", "audio/mp4", "audio/wav", "audio/webm", "video/mp4", "video/webm", "application/octet-stream"]
 # objects_path = "./assets"
 
+[remotes.dev.auth]
+site_url = "https://preview.langquest.org"
+additional_redirect_urls = ["langquest-preview://**", "langquest-dev://**", "https://preview.langquest.org/**"]
+
+[remotes.production.auth]
+site_url = "https://langquest.org"
+# We recommend setting the exact redirect URL path for your site URL in production.
+additional_redirect_urls = ["langquest://**", "https://langquest.org/reset-password", "https://langquest.org/registration-confirmation"]
+
 [auth]
 enabled = true
 # The base URL of your website. Used as an allow-list for redirects and for constructing URLs used
 # in emails.
-site_url = "env(EXPO_PUBLIC_SITE_URL)"
+site_url = "http://localhost:3000"
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
-additional_redirect_urls = ["env(EXPO_PUBLIC_SITE_URL)/**","langquest://*", "langquest://reset-password", "https://langquest.org/reset-password", "exp://10.0.0.206:8081/--/reset-password", "https://langquest.org/registration-confirmation", "langquest://registration-confirmation", "https://langquest.vercel.app/","https://langquest-website-frontier-rnd.vercel.app/**", "https://langquest-*-website-frontier-rnd.vercel.app", "https://langquest-*-website-frontier-rnd.vercel.app/**", "http://localhost:3000/**", "http://127.0.0.1:3000/**"]
+additional_redirect_urls = ["langquest://**", "langquest-preview://**", "langquest-dev://**", "https://langquest.org/**", "http://localhost:3000/**", "http://127.0.0.1:3000/**"]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
 # If disabled, the refresh token will never expire.
