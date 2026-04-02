@@ -169,20 +169,21 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const fs = require('fs');
-            // Read from file to avoid environment variable size limits
+            const { execSync } = require('child_process');
+            const nodePath = require('path');
+            const os = require('os');
+
             let fingerprintDiffStr = '[]';
             if (fs.existsSync('fingerprint-diff-raw.json')) {
               fingerprintDiffStr = fs.readFileSync('fingerprint-diff-raw.json', 'utf8').trim();
             }
-            // Parse the JSON string if it's valid JSON, otherwise use as-is
             let fingerprintDiff;
             try {
               fingerprintDiff = JSON.parse(fingerprintDiffStr);
             } catch (e) {
-              fingerprintDiff = fingerprintDiffStr;
+              fingerprintDiff = [];
             }
-            
-            // Format as GitHub code diff
+
             function formatSource(source) {
               if (!source) return '';
               const parts = [];
@@ -191,59 +192,86 @@ jobs:
               } else if (source.type === 'contents') {
                 parts.push(`ID: ${source.id}`);
               }
-              if (source.hash) {
-                parts.push(`Hash: ${source.hash}`);
-              }
               if (source.reasons && source.reasons.length > 0) {
                 parts.push(`Reasons: ${source.reasons.join(', ')}`);
               }
               return parts.join(' | ');
             }
-            
-            function formatDiffAsCode(diff) {
-              if (!Array.isArray(diff) || diff.length === 0) {
-                return 'No changes detected.';
+
+            function getContentsDiff(beforeContents, afterContents, label) {
+              try {
+                let beforeStr, afterStr;
+                try {
+                  beforeStr = JSON.stringify(JSON.parse(beforeContents), null, 2);
+                  afterStr = JSON.stringify(JSON.parse(afterContents), null, 2);
+                } catch {
+                  beforeStr = beforeContents;
+                  afterStr = afterContents;
+                }
+                if (beforeStr === afterStr) return null;
+
+                const tmpBefore = nodePath.join(os.tmpdir(), `fp-before-${label}`);
+                const tmpAfter = nodePath.join(os.tmpdir(), `fp-after-${label}`);
+                fs.writeFileSync(tmpBefore, beforeStr + '\n');
+                fs.writeFileSync(tmpAfter, afterStr + '\n');
+
+                try {
+                  execSync(
+                    `diff -u --label "before (${label})" --label "after (${label})" "${tmpBefore}" "${tmpAfter}"`,
+                    { encoding: 'utf8' }
+                  );
+                  return null;
+                } catch (e) {
+                  return (e.status === 1 && e.stdout) ? e.stdout : null;
+                }
+              } catch {
+                return null;
               }
-              
-              const lines = [];
-              diff.forEach((item, index) => {
-                if (item.op === 'added') {
-                  lines.push(`+ Added: ${formatSource(item.addedSource)}`);
-                } else if (item.op === 'removed') {
-                  lines.push(`- Removed: ${formatSource(item.removedSource)}`);
-                } else if (item.op === 'changed') {
-                  lines.push(`- Changed (before): ${formatSource(item.beforeSource)}`);
-                  lines.push(`+ Changed (after): ${formatSource(item.afterSource)}`);
-                }
-                // Add separator between items (except last)
-                if (index < diff.length - 1) {
-                  lines.push('');
-                }
-              });
-              
-              return lines.join('\n');
             }
-            
-            const codeDiff = formatDiffAsCode(fingerprintDiff);
-            // Write to file to avoid output size limits
-            fs.writeFileSync('fingerprint-diff-formatted.txt', codeDiff);
-            // Also keep JSON for reference
+
+            const summaryLines = [];
+            const contentsDiffs = [];
+
+            if (Array.isArray(fingerprintDiff)) {
+              fingerprintDiff.forEach((item, index) => {
+                if (item.op === 'added') {
+                  summaryLines.push(`+ Added: ${formatSource(item.addedSource)}`);
+                } else if (item.op === 'removed') {
+                  summaryLines.push(`- Removed: ${formatSource(item.removedSource)}`);
+                } else if (item.op === 'changed') {
+                  summaryLines.push(`- Changed (before): ${formatSource(item.beforeSource)}`);
+                  summaryLines.push(`+ Changed (after): ${formatSource(item.afterSource)}`);
+
+                  if (item.beforeSource?.contents && item.afterSource?.contents) {
+                    const label = item.beforeSource.id || item.afterSource.id || `item-${index}`;
+                    const diff = getContentsDiff(item.beforeSource.contents, item.afterSource.contents, label);
+                    if (diff) contentsDiffs.push(diff);
+                  }
+                }
+                if (index < fingerprintDiff.length - 1) summaryLines.push('');
+              });
+            }
+
+            fs.writeFileSync('fingerprint-diff-formatted.txt', summaryLines.join('\n'));
+            fs.writeFileSync('fingerprint-contents-diff.txt', contentsDiffs.join('\n'));
             fs.writeFileSync('fingerprint-diff.json', JSON.stringify(fingerprintDiff, null, 2));
-            // Set a flag output instead of the full diff
             core.setOutput('has_diff_file', 'true');
+            core.setOutput('has_contents_diff', String(contentsDiffs.length > 0));
 
       - name: Comment on PR if fingerprint changed
         if: github.event_name == 'pull_request' && (github.event.pull_request.base.ref == 'dev' || github.event.pull_request.base.ref == 'main') && steps.check-compatibility-change.outputs.has_changes == 'true'
         uses: actions/github-script@v7
         env:
           HAS_DIFF_FILE: ${{ steps.format-diff.outputs.has_diff_file }}
+          HAS_CONTENTS_DIFF: ${{ steps.format-diff.outputs.has_contents_diff }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const fs = require('fs');
             let codeDiff = 'No changes detected.';
             let jsonDiff = '[]';
-            
+            let contentsDiff = '';
+
             if (process.env.HAS_DIFF_FILE === 'true') {
               if (fs.existsSync('fingerprint-diff-formatted.txt')) {
                 codeDiff = fs.readFileSync('fingerprint-diff-formatted.txt', 'utf8');
@@ -252,10 +280,23 @@ jobs:
                 jsonDiff = fs.readFileSync('fingerprint-diff.json', 'utf8');
               }
             }
-            
+            if (process.env.HAS_CONTENTS_DIFF === 'true' && fs.existsSync('fingerprint-contents-diff.txt')) {
+              contentsDiff = fs.readFileSync('fingerprint-contents-diff.txt', 'utf8');
+            }
+
+            const contentsDiffSection = contentsDiff
+              ? '<details open>\n' +
+                '<summary>🔎 What changed</summary>\n\n' +
+                '```diff\n' +
+                contentsDiff + '\n' +
+                '```\n\n' +
+                '</details>\n\n'
+              : '';
+
             const message = '<!-- fingerprint-check -->\n' +
               '⚠️ Native Build Required - Manual Approval Needed\n\n' +
               'This PR requires a native build because the fingerprint has changed compared to the base branch.\n\n' +
+              contentsDiffSection +
               '<details>\n' +
               '<summary>📋 Fingerprint diff</summary>\n\n' +
               '```diff\n' +
