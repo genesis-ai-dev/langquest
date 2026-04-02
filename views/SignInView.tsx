@@ -21,7 +21,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { LockIcon, MailIcon } from 'lucide-react-native';
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { View } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
@@ -79,9 +79,16 @@ export default function SignInView() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      email: initialEmail
+      email: initialEmail || '',
+      password: ''
     }
   });
+
+  useEffect(() => {
+    if (initialEmail) {
+      form.setValue('email', initialEmail);
+    }
+  }, [form, initialEmail]);
 
   const email = useWatch({ control: form.control, name: 'email' });
 

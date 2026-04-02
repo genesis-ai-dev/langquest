@@ -113,7 +113,7 @@ export default function RegisterView() {
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    mode: 'onChange', // Validate as user types so isValid updates in real-time
+    mode: 'onChange',
     defaultValues: {
       email: initialEmail || '',
       password: '',
@@ -124,9 +124,7 @@ export default function RegisterView() {
 
   useEffect(() => {
     if (initialEmail) {
-      form.reset({
-        email: initialEmail
-      });
+      form.setValue('email', initialEmail);
     }
   }, [form, initialEmail]);
 
