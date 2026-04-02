@@ -59,6 +59,7 @@
     "shadcn": "shadcn",
     "knip:check": "knip",
     "postinstall": "patch-package",
+    "prepare": "git config core.hooksPath .githooks",
     "adb:tunnel": "adb reverse tcp:8081 tcp:8081",
     "android:eas:build:preview": "eas build --platform android --profile preview"
   },
@@ -205,7 +206,6 @@
     "eslint-plugin-react-hooks": "^7.0.1",
     "expo-atlas": "^0.4.0",
     "expo-mcp": "~0.2.1",
-    "husky": "^8.0.0",
     "jest": "~29.7.0",
     "jest-expo": "~55.0.9",
     "jiti": "^2.6.1",
