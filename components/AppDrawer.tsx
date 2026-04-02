@@ -64,11 +64,7 @@ export default function AppDrawer({
 }) {
   const { t } = useLocalization();
   const { signOut, currentUser, isAuthenticated } = useAuth();
-  const {
-    goToProjects,
-    pathname,
-    router
-  } = useNavigationHelpers();
+  const { goToProjects, pathname, router } = useNavigationHelpers();
 
   const notificationResult = useNotifications();
   const notificationCount = useMemo(
@@ -76,13 +72,20 @@ export default function AppDrawer({
     [notificationResult.totalCount]
   );
 
-  const currentView = pathname === '/' || pathname === '' ? 'projects'
-    : pathname.includes('/profile') ? 'profile'
-    : pathname.includes('/notifications') ? 'notifications'
-    : pathname.includes('/settings') ? 'settings'
-    : pathname.includes('/corrupted-attachments') ? 'corrupted-attachments'
-    : pathname.includes('/download-status') ? 'download-status'
-    : undefined;
+  const currentView =
+    pathname === '/' || pathname === ''
+      ? 'projects'
+      : pathname.includes('/profile')
+        ? 'profile'
+        : pathname.includes('/notifications')
+          ? 'notifications'
+          : pathname.includes('/settings')
+            ? 'settings'
+            : pathname.includes('/corrupted-attachments')
+              ? 'corrupted-attachments'
+              : pathname.includes('/download-status')
+                ? 'download-status'
+                : undefined;
 
   // Always call hooks (Rules of Hooks), but only subscribe when drawer is visible
   // The hooks themselves handle memoization to prevent re-renders
@@ -256,7 +259,8 @@ export default function AppDrawer({
     [closeDrawerAndExecute, router]
   );
   const handleGoToCorruptedAttachments = useCallback(
-    () => closeDrawerAndExecute(() => router.push('/(app)/corrupted-attachments')),
+    () =>
+      closeDrawerAndExecute(() => router.push('/(app)/corrupted-attachments')),
     [closeDrawerAndExecute, router]
   );
   const handleGoToDownloadStatus = useCallback(

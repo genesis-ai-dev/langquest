@@ -536,12 +536,7 @@ function KeepAwakeGuard() {
 }
 
 export default function BibleAssetsView() {
-  const {
-    questId,
-    projectId,
-    router,
-    goToRecording
-  } = useNavigationHelpers();
+  const { questId, projectId, router, goToRecording } = useNavigationHelpers();
   const { currentUser } = useAuth();
   const audioContext = useAudio();
   const queryClient = useQueryClient();
@@ -3312,8 +3307,7 @@ export default function BibleAssetsView() {
     // Navigate to recording view
     const recordingOrderIndex =
       selectedForRecording?.orderIndex ?? lastUnassignedOrderIndex;
-    const recordingSessionId =
-      await createQuestRecordingSession(questId);
+    const recordingSessionId = await createQuestRecordingSession(questId);
 
     goToRecording({
       recordingSession: recordingSessionId,
@@ -3676,7 +3670,9 @@ export default function BibleAssetsView() {
 
   return (
     <View className="flex flex-1 flex-col gap-4 px-6 pb-6 pt-1">
-      {selectedQuest?.name && <Stack.Screen options={{ title: selectedQuest.name }} />}
+      {selectedQuest?.name && (
+        <Stack.Screen options={{ title: selectedQuest.name }} />
+      )}
       {isPlayAllPlayerActive && <KeepAwakeGuard />}
       <View className="flex flex-row items-center justify-end">
         <View className="flex flex-row items-center gap-2">
@@ -3697,16 +3693,16 @@ export default function BibleAssetsView() {
                       <Icon as={CheckCheck} size={14} />
                     </View>
                   </Button>
-                {questId && projectId && (
-                  <ExportButton
-                    questId={questId}
-                    projectId={projectId}
-                    questName={selectedQuest?.name}
-                    disabled={isPublishing || !isOnline}
-                    membership={membership}
-                    passedQuestPublished={isPublished}
-                  />
-                )}
+                  {questId && projectId && (
+                    <ExportButton
+                      questId={questId}
+                      projectId={projectId}
+                      questName={selectedQuest?.name}
+                      disabled={isPublishing || !isOnline}
+                      membership={membership}
+                      passedQuestPublished={isPublished}
+                    />
+                  )}
                 </>
               ) : (
                 // Show membership request button for non-members viewing published quest
@@ -3783,15 +3779,15 @@ export default function BibleAssetsView() {
                       <Icon as={CloudUpload} />
                     )}
                   </Button>
-                {questId && projectId && (
-                  <ExportButton
-                    questId={questId}
-                    projectId={projectId}
-                    questName={selectedQuest?.name}
-                    disabled={isPublishing || !isOnline}
-                    membership={membership}
-                  />
-                )}
+                  {questId && projectId && (
+                    <ExportButton
+                      questId={questId}
+                      projectId={projectId}
+                      questName={selectedQuest?.name}
+                      disabled={isPublishing || !isOnline}
+                      membership={membership}
+                    />
+                  )}
                 </>
               )
             )}

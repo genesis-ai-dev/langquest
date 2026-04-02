@@ -15,13 +15,21 @@ function parseQuestMetadata(raw: unknown): QuestMetadata | null {
   if (!raw) return null;
   try {
     const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
-    return (typeof parsed === 'string' ? JSON.parse(parsed) : parsed) as QuestMetadata;
+    return (
+      typeof parsed === 'string' ? JSON.parse(parsed) : parsed
+    ) as QuestMetadata;
   } catch {
     return null;
   }
 }
 
-function FiaBookRoute({ projectId, bookId }: { projectId: string; bookId: string }) {
+function FiaBookRoute({
+  projectId,
+  bookId
+}: {
+  projectId: string;
+  bookId: string;
+}) {
   const { sourceLanguoidId, isLoading: isLanguoidLoading } =
     useProjectSourceLanguoid(projectId);
   const { books, isLoading: isBooksLoading } = useFiaBooks(sourceLanguoidId);
@@ -62,7 +70,10 @@ export default function QuestRoute() {
 
   const template = lockedTemplateRef.current;
 
-  const metadata = useMemo(() => parseQuestMetadata(quest?.metadata), [quest?.metadata]);
+  const metadata = useMemo(
+    () => parseQuestMetadata(quest?.metadata),
+    [quest?.metadata]
+  );
 
   const isBookQuest = useMemo(() => {
     if (template === 'bible') {

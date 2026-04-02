@@ -100,19 +100,20 @@ export function useUserRestrictions(
     queryKeyParams: ['blocked_content', contentType, currentUser?.id || ''],
 
     // PowerSync query for votes
-    offlineQuery: includeBlockedContent && currentUser
-      ? toCompilableQuery(
-          db
-            .select({ content_id: blocked_content.content_id })
-            .from(blocked_content)
-            .where(
-              and(
-                eq(blocked_content.profile_id, currentUser.id),
-                eq(blocked_content.content_table, contentType)
+    offlineQuery:
+      includeBlockedContent && currentUser
+        ? toCompilableQuery(
+            db
+              .select({ content_id: blocked_content.content_id })
+              .from(blocked_content)
+              .where(
+                and(
+                  eq(blocked_content.profile_id, currentUser.id),
+                  eq(blocked_content.content_table, contentType)
+                )
               )
-            )
-        )
-      : 'SELECT content_id FROM blocked_content WHERE 1=0',
+          )
+        : 'SELECT content_id FROM blocked_content WHERE 1=0',
     // Cloud query for votes
     cloudQueryFn: async () => {
       if (!includeBlockedContent || !currentUser) return [];
@@ -143,14 +144,15 @@ export function useUserRestrictions(
     queryKeyParams: ['blocked_users', currentUser?.id || ''],
 
     // PowerSync query for votes
-    offlineQuery: includeBlockedUsers && currentUser
-      ? toCompilableQuery(
-          db
-            .select({ blocked_id: blocked_users.blocked_id })
-            .from(blocked_users)
-            .where(and(eq(blocked_users.blocker_id, currentUser.id)))
-        )
-      : 'SELECT blocked_id FROM blocked_users WHERE 1=0',
+    offlineQuery:
+      includeBlockedUsers && currentUser
+        ? toCompilableQuery(
+            db
+              .select({ blocked_id: blocked_users.blocked_id })
+              .from(blocked_users)
+              .where(and(eq(blocked_users.blocker_id, currentUser.id)))
+          )
+        : 'SELECT blocked_id FROM blocked_users WHERE 1=0',
     // Cloud query for votes
     cloudQueryFn: async () => {
       if (!includeBlockedUsers || !currentUser) return [];

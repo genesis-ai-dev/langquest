@@ -97,11 +97,7 @@ import { Stack } from 'expo-router';
 import { QuestListView } from './QuestListView';
 
 export default function ProjectDirectoryView() {
-  const {
-    projectId,
-    router,
-    goToQuest
-  } = useNavigationHelpers();
+  const { projectId, router, goToQuest } = useNavigationHelpers();
   const { currentUser, isAuthenticated } = useAuth();
   const { t } = useLocalization();
   const queryClient = useQueryClient();
@@ -370,11 +366,7 @@ export default function ProjectDirectoryView() {
   // Check membership status separately from settings permission
   // Use 'open_project' action to get accurate membership status
   const { membership: membershipStatus, hasAccess: _canOpenProject } =
-    useUserPermissions(
-      projectId || '',
-      'open_project',
-      isPrivateProject
-    );
+    useUserPermissions(projectId || '', 'open_project', isPrivateProject);
 
   // Check if user can manage project settings (separate from membership)
   const { hasAccess: canManageProject } = useUserPermissions(
@@ -398,8 +390,9 @@ export default function ProjectDirectoryView() {
   const setEnableFia = useLocalStore((state) => state.setEnableFia);
 
   // Query existing books for Bible projects (after isMember is defined)
-  const { books: existingBooks = [] } =
-    useBibleBooks(template === 'bible' ? projectId || '' : '');
+  const { books: existingBooks = [] } = useBibleBooks(
+    template === 'bible' ? projectId || '' : ''
+  );
 
   // FIA: Fetch source languoid, FIA books from API, and existing book quests
   const { sourceLanguoidId, isLoading: sourceLanguoidLoading } =
@@ -425,7 +418,6 @@ export default function ProjectDirectoryView() {
     }
     return ids;
   }, [existingFiaBookQuests]);
-
 
   // Build set of existing book IDs from metadata
   const existingBookIds = React.useMemo(() => {
@@ -982,7 +974,10 @@ export default function ProjectDirectoryView() {
             <Text className="text-center text-muted-foreground">
               {t('enableFiaPrompt')}
             </Text>
-            <Button variant="default" onPress={() => router.push('/(app)/settings')}>
+            <Button
+              variant="default"
+              onPress={() => router.push('/(app)/settings')}
+            >
               <Icon as={SettingsIcon} size={16} />
               <Text>{t('openSettings')}</Text>
             </Button>
@@ -1039,28 +1034,13 @@ export default function ProjectDirectoryView() {
                     queryKey: ['quests', 'for-project', projectId]
                   });
                   await queryClient.invalidateQueries({
-                    queryKey: [
-                      'quests',
-                      'infinite',
-                      'for-project',
-                      projectId
-                    ]
+                    queryKey: ['quests', 'infinite', 'for-project', projectId]
                   });
                   await queryClient.invalidateQueries({
-                    queryKey: [
-                      'quests',
-                      'offline',
-                      'for-project',
-                      projectId
-                    ]
+                    queryKey: ['quests', 'offline', 'for-project', projectId]
                   });
                   await queryClient.invalidateQueries({
-                    queryKey: [
-                      'quests',
-                      'cloud',
-                      'for-project',
-                      projectId
-                    ]
+                    queryKey: ['quests', 'cloud', 'for-project', projectId]
                   });
                   console.log('🔄 Quest queries invalidated');
                   // Stop animation after a brief delay

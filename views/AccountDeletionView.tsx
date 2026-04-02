@@ -211,7 +211,11 @@ export default function AccountDeletionView() {
         <View className="flex flex-row gap-2">
           {step === 1 ? (
             <>
-              <Button variant="outline" onPress={() => router.back()} className="flex-1">
+              <Button
+                variant="outline"
+                onPress={() => router.back()}
+                className="flex-1"
+              >
                 <Text>{t('cancel')}</Text>
               </Button>
               <Button

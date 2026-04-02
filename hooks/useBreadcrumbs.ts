@@ -30,9 +30,9 @@ interface Breadcrumb {
  * Uses local PowerSync DB for instant lookups.
  */
 function useQuestAncestors(questId: string | undefined) {
-  const [ancestors, setAncestors] = useState<
-    { id: string; name: string }[]
-  >([]);
+  const [ancestors, setAncestors] = useState<{ id: string; name: string }[]>(
+    []
+  );
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
@@ -49,15 +49,17 @@ function useQuestAncestors(questId: string | undefined) {
       let currentId: string | null = id;
 
       while (currentId) {
-        const results: { parentId: string | null; parentName: string | null }[] =
-          await system.db
-            .select({
-              parentId: questTable.parent_id,
-              parentName: questTable.name
-            })
-            .from(questTable)
-            .where(eq(questTable.id, currentId))
-            .limit(1);
+        const results: {
+          parentId: string | null;
+          parentName: string | null;
+        }[] = await system.db
+          .select({
+            parentId: questTable.parent_id,
+            parentName: questTable.name
+          })
+          .from(questTable)
+          .where(eq(questTable.id, currentId))
+          .limit(1);
 
         const row = results[0];
         if (!row?.parentId) break;
@@ -149,10 +151,7 @@ export function useBreadcrumbs(): Breadcrumb[] {
         label: project.name || 'Project',
         onPress:
           questId || assetId
-            ? () =>
-                router.dismissTo(
-                  href(`/(app)/project/${projectId}`)
-                )
+            ? () => router.dismissTo(href(`/(app)/project/${projectId}`))
             : undefined
       });
     }

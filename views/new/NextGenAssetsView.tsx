@@ -115,12 +115,7 @@ function KeepAwakeGuard() {
 }
 
 export default function NextGenAssetsView() {
-  const {
-    questId,
-    projectId,
-    router,
-    goToRecording
-  } = useNavigationHelpers();
+  const { questId, projectId, router, goToRecording } = useNavigationHelpers();
   const { currentUser } = useAuth();
   const audioContext = useAudio();
   const queryClient = useQueryClient();
@@ -1417,8 +1412,7 @@ export default function NextGenAssetsView() {
     }
 
     // Create recording session and navigate to RecordingView
-    const recordingSessionId =
-      await createQuestRecordingSession(questId);
+    const recordingSessionId = await createQuestRecordingSession(questId);
     const lastOrderIndex = assets.reduce<number | null>((maxOrder, asset) => {
       if (typeof asset.order_index !== 'number') {
         return maxOrder;
@@ -1490,7 +1484,9 @@ export default function NextGenAssetsView() {
 
   return (
     <View className="flex flex-1 flex-col gap-6 p-6 pt-0">
-      {selectedQuest?.name && <Stack.Screen options={{ title: selectedQuest.name }} />}
+      {selectedQuest?.name && (
+        <Stack.Screen options={{ title: selectedQuest.name }} />
+      )}
       {isPlayAllPlayerActive && <KeepAwakeGuard />}
       <View className="flex flex-row items-center justify-between">
         <View className="flex flex-row items-center gap-2">
