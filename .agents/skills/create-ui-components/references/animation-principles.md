@@ -1,5 +1,7 @@
 <overview>
-Animation UX philosophy and design principles. Covers the "why" behind animations—when to animate, what purpose motion serves, and how to create interfaces that feel alive without overwhelming users.
+Animation UX principles specific to mobile app flows: progressive disclosure, tray systems, fluidity patterns, and multi-step transitions.
+
+For general animation philosophy (when to animate, purpose of motion, frequency decisions, easing theory, component patterns), see the `emil-design-eng` skill.
 </overview>
 
 <core_philosophy>
@@ -11,17 +13,6 @@ Three guiding principles:
 
 This respects the user's time, intelligence, and experience.
 </core_philosophy>
-
-<animation_purpose>
-Before animating, ask _why_:
-
-- **Be Useful:** Serve a real goal. Making users happy is also useful.
-- **Connect States:** Link actions to consequences, showing clear relationships between states.
-- **Keep Users Oriented:** Visually explain where users are in the interface.
-- **Guide Attention:** Notify users of changes or draw focus to important elements.
-- **Tell a Story:** Convey ideas and provide context better than static elements.
-- **Enhance Perception:** Improve how fast and responsive interfaces feel. Perception of speed > actual performance.
-</animation_purpose>
 
 <simplicity_progressive_disclosure>
 Make complex products accessible without sacrificing depth:
@@ -56,11 +47,6 @@ Components housed within trays that expand, contract, and adapt:
 <fluidity_transitions>
 A fluid interface feels like moving through water—you float rather than walk.
 
-**Purpose of Motion:**
-- Each animation serves an architectural purpose
-- Motion aids understanding of the path from A → B
-- Every movement feels like a logical step forward
-
 **Patterns for Fluidity:**
 - **Directional awareness:** Switching tabs → transition moves in tab direction. "We fly instead of teleport."
 - **Icon transformations:** Transform chevrons during flows (e.g., chevron → back arrow)
@@ -74,33 +60,6 @@ Components should "travel" between screens rather than disappear and reappear. E
 - Empty states keep unchanged text constant
 - Same element animates into its new position rather than fading out/in
 </fluidity_transitions>
-
-<delight_design>
-Create moments that resonate on a personal level.
-
-**Foundation:** Achieve consistent polish everywhere first. Users notice unpolished corners.
-> "It's like going to a fancy restaurant but finding it has a dirty bathroom."
-
-**Delight-Impact Curve:**
-
-| Feature Frequency | Delight Strategy |
-|---|---|
-| Daily use | Small, efficient touches that don't become tiresome |
-| Occasional use | Satisfying interactions that reward exploration |
-| Rare use | Memorable, celebration-worthy moments |
-
-The "specialness of a moment" decreases with repeated encounters. Rare features benefit most from delightful surprises.
-
-**Surprise and Novelty:**
-- Easter eggs discovered unexpectedly are strongly associated with delightful products
-- Hide magical moments in plain sight
-- The discovery process itself creates delight
-
-**Match Intensity to Frequency:**
-- **High-frequency:** Commas shift place-to-place when inputting numbers (subtle)
-- **Medium-frequency:** Drag-and-drop with attractive stacking animations (satisfying)
-- **Low-frequency:** Wallet setup animation, confetti on backup completion, trash can with sound effects (memorable)
-</delight_design>
 
 <trust_through_motion>
 > "When my banking app displays a glitchy animation while accessing my checking account, it erodes my trust."

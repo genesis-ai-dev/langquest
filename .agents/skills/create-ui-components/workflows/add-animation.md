@@ -2,19 +2,21 @@
 
 <required_reading>
 **Read these reference files NOW:**
-1. references/animation-principles.md
-2. references/animation-technical.md
-3. references/project-conventions.md
+1. `emil-design-eng` skill — for animation decision framework, easing theory, and component patterns
+2. references/animation-principles.md — for mobile flow patterns (trays, fluidity, progressive disclosure)
+3. references/animation-technical.md — for Reanimated APIs and project-specific implementation
+4. references/project-conventions.md
 </required_reading>
 
 <process>
-## Step 1: Define the Purpose
+## Step 1: Run Emil's Decision Framework
 
-Before writing any animation code, answer:
+Use the `emil-design-eng` skill's Animation Decision Framework:
 
-- **Why does this animation exist?** (orient users, connect states, guide attention, enhance perception, delight)
-- **How frequently will users see it?** (daily → subtle, occasional → satisfying, rare → memorable)
-- **Does this transition show where the user came from and where they're going?**
+1. **Should this animate at all?** (frequency table)
+2. **What is the purpose?** (spatial consistency, state indication, feedback, preventing jarring changes)
+3. **What easing should it use?** (entering/exiting → ease-out, moving → ease-in-out, hover → ease)
+4. **How fast should it be?** (duration table)
 
 If the animation doesn't serve a clear purpose, don't add it.
 
@@ -31,25 +33,19 @@ If the animation doesn't serve a clear purpose, don't add it.
 | Confirmation | Hold-to-action with clip-path fill |
 | Celebration | Confetti, particle effects (rare features only) |
 
-## Step 3: Implement
+## Step 3: Implement (React Native Specifics)
 
-**Timing:**
-- Most animations under 500ms, never over 1s
-- Exit animations faster than enter (200ms exit, 300ms enter)
+**Easing:**
 - Use custom easing from `@constants/animations.ts` (`easeOut`, `easeInOut`, `easeSnappy`, `easeSpring`)
 
 **Performance:**
 - Animate only `opacity` and `transform` for 60 FPS
 - Never animate `width`, `height`, `padding`, `margin`
-- Use `clip-path` for reveal effects instead of dimension changes
-- Use `will-change` only if experiencing actual performance issues
 
-**Implementation:**
-- Never scale from zero — start at scale(0.9)
-- Set `transform-origin` to match the trigger point (origin-aware)
-- For springs, use React Native Reanimated
+**Reanimated:**
 - Use `.get()` and `.set()` on shared values (React Compiler compliant, not `.value`)
 - Use `scheduleOnRN` for worklet-to-RN thread communication — pass function references only, never inline arrows
+- For springs, use `withSpring` from Reanimated
 
 ## Step 4: Handle Transitions Between States
 
@@ -81,27 +77,20 @@ Test the animation:
 
 <anti_patterns>
 Avoid:
-- Animating for decoration without purpose
-- Using `linear` easing (feels unnatural in 99% of cases)
-- Scaling from `0` (use 0.9 minimum)
-- Built-in CSS easings (except `ease` or `linear`) — they lack energy
+- Animating for decoration without purpose (see Emil's decision framework)
 - Animating layout properties (`width`, `height`, `margin`, `padding`)
-- Same speed for enter and exit (exit should be faster)
-- Center `transform-origin` when a specific trigger point exists
-- Ignoring `useReducedMotion()` for accessibility
 - Using `.value` on shared values instead of `.get()`/`.set()`
 - Inline arrow functions in worklets (crashes)
+- Ignoring `useReducedMotion()` for accessibility
 - Gratuitous delight on high-frequency features (becomes annoying)
 </anti_patterns>
 
 <success_criteria>
 A well-animated component:
-- Every animation serves a purpose (orient, connect, guide, enhance, delight)
+- Passes Emil's animation decision framework
 - Uses custom easing from project constants
-- Timing is under 500ms with faster exits than enters
-- Origin-aware transforms from trigger point
-- Persistent elements travel between states
 - Accessible with reduced motion support
 - Performs at 60 FPS (opacity + transform only)
-- Matches intensity to feature frequency
+- Compiler-compliant shared value usage
+- Persistent elements travel between states
 </success_criteria>
