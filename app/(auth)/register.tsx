@@ -4,10 +4,7 @@ import { Redirect, Stack } from 'expo-router';
 
 export default function RegisterScreen() {
   const { isAuthenticated } = useAuth();
-
-  if (isAuthenticated) {
-    return <Redirect href="/" />;
-  }
+  if (isAuthenticated) return <Redirect href="/" />;
 
   return (
     <>

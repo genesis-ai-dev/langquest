@@ -1,11 +1,10 @@
+import { useAuth } from '@/contexts/AuthContext';
 import NotificationsView from '@/views/NotificationsView';
-import { Stack } from 'expo-router';
+import { Redirect } from 'expo-router';
 
 export default function NotificationsRoute() {
-  return (
-    <>
-      <Stack.Screen options={{ title: 'Notifications' }} />
-      <NotificationsView />
-    </>
-  );
+  const { isAuthenticated } = useAuth();
+  if (!isAuthenticated) return <Redirect href="/" />;
+
+  return <NotificationsView />;
 }

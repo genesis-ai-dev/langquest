@@ -108,7 +108,7 @@ export default function NextGenNewTranslationModal({
 }: NextGenNewTranslationModalProps) {
   const { projectId, questId } = useNavigationHelpers();
   const { t } = useLocalization();
-  const { currentUser, isAuthenticated, isSystemReady } = useAuth();
+  const { currentUser, isAuthenticated } = useAuth();
   const router = useRouter();
   const isOnline = useNetworkStatus();
   const enableAiSuggestions = useLocalStore(
@@ -129,12 +129,9 @@ export default function NextGenNewTranslationModal({
   const { mutateAsync: localizeTranscription, isPending: isLocalizing } =
     useTranscriptionLocalization();
 
-  // Use reactive isSystemReady from AuthContext instead of non-reactive isPowerSyncInitialized
-  const isPowerSyncReady = isSystemReady;
-
   // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   const projectOfflineQuery = React.useMemo(() => {
-    if (!isPowerSyncReady || !isAuthenticated) {
+    if (!isAuthenticated) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return
       return 'SELECT * FROM project WHERE 1=0' as any;
     }
@@ -143,7 +140,7 @@ export default function NextGenNewTranslationModal({
         where: projectId ? eq(project.id, projectId) : undefined
       })
     );
-  }, [projectId, isPowerSyncReady, isAuthenticated]);
+  }, [projectId, isAuthenticated]);
 
   const { data: queriedProjectDataArray } = useHybridData({
     dataType: 'project-new-translation',

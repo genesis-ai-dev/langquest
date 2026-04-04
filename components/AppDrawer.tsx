@@ -667,7 +667,7 @@ export default function AppDrawer({
           {/* Main drawer items */}
           <View className="flex flex-col gap-2">
             {drawerItems.map((item, index) => {
-              const isActive = currentView === item.view;
+              const isActive = !!item.view && currentView === item.view;
 
               return (
                 <Button

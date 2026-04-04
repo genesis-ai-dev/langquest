@@ -1471,6 +1471,9 @@ export default function NextGenAssetsView() {
     };
   }, [isPlayAllRunningRef, playbackCheckpoint, stopPlayAll]);
 
+  const { project: projectForName } = useProjectById(projectId);
+  const projectName = projectForName?.name || '';
+
   if (!questId) {
     return (
       <View className="flex-1 items-center justify-center p-6">
@@ -1478,9 +1481,6 @@ export default function NextGenAssetsView() {
       </View>
     );
   }
-
-  const { project: projectForName } = useProjectById(projectId);
-  const projectName = projectForName?.name || '';
 
   return (
     <View className="flex flex-1 flex-col gap-6 p-6 pt-0">

@@ -25,13 +25,7 @@ export function useChapterExport() {
 
   const exportMutation = useMutation<ExportResponse, Error, ExportRequest>({
     mutationFn: async (request: ExportRequest) => {
-      const localhost =
-        Platform.OS === 'android'
-          ? 'http://10.0.2.2:3000'
-          : 'http://localhost:3000';
-      const siteUrl =
-        process.env.EXPO_PUBLIC_SITE_URL ||
-        (__DEV__ ? localhost : 'https://langquest.org');
+      const siteUrl = process.env.EXPO_PUBLIC_SITE_URL!;
 
       // Detect environment from Supabase URL if not provided
       let environment = request.environment;
@@ -136,13 +130,7 @@ export function useExportStatus(exportId: string | null) {
         throw new Error('Export ID is required');
       }
 
-      const localhost =
-        Platform.OS === 'android'
-          ? 'http://10.0.2.2:3000'
-          : 'http://localhost:3000';
-      const siteUrl =
-        process.env.EXPO_PUBLIC_SITE_URL ||
-        (__DEV__ ? localhost : 'https://langquest.org');
+      const siteUrl = process.env.EXPO_PUBLIC_SITE_URL!;
 
       // Get the current session token
       const {

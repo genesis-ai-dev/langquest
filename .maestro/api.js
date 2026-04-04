@@ -1,5 +1,6 @@
 const supabaseUrl = MAESTRO_SUPABASE_URL;
 const serviceRoleKey = MAESTRO_SUPABASE_SERVICE_ROLE_KEY;
+const siteUrl = MAESTRO_SITE_URL;
 
 function deleteUser(email) {
   // Validate email is defined and is a non-empty string
@@ -67,7 +68,7 @@ function generatePasswordResetLink(email) {
   // Format: https://langquest.org/en/reset-password?project_ref={projectRef}
   // Default to 'en' locale
   const locale = 'en';
-  const finalRedirectTo = `https://langquest.org/${locale}/reset-password?project_ref=${projectRef}`;
+  const finalRedirectTo = `${siteUrl}/${locale}/reset-password?project_ref=${projectRef}`;
 
   console.log('Using project ref:', projectRef);
   console.log('Using redirect URL:', finalRedirectTo);
@@ -107,7 +108,7 @@ function generatePasswordResetLink(email) {
 
   // The generate_link API returns a link that goes through Supabase's verification endpoint
   // We need to reconstruct it to match the send-email format:
-  // https://langquest.org/supabase/{projectRef}/auth/v1/verify?token=xxx&type=recovery&redirect_to=https://langquest.org/en/reset-password?project_ref={projectRef}
+  // {siteUrl}/supabase/{projectRef}/auth/v1/verify?token=xxx&type=recovery&redirect_to={siteUrl}/en/reset-password?project_ref={projectRef}
 
   // Parse and update the redirect_to parameter manually (URL constructor may not be available in GraalJS)
   // Extract token and other params, then reconstruct with the web reset password URL
@@ -122,7 +123,7 @@ function generatePasswordResetLink(email) {
     const encodedRedirectTo = encodeURIComponent(finalRedirectTo);
 
     // Reconstruct the verification URL in the same format as send-email function
-    resetLink = `https://langquest.org/supabase/${projectRef}/auth/v1/verify?token=${token}&type=${type}&redirect_to=${encodedRedirectTo}`;
+    resetLink = `${siteUrl}/supabase/${projectRef}/auth/v1/verify?token=${token}&type=${type}&redirect_to=${encodedRedirectTo}`;
     console.log('Reconstructed reset link matching send-email format');
   } else {
     console.log('Could not parse reset link, using as-is');

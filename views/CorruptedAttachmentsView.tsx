@@ -234,6 +234,7 @@ export default function CorruptedAttachmentsView() {
         </View>
         <ScrollView
           className="flex-1"
+          contentContainerClassName="pb-safe android:pb-[calc(env(safe-area-inset-bottom)+1rem)]"
           refreshControl={
             <RefreshControl
               refreshing={isRefreshing}
@@ -312,6 +313,7 @@ export default function CorruptedAttachmentsView() {
 
       <ScrollView
         className="flex-1"
+        contentContainerClassName="pb-safe android:pb-[calc(env(safe-area-inset-bottom)+1rem)]"
         refreshControl={
           <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />
         }
