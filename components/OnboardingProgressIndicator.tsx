@@ -114,6 +114,7 @@ export function OnboardingProgressIndicator({
           className="absolute left-0 right-0 top-0 h-0.5 bg-muted"
           style={{ top: 12 }}
         >
+          {/* Animated progress fill */}
           <Animated.View
             style={[
               progressBarStyle,
