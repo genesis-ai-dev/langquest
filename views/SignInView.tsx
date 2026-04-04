@@ -103,9 +103,7 @@ export default function SignInView() {
     >
       <Form {...form}>
         <View className="mb-8 flex flex-col items-center justify-center text-center">
-          <Text className="text-6xl font-semibold text-primary">
-            LangQuest
-          </Text>
+          <Text className="text-6xl font-semibold text-primary">LangQuest</Text>
           <Text>{t('welcome')}</Text>
         </View>
         <LanguageCombobox uiReadyOnly toggleUILocalization />

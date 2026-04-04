@@ -28,7 +28,9 @@ interface ResetPasswordViewProps {
   onDismiss: () => void;
 }
 
-export default function ResetPasswordView({ onDismiss }: ResetPasswordViewProps) {
+export default function ResetPasswordView({
+  onDismiss
+}: ResetPasswordViewProps) {
   const { completePasswordReset } = useAuth();
   const { t } = useLocalization();
   const isOnline = useNetworkStatus();

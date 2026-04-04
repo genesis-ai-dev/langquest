@@ -25,7 +25,7 @@ import { ThemeProvider } from '@react-navigation/native';
 import { PortalHost } from '@rn-primitives/portal';
 import { useFonts } from 'expo-font';
 import * as Linking from 'expo-linking';
-import { Stack, useRouter } from 'expo-router';
+import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -38,6 +38,7 @@ import { initializePostHogWithStore } from '@/services/posthog';
 import { useHasHydrated, useLocalStore } from '@/store/localStore';
 import { initializeNetwork } from '@/store/networkStore';
 import { toNavTheme } from '@/utils/styleUtils';
+import { TermsGateView } from '@/views/TermsGateView';
 import { DarkTheme, DefaultTheme } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 
@@ -73,7 +74,7 @@ export const DEFAULT_STACK_OPTIONS = {
   // animation: 'slide_from_right',
 } as const;
 
-const FORM_SHEET_OPTIONS = {
+export const FORM_SHEET_OPTIONS = {
   presentation: 'formSheet',
   sheetCornerRadius: Platform.OS === 'android' ? 24 : undefined
 } as const;
@@ -90,15 +91,10 @@ const FORM_SHEET_OPTIONS = {
 function RootNavigator() {
   const { isLoading, isAuthenticated, migrationNeeded, appUpgradeNeeded } =
     useAuth();
-  const dateTermsAccepted = useLocalStore((s) => s.dateTermsAccepted);
-  const router = useRouter();
 
-  const termsAccepted = !!dateTermsAccepted;
+  const needsMigration = isAuthenticated && !!migrationNeeded;
+  const needsUpgrade = isAuthenticated && !!appUpgradeNeeded;
 
-  const needsMigration = termsAccepted && isAuthenticated && !!migrationNeeded;
-  const needsUpgrade = termsAccepted && isAuthenticated && !!appUpgradeNeeded;
-
-  // (app) mounts regardless of terms; the terms modal overlays it on first launch
   const appReady = !needsMigration && !needsUpgrade && !isLoading;
 
   const isReady = appReady || needsMigration || needsUpgrade;
@@ -120,13 +116,6 @@ function RootNavigator() {
     }
   }, [isReady]);
 
-  // Show terms modal on top of the app when terms haven't been accepted
-  useEffect(() => {
-    if (appReady && !termsAccepted) {
-      router.navigate('/terms');
-    }
-  }, [appReady, termsAccepted, router]);
-
   if (!isReady) {
     return null;
   }
@@ -138,14 +127,6 @@ function RootNavigator() {
         options={{
           ...DEFAULT_STACK_OPTIONS,
           ...FORM_SHEET_OPTIONS
-        }}
-      />
-      <Stack.Screen
-        name="terms"
-        options={{
-          ...DEFAULT_STACK_OPTIONS,
-          ...FORM_SHEET_OPTIONS,
-          gestureEnabled: termsAccepted
         }}
       />
       <Stack.Protected guard={appReady}>
@@ -215,6 +196,7 @@ export default function RootLayout() {
   }, []);
 
   const hasHydrated = useHasHydrated();
+  const termsAccepted = useLocalStore((s) => !!s.dateTermsAccepted);
 
   if (!isColorSchemeLoaded || !fontsLoaded || !hasHydrated) {
     return null;
@@ -222,6 +204,14 @@ export default function RootLayout() {
 
   const scheme: 'light' | 'dark' = colorScheme === 'dark' ? 'dark' : 'light';
   const systemBarsStyle = scheme === 'dark' ? 'light' : 'dark';
+
+  if (!termsAccepted) {
+    return (
+      <ThemeProvider value={NAV_THEME[scheme]}>
+        <TermsGateView systemBarsStyle={systemBarsStyle} />
+      </ThemeProvider>
+    );
+  }
 
   return (
     <PowerSyncContext.Provider value={system.powersync}>

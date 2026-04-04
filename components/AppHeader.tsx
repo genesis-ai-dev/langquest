@@ -155,7 +155,7 @@ export default function AppHeader({
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
-              contentContainerClassName="flex-col justify-center"
+              contentContainerClassName="flex-col justify-center pr-8"
             >
               <Text
                 className={cn(

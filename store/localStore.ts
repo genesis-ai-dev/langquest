@@ -1,7 +1,6 @@
 import type { language, profile } from '@/db/drizzleSchema';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colorScheme } from 'nativewind';
-import { useEffect, useState } from 'react';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
@@ -105,6 +104,7 @@ export interface RecentAsset {
 }
 
 export interface LocalState {
+  _hasHydrated: boolean;
   currentUser: Profile | null;
   setCurrentUser: (user: Profile | null) => void;
   uiLanguage: Language | null;
@@ -311,6 +311,7 @@ export interface LocalState {
 export const useLocalStore = create<LocalState>()(
   persist(
     (set, _get) => ({
+      _hasHydrated: false,
       currentUser: null,
       setCurrentUser: (user) => set({ currentUser: user }),
       uiLanguage: null,
@@ -518,52 +519,49 @@ export const useLocalStore = create<LocalState>()(
           return { recentAssets: [asset, ...filtered].slice(0, 5) };
         }),
 
-      // Attachment sync methods with batching to prevent rapid updates
       setAttachmentSyncProgress: (() => {
         let pendingUpdate: Partial<
           LocalState['attachmentSyncProgress']
         > | null = null;
         let timeoutId: ReturnType<typeof setTimeout> | null = null;
-        const BATCH_DELAY_MS = 50; // Batch updates within 50ms
+        const BATCH_DELAY_MS = 100;
 
         return (progress: Partial<LocalState['attachmentSyncProgress']>) => {
-          // Merge with pending update
           pendingUpdate = pendingUpdate
             ? { ...pendingUpdate, ...progress }
             : progress;
 
-          // Clear existing timeout
           if (timeoutId) {
             clearTimeout(timeoutId);
           }
 
-          // Schedule batched update
           timeoutId = setTimeout(() => {
-            if (pendingUpdate) {
+            // Capture and clear BEFORE set() so re-entrant calls during
+            // synchronous React renders don't get discarded
+            const update = pendingUpdate;
+            pendingUpdate = null;
+            timeoutId = null;
+
+            if (update) {
               set((state) => {
                 const current = state.attachmentSyncProgress;
-                const updated = { ...current, ...pendingUpdate };
-
-                // Only update if values actually changed
-                const hasChanges = Object.keys(pendingUpdate!).some(
+                const hasChanges = Object.keys(update).some(
                   (key) =>
                     current[
                       key as keyof LocalState['attachmentSyncProgress']
                     ] !==
-                    updated[key as keyof LocalState['attachmentSyncProgress']]
+                    update[key as keyof LocalState['attachmentSyncProgress']]
                 );
 
                 if (!hasChanges) {
-                  return state; // No changes, return same state
+                  return state;
                 }
 
                 return {
-                  attachmentSyncProgress: updated
+                  attachmentSyncProgress: { ...current, ...update }
                 };
               });
-              pendingUpdate = null;
             }
-            timeoutId = null;
           }, BATCH_DELAY_MS);
         };
       })(),
@@ -734,7 +732,6 @@ export const useLocalStore = create<LocalState>()(
               if (oldValue !== null) {
                 const migratedValue = oldValue === 'true';
                 state.offlineUndownloadWarningEnabled = migratedValue;
-                // Optionally remove the old key after migration
                 await AsyncStorage.removeItem(OFFLINE_UNDOWNLOAD_WARNING_KEY);
                 console.log(
                   `[LocalStore] Migrated offline undownload warning preference: ${migratedValue}`
@@ -748,11 +745,12 @@ export const useLocalStore = create<LocalState>()(
             }
           }
         }
+        useLocalStore.setState({ _hasHydrated: true });
       },
       partialize: (state) =>
         Object.fromEntries(
           Object.entries(state).filter(
-            ([key]) => !['currentUser'].includes(key)
+            ([key]) => !['_hasHydrated', 'currentUser'].includes(key)
           )
         )
     }
@@ -761,18 +759,9 @@ export const useLocalStore = create<LocalState>()(
 
 /**
  * Returns true once the persisted store has finished rehydrating from AsyncStorage.
- * Use this to gate UI that depends on persisted values (e.g. terms acceptance)
- * to avoid flash-of-wrong-state on app restart.
+ * Lives in the store itself (set via onRehydrateStorage) so it resets alongside
+ * all other state when the store is recreated during HMR — no stale-true flash.
  */
 export function useHasHydrated() {
-  const [hydrated, setHydrated] = useState(useLocalStore.persist.hasHydrated());
-
-  useEffect(() => {
-    const unsub = useLocalStore.persist.onFinishHydration(() =>
-      setHydrated(true)
-    );
-    return unsub;
-  }, []);
-
-  return hydrated;
+  return useLocalStore((s) => s._hasHydrated);
 }

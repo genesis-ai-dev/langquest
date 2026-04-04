@@ -126,7 +126,10 @@ export default function AccountDeletionView() {
   };
 
   return (
-    <ScrollView className="flex-1 bg-background" contentContainerClassName="pb-safe android:pb-[calc(env(safe-area-inset-bottom)+1rem)]">
+    <ScrollView
+      className="flex-1 bg-background"
+      contentContainerClassName="pb-safe android:pb-[calc(env(safe-area-inset-bottom)+1rem)]"
+    >
       <View className="flex flex-col gap-6 p-6">
         {/* Header */}
         <View className="flex flex-row items-center justify-between">
@@ -170,7 +173,7 @@ export default function AccountDeletionView() {
             </View>
 
             <View className="flex flex-col gap-2">
-              <Link href="/terms" push>
+              <Link href="/(app)/terms" push>
                 {t('viewTerms')}
               </Link>
             </View>

@@ -10,9 +10,10 @@ import { useAssetById } from '@/hooks/db/useAssets';
 import { useProjectById } from '@/hooks/db/useProjects';
 import { useQuestById } from '@/hooks/db/useQuests';
 import { useLocalization } from '@/hooks/useLocalization';
+import type { LocalizationKey } from '@/services/localizations';
+import { eq } from 'drizzle-orm';
 import type { Href } from 'expo-router';
 import { useGlobalSearchParams, usePathname, useRouter } from 'expo-router';
-import { eq } from 'drizzle-orm';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 function href(path: string): Href {
@@ -102,6 +103,15 @@ function useQuestAncestors(questId: string | undefined) {
   return { ancestors, isLoading };
 }
 
+/** Maps the last pathname segment to its localization key. */
+const STANDALONE_ROUTES: Record<string, LocalizationKey> = {
+  settings: 'settings',
+  notifications: 'notifications',
+  profile: 'profile',
+  terms: 'termsAndPrivacyTitle',
+  'account-deletion': 'accountDeletionTitle'
+};
+
 export function useBreadcrumbs(): Breadcrumb[] {
   const params = useGlobalSearchParams<{
     projectId?: string;
@@ -123,13 +133,7 @@ export function useBreadcrumbs(): Breadcrumb[] {
 
   const isOnRecording = pathname.endsWith('/recording');
 
-  const standaloneRoute = pathname.endsWith('/settings')
-    ? 'settings'
-    : pathname.endsWith('/notifications')
-      ? 'notifications'
-      : pathname.endsWith('/profile')
-        ? 'profile'
-        : null;
+  const standaloneRoute = STANDALONE_ROUTES[pathname.split('/').pop() ?? ''];
 
   const contentTrailRef = useRef<{ crumbs: Breadcrumb[]; pathname: string }>({
     crumbs: [],
@@ -222,8 +226,7 @@ export function useBreadcrumbs(): Breadcrumb[] {
             if (i === arr.length - 1 && !crumb.onPress && savedPath) {
               return {
                 ...crumb,
-                onPress: () =>
-                  router.dismissTo(href(`/(app)${savedPath}`))
+                onPress: () => router.dismissTo(href(`/(app)${savedPath}`))
               };
             }
             return crumb;

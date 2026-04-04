@@ -18,8 +18,8 @@ import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
 import { profileService } from '@/database_services/profileService';
 import { system } from '@/db/powersync/system';
-import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { usePostHog } from '@/hooks/usePostHog';
 import {
