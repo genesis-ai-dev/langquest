@@ -1,11 +1,10 @@
+import { useAuth } from '@/contexts/AuthContext';
 import SettingsView from '@/views/SettingsView';
-import { Stack } from 'expo-router';
+import { Redirect } from 'expo-router';
 
 export default function SettingsRoute() {
-  return (
-    <>
-      <Stack.Screen options={{ title: 'Settings' }} />
-      <SettingsView />
-    </>
-  );
+  const { isAuthenticated } = useAuth();
+  if (!isAuthenticated) return <Redirect href="/" />;
+
+  return <SettingsView />;
 }

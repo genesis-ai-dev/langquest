@@ -48,7 +48,6 @@ import { getDefaultOpMetadata } from './opMetadata';
 
 import { initializeFiaQueue } from '@/services/FiaAttachmentQueue';
 import { posthog } from '@/services/posthog';
-import { useLocalStore } from '@/store/localStore';
 import { useNetworkStore } from '@/store/networkStore';
 import { resetDatabase } from '@/utils/dbUtils';
 import type { InferInsertModel } from 'drizzle-orm';
@@ -428,17 +427,24 @@ export class System {
             return { retry: false };
           }
 
+          const errorMsg = exception.toString();
+
           if (
-            exception.toString() ===
-            'StorageApiError: The resource already exists'
+            errorMsg === 'StorageApiError: The resource already exists' ||
+            errorMsg.includes('row-level security policy')
           ) {
+            console.log(
+              '[PermAttachmentQueue] Permanent upload error (not retrying):',
+              _attachment.id,
+              errorMsg
+            );
             return { retry: false };
           }
 
           console.log(
             '[PermAttachmentQueue] onUploadError',
             JSON.stringify(_attachment, null, 2),
-            exception.toString()
+            errorMsg
           );
           return { retry: true };
         }
@@ -644,13 +650,10 @@ export class System {
             }
           }
 
-          // Skip PowerSync init and connect - app can still use local database
-          this.initialized = true; // Mark as initialized so app can continue
-          // Don't initialize attachment queues - they require sync
+          this.initialized = true;
           this.attachmentQueuesInitialized = false;
-          useLocalStore.getState().setSystemReady(true);
           console.log('[System] System ready (degraded mode - no sync)');
-          return; // Exit early, skip all sync-related initialization
+          return;
         }
 
         console.log('Initializing PowerSync...');
@@ -684,16 +687,11 @@ export class System {
         console.log('[System] ✓ Schema is up to date');
       }
 
-      // OFFLINE-FIRST FIX: Mark system as initialized and ready BEFORE connect()
-      // PowerSync is designed for offline-first - the local SQLite database is fully
-      // functional after powersync.init() completes. connect() handles sync in the
-      // background with automatic retries, so we don't need to block on it.
+      // Mark as initialized BEFORE connect() -- PowerSync is offline-first,
+      // the local SQLite database is fully functional after powersync.init().
+      // connect() handles sync in the background with automatic retries.
       this.initialized = true;
       console.log('[System] PowerSync local database initialized');
-
-      // Mark system ready so the app can render with local data immediately
-      useLocalStore.getState().setSystemReady(true);
-      console.log('[System] System marked as ready (offline-first)');
 
       // Start sync and attachment queues in background (non-blocking)
       // This prevents infinite spinner when offline with expired JWT
@@ -1776,10 +1774,6 @@ export class System {
     this.initialized = false;
     this.connecting = false;
     this.connectionPromise = null;
-
-    // This will cause useAuth to re-run system.init()
-    // which will now pass the migration check
-    useLocalStore.getState().setSystemReady(false);
   }
 
   /**
@@ -1789,8 +1783,6 @@ export class System {
   clearMigrationNeeded(): void {
     console.log('[System] Clearing migration needed flag (degraded mode)');
     this.migrationNeeded = false;
-    // Set system ready to allow app to continue
-    useLocalStore.getState().setSystemReady(true);
   }
 
   /**

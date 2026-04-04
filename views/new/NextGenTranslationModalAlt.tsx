@@ -67,13 +67,10 @@ interface NextGenTranslationModalProps {
 }
 
 function useNextGenTranslation(assetId: string) {
-  const { isAuthenticated, isSystemReady } = useAuth();
-  // Use reactive isSystemReady from AuthContext instead of non-reactive isPowerSyncInitialized
-  const isPowerSyncReady = isSystemReady;
+  const { isAuthenticated } = useAuth();
 
-  // Only create offline query if PowerSync is initialized and user is authenticated
   const offlineQuery = React.useMemo(() => {
-    if (!isPowerSyncReady || !isAuthenticated) {
+    if (!isAuthenticated) {
       return 'SELECT * FROM asset WHERE 1=0' as any;
     }
     return toCompilableQuery(
@@ -85,7 +82,7 @@ function useNextGenTranslation(assetId: string) {
         }
       })
     );
-  }, [assetId, isPowerSyncReady, isAuthenticated]);
+  }, [assetId, isAuthenticated]);
 
   return useHybridData<
     Omit<typeof asset.$inferSelect, 'images'> & {

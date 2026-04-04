@@ -155,7 +155,7 @@ export default function AppHeader({
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
-              contentContainerClassName="flex-col justify-center"
+              contentContainerClassName="flex-col justify-center pr-8"
             >
               <Text
                 className={cn(
@@ -191,7 +191,6 @@ export default function AppHeader({
                 </View>
               )}
             </ScrollView>
-            {/* Opacity fade overlay fixed at the right edge, overtop the ScrollView */}
             {breadcrumbs.length > 1 && (
               <LinearGradient
                 colors={opacityGradientColors}

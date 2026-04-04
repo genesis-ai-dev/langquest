@@ -1,11 +1,10 @@
+import { useAuth } from '@/contexts/AuthContext';
 import CorruptedAttachmentsView from '@/views/CorruptedAttachmentsView';
-import { Stack } from 'expo-router';
+import { Redirect } from 'expo-router';
 
 export default function CorruptedAttachmentsRoute() {
-  return (
-    <>
-      <Stack.Screen options={{ title: 'Corrupted Attachments' }} />
-      <CorruptedAttachmentsView />
-    </>
-  );
+  const { isAuthenticated } = useAuth();
+  if (!isAuthenticated) return <Redirect href="/" />;
+
+  return <CorruptedAttachmentsView />;
 }

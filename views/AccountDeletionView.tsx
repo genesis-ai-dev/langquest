@@ -16,7 +16,6 @@ import { system } from '@/db/powersync/system';
 import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { getNetworkStatus, useNetworkStatus } from '@/hooks/useNetworkStatus';
-import { useLocalStore } from '@/store/localStore';
 import { resetDatabase } from '@/utils/dbUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { useMutation } from '@tanstack/react-query';
@@ -36,7 +35,6 @@ export default function AccountDeletionView() {
   const { goToProjects, router } = useNavigationHelpers();
   const isOnline = useNetworkStatus();
   const [step, setStep] = useState<1 | 2>(1);
-  const setSystemReady = useLocalStore((state) => state.setSystemReady);
 
   const { mutateAsync: deleteAccount, isPending } = useMutation({
     mutationFn: async () => {
@@ -44,22 +42,17 @@ export default function AccountDeletionView() {
         throw new Error('No user ID found');
       }
 
-      // Check network status inside mutation (not closure value)
       if (!getNetworkStatus()) {
         throw new Error(t('accountDeletionRequiresOnline'));
       }
 
-      // 1. Soft delete profile (set active = false)
       await profileService.deleteAccount(currentUser.id);
 
-      // 2. Wait for PowerSync to sync the profile.active change
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      // 3. Cleanup and reinitialize system before signing out
       console.log(
         '[AccountDeletionView] Cleaning up system before sign out...'
       );
-      setSystemReady(false);
       try {
         await system.cleanup();
         await resetDatabase();
@@ -133,7 +126,10 @@ export default function AccountDeletionView() {
   };
 
   return (
-    <ScrollView className="flex-1 bg-background">
+    <ScrollView
+      className="flex-1 bg-background"
+      contentContainerClassName="pb-safe android:pb-[calc(env(safe-area-inset-bottom)+1rem)]"
+    >
       <View className="flex flex-col gap-6 p-6">
         {/* Header */}
         <View className="flex flex-row items-center justify-between">
@@ -177,7 +173,7 @@ export default function AccountDeletionView() {
             </View>
 
             <View className="flex flex-col gap-2">
-              <Link href="/terms" push>
+              <Link href="/(app)/terms" push>
                 {t('viewTerms')}
               </Link>
             </View>

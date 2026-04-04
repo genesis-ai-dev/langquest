@@ -107,7 +107,10 @@ export default function DownloadStatusView() {
   }, [progress.synced, progress.total]);
 
   return (
-    <ScrollView className="flex-1 bg-background">
+    <ScrollView
+      className="flex-1 bg-background"
+      contentContainerClassName="pb-safe android:pb-[calc(env(safe-area-inset-bottom)+1rem)]"
+    >
       <View className="flex-1 gap-4 p-4">
         {/* Header */}
         <View className="flex-row items-center justify-between">
