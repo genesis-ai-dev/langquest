@@ -1,6 +1,6 @@
+import type { QuestMetadata } from '@/db/drizzleSchemaColumns';
 import { useProjectById } from '@/hooks/db/useProjects';
 import { useQuestById } from '@/hooks/db/useQuests';
-import type { QuestMetadata } from '@/db/drizzleSchemaColumns';
 import { useFiaBooks } from '@/hooks/useFiaBooks';
 import { useProjectSourceLanguoid } from '@/hooks/useProjectSourceLanguoid';
 import BibleAssetsView from '@/views/new/BibleAssetsView';

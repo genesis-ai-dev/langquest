@@ -1104,6 +1104,7 @@ export default function NotificationsView() {
       <View className="flex-1 flex-col gap-4">
         <ScrollView
           className="flex-1"
+          contentContainerClassName="pb-safe android:pb-[calc(env(safe-area-inset-bottom)+1rem)]"
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           refreshControl={

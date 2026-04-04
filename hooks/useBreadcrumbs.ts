@@ -13,7 +13,7 @@ import { useLocalization } from '@/hooks/useLocalization';
 import type { Href } from 'expo-router';
 import { useGlobalSearchParams, usePathname, useRouter } from 'expo-router';
 import { eq } from 'drizzle-orm';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 function href(path: string): Href {
   return path as unknown as Href;
@@ -131,20 +131,20 @@ export function useBreadcrumbs(): Breadcrumb[] {
         ? 'profile'
         : null;
 
-  return useMemo(() => {
-    const crumbs: Breadcrumb[] = [];
+  const contentTrailRef = useRef<{ crumbs: Breadcrumb[]; pathname: string }>({
+    crumbs: [],
+    pathname: ''
+  });
 
-    const isDeeper = !!(projectId || questId || assetId || standaloneRoute);
+  // Build content breadcrumbs from current route params (meaningful on content routes)
+  const contentCrumbs = useMemo(() => {
+    const crumbs: Breadcrumb[] = [];
+    const isDeeper = !!(projectId || questId || assetId);
 
     crumbs.push({
       label: t('projects'),
       onPress: isDeeper ? () => router.dismissTo(href('/(app)/')) : undefined
     });
-
-    if (standaloneRoute) {
-      crumbs.push({ label: t(standaloneRoute) });
-      return crumbs;
-    }
 
     if (project && projectId) {
       crumbs.push({
@@ -197,9 +197,44 @@ export function useBreadcrumbs(): Breadcrumb[] {
     questId,
     assetId,
     isOnRecording,
-    standaloneRoute,
     router,
-    t,
-    pathname
+    t
   ]);
+
+  // Persist the content trail whenever we're on a content route
+  useEffect(() => {
+    if (!standaloneRoute) {
+      contentTrailRef.current = { crumbs: contentCrumbs, pathname };
+    }
+  }, [standaloneRoute, contentCrumbs, pathname]);
+
+  return useMemo(() => {
+    if (!standaloneRoute) return contentCrumbs;
+
+    // Restore the saved content trail and append the standalone label
+    const { crumbs: saved, pathname: savedPath } = contentTrailRef.current;
+
+    const baseCrumbs: Breadcrumb[] =
+      saved.length > 0
+        ? saved.map((crumb, i, arr) => {
+            // The last content crumb had no onPress (it was the active page).
+            // Now a standalone route sits on top, so make it tappable.
+            if (i === arr.length - 1 && !crumb.onPress && savedPath) {
+              return {
+                ...crumb,
+                onPress: () =>
+                  router.dismissTo(href(`/(app)${savedPath}`))
+              };
+            }
+            return crumb;
+          })
+        : [
+            {
+              label: t('projects'),
+              onPress: () => router.dismissTo(href('/(app)/'))
+            }
+          ];
+
+    return [...baseCrumbs, { label: t(standaloneRoute) }];
+  }, [standaloneRoute, contentCrumbs, router, t]);
 }

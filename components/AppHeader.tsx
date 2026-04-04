@@ -191,7 +191,6 @@ export default function AppHeader({
                 </View>
               )}
             </ScrollView>
-            {/* Opacity fade overlay fixed at the right edge, overtop the ScrollView */}
             {breadcrumbs.length > 1 && (
               <LinearGradient
                 colors={opacityGradientColors}

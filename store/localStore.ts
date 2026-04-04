@@ -105,8 +105,6 @@ export interface RecentAsset {
 }
 
 export interface LocalState {
-  systemReady: boolean;
-  setSystemReady: (ready: boolean) => void;
   currentUser: Profile | null;
   setCurrentUser: (user: Profile | null) => void;
   uiLanguage: Language | null;
@@ -313,9 +311,6 @@ export interface LocalState {
 export const useLocalStore = create<LocalState>()(
   persist(
     (set, _get) => ({
-      systemReady: false,
-      setSystemReady: (ready) => set({ systemReady: ready }),
-
       currentUser: null,
       setCurrentUser: (user) => set({ currentUser: user }),
       uiLanguage: null,
@@ -757,7 +752,7 @@ export const useLocalStore = create<LocalState>()(
       partialize: (state) =>
         Object.fromEntries(
           Object.entries(state).filter(
-            ([key]) => !['systemReady', 'currentUser'].includes(key)
+            ([key]) => !['currentUser'].includes(key)
           )
         )
     }

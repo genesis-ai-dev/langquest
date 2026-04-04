@@ -420,7 +420,10 @@ export default function SettingsView() {
   };
 
   return (
-    <ScrollView className="p-4">
+    <ScrollView
+      className="flex-1"
+      contentContainerClassName="p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]"
+    >
       <View className="gap-6">
         <View className="flex-row items-center justify-between">
           <Text className="text-2xl font-bold">{t('settings')}</Text>

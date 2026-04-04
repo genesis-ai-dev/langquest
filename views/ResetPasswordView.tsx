@@ -18,17 +18,19 @@ import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
-import { useRouter } from 'expo-router';
 import { LockIcon } from 'lucide-react-native';
 import { useForm } from 'react-hook-form';
 import { Keyboard, View } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { z } from 'zod';
 
-export default function ResetPasswordView() {
-  const { signOut } = useAuth();
+interface ResetPasswordViewProps {
+  onDismiss: () => void;
+}
+
+export default function ResetPasswordView({ onDismiss }: ResetPasswordViewProps) {
+  const { completePasswordReset } = useAuth();
   const { t } = useLocalization();
-  const router = useRouter();
   const isOnline = useNetworkStatus();
 
   const formSchema = z
@@ -62,10 +64,10 @@ export default function ResetPasswordView() {
         {
           text: t('ok'),
           isPreferred: true,
-          // Sign out and let auth context handle navigation to sign in
-          // ** It is needed to wait the keyboard be hidden, otherwise can cause some components to be flickering
-          // at next page.
-          onPress: () => void signOut()
+          onPress: () => {
+            completePasswordReset();
+            onDismiss();
+          }
         }
       ]);
 
@@ -155,10 +157,8 @@ export default function ResetPasswordView() {
 
             <Button
               onPress={() => {
-                // Sign out to clear password reset session, then navigate back
-                void signOut().then(() => {
-                  router.push('/');
-                });
+                completePasswordReset();
+                onDismiss();
               }}
               variant="link"
               disabled={isPending}

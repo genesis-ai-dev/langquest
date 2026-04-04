@@ -1,6 +1,11 @@
 /**
- * App group layout - shared chrome (header, drawer, overlays) + Stack.Protected route guards.
+ * App group layout - shared chrome (header, drawer, overlays) + nested Stack navigator.
  * The root layout's Stack.Protected guards ensure this layout only mounts when the app is ready.
+ *
+ * Auth-only screens (profile, settings, etc.) are NOT wrapped in Stack.Protected here.
+ * Changing a Stack.Protected guard while sibling screens have mounted nested navigators
+ * corrupts their state → "Cannot read property 'stale' of undefined".
+ * Each auth-only screen handles its own redirect via useAuth().
  */
 
 import React, { Suspense, useCallback, useEffect, useState } from 'react';
@@ -16,6 +21,7 @@ import { useProfileByUserId } from '@/hooks/db/useProfiles';
 import { useLocalStore } from '@/store/localStore';
 import { Stack, usePathname } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { DEFAULT_STACK_OPTIONS } from '../_layout';
 
 const SimpleOnboardingFlow = React.lazy(() =>
   import('@/views/new/SimpleOnboardingFlow').then((module) => ({
@@ -48,7 +54,6 @@ function AppContent() {
     }
   }, [isProjectsView, setTriggerOnboarding]);
 
-  // Show onboarding after terms are accepted (one-time walkthrough)
   useEffect(() => {
     if (dateTermsAccepted && !onboardingCompleted && !onboardingIsOpen) {
       setOnboardingIsOpen(true);
@@ -60,7 +65,6 @@ function AppContent() {
     setOnboardingIsOpen
   ]);
 
-  // Watch for trigger from AppHeader
   useEffect(() => {
     if (triggerOnboarding && !onboardingIsOpen) {
       setOnboardingIsOpen(true);
@@ -112,26 +116,7 @@ function AppContent() {
         />
       </View>
 
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          animation: 'ios_from_right'
-        }}
-      >
-        {/* Public routes - accessible to both anonymous and authenticated users */}
-        <Stack.Screen name="index" />
-        <Stack.Screen name="project/[projectId]" />
-        <Stack.Screen name="download-status" />
-
-        {/* Auth-only routes - anonymous users are redirected to index */}
-        <Stack.Protected guard={isAuthenticated}>
-          <Stack.Screen name="profile" />
-          <Stack.Screen name="settings" />
-          <Stack.Screen name="notifications" />
-          <Stack.Screen name="corrupted-attachments" />
-          <Stack.Screen name="account-deletion" />
-        </Stack.Protected>
-      </Stack>
+      <Stack screenOptions={DEFAULT_STACK_OPTIONS} />
 
       <Suspense fallback={null}>
         <AppDrawer

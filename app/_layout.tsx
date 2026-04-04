@@ -25,7 +25,7 @@ import { ThemeProvider } from '@react-navigation/native';
 import { PortalHost } from '@rn-primitives/portal';
 import { useFonts } from 'expo-font';
 import * as Linking from 'expo-linking';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -68,42 +68,40 @@ export const NAV_THEME = {
   }
 };
 
+export const DEFAULT_STACK_OPTIONS = {
+  headerShown: false
+  // animation: 'slide_from_right',
+} as const;
+
+const FORM_SHEET_OPTIONS = {
+  presentation: 'formSheet',
+  sheetCornerRadius: Platform.OS === 'android' ? 24 : undefined
+} as const;
+
 /**
  * Root navigator with Stack.Protected guards.
  * Must be rendered inside providers so hooks (useAuth, useLocalStore) work.
+ *
+ * (auth) is NOT guarded by Stack.Protected. Changing a parent Stack.Protected
+ * guard while a sibling group has a mounted nested <Stack> corrupts that
+ * nested navigator's state → "Cannot read property 'stale' of undefined".
+ * Instead, (auth)/_layout.tsx handles auth routing with <Redirect href="/">.
  */
 function RootNavigator() {
-  const {
-    isLoading,
-    isAuthenticated,
-    isSystemReady,
-    migrationNeeded,
-    appUpgradeNeeded
-  } = useAuth();
+  const { isLoading, isAuthenticated, migrationNeeded, appUpgradeNeeded } =
+    useAuth();
   const dateTermsAccepted = useLocalStore((s) => s.dateTermsAccepted);
-  const hasHydrated = useHasHydrated();
+  const router = useRouter();
 
   const termsAccepted = !!dateTermsAccepted;
 
   const needsMigration = termsAccepted && isAuthenticated && !!migrationNeeded;
   const needsUpgrade = termsAccepted && isAuthenticated && !!appUpgradeNeeded;
-  const systemReady = isAuthenticated ? isSystemReady : true;
 
-  const appReady =
-    termsAccepted &&
-    !needsMigration &&
-    !needsUpgrade &&
-    !isLoading &&
-    systemReady;
+  // (app) mounts regardless of terms; the terms modal overlays it on first launch
+  const appReady = !needsMigration && !needsUpgrade && !isLoading;
 
-  const isBlockingState = needsMigration || needsUpgrade;
-
-  // Ready to show content when hydrated AND we can make a definitive routing decision:
-  // - terms not yet accepted → show terms page
-  // - app fully ready → show app
-  // - blocking state (migration/upgrade/reset) → show that screen
-  const showContent =
-    hasHydrated && (!termsAccepted || appReady || isBlockingState);
+  const isReady = appReady || needsMigration || needsUpgrade;
 
   useDrizzleStudio();
 
@@ -117,30 +115,48 @@ function RootNavigator() {
   }, []);
 
   useEffect(() => {
-    if (showContent) {
+    if (isReady) {
       void SplashScreen.hideAsync();
     }
-  }, [showContent]);
+  }, [isReady]);
 
-  if (!showContent) {
+  // Show terms modal on top of the app when terms haven't been accepted
+  useEffect(() => {
+    if (appReady && !termsAccepted) {
+      router.navigate('/terms');
+    }
+  }, [appReady, termsAccepted, router]);
+
+  if (!isReady) {
     return null;
   }
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="terms" options={{ presentation: 'modal' }} />
-      <Stack.Screen name="(auth)" options={{ presentation: 'modal' }} />
+    <Stack screenOptions={DEFAULT_STACK_OPTIONS}>
+      <Stack.Screen
+        name="(auth)"
+        options={{
+          ...DEFAULT_STACK_OPTIONS,
+          ...FORM_SHEET_OPTIONS
+        }}
+      />
+      <Stack.Screen
+        name="terms"
+        options={{
+          ...DEFAULT_STACK_OPTIONS,
+          ...FORM_SHEET_OPTIONS,
+          gestureEnabled: termsAccepted
+        }}
+      />
       <Stack.Protected guard={appReady}>
         <Stack.Screen name="(app)" />
       </Stack.Protected>
-      <Stack.Screen name="reset-password" />
       <Stack.Protected guard={needsMigration}>
         <Stack.Screen name="migration" />
       </Stack.Protected>
       <Stack.Protected guard={needsUpgrade}>
         <Stack.Screen name="upgrade" />
       </Stack.Protected>
-      <Stack.Screen name="+not-found" />
     </Stack>
   );
 }
@@ -198,7 +214,9 @@ export default function RootLayout() {
     hasMounted.current = true;
   }, []);
 
-  if (!isColorSchemeLoaded || !fontsLoaded) {
+  const hasHydrated = useHasHydrated();
+
+  if (!isColorSchemeLoaded || !fontsLoaded || !hasHydrated) {
     return null;
   }
 

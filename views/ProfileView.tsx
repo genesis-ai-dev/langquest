@@ -58,11 +58,10 @@ import { z } from 'zod';
 
 export default function ProfileView() {
   // const { currentUser, setCurrentUser } = useAuth();
-  const { currentUser } = useAuth();
+  const { currentUser, isAuthenticated } = useAuth();
   const { t } = useLocalization();
   const { router } = useNavigationHelpers();
   const isOnline = useNetworkStatus();
-  const systemReady = useLocalStore((state) => state.systemReady);
   const posthog = usePostHog();
   const setAnalyticsOptOut = useLocalStore((state) => state.setAnalyticsOptOut);
   const analyticsOptOut = useLocalStore((state) => state.analyticsOptOut);
@@ -231,7 +230,7 @@ export default function ProfileView() {
     <Form {...form}>
       <KeyboardAwareScrollView
         className="flex-1 bg-background"
-        contentContainerClassName="mb-safe flex flex-col gap-4 p-6"
+        contentContainerClassName="pb-safe android:pb-[calc(env(safe-area-inset-bottom)+1rem)] flex flex-col gap-4 p-6"
         bottomOffset={96}
         extraKeyboardSpace={20}
       >
@@ -482,7 +481,7 @@ export default function ProfileView() {
         />
 
         {/* Advanced Options Section - Always visible when authenticated */}
-        {currentUser && systemReady && (
+        {currentUser && isAuthenticated && (
           <View className="flex flex-col gap-4">
             <View className="h-px bg-border" />
             <Button

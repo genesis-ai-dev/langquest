@@ -19,7 +19,6 @@ import { profileService } from '@/database_services/profileService';
 import { system } from '@/db/powersync/system';
 import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
-import { useLocalStore } from '@/store/localStore';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, LogOutIcon, RotateCcw } from 'lucide-react-native';
 import React from 'react';
@@ -31,7 +30,6 @@ export function AccountDeletedOverlay() {
   const { currentUser, signOut } = useAuth();
   const { goToProjects } = useNavigationHelpers();
   const queryClient = useQueryClient();
-  const setSystemReady = useLocalStore((state) => state.setSystemReady);
 
   const { mutateAsync: restoreAccount, isPending } = useMutation({
     mutationFn: async () => {
@@ -41,18 +39,14 @@ export function AccountDeletedOverlay() {
       await profileService.restoreAccount(currentUser.id);
     },
     onSuccess: async () => {
-      // Wait for PowerSync to sync the profile.active change
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      // Reinitialize system to recreate views etc.
       console.log(
         '[AccountDeletedOverlay] Reinitializing system after account restore...'
       );
-      setSystemReady(false);
       try {
         await system.cleanup();
         await system.init();
-        setSystemReady(true);
         console.log(
           '[AccountDeletedOverlay] System reinitialized successfully'
         );
@@ -61,7 +55,6 @@ export function AccountDeletedOverlay() {
           '[AccountDeletedOverlay] Failed to reinitialize system:',
           error
         );
-        setSystemReady(true); // Set to true anyway so user isn't stuck
       }
 
       // Invalidate profile query to refresh

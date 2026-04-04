@@ -4,9 +4,13 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader
+} from '@/components/ui/drawer';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
-import { PortalHost } from '@rn-primitives/portal';
 import {
   BookOpenIcon,
   FolderIcon,
@@ -15,13 +19,8 @@ import {
   UserPlusIcon,
   XIcon
 } from 'lucide-react-native';
-import React, { useState } from 'react';
-import { Modal, Pressable, View } from 'react-native';
-import {
-  KeyboardAwareScrollView,
-  KeyboardToolbar
-} from 'react-native-keyboard-controller';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import React, { useCallback, useState } from 'react';
+import { Pressable, View } from 'react-native';
 import { AnimatedOnboardingIcon } from './onboarding/AnimatedOnboardingIcon';
 import { AnimatedStepContent } from './onboarding/AnimatedStepContent';
 import { BibleBookListAnimation } from './onboarding/BibleBookListAnimation';
@@ -50,15 +49,12 @@ export function SimpleOnboardingFlow({
   onInviteCollaborators: _onInviteCollaborators
 }: SimpleOnboardingFlowProps) {
   const { t } = useLocalization();
-  const insets = useSafeAreaInsets();
-  // Always start with vision step - language selection happens on terms page
   const [step, setStep] = useState<OnboardingStep>('vision');
   const [projectType, setProjectType] = useState<'bible' | 'other' | null>(
     null
   );
   const [showBibleChapters, setShowBibleChapters] = useState(false);
 
-  // Reset step when modal opens - always start with vision
   React.useEffect(() => {
     if (visible) {
       setStep('vision');
@@ -123,9 +119,6 @@ export function SimpleOnboardingFlow({
     (state) => state.setOnboardingIsOpen
   );
 
-  // Mark as open when this instance becomes visible
-  // The parent component already prevents multiple instances by checking onboardingIsOpen
-  // before setting showSimpleOnboarding to true
   React.useEffect(() => {
     if (visible) {
       setOnboardingIsOpen(true);
@@ -134,25 +127,29 @@ export function SimpleOnboardingFlow({
     }
   }, [visible, setOnboardingIsOpen]);
 
-  const handleClose = () => {
-    // Reset to initial step (vision)
+  const handleClose = useCallback(() => {
     setStep('vision');
     setProjectType(null);
     setShowBibleChapters(false);
-    // Mark onboarding as completed so it doesn't show again
     setOnboardingCompleted(true);
-    // Mark as closed in store
     setOnboardingIsOpen(false);
     onClose();
-  };
+  }, [onClose, setOnboardingCompleted, setOnboardingIsOpen]);
 
-  // Guard: Don't render if not visible
+  const handleOpenChange = useCallback(
+    (open: boolean) => {
+      if (!open) {
+        handleClose();
+      }
+    },
+    [handleClose]
+  );
+
   if (!visible) {
     return null;
   }
 
   const handleAction = () => {
-    // Just continue to next step - buttons are informational, not action buttons
     handleNext();
   };
 
@@ -167,34 +164,28 @@ export function SimpleOnboardingFlow({
   };
 
   return (
-    <Modal
-      visible={visible}
-      transparent={false}
-      animationType="slide"
-      onRequestClose={handleClose}
+    <Drawer
+      open={visible}
+      onOpenChange={handleOpenChange}
+      snapPoints={['95%']}
     >
-      <View className="flex-1 bg-background" style={{ paddingTop: insets.top }}>
-        {/* PortalHost for Select dropdowns inside Modal */}
-        <PortalHost />
-
-        {/* Progress Indicator */}
-        <OnboardingProgressIndicator currentStep={step} />
-
-        {/* Header */}
-        <View className="flex-row items-center justify-between border-b border-border px-6 py-4">
-          <View className="flex-1" />
-          <Pressable onPress={handleClose} testID="onboarding-close-button">
-            <Icon as={XIcon} size={24} className="text-muted-foreground" />
-          </Pressable>
-        </View>
-
-        {/* Content */}
-        <KeyboardAwareScrollView
-          className="flex-1"
-          contentContainerClassName="p-6 pb-[calc(env(safe-area-inset-bottom)+1.5rem)]"
-          bottomOffset={96}
-          extraKeyboardSpace={20}
-        >
+      <DrawerContent asChild>
+        <View className="flex-1">
+          <DrawerHeader className="gap-0 py-0">
+            <OnboardingProgressIndicator currentStep={step} />
+            <View className="flex-row items-center justify-end pb-2">
+              <Pressable
+                onPress={handleClose}
+                testID="onboarding-close-button"
+              >
+                <Icon
+                  as={XIcon}
+                  size={24}
+                  className="text-muted-foreground"
+                />
+              </Pressable>
+            </View>
+          </DrawerHeader>
           {/* Step 0: Vision Screen */}
           {step === 'vision' && (
             <View className="flex-1">
@@ -528,18 +519,15 @@ export function SimpleOnboardingFlow({
               </AnimatedStepContent>
             </View>
           )}
-        </KeyboardAwareScrollView>
-
-        {/* Footer with Back button */}
-        {step !== 'vision' && step !== 'create-project-simple' && (
-          <View className="border-t border-border px-6 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-4">
-            <Button variant="ghost" onPress={handleBack}>
-              <Text>{t('back')}</Text>
-            </Button>
-          </View>
-        )}
-      </View>
-      <KeyboardToolbar />
-    </Modal>
+          {step !== 'vision' && step !== 'create-project-simple' && (
+            <View className="border-t border-border pt-4">
+              <Button variant="ghost" onPress={handleBack}>
+                <Text>{t('back')}</Text>
+              </Button>
+            </View>
+          )}
+        </View>
+      </DrawerContent>
+    </Drawer>
   );
 }

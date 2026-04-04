@@ -1,11 +1,13 @@
 import { LanguageSelect } from '@/components/language-select';
-import { Button, OpacityPressable } from '@/components/ui/button';
+import { Button, ButtonPressable, OpacityPressable } from '@/components/ui/button';
+import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
 import { Stack, useRouter } from 'expo-router';
+import { XIcon } from 'lucide-react-native';
 import React, { useCallback } from 'react';
-import { Linking, View } from 'react-native';
+import { Linking, Platform, View } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 
 function Terms() {
@@ -17,9 +19,7 @@ function Terms() {
   const handleAcceptTerms = useCallback(() => {
     console.log('Accepting terms...');
     acceptTerms();
-    // After accepting terms, show the onboarding walkthrough
-    // The onboarding will show automatically when navigating to projects view
-    router.replace('/');
+    router.dismiss();
   }, [acceptTerms, router]);
 
   const canAcceptTerms = !dateTermsAccepted;
@@ -27,22 +27,30 @@ function Terms() {
   return (
     <>
       <Stack.Screen options={{ title: 'Terms' }} />
-      <View className="pt-safe flex flex-1 flex-col gap-4 bg-background px-4 pb-[env(safe-area-inset-bottom)]">
-        <View className="w-full bg-background">
-          <Text variant="h4">{t('termsAndPrivacyTitle')}</Text>
+      <View className="android:pt-[calc(env(safe-area-inset-top)+1rem)] android:pb-[calc(env(safe-area-inset-bottom)+1rem)] flex flex-1 flex-col bg-background">
+        <View collapsable={false} className="gap-4 bg-background px-4 pt-8">
+          <View className="w-full flex-row items-center justify-between">
+            <Text variant="h4" className="flex-1">
+              {t('termsAndPrivacyTitle')}
+            </Text>
+            {!canAcceptTerms && Platform.OS === 'android' && (
+              <ButtonPressable onPress={() => router.dismiss()} hitSlop={10}>
+                <Icon as={XIcon} size={24} className="text-muted-foreground" />
+              </ButtonPressable>
+            )}
+          </View>
+          <View className="w-full gap-2.5">
+            <LanguageSelect uiReadyOnly />
+          </View>
         </View>
 
-        {/* Language Selector */}
-        <View className="w-full gap-2.5">
-          <LanguageSelect uiReadyOnly />
-        </View>
-
-        <ScrollView contentContainerClassName="flex flex-col gap-4 w-full">
+        <ScrollView
+          className="flex-1"
+          contentContainerClassName="flex flex-col gap-4 w-full px-4 py-4 pb-8"
+        >
           <Text variant="p">
             {(() => {
-              // Get raw translation without replacing placeholders
               const rawText = t('termsContributionInfo');
-              // Split on {iAgree} placeholder (with optional spaces)
               const placeholderRegex = /\{ *iAgree *\}/;
               const match = rawText.match(placeholderRegex);
               if (match) {
@@ -56,40 +64,41 @@ function Terms() {
                   </>
                 );
               }
-              // Fallback if placeholder not found
               return rawText;
             })()}
           </Text>
           <Text variant="p">{t('termsDataInfo')}</Text>
           <Text variant="p">{t('analyticsInfo')}</Text>
+
+          <OpacityPressable
+            onPress={() =>
+              Linking.openURL(`${process.env.EXPO_PUBLIC_SITE_URL}/terms`)
+            }
+            className="w-full justify-start"
+          >
+            <Text className="font-medium text-primary">
+              {t('viewFullTerms')}
+            </Text>
+          </OpacityPressable>
+          <OpacityPressable
+            onPress={() =>
+              Linking.openURL(`${process.env.EXPO_PUBLIC_SITE_URL}/privacy`)
+            }
+            className="w-full justify-start"
+          >
+            <Text className="font-medium text-primary">
+              {t('viewFullPrivacy')}
+            </Text>
+          </OpacityPressable>
+
+          {canAcceptTerms && (
+            <View className="w-full">
+              <Button onPress={handleAcceptTerms}>
+                <Text>{t('iAgree')}</Text>
+              </Button>
+            </View>
+          )}
         </ScrollView>
-
-        <OpacityPressable
-          onPress={() =>
-            Linking.openURL(`${process.env.EXPO_PUBLIC_SITE_URL}/terms`)
-          }
-          className="w-full justify-start"
-        >
-          <Text className="font-medium text-primary">{t('viewFullTerms')}</Text>
-        </OpacityPressable>
-        <OpacityPressable
-          onPress={() =>
-            Linking.openURL(`${process.env.EXPO_PUBLIC_SITE_URL}/privacy`)
-          }
-          className="w-full justify-start"
-        >
-          <Text className="font-medium text-primary">
-            {t('viewFullPrivacy')}
-          </Text>
-        </OpacityPressable>
-
-        {canAcceptTerms && (
-          <View className="w-full">
-            <Button onPress={handleAcceptTerms}>
-              <Text>{t('iAgree')}</Text>
-            </Button>
-          </View>
-        )}
       </View>
     </>
   );
