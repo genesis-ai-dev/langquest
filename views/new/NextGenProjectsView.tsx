@@ -12,11 +12,11 @@ import { useUserRestrictions } from '@/hooks/db/useBlocks';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
 import { cn, getThemeColor } from '@/utils/styleUtils';
-import { useRouter } from 'expo-router';
 import {
   useHybridData,
   useSimpleHybridInfiniteData
 } from '@/views/new/useHybridData';
+import RNAlert from '@blazejkustra/react-native-alert';
 import { LegendList } from '@legendapp/list';
 import {
   and,
@@ -28,6 +28,7 @@ import {
   notInArray,
   or
 } from 'drizzle-orm';
+import { useRouter } from 'expo-router';
 import {
   ArrowRightIcon,
   FolderPenIcon,
@@ -35,7 +36,6 @@ import {
   SearchIcon,
   UserIcon
 } from 'lucide-react-native';
-import RNAlert from '@blazejkustra/react-native-alert';
 import React, { useEffect } from 'react';
 import { ActivityIndicator, useWindowDimensions, View } from 'react-native';
 import { Dropdown } from 'react-native-element-dropdown';
@@ -899,6 +899,7 @@ export default function NextGenProjectsView() {
                   ? `invite-${item.projectId}-${activeTab}`
                   : `project-${item.project.id}-${activeTab}`
               }
+              contentContainerClassName="pb-8"
               recycleItems
               estimatedItemSize={175}
               maintainVisibleContentPosition
