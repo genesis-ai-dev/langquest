@@ -1,7 +1,6 @@
 const supabaseUrl = MAESTRO_SUPABASE_URL;
 const serviceRoleKey = MAESTRO_SUPABASE_SERVICE_ROLE_KEY;
 const siteUrl = MAESTRO_SITE_URL;
-const projectIdOverride = MAESTRO_PROJECT_ID_LOCAL_OVERRIDE;
 
 function getDefaultHeaders(extraHeaders) {
   const headers = {
@@ -102,28 +101,10 @@ function generatePasswordResetLink(email) {
 
   console.log('Generating password reset link for email:', email);
 
-  // Use override if provided, otherwise extract from Supabase URL
-  let projectRef = projectIdOverride;
-
-  if (!projectRef) {
-    // Extract project ref from Supabase URL (format: https://{projectRef}.supabase.co/...)
-    const supabaseUrlMatch = supabaseUrl.match(/https?:\/\/([^.]+)\.supabase\./);
-    projectRef = supabaseUrlMatch ? supabaseUrlMatch[1] : null;
-  }
-
-  if (!projectRef) {
-    throw new Error(
-      'Could not extract project ref from Supabase URL: ' + supabaseUrl
-    );
-  }
-
-  // Construct redirect_to URL in the same format as send-email function
-  // Format: https://langquest.org/en/reset-password?project_ref={projectRef}
   // Default to 'en' locale
   const locale = 'en';
-  const finalRedirectTo = `${siteUrl}/${locale}/reset-password?project_ref=${projectRef}`;
+  const finalRedirectTo = `${siteUrl}/${locale}/reset-password`;
 
-  console.log('Using project ref:', projectRef);
   console.log('Using redirect URL:', finalRedirectTo);
 
   // Use Supabase Admin API to generate a recovery link
@@ -153,29 +134,6 @@ function generatePasswordResetLink(email) {
     throw new Error(
       'No reset link found in response: ' + generateLinkResponse.body
     );
-  }
-
-  // The generate_link API returns a link that goes through Supabase's verification endpoint
-  // We need to reconstruct it to match the send-email format:
-  // {siteUrl}/supabase/{projectRef}/auth/v1/verify?token=xxx&type=recovery&redirect_to={siteUrl}/en/reset-password?project_ref={projectRef}
-
-  // Parse and update the redirect_to parameter manually (URL constructor may not be available in GraalJS)
-  // Extract token and other params, then reconstruct with the web reset password URL
-  const tokenMatch = resetLink.match(/[?&]token=([^&]+)/);
-  const typeMatch = resetLink.match(/[?&]type=([^&]+)/);
-
-  if (tokenMatch && projectRef) {
-    const token = tokenMatch[1];
-    const type = typeMatch ? typeMatch[1] : 'recovery';
-
-    // URL-encode the redirect URL for use in query parameter
-    const encodedRedirectTo = encodeURIComponent(finalRedirectTo);
-
-    // Reconstruct the verification URL in the same format as send-email function
-    resetLink = `${siteUrl}/supabase/${projectRef}/auth/v1/verify?token=${token}&type=${type}&redirect_to=${encodedRedirectTo}`;
-    console.log('Reconstructed reset link matching send-email format');
-  } else {
-    console.log('Could not parse reset link, using as-is');
   }
 
   console.log('Generated password reset link:', resetLink);
