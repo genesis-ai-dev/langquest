@@ -22,7 +22,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { LockIcon, MailIcon } from 'lucide-react-native';
 import React from 'react';
 import { useForm, useWatch } from 'react-hook-form';
-import { View } from 'react-native';
+import { Linking, View } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { z } from 'zod';
 
@@ -55,11 +55,14 @@ export default function ForgotPasswordView() {
         {
           text: t('ok'),
           isPreferred: true,
-          onPress: () =>
+          onPress: () => {
+            if (__DEV__)
+              Linking.openURL(process.env.EXPO_PUBLIC_RESEND_LOCAL_INBOX_URL!);
             router.dismissTo({
               pathname: '/(auth)/sign-in',
               params: { email }
-            })
+            });
+          }
         }
       ]);
     },

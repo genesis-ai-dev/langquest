@@ -200,6 +200,29 @@ The applied command applies the local migration files into the remote.
 
 > If your local environment is running already, PowerSync will auto restart when you make changes to the sync rules. Otherwise just start the environment and changes will be reflected accordingly.
 
+### Testing Deep Linking Locally
+
+Deep links (password reset, email confirmation) require both the local Supabase environment and the [LangQuest website](https://github.com/genesis-ai-dev/langquest-website) running locally.
+
+#### How it works
+
+1. The app triggers an auth action (e.g., password reset)
+2. Local Supabase sends an email with a link pointing to `SUPABASE_AUTH_SITE_URL` (the website)
+3. The website processes the link and redirects back to the app via the scheme set in the `NEXT_PUBLIC_APP_SCHEME` environment variable
+4. The app handles the deep link and completes the auth flow
+
+#### Setup
+
+1. Run the local Supabase environment (this also generates `supabase/.env.local` with your machine's local IP):
+
+   ```bash
+   npm run env
+   ```
+
+2. In a separate terminal, clone and run the [LangQuest website](https://github.com/genesis-ai-dev/langquest-website) locally on port 3000.
+
+5. Trigger a deep link action (e.g., request a password reset). View the sent email at [Inbucket](http://localhost:54324) and click the link — it should route through the local website back into the app.
+
 ### Common issue during setup:
 
 ```bash
