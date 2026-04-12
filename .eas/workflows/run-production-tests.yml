@@ -144,10 +144,11 @@ jobs:
         - run: |
             DEVICE_ID=$(xcrun simctl list devices -j | jq -r '.devices[][] | select(.name=="iPhone 16e") | .udid') && \
             # Disable Safari onboarding popovers (View Bookmarks, Share Menu, Open Tabs)
-            # Launch Safari to create container, then kill it and modify prefs
-            xcrun simctl launch $DEVICE_ID com.apple.mobilesafari >/dev/null 2>&1 && sleep 2 && \
-            xcrun simctl terminate $DEVICE_ID com.apple.mobilesafari >/dev/null 2>&1 && \
+            # Launch Safari to create container and initialize prefs
+            xcrun simctl launch $DEVICE_ID com.apple.mobilesafari >/dev/null 2>&1 && sleep 3 && \
             SAFARI_PREFS="$(xcrun simctl get_app_container $DEVICE_ID com.apple.mobilesafari data)/Library/Preferences/com.apple.mobilesafari.plist" && \
+            echo "Safari prefs path: $SAFARI_PREFS" && \
+            ls -la "$SAFARI_PREFS" && \
             /usr/libexec/PlistBuddy -c "Delete WBSOnboardingStatesDefaultsKeyV0.2" "$SAFARI_PREFS" 2>/dev/null || true && \
             /usr/libexec/PlistBuddy -c "Add WBSOnboardingStatesDefaultsKeyV0.2 dict" "$SAFARI_PREFS" && \
             /usr/libexec/PlistBuddy -c "Add WBSOnboardingStatesDefaultsKeyV0.2:CustomizeStartPage integer 2" "$SAFARI_PREFS" && \
