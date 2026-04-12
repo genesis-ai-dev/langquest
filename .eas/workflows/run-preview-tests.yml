@@ -148,6 +148,15 @@ jobs:
             xcrun simctl launch $DEVICE_ID com.apple.mobilesafari >/dev/null 2>&1 && sleep 2 && \
             xcrun simctl terminate $DEVICE_ID com.apple.mobilesafari >/dev/null 2>&1 && \
             SAFARI_PREFS="$(xcrun simctl get_app_container $DEVICE_ID com.apple.mobilesafari data)/Library/Preferences/com.apple.mobilesafari.plist" && \
-            plutil -replace WBSOnboardingStatesDefaultsKeyV0.2 -json '{"CustomizeStartPage":2,"EnableCloudSync":2,"EnableHighlights":2,"ExtensionsDiscovery":2,"SetDefaultBrowser":2,"SetDefaultSearchEngine":2,"TipForMoreButton":3,"TipForPrivateBrowsing":2}' "$SAFARI_PREFS" && \
+            /usr/libexec/PlistBuddy -c "Delete WBSOnboardingStatesDefaultsKeyV0.2" "$SAFARI_PREFS" 2>/dev/null || true && \
+            /usr/libexec/PlistBuddy -c "Add WBSOnboardingStatesDefaultsKeyV0.2 dict" "$SAFARI_PREFS" && \
+            /usr/libexec/PlistBuddy -c "Add WBSOnboardingStatesDefaultsKeyV0.2:CustomizeStartPage integer 2" "$SAFARI_PREFS" && \
+            /usr/libexec/PlistBuddy -c "Add WBSOnboardingStatesDefaultsKeyV0.2:EnableCloudSync integer 2" "$SAFARI_PREFS" && \
+            /usr/libexec/PlistBuddy -c "Add WBSOnboardingStatesDefaultsKeyV0.2:EnableHighlights integer 2" "$SAFARI_PREFS" && \
+            /usr/libexec/PlistBuddy -c "Add WBSOnboardingStatesDefaultsKeyV0.2:ExtensionsDiscovery integer 2" "$SAFARI_PREFS" && \
+            /usr/libexec/PlistBuddy -c "Add WBSOnboardingStatesDefaultsKeyV0.2:SetDefaultBrowser integer 2" "$SAFARI_PREFS" && \
+            /usr/libexec/PlistBuddy -c "Add WBSOnboardingStatesDefaultsKeyV0.2:SetDefaultSearchEngine integer 2" "$SAFARI_PREFS" && \
+            /usr/libexec/PlistBuddy -c "Add WBSOnboardingStatesDefaultsKeyV0.2:TipForMoreButton integer 3" "$SAFARI_PREFS" && \
+            /usr/libexec/PlistBuddy -c "Add WBSOnboardingStatesDefaultsKeyV0.2:TipForPrivateBrowsing integer 2" "$SAFARI_PREFS" && \
             plutil -replace SFDidDismissSwipeToTabOverviewTip -bool YES "$SAFARI_PREFS" && \
             plutil -replace WBSParsecHasShownFirstTimeUserExperience -bool YES "$SAFARI_PREFS"
