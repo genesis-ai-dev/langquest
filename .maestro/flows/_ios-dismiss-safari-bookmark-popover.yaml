@@ -1,0 +1,12 @@
+appId: ${MAESTRO_APP_ID}
+---
+# iOS-only subflow to dismiss Safari "View Bookmarks, Share Menu, and Open Tabs" popover
+# This should be called from flows that open Safari (like reset-password)
+# The popover appears when Safari is first launched with new iOS features
+- runFlow:
+    when:
+      visible: View Bookmarks, Share Menu, and Open Tabs
+    commands:
+      - tapOn:
+          id: 'PopoverDismissButton'
+          optional: true

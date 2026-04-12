@@ -140,24 +140,3 @@ jobs:
             plutil -replace restrictedBool.allowPasswordAutoFill.value -bool NO ~/Library/Developer/CoreSimulator/Devices/$DEVICE_ID/data/Containers/Shared/SystemGroup/systemgroup.com.apple.configurationprofiles/Library/ConfigurationProfiles/UserSettings.plist && \
             plutil -replace restrictedBool.allowPasswordAutoFill.value -bool NO ~/Library/Developer/CoreSimulator/Devices/$DEVICE_ID/data/Library/UserConfigurationProfiles/EffectiveUserSettings.plist && \
             plutil -replace restrictedBool.allowPasswordAutoFill.value -bool NO ~/Library/Developer/CoreSimulator/Devices/$DEVICE_ID/data/Library/UserConfigurationProfiles/PublicInfo/PublicEffectiveUserSettings.plist
-      before_maestro_tests:
-        - run: |
-            DEVICE_ID=$(xcrun simctl list devices -j | jq -r '.devices[][] | select(.name=="iPhone 16e") | .udid') && \
-            # Disable Safari onboarding popovers (View Bookmarks, Share Menu, Open Tabs)
-            # Launch Safari to create container and initialize prefs
-            xcrun simctl launch $DEVICE_ID com.apple.mobilesafari >/dev/null 2>&1 && sleep 3 && \
-            SAFARI_PREFS="$(xcrun simctl get_app_container $DEVICE_ID com.apple.mobilesafari data)/Library/Preferences/com.apple.mobilesafari.plist" && \
-            echo "Safari prefs path: $SAFARI_PREFS" && \
-            ls -la "$SAFARI_PREFS" && \
-            plutil -replace WBSOnboardingStatesDefaultsKeyV0.2 -xml '<dict/>' "$SAFARI_PREFS" 2>/dev/null || true && \
-            /usr/libexec/PlistBuddy -c "Set WBSOnboardingStatesDefaultsKeyV0.2:CustomizeStartPage 2" "$SAFARI_PREFS" 2>/dev/null || /usr/libexec/PlistBuddy -c "Add WBSOnboardingStatesDefaultsKeyV0.2:CustomizeStartPage integer 2" "$SAFARI_PREFS" && \
-            /usr/libexec/PlistBuddy -c "Set WBSOnboardingStatesDefaultsKeyV0.2:EnableCloudSync 2" "$SAFARI_PREFS" 2>/dev/null || /usr/libexec/PlistBuddy -c "Add WBSOnboardingStatesDefaultsKeyV0.2:EnableCloudSync integer 2" "$SAFARI_PREFS" && \
-            /usr/libexec/PlistBuddy -c "Set WBSOnboardingStatesDefaultsKeyV0.2:EnableHighlights 2" "$SAFARI_PREFS" 2>/dev/null || /usr/libexec/PlistBuddy -c "Add WBSOnboardingStatesDefaultsKeyV0.2:EnableHighlights integer 2" "$SAFARI_PREFS" && \
-            /usr/libexec/PlistBuddy -c "Set WBSOnboardingStatesDefaultsKeyV0.2:ExtensionsDiscovery 2" "$SAFARI_PREFS" 2>/dev/null || /usr/libexec/PlistBuddy -c "Add WBSOnboardingStatesDefaultsKeyV0.2:ExtensionsDiscovery integer 2" "$SAFARI_PREFS" && \
-            /usr/libexec/PlistBuddy -c "Set WBSOnboardingStatesDefaultsKeyV0.2:SetDefaultBrowser 2" "$SAFARI_PREFS" 2>/dev/null || /usr/libexec/PlistBuddy -c "Add WBSOnboardingStatesDefaultsKeyV0.2:SetDefaultBrowser integer 2" "$SAFARI_PREFS" && \
-            /usr/libexec/PlistBuddy -c "Set WBSOnboardingStatesDefaultsKeyV0.2:SetDefaultSearchEngine 2" "$SAFARI_PREFS" 2>/dev/null || /usr/libexec/PlistBuddy -c "Add WBSOnboardingStatesDefaultsKeyV0.2:SetDefaultSearchEngine integer 2" "$SAFARI_PREFS" && \
-            /usr/libexec/PlistBuddy -c "Set WBSOnboardingStatesDefaultsKeyV0.2:TipForMoreButton 3" "$SAFARI_PREFS" 2>/dev/null || /usr/libexec/PlistBuddy -c "Add WBSOnboardingStatesDefaultsKeyV0.2:TipForMoreButton integer 3" "$SAFARI_PREFS" && \
-            /usr/libexec/PlistBuddy -c "Set WBSOnboardingStatesDefaultsKeyV0.2:TipForPrivateBrowsing 2" "$SAFARI_PREFS" 2>/dev/null || /usr/libexec/PlistBuddy -c "Add WBSOnboardingStatesDefaultsKeyV0.2:TipForPrivateBrowsing integer 2" "$SAFARI_PREFS" && \
-            plutil -replace SFDidDismissSwipeToTabOverviewTip -bool YES "$SAFARI_PREFS" && \
-            xcrun simctl spawn $DEVICE_ID defaults write com.apple.mobilesafari ShownOnboardingExperience -bool YES && \
-            xcrun simctl terminate $DEVICE_ID com.apple.mobilesafari >/dev/null 2>&1
