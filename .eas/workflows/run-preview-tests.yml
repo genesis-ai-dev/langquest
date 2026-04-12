@@ -139,7 +139,10 @@ jobs:
             # Retrieved 2026-03-04, License - CC BY-SA 4.0
             plutil -replace restrictedBool.allowPasswordAutoFill.value -bool NO ~/Library/Developer/CoreSimulator/Devices/$DEVICE_ID/data/Containers/Shared/SystemGroup/systemgroup.com.apple.configurationprofiles/Library/ConfigurationProfiles/UserSettings.plist && \
             plutil -replace restrictedBool.allowPasswordAutoFill.value -bool NO ~/Library/Developer/CoreSimulator/Devices/$DEVICE_ID/data/Library/UserConfigurationProfiles/EffectiveUserSettings.plist && \
-            plutil -replace restrictedBool.allowPasswordAutoFill.value -bool NO ~/Library/Developer/CoreSimulator/Devices/$DEVICE_ID/data/Library/UserConfigurationProfiles/PublicInfo/PublicEffectiveUserSettings.plist && \
+            plutil -replace restrictedBool.allowPasswordAutoFill.value -bool NO ~/Library/Developer/CoreSimulator/Devices/$DEVICE_ID/data/Library/UserConfigurationProfiles/PublicInfo/PublicEffectiveUserSettings.plist
+      before_maestro_tests:
+        - run: |
+            DEVICE_ID=$(xcrun simctl list devices -j | jq -r '.devices[][] | select(.name=="iPhone 16e") | .udid') && \
             # Disable Safari onboarding popovers (View Bookmarks, Share Menu, Open Tabs)
             # Launch Safari to create container, then kill it and modify prefs
             xcrun simctl launch $DEVICE_ID com.apple.mobilesafari >/dev/null 2>&1 && sleep 2 && \
