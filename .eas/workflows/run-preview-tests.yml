@@ -141,8 +141,10 @@ jobs:
             plutil -replace restrictedBool.allowPasswordAutoFill.value -bool NO ~/Library/Developer/CoreSimulator/Devices/$DEVICE_ID/data/Library/UserConfigurationProfiles/EffectiveUserSettings.plist && \
             plutil -replace restrictedBool.allowPasswordAutoFill.value -bool NO ~/Library/Developer/CoreSimulator/Devices/$DEVICE_ID/data/Library/UserConfigurationProfiles/PublicInfo/PublicEffectiveUserSettings.plist && \
             # Disable Safari onboarding popovers (View Bookmarks, Share Menu, Open Tabs)
-            SAFARI_PREFS="$HOME/Library/Developer/CoreSimulator/Devices/$DEVICE_ID/data/Library/Preferences/com.apple.mobilesafari.plist" && \
-            mkdir -p "$(dirname "$SAFARI_PREFS")" && \
-            if [ ! -f "$SAFARI_PREFS" ]; then plutil -create xml1 "$SAFARI_PREFS"; fi && \
-            plutil -replace DidShowSafariWorkshopOnboarding -bool YES "$SAFARI_PREFS" && \
-            plutil -replace SafariShowEducationalTipOnboarding -bool NO "$SAFARI_PREFS"
+            # Launch Safari to create container, then kill it and modify prefs
+            xcrun simctl launch $DEVICE_ID com.apple.mobilesafari >/dev/null 2>&1 && sleep 2 && \
+            xcrun simctl terminate $DEVICE_ID com.apple.mobilesafari >/dev/null 2>&1 && \
+            SAFARI_PREFS="$(xcrun simctl get_app_container $DEVICE_ID com.apple.mobilesafari data)/Library/Preferences/com.apple.mobilesafari.plist" && \
+            plutil -replace WBSOnboardingStatesDefaultsKeyV0.2 -json '{"CustomizeStartPage":2,"EnableCloudSync":2,"EnableHighlights":2,"ExtensionsDiscovery":2,"SetDefaultBrowser":2,"SetDefaultSearchEngine":2,"TipForMoreButton":3,"TipForPrivateBrowsing":2}' "$SAFARI_PREFS" && \
+            plutil -replace SFDidDismissSwipeToTabOverviewTip -bool YES "$SAFARI_PREFS" && \
+            plutil -replace WBSParsecHasShownFirstTimeUserExperience -bool YES "$SAFARI_PREFS"
