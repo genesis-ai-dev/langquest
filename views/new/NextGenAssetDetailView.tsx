@@ -80,12 +80,7 @@ function useNextGenOfflineAsset(assetId: string) {
     }
 
     // Only create CompilableQuery when user is authenticated
-    // Check PowerSync status at query creation time
     try {
-      if (!system.isPowerSyncInitialized()) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return
-        return 'SELECT * FROM asset WHERE 1=0' as any;
-      }
       return toCompilableQuery(
         system.db.query.asset.findFirst({
           where: eq(asset.id, assetId),
@@ -236,10 +231,6 @@ export default function NextGenAssetDetailView() {
       return 'SELECT * FROM project WHERE 1=0' as any;
     }
     try {
-      if (!system.isPowerSyncInitialized()) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return
-        return 'SELECT * FROM project WHERE 1=0' as any;
-      }
       return toCompilableQuery(
         system.db.query.project.findFirst({
           where: projectId ? eq(project.id, projectId) : undefined
@@ -546,8 +537,7 @@ export default function NextGenAssetDetailView() {
           }
 
           // For anonymous users, get cloud URLs from Supabase storage
-          const isPowerSyncReady = system.isPowerSyncInitialized();
-          if (!isAuthenticated || !isPowerSyncReady) {
+          if (!isAuthenticated) {
             // Get public URL from Supabase storage
             try {
               if (!AppConfig.supabaseBucket) {

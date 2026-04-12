@@ -249,15 +249,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         );
 
         const offlineSession = storedData as unknown as Session;
-        setSession(offlineSession);
         system.supabaseConnector.updateSession(offlineSession);
 
-        // Initialize system
+        // Initialize system before updating React state
         console.log('[AuthContext] Fast path: Starting system initialization');
         await initializeSystem();
         console.log(
           '[AuthContext] Fast path: System initialization complete (offline mode)'
         );
+
+        // Batch React state updates after init for atomic transition
+        setSession(offlineSession);
         setIsLoading(false);
       } catch (error) {
         console.warn('[AuthContext] Fast offline path failed:', error);
@@ -340,8 +342,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               }
             }
 
-            // Now update session state (only after we've determined effectiveSession)
-            setSession(effectiveSession);
+            // Update connector immediately (system.init needs it), but
+            // defer React state updates until after init completes.
             system.supabaseConnector.updateSession(effectiveSession);
 
             if (effectiveSession) {
@@ -360,12 +362,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             } else {
               console.log('[AuthContext] No session found - anonymous mode');
             }
+
+            // Batch React state updates after init for atomic transition
+            setSession(effectiveSession);
             setIsLoading(false);
             break;
           }
 
           case 'SIGNED_IN': {
-            setSession(session);
+            // Update connector immediately (system.init needs it), but
+            // defer React state updates until after init completes -- same
+            // pattern as PASSWORD_RECOVERY to keep state transitions atomic.
             system.supabaseConnector.updateSession(session);
 
             console.log('[AuthContext] User signed in');
@@ -378,6 +385,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               '[AuthContext] System initialization complete from SIGNED_IN event'
             );
 
+            // Batch React state updates after init for atomic transition
+            setSession(session);
             setIsLoading(false);
             break;
           }
