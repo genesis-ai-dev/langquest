@@ -141,5 +141,8 @@ jobs:
             plutil -replace restrictedBool.allowPasswordAutoFill.value -bool NO ~/Library/Developer/CoreSimulator/Devices/$DEVICE_ID/data/Library/UserConfigurationProfiles/EffectiveUserSettings.plist && \
             plutil -replace restrictedBool.allowPasswordAutoFill.value -bool NO ~/Library/Developer/CoreSimulator/Devices/$DEVICE_ID/data/Library/UserConfigurationProfiles/PublicInfo/PublicEffectiveUserSettings.plist && \
             # Disable Safari onboarding popovers (View Bookmarks, Share Menu, Open Tabs)
-            plutil -replace DidShowSafariWorkshopOnboarding -bool YES ~/Library/Developer/CoreSimulator/Devices/$DEVICE_ID/data/Library/Preferences/com.apple.mobilesafari.plist && \
-            plutil -replace SafariShowEducationalTipOnboarding -bool NO ~/Library/Developer/CoreSimulator/Devices/$DEVICE_ID/data/Library/Preferences/com.apple.mobilesafari.plist
+            SAFARI_PREFS="$HOME/Library/Developer/CoreSimulator/Devices/$DEVICE_ID/data/Library/Preferences/com.apple.mobilesafari.plist" && \
+            mkdir -p "$(dirname "$SAFARI_PREFS")" && \
+            if [ ! -f "$SAFARI_PREFS" ]; then plutil -create xml1 "$SAFARI_PREFS"; fi && \
+            plutil -replace DidShowSafariWorkshopOnboarding -bool YES "$SAFARI_PREFS" && \
+            plutil -replace SafariShowEducationalTipOnboarding -bool NO "$SAFARI_PREFS"
