@@ -51,13 +51,13 @@ export default function ForgotPasswordView() {
       if (error) throw error;
     },
     onSuccess: () => {
+      if (__DEV__ && process.env.EXPO_PUBLIC_APP_VARIANT === 'development')
+        Linking.openURL(process.env.EXPO_PUBLIC_RESEND_LOCAL_INBOX_URL!);
       RNAlert.alert(t('success'), t('checkEmailForResetLink'), [
         {
           text: t('ok'),
           isPreferred: true,
           onPress: () => {
-            if (__DEV__)
-              Linking.openURL(process.env.EXPO_PUBLIC_RESEND_LOCAL_INBOX_URL!);
             router.dismissTo({
               pathname: '/(auth)/sign-in',
               params: { email }

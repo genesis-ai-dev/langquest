@@ -11,7 +11,6 @@ import {
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
-import { useAuth } from '@/contexts/AuthContext';
 import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
@@ -31,7 +30,6 @@ interface ResetPasswordViewProps {
 export default function ResetPasswordView({
   onDismiss
 }: ResetPasswordViewProps) {
-  const { completePasswordReset } = useAuth();
   const { t } = useLocalization();
   const isOnline = useNetworkStatus();
 
@@ -67,7 +65,6 @@ export default function ResetPasswordView({
           text: t('ok'),
           isPreferred: true,
           onPress: () => {
-            completePasswordReset();
             onDismiss();
           }
         }
@@ -159,7 +156,6 @@ export default function ResetPasswordView({
 
             <Button
               onPress={() => {
-                completePasswordReset();
                 onDismiss();
               }}
               variant="link"
