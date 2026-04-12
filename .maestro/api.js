@@ -59,9 +59,14 @@ function updateUserPassword(email, newPassword) {
       'Email is required and must be a non-empty string. Received: ' + email
     );
   }
-  if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 6) {
+  if (
+    !newPassword ||
+    typeof newPassword !== 'string' ||
+    newPassword.length < 6
+  ) {
     throw new Error(
-      'Password is required and must be at least 6 characters. Received: ' + newPassword
+      'Password is required and must be at least 6 characters. Received: ' +
+        newPassword
     );
   }
 
@@ -83,7 +88,10 @@ function updateUserPassword(email, newPassword) {
 
   if (updateResponse.status !== 200) {
     throw new Error(
-      'Failed to update password: ' + updateResponse.status + ' ' + updateResponse.body
+      'Failed to update password: ' +
+        updateResponse.status +
+        ' ' +
+        updateResponse.body
     );
   }
 

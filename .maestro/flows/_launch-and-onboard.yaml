@@ -2,9 +2,7 @@ appId: ${MAESTRO_APP_ID}
 ---
 - launchApp:
     clearState: true
-- extendedWaitUntil:
-    visible: Terms & Privacy
-    timeout: 15000
+- assertVisible: Terms & Privacy
 - scrollUntilVisible:
     element: I agree
 - tapOn:
