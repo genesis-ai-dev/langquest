@@ -159,4 +159,6 @@ jobs:
             /usr/libexec/PlistBuddy -c "Add WBSOnboardingStatesDefaultsKeyV0.2:TipForMoreButton integer 3" "$SAFARI_PREFS" && \
             /usr/libexec/PlistBuddy -c "Add WBSOnboardingStatesDefaultsKeyV0.2:TipForPrivateBrowsing integer 2" "$SAFARI_PREFS" && \
             plutil -replace SFDidDismissSwipeToTabOverviewTip -bool YES "$SAFARI_PREFS" && \
-            plutil -replace WBSParsecHasShownFirstTimeUserExperience -bool YES "$SAFARI_PREFS"
+            plutil -replace WBSParsecHasShownFirstTimeUserExperience -bool YES "$SAFARI_PREFS" && \
+            xcrun simctl spawn $DEVICE_ID defaults write com.apple.mobilesafari ShownOnboardingExperience -bool YES && \
+            xcrun simctl terminate $DEVICE_ID com.apple.mobilesafari >/dev/null 2>&1
