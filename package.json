@@ -41,7 +41,7 @@
     "typecheck": "tsc --noEmit",
     "powersync:start": "docker compose -f supabase/docker-compose.yml --env-file .env.local up -w",
     "powersync:stop": "docker compose -f supabase/docker-compose.yml --env-file .env.local down",
-    "resend": "npx emulate --service resend",
+    "resend": "npx emulate --service resend --port 4000",
     "env:start": "concurrently -n supabase -c green \"npm:sb start\" && concurrently -k -n edge-fn,powersync,resend -c yellow,cyan,magenta \"npm:sb:serve-functions\" \"npm:powersync:start\" \"npm:resend\"",
     "env:stop": "npm run powersync:stop && npm run sb stop && rm -f supabase/functions/.env",
     "env": "npm run generate-env && npm run env:start && npm run env:stop",
