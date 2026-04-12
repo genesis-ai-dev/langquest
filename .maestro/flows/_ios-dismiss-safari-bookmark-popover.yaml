@@ -8,5 +8,4 @@ appId: ${MAESTRO_APP_ID}
       visible: View Bookmarks, Share Menu, and Open Tabs
     commands:
       - tapOn:
-          id: 'PopoverDismissButton'
-          optional: true
+          id: xmark.circle.fill
