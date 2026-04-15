@@ -105,6 +105,8 @@ export interface RecentAsset {
 
 export interface LocalState {
   _hasHydrated: boolean;
+  systemReady: boolean;
+  setSystemReady: (ready: boolean) => void;
   currentUser: Profile | null;
   setCurrentUser: (user: Profile | null) => void;
   uiLanguage: Language | null;
@@ -312,6 +314,8 @@ export const useLocalStore = create<LocalState>()(
   persist(
     (set, _get) => ({
       _hasHydrated: false,
+      systemReady: false,
+      setSystemReady: (ready) => set({ systemReady: ready }),
       currentUser: null,
       setCurrentUser: (user) => set({ currentUser: user }),
       uiLanguage: null,
@@ -750,7 +754,7 @@ export const useLocalStore = create<LocalState>()(
       partialize: (state) =>
         Object.fromEntries(
           Object.entries(state).filter(
-            ([key]) => !['_hasHydrated', 'currentUser'].includes(key)
+            ([key]) => !['_hasHydrated', 'systemReady', 'currentUser'].includes(key)
           )
         )
     }

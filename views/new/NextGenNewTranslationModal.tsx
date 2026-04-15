@@ -479,6 +479,11 @@ export default function NextGenNewTranslationModal({
         throw new Error('Must be logged in to create translations');
       }
 
+      // Guard against PowerSync not being initialized
+      if (!system.isPowerSyncInitialized()) {
+        throw new Error('System not initialized - cannot create translations');
+      }
+
       // Use local tables for prepublished content, synced tables for published content
       const tableOptions = { localOverride: isLocalSource };
       console.log(

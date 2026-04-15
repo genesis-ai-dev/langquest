@@ -17,13 +17,17 @@ import React, {
   useState
 } from 'react';
 
+type SessionType = 'normal' | 'password-reset' | null;
+
 interface AuthContextType {
   // Auth state
   isLoading: boolean;
   isAuthenticated: boolean;
+  sessionType: SessionType;
   session: Session | null;
   currentUser: User | null;
   // System state
+  isSystemReady: boolean;
   migrationNeeded: boolean;
   setMigrationNeeded: (needed: boolean) => void;
   appUpgradeNeeded: boolean;
@@ -67,8 +71,10 @@ export function useAuth() {
     return {
       isLoading: false,
       isAuthenticated: false,
+      sessionType: null,
       session: null,
       currentUser: currentUserFromStore || null,
+      isSystemReady: true, // Allow queries to work for anonymous browsing
       migrationNeeded: false,
       setMigrationNeeded: () => {
         // No-op fallback for components outside AuthProvider
@@ -96,9 +102,33 @@ export function useAuth() {
   return context;
 }
 
+function getSessionType(session: Session | null): SessionType {
+  if (!session) return null;
+
+  console.log('[AuthContext] Analyzing session type:', {
+    hasSession: !!session,
+    userId: session.user.id,
+    email: session.user.email,
+    recovery_sent_at: session.user.recovery_sent_at,
+    role: session.user.role,
+    user_metadata: session.user.user_metadata,
+    app_metadata: session.user.app_metadata
+  });
+
+  // Check if this is a password recovery session
+  // This is typically indicated by the presence of recovery metadata
+  if (session.user.recovery_sent_at) {
+    return 'password-reset';
+  }
+
+  return 'normal';
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [session, setSession] = useState<Session | null>(null);
+  const [sessionType, setSessionType] = useState<SessionType>(null);
+  const [isSystemReady, setIsSystemReady] = useState(false);
   const [migrationNeeded, setMigrationNeeded] = useState(false);
   const [appUpgradeNeeded, setAppUpgradeNeeded] = useState(false);
   const [upgradeError, setUpgradeError] = useState<{
@@ -107,17 +137,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     reason: string;
   } | null>(null);
 
+  // Initialize system when we have an authenticated session
   const initializeSystem = async () => {
     try {
       console.log('[AuthContext] Initializing system...');
+      setIsSystemReady(false);
       setMigrationNeeded(false);
       setAppUpgradeNeeded(false);
       setUpgradeError(null);
       await system.init();
+      setIsSystemReady(true);
       console.log('[AuthContext] System initialized successfully');
     } catch (error) {
       console.error('[AuthContext] System init failed:', error);
 
+      // Check if this is an app upgrade needed error
       if (error && typeof error === 'object' && 'name' in error) {
         if ((error as { name: string }).name === 'AppUpgradeNeededError') {
           console.log(
@@ -130,24 +164,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           };
           setAppUpgradeNeeded(true);
           setUpgradeError(upgradeErr);
-          setIsLoading(false);
-          return;
+          setIsSystemReady(false);
+          return; // Don't show error alert for app upgrade
         }
 
+        // Check if this is a migration needed error
         if ((error as { name: string }).name === 'MigrationNeededError') {
           console.log(
             '[AuthContext] Migration needed - showing migration screen'
           );
           setMigrationNeeded(true);
-          setIsLoading(false);
-          return;
+          setIsSystemReady(false);
+          return; // Don't show error alert for migration
         }
       }
 
+      setIsSystemReady(false);
       setMigrationNeeded(false);
       setAppUpgradeNeeded(false);
       setUpgradeError(null);
-      setIsLoading(false);
+      // Show error to user for other errors
       RNAlert.alert(
         'Initialization Error',
         'Failed to initialize the app. Please try logging out and back in.',
@@ -156,16 +192,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Cleanup system when signing out
   const cleanupSystem = async () => {
     try {
       console.log('[AuthContext] Cleaning up system...');
       await system.cleanup();
+      setIsSystemReady(false);
       console.log('[AuthContext] System cleanup complete');
     } catch (error) {
       console.error('[AuthContext] System cleanup failed:', error);
     }
   };
 
+  // Track whether auth has been initialized (to prevent double init from race)
   const hasInitializedRef = useRef(false);
 
   useEffect(() => {
@@ -249,17 +288,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         );
 
         const offlineSession = storedData as unknown as Session;
+        setSession(offlineSession);
         system.supabaseConnector.updateSession(offlineSession);
 
-        // Initialize system before updating React state
+        const detectedSessionType = getSessionType(offlineSession);
+        console.log(
+          '[AuthContext] Fast path: Detected session type:',
+          detectedSessionType
+        );
+        setSessionType(detectedSessionType);
+
+        // Initialize system
         console.log('[AuthContext] Fast path: Starting system initialization');
         await initializeSystem();
         console.log(
           '[AuthContext] Fast path: System initialization complete (offline mode)'
         );
-
-        // Batch React state updates after init for atomic transition
-        setSession(offlineSession);
         setIsLoading(false);
       } catch (error) {
         console.warn('[AuthContext] Fast offline path failed:', error);
@@ -282,7 +326,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       async (event, session) => {
         console.log('[AuthContext] Auth event:', event);
         console.log('[AuthContext] Session in event:', {
-          hasSession: !!session
+          hasSession: !!session,
+          sessionType: session ? getSessionType(session) : null
         });
 
         // =======================================================================
@@ -342,14 +387,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               }
             }
 
-            // Update connector immediately (system.init needs it), but
-            // defer React state updates until after init completes.
+            // Now update session state (only after we've determined effectiveSession)
+            setSession(effectiveSession);
             system.supabaseConnector.updateSession(effectiveSession);
 
             if (effectiveSession) {
               console.log(
                 '[AuthContext] Found existing session via INITIAL_SESSION'
               );
+              const detectedSessionType = getSessionType(effectiveSession);
+              console.log(
+                '[AuthContext] Detected session type:',
+                detectedSessionType
+              );
+              setSessionType(detectedSessionType);
 
               // Initialize system for existing sessions
               console.log(
@@ -360,23 +411,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 '[AuthContext] System initialization complete from INITIAL_SESSION'
               );
             } else {
+              // No session found in storage - anonymous mode
               console.log('[AuthContext] No session found - anonymous mode');
+              setSessionType(null);
+              // Skip PowerSync initialization for anonymous users
+              // Set system ready immediately to allow TanStack Query to work
+              setIsSystemReady(true);
             }
-
-            // Batch React state updates after init for atomic transition
-            setSession(effectiveSession);
             setIsLoading(false);
             break;
           }
 
           case 'SIGNED_IN': {
-            // Update connector immediately (system.init needs it), but
-            // defer React state updates until after init completes -- same
-            // pattern as PASSWORD_RECOVERY to keep state transitions atomic.
+            // Update session for sign in events
+            setSession(session);
             system.supabaseConnector.updateSession(session);
 
             console.log('[AuthContext] User signed in');
+            const detectedSessionType = getSessionType(session);
+            console.log(
+              '[AuthContext] Detected session type:',
+              detectedSessionType
+            );
+            setSessionType(detectedSessionType);
 
+            // Always initialize system when signed in
             console.log(
               '[AuthContext] Starting system initialization from SIGNED_IN event'
             );
@@ -384,35 +443,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             console.log(
               '[AuthContext] System initialization complete from SIGNED_IN event'
             );
-
-            // Batch React state updates after init for atomic transition
-            setSession(session);
             setIsLoading(false);
             break;
           }
 
           case 'PASSWORD_RECOVERY':
-            // Update connector immediately (system.init needs it), but
-            // defer React state updates until after init completes -- same
-            // pattern as SIGNED_IN to keep state transitions atomic.
+            // Update session for password recovery
+            setSession(session);
             system.supabaseConnector.updateSession(session);
 
             console.log('[AuthContext] Password recovery session');
-
-            if (!system.isPowerSyncInitialized()) {
-              await initializeSystem();
-            }
-
-            setSession(session);
-            setIsLoading(false);
+            setSessionType('password-reset');
+            // Don't initialize system for password reset
             break;
 
           case 'SIGNED_OUT':
+            // Only process sign out in dev mode - production users never sign out
+            // This prevents offline-induced SIGNED_OUT events from clearing the session
             if (__DEV__) {
               console.log('[AuthContext] User signed out (dev mode)');
-              system.supabaseConnector.updateSession(null);
-              await cleanupSystem();
               setSession(null);
+              system.supabaseConnector.updateSession(null);
+              setSessionType(null);
+              await cleanupSystem();
+              // Set system ready for anonymous browsing after sign out
+              setIsSystemReady(true);
             } else {
               console.log(
                 '[AuthContext] SIGNED_OUT event ignored in production - users stay authenticated'
@@ -504,8 +559,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const value: AuthContextType = {
     isLoading,
     isAuthenticated: !!session,
+    sessionType,
     session,
     currentUser: session?.user || null,
+    isSystemReady,
     migrationNeeded,
     setMigrationNeeded,
     appUpgradeNeeded,

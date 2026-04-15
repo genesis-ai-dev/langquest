@@ -56,6 +56,10 @@ export default function TranscriptionEditModal({
         throw new Error('Must be logged in to save transcription');
       }
 
+      if (!system.isPowerSyncInitialized()) {
+        throw new Error('System not initialized');
+      }
+
       if (!text.trim()) {
         throw new Error('Transcription text cannot be empty');
       }
