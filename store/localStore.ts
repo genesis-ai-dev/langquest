@@ -754,7 +754,8 @@ export const useLocalStore = create<LocalState>()(
       partialize: (state) =>
         Object.fromEntries(
           Object.entries(state).filter(
-            ([key]) => !['_hasHydrated', 'systemReady', 'currentUser'].includes(key)
+            ([key]) =>
+              !['_hasHydrated', 'systemReady', 'currentUser'].includes(key)
           )
         )
     }
