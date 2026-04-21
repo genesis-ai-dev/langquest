@@ -32,10 +32,12 @@ import {
   createRegionPropertyTable,
   createRegionSourceTable,
   createRegionTable,
+  createProjectBlueprintLinkTable,
   createReportsTable,
   createRequestTable,
   createSubscriptionTable,
   createTagTable,
+  createTemplateBlueprintTable,
   createVoteTable
 } from './drizzleSchemaColumns';
 
@@ -315,6 +317,38 @@ export const project_localRelations = relations(
     source_languages: many(project_language_link_local),
     invites: many(invite_local),
     requests: many(request_local)
+  })
+);
+
+// Blueprint tables
+export const template_blueprint_local = createTemplateBlueprintTable('local');
+
+export const project_blueprint_link_local = createProjectBlueprintLinkTable(
+  'local',
+  {
+    project: project_local,
+    template_blueprint: template_blueprint_local
+  }
+);
+
+export const templateBlueprint_localRelations = relations(
+  template_blueprint_local,
+  ({ many }) => ({
+    project_links: many(project_blueprint_link_local)
+  })
+);
+
+export const projectBlueprintLink_localRelations = relations(
+  project_blueprint_link_local,
+  ({ one }) => ({
+    project: one(project_local, {
+      fields: [project_blueprint_link_local.project_id],
+      references: [project_local.id]
+    }),
+    blueprint: one(template_blueprint_local, {
+      fields: [project_blueprint_link_local.blueprint_id],
+      references: [template_blueprint_local.id]
+    })
   })
 );
 

@@ -29,10 +29,12 @@ import {
   createRegionPropertyTable,
   createRegionSourceTable,
   createRegionTable,
+  createProjectBlueprintLinkTable,
   createReportsTable,
   createRequestTable,
   createSubscriptionTable,
   createTagTable,
+  createTemplateBlueprintTable,
   createVoteTable
 } from './drizzleSchemaColumns';
 
@@ -309,6 +311,38 @@ export const project_syncedRelations = relations(
     source_languages: many(project_language_link_synced),
     invites: many(invite_synced),
     requests: many(request_synced)
+  })
+);
+
+// Blueprint tables
+export const template_blueprint_synced = createTemplateBlueprintTable('synced');
+
+export const project_blueprint_link_synced = createProjectBlueprintLinkTable(
+  'synced',
+  {
+    project: project_synced,
+    template_blueprint: template_blueprint_synced
+  }
+);
+
+export const templateBlueprint_syncedRelations = relations(
+  template_blueprint_synced,
+  ({ many }) => ({
+    project_links: many(project_blueprint_link_synced)
+  })
+);
+
+export const projectBlueprintLink_syncedRelations = relations(
+  project_blueprint_link_synced,
+  ({ one }) => ({
+    project: one(project_synced, {
+      fields: [project_blueprint_link_synced.project_id],
+      references: [project_synced.id]
+    }),
+    blueprint: one(template_blueprint_synced, {
+      fields: [project_blueprint_link_synced.blueprint_id],
+      references: [template_blueprint_synced.id]
+    })
   })
 );
 

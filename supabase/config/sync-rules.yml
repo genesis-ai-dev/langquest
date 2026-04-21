@@ -19,6 +19,9 @@ bucket_definitions:
       #   Sync all ui_ready languoids globally so they're available for project creation
       - SELECT * FROM "languoid" WHERE active = true AND ui_ready = true
 
+      # Sync auto_sync blueprints globally (standard templates available to everyone)
+      - SELECT * FROM "template_blueprint" WHERE active = true AND auto_sync = true
+
   user_profile:
     parameters: SELECT request.user_id() AS profile_id
     data:
@@ -40,6 +43,11 @@ bucket_definitions:
       - SELECT * FROM "tag" WHERE bucket.profile_id in download_profiles
       - SELECT * FROM "vote" WHERE bucket.profile_id in download_profiles
       - SELECT profile_id || '_' || project_id as id, * FROM "profile_project_link" WHERE bucket.profile_id in download_profiles AND active = true
+
+      # Sync blueprint links for downloaded projects
+      - SELECT * FROM "project_blueprint_link" WHERE bucket.profile_id in download_profiles AND active = true
+      # Sync non-auto_sync blueprints referenced by project links
+      - SELECT * FROM "template_blueprint" WHERE bucket.profile_id in download_profiles AND active = true
 
       # Sync languoids - using download_profiles directly (populated by bulk download function)
       - SELECT * FROM "languoid" WHERE bucket.profile_id in download_profiles

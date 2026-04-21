@@ -42,6 +42,7 @@ import type {
   quest_synced,
   tag_synced
 } from './drizzleSchemaSynced';
+import type { BlueprintStructure } from '../constants/blueprintTypes';
 import type { OpMetadata } from './powersync/opMetadata';
 import { getDefaultOpMetadata } from './powersync/opMetadata';
 
@@ -342,6 +343,100 @@ export function createTagTable<
   return table;
 }
 
+// ============================================================================
+// BLUEPRINT TABLES
+// ============================================================================
+
+export function createTemplateBlueprintTable<
+  T extends TableSource,
+  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
+>(
+  source: T,
+  columns?: TColumnsMap,
+  extraConfig?: (
+    self: BuildExtraConfigColumns<'template_blueprint', TColumnsMap, 'sqlite'>
+  ) => SQLiteTableExtraConfigValue[]
+) {
+  const extraColumns = (columns ?? {}) as TColumnsMap;
+  const table = getTableCreator(source)(
+    'template_blueprint',
+    {
+      ...getTableColumns(source),
+      slug: text(),
+      name: text().notNull(),
+      icon: text(),
+      structure: text({ mode: 'json' }).$type<BlueprintStructure>(),
+      structure_version: int().notNull().default(1),
+      source_language_id: text(),
+      copied_from_blueprint_id: text(),
+      auto_sync: int({ mode: 'boolean' }).notNull().default(false),
+      shared: int({ mode: 'boolean' }).notNull().default(false),
+      locked_for_backward_compat: int({ mode: 'boolean' })
+        .notNull()
+        .default(false),
+      creator_id: text(),
+      project_count: int().notNull().default(0),
+      locked_by: text(),
+      locked_at: text(),
+      download_profiles: text({ mode: 'json' }).$type<string[]>(),
+      ...extraColumns
+    },
+    (table) => [
+      index('template_blueprint_slug_idx').on(table.slug),
+      index('template_blueprint_auto_sync_idx').on(table.auto_sync),
+      ...normalizeParams(extraConfig, table)
+    ]
+  );
+
+  return table;
+}
+
+export function createProjectBlueprintLinkTable<
+  T extends TableSource,
+  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
+>(
+  source: T,
+  {
+    project,
+    template_blueprint
+  }: {
+    project: typeof project_synced | typeof project_local;
+    template_blueprint: ReturnType<typeof createTemplateBlueprintTable>;
+  },
+  columns?: TColumnsMap,
+  extraConfig?: (
+    self: BuildExtraConfigColumns<
+      'project_blueprint_link',
+      TColumnsMap,
+      'sqlite'
+    >
+  ) => SQLiteTableExtraConfigValue[]
+) {
+  const extraColumns = (columns ?? {}) as TColumnsMap;
+  const table = getTableCreator(source)(
+    'project_blueprint_link',
+    {
+      ...getTableColumns(source),
+      project_id: text()
+        .notNull()
+        .references(() => project.id),
+      blueprint_id: text()
+        .notNull()
+        .references(() => template_blueprint.id),
+      role: text(),
+      download_profiles: text({ mode: 'json' }).$type<string[]>(),
+      ...extraColumns
+    },
+    (table) => [
+      index('pbl_project_idx').on(table.project_id),
+      index('pbl_blueprint_idx').on(table.blueprint_id),
+      ...normalizeParams(extraConfig, table)
+    ]
+  );
+
+  return table;
+}
+
 export function createAssetTable<
   T extends TableSource,
   TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
@@ -377,6 +472,9 @@ export function createAssetTable<
       creator_id: text().references(() => profile.id),
       order_index: int().notNull().default(0),
       metadata: text(), // JSON metadata for asset-specific data (e.g., verse range)
+      blueprint_link_id: text(),
+      blueprint_node_id: text(),
+      span_end_blueprint_node_id: text(),
       ...extraColumns
     },
     (table) => {
@@ -385,6 +483,10 @@ export function createAssetTable<
         index('source_language_id_idx').on(table.source_language_id),
         index('asset_source_asset_id_idx').on(table.source_asset_id),
         index('asset_project_id_idx').on(table.project_id),
+        index('asset_blueprint_link_idx').on(
+          table.blueprint_link_id,
+          table.blueprint_node_id
+        ),
         ...normalizeParams(extraConfig, table)
       ];
     }
@@ -425,6 +527,8 @@ export function createQuestTable<
         .references(() => project.id),
       parent_id: text().references((): AnySQLiteColumn => table.id),
       creator_id: text().references(() => profile.id),
+      blueprint_link_id: text(),
+      blueprint_node_id: text(),
       ...extraColumns
     },
     (table) => {
@@ -432,6 +536,10 @@ export function createQuestTable<
         index('project_id_idx').on(table.project_id),
         index('parent_id_idx').on(table.parent_id),
         index('name_idx').on(table.name),
+        index('quest_blueprint_link_idx').on(
+          table.blueprint_link_id,
+          table.blueprint_node_id
+        ),
         ...normalizeParams(extraConfig, table)
       ];
     }

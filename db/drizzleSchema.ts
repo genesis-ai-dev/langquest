@@ -30,10 +30,12 @@ import {
   createRegionPropertyTable,
   createRegionSourceTable,
   createRegionTable,
+  createProjectBlueprintLinkTable,
   createReportsTable,
   createRequestTable,
   createSubscriptionTable,
   createTagTable,
+  createTemplateBlueprintTable,
   createVoteTable
 } from './drizzleSchemaColumns';
 
@@ -278,6 +280,35 @@ export const projectRelations = relations(project, ({ one, many }) => ({
   invites: many(invite),
   requests: many(request)
 }));
+
+// Blueprint tables
+export const template_blueprint = createTemplateBlueprintTable('merged');
+
+export const project_blueprint_link = createProjectBlueprintLinkTable(
+  'merged',
+  { project, template_blueprint }
+);
+
+export const templateBlueprintRelations = relations(
+  template_blueprint,
+  ({ many }) => ({
+    project_links: many(project_blueprint_link)
+  })
+);
+
+export const projectBlueprintLinkRelations = relations(
+  project_blueprint_link,
+  ({ one }) => ({
+    project: one(project, {
+      fields: [project_blueprint_link.project_id],
+      references: [project.id]
+    }),
+    blueprint: one(template_blueprint, {
+      fields: [project_blueprint_link.blueprint_id],
+      references: [template_blueprint.id]
+    })
+  })
+);
 
 // (removed duplicate early definition of project_language_link)
 export const quest = createQuestTable('merged', {
