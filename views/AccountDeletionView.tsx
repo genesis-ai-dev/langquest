@@ -16,6 +16,7 @@ import { system } from '@/db/powersync/system';
 import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { getNetworkStatus, useNetworkStatus } from '@/hooks/useNetworkStatus';
+import { useLocalStore } from '@/store/localStore';
 import { resetDatabase } from '@/utils/dbUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { useMutation } from '@tanstack/react-query';
@@ -35,6 +36,7 @@ export default function AccountDeletionView() {
   const { goToProjects, router } = useNavigationHelpers();
   const isOnline = useNetworkStatus();
   const [step, setStep] = useState<1 | 2>(1);
+  const setSystemReady = useLocalStore((state) => state.setSystemReady);
 
   const { mutateAsync: deleteAccount, isPending } = useMutation({
     mutationFn: async () => {
@@ -50,9 +52,11 @@ export default function AccountDeletionView() {
 
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
+      // Cleanup and reinitialize system before signing out
       console.log(
         '[AccountDeletionView] Cleaning up system before sign out...'
       );
+      setSystemReady(false);
       try {
         await system.cleanup();
         await resetDatabase();
