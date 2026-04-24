@@ -1,10 +1,10 @@
 import { z } from 'zod';
 
-export const BLUEPRINT_NODE_ID_LENGTH = 10;
-export const BLUEPRINT_MAX_DEPTH = 5;
-export const BLUEPRINT_FORMAT_VERSION = 1;
+export const TEMPLATE_NODE_ID_LENGTH = 10;
+export const TEMPLATE_MAX_DEPTH = 5;
+export const TEMPLATE_FORMAT_VERSION = 1;
 
-export const blueprintNodeSchema: z.ZodType<BlueprintNode> = z.lazy(() =>
+export const templateNodeSchema: z.ZodType<TemplateNode> = z.lazy(() =>
   z.object({
     id: z.string().min(1),
     name: z.string().min(1),
@@ -20,16 +20,16 @@ export const blueprintNodeSchema: z.ZodType<BlueprintNode> = z.lazy(() =>
     allows_spanning: z.boolean().optional(),
     deleted: z.boolean().optional(),
     metadata: z.record(z.unknown()).optional(),
-    children: z.array(blueprintNodeSchema).optional()
+    children: z.array(templateNodeSchema).optional()
   })
 );
 
-export const blueprintStructureSchema = z.object({
+export const templateStructureSchema = z.object({
   format_version: z.number().int().positive(),
-  root: blueprintNodeSchema
+  root: templateNodeSchema
 });
 
-export type BlueprintNode = {
+export type TemplateNode = {
   id: string;
   name: string;
   short_label?: string;
@@ -41,23 +41,23 @@ export type BlueprintNode = {
   allows_spanning?: boolean;
   deleted?: boolean;
   metadata?: Record<string, unknown>;
-  children?: BlueprintNode[];
+  children?: TemplateNode[];
 };
 
-export type BlueprintStructure = {
+export type TemplateStructure = {
   format_version: number;
-  root: BlueprintNode;
+  root: TemplateNode;
 };
 
-export function validateBlueprintStructure(
+export function validateTemplateStructure(
   data: unknown
-): BlueprintStructure | null {
-  const result = blueprintStructureSchema.safeParse(data);
+): TemplateStructure | null {
+  const result = templateStructureSchema.safeParse(data);
   return result.success ? result.data : null;
 }
 
 export function getNodeDepth(
-  node: BlueprintNode,
+  node: TemplateNode,
   currentDepth = 0
 ): number {
   if (!node.children?.length) return currentDepth;
@@ -66,6 +66,6 @@ export function getNodeDepth(
   );
 }
 
-export function validateDepth(structure: BlueprintStructure): boolean {
-  return getNodeDepth(structure.root) < BLUEPRINT_MAX_DEPTH;
+export function validateDepth(structure: TemplateStructure): boolean {
+  return getNodeDepth(structure.root) < TEMPLATE_MAX_DEPTH;
 }

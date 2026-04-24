@@ -20,8 +20,8 @@ interface DiscoveredIds {
   regionAliasIds: string[];
   regionSourceIds: string[];
   regionPropertyIds: string[];
-  projectBlueprintLinkIds?: string[];
-  templateBlueprintIds?: string[];
+  projectTemplateLinkIds?: string[];
+  templateIds?: string[];
 }
 
 interface BulkDownloadResult {
@@ -293,24 +293,24 @@ export async function bulkDownloadQuest(
       recordsUpdated: regionPropertiesUpdated
     });
 
-    if (discoveredIds.projectBlueprintLinkIds?.length) {
+    if (discoveredIds.projectTemplateLinkIds?.length) {
       const pblUpdated = await updateTable(
-        'project_blueprint_link',
-        discoveredIds.projectBlueprintLinkIds
+        'project_template_link',
+        discoveredIds.projectTemplateLinkIds
       );
       results.push({
-        tableName: 'project_blueprint_link',
+        tableName: 'project_template_link',
         recordsUpdated: pblUpdated
       });
     }
 
-    if (discoveredIds.templateBlueprintIds?.length) {
+    if (discoveredIds.templateIds?.length) {
       const tbUpdated = await updateTable(
-        'template_blueprint',
-        discoveredIds.templateBlueprintIds
+        'template',
+        discoveredIds.templateIds
       );
       results.push({
-        tableName: 'template_blueprint',
+        tableName: 'template',
         recordsUpdated: tbUpdated
       });
     }

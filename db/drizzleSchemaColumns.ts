@@ -42,7 +42,7 @@ import type {
   quest_synced,
   tag_synced
 } from './drizzleSchemaSynced';
-import type { BlueprintStructure } from '../constants/blueprintTypes';
+import type { TemplateStructure } from '../constants/templateTypes';
 import type { OpMetadata } from './powersync/opMetadata';
 import { getDefaultOpMetadata } from './powersync/opMetadata';
 
@@ -344,31 +344,30 @@ export function createTagTable<
 }
 
 // ============================================================================
-// BLUEPRINT TABLES
+// TEMPLATE TABLES
 // ============================================================================
 
-export function createTemplateBlueprintTable<
+export function createTemplateTable<
   T extends TableSource,
   TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
 >(
   source: T,
   columns?: TColumnsMap,
   extraConfig?: (
-    self: BuildExtraConfigColumns<'template_blueprint', TColumnsMap, 'sqlite'>
+    self: BuildExtraConfigColumns<'template', TColumnsMap, 'sqlite'>
   ) => SQLiteTableExtraConfigValue[]
 ) {
   const extraColumns = (columns ?? {}) as TColumnsMap;
   const table = getTableCreator(source)(
-    'template_blueprint',
+    'template',
     {
       ...getTableColumns(source),
       slug: text(),
       name: text().notNull(),
       icon: text(),
-      structure: text({ mode: 'json' }).$type<BlueprintStructure>(),
-      structure_version: int().notNull().default(1),
+      structure: text({ mode: 'json' }).$type<TemplateStructure>(),
       source_language_id: text(),
-      copied_from_blueprint_id: text(),
+      copied_from_template_id: text(),
       auto_sync: int({ mode: 'boolean' }).notNull().default(false),
       shared: int({ mode: 'boolean' }).notNull().default(false),
       locked_for_backward_compat: int({ mode: 'boolean' })
@@ -376,14 +375,12 @@ export function createTemplateBlueprintTable<
         .default(false),
       creator_id: text(),
       project_count: int().notNull().default(0),
-      locked_by: text(),
-      locked_at: text(),
       download_profiles: text({ mode: 'json' }).$type<string[]>(),
       ...extraColumns
     },
     (table) => [
-      index('template_blueprint_slug_idx').on(table.slug),
-      index('template_blueprint_auto_sync_idx').on(table.auto_sync),
+      index('template_slug_idx').on(table.slug),
+      index('template_auto_sync_idx').on(table.auto_sync),
       ...normalizeParams(extraConfig, table)
     ]
   );
@@ -391,22 +388,22 @@ export function createTemplateBlueprintTable<
   return table;
 }
 
-export function createProjectBlueprintLinkTable<
+export function createProjectTemplateLinkTable<
   T extends TableSource,
   TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
 >(
   source: T,
   {
     project,
-    template_blueprint
+    templateDef
   }: {
     project: typeof project_synced | typeof project_local;
-    template_blueprint: ReturnType<typeof createTemplateBlueprintTable>;
+    templateDef: ReturnType<typeof createTemplateTable>;
   },
   columns?: TColumnsMap,
   extraConfig?: (
     self: BuildExtraConfigColumns<
-      'project_blueprint_link',
+      'project_template_link',
       TColumnsMap,
       'sqlite'
     >
@@ -414,22 +411,22 @@ export function createProjectBlueprintLinkTable<
 ) {
   const extraColumns = (columns ?? {}) as TColumnsMap;
   const table = getTableCreator(source)(
-    'project_blueprint_link',
+    'project_template_link',
     {
       ...getTableColumns(source),
       project_id: text()
         .notNull()
         .references(() => project.id),
-      blueprint_id: text()
+      template_id: text()
         .notNull()
-        .references(() => template_blueprint.id),
+        .references(() => templateDef.id),
       role: text(),
       download_profiles: text({ mode: 'json' }).$type<string[]>(),
       ...extraColumns
     },
     (table) => [
-      index('pbl_project_idx').on(table.project_id),
-      index('pbl_blueprint_idx').on(table.blueprint_id),
+      index('ptl_project_idx').on(table.project_id),
+      index('ptl_template_idx').on(table.template_id),
       ...normalizeParams(extraConfig, table)
     ]
   );
@@ -472,9 +469,9 @@ export function createAssetTable<
       creator_id: text().references(() => profile.id),
       order_index: int().notNull().default(0),
       metadata: text(), // JSON metadata for asset-specific data (e.g., verse range)
-      blueprint_link_id: text(),
-      blueprint_node_id: text(),
-      span_end_blueprint_node_id: text(),
+      template_link_id: text(),
+      template_node_id: text(),
+      span_end_template_node_id: text(),
       ...extraColumns
     },
     (table) => {
@@ -483,9 +480,9 @@ export function createAssetTable<
         index('source_language_id_idx').on(table.source_language_id),
         index('asset_source_asset_id_idx').on(table.source_asset_id),
         index('asset_project_id_idx').on(table.project_id),
-        index('asset_blueprint_link_idx').on(
-          table.blueprint_link_id,
-          table.blueprint_node_id
+        index('asset_template_link_idx').on(
+          table.template_link_id,
+          table.template_node_id
         ),
         ...normalizeParams(extraConfig, table)
       ];
@@ -527,8 +524,8 @@ export function createQuestTable<
         .references(() => project.id),
       parent_id: text().references((): AnySQLiteColumn => table.id),
       creator_id: text().references(() => profile.id),
-      blueprint_link_id: text(),
-      blueprint_node_id: text(),
+      template_link_id: text(),
+      template_node_id: text(),
       ...extraColumns
     },
     (table) => {
@@ -536,9 +533,9 @@ export function createQuestTable<
         index('project_id_idx').on(table.project_id),
         index('parent_id_idx').on(table.parent_id),
         index('name_idx').on(table.name),
-        index('quest_blueprint_link_idx').on(
-          table.blueprint_link_id,
-          table.blueprint_node_id
+        index('quest_template_link_idx').on(
+          table.template_link_id,
+          table.template_node_id
         ),
         ...normalizeParams(extraConfig, table)
       ];

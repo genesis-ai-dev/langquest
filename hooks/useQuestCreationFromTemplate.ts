@@ -1,7 +1,7 @@
 /**
- * Generalized hook for creating or finding quests from blueprint nodes.
+ * Generalized hook for creating or finding quests from template nodes.
  * Replaces useBibleBookCreation, useBibleChapterCreation, useFiaBookCreation,
- * and useFiaPericopeCreation with a single blueprint-driven hook.
+ * and useFiaPericopeCreation with a single template-driven hook.
  */
 
 import { useAuth } from '@/contexts/AuthContext';
@@ -13,8 +13,8 @@ import uuid from 'react-native-uuid';
 
 interface FindOrCreateQuestParams {
   projectId: string;
-  blueprintLinkId: string;
-  blueprintNodeId: string;
+  templateLinkId: string;
+  templateNodeId: string;
   name: string;
   parentQuestId?: string | null;
 }
@@ -23,11 +23,11 @@ interface QuestResult {
   id: string;
   name: string;
   project_id: string;
-  blueprint_link_id: string | null;
-  blueprint_node_id: string | null;
+  template_link_id: string | null;
+  template_node_id: string | null;
 }
 
-export function useQuestCreationFromBlueprint() {
+export function useQuestCreationFromTemplate() {
   const { currentUser } = useAuth();
   const queryClient = useQueryClient();
 
@@ -37,8 +37,8 @@ export function useQuestCreationFromBlueprint() {
     ): Promise<QuestResult> => {
       const {
         projectId,
-        blueprintLinkId,
-        blueprintNodeId,
+        templateLinkId,
+        templateNodeId,
         name,
         parentQuestId
       } = params;
@@ -50,21 +50,20 @@ export function useQuestCreationFromBlueprint() {
       return await system.db.transaction(async (tx) => {
         const questTable = resolveTable('quest', { localOverride: true });
 
-        // Look for existing quest by blueprint_node_id
         const existing = await tx
           .select({
             id: questTable.id,
             name: questTable.name,
             project_id: questTable.project_id,
-            blueprint_link_id: questTable.blueprint_link_id,
-            blueprint_node_id: questTable.blueprint_node_id
+            template_link_id: questTable.template_link_id,
+            template_node_id: questTable.template_node_id
           })
           .from(questTable)
           .where(
             and(
               eq(questTable.project_id, projectId),
-              eq(questTable.blueprint_link_id, blueprintLinkId),
-              eq(questTable.blueprint_node_id, blueprintNodeId)
+              eq(questTable.template_link_id, templateLinkId),
+              eq(questTable.template_node_id, templateNodeId)
             )
           )
           .limit(1);
@@ -73,7 +72,6 @@ export function useQuestCreationFromBlueprint() {
           return existing[0] as QuestResult;
         }
 
-        // Create new quest linked to blueprint node
         const newId = String(uuid.v4());
         const [created] = await tx
           .insert(questTable)
@@ -83,8 +81,8 @@ export function useQuestCreationFromBlueprint() {
             project_id: projectId,
             parent_id: parentQuestId ?? null,
             creator_id: currentUser.id,
-            blueprint_link_id: blueprintLinkId,
-            blueprint_node_id: blueprintNodeId,
+            template_link_id: templateLinkId,
+            template_node_id: templateNodeId,
             download_profiles: [currentUser.id]
           })
           .returning();
@@ -97,8 +95,8 @@ export function useQuestCreationFromBlueprint() {
           id: created.id,
           name: created.name as string,
           project_id: created.project_id as string,
-          blueprint_link_id: created.blueprint_link_id as string | null,
-          blueprint_node_id: created.blueprint_node_id as string | null
+          template_link_id: created.template_link_id as string | null,
+          template_node_id: created.template_node_id as string | null
         };
       });
     },

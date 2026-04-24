@@ -489,13 +489,13 @@ ON CONFLICT ("profile_id", "project_id") DO UPDATE SET
 	"last_updated" = EXCLUDED."last_updated";
 
 --
--- Data for Name: template_blueprint; Type: TABLE DATA; Schema: public; Owner: postgres
--- Seed standard blueprints for development/testing
+-- Data for Name: template; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Seed standard templates for development/testing
 --
 
-INSERT INTO "public"."template_blueprint" ("id", "slug", "name", "icon", "structure", "structure_version", "auto_sync", "shared", "active", "locked_for_backward_compat") VALUES
-  ('a0000000-0000-0000-0000-000000000001', 'protestant-bible-v2-frozen', 'Protestant Bible (Legacy)', 'book', '{"format_version":1,"root":{"id":"root","name":"Protestant Bible","node_type":"root","linkable_type":"quest","children":[]}}', 1, true, true, true, true),
-  ('a0000000-0000-0000-0000-000000000002', 'fia-v2-frozen', 'FIA Pericopes (Legacy)', 'scroll-text', '{"format_version":1,"root":{"id":"root","name":"FIA Pericopes","node_type":"root","linkable_type":"quest","children":[]}}', 1, true, true, true, true)
+INSERT INTO "public"."template" ("id", "slug", "name", "icon", "structure", "auto_sync", "shared", "active", "locked_for_backward_compat") VALUES
+  ('a0000000-0000-0000-0000-000000000001', 'protestant-bible-v2-frozen', 'Protestant Bible (Legacy)', 'book', '{"format_version":1,"root":{"id":"root","name":"Protestant Bible","node_type":"root","linkable_type":"quest","children":[]}}', true, true, true, true),
+  ('a0000000-0000-0000-0000-000000000002', 'fia-v2-frozen', 'FIA Pericopes (Legacy)', 'scroll-text', '{"format_version":1,"root":{"id":"root","name":"FIA Pericopes","node_type":"root","linkable_type":"quest","children":[]}}', true, true, true, true)
 ON CONFLICT (id) DO NOTHING;
 
 -- Temporarily set search_path so unqualified names inside functions resolve to public

@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-Generate the Protestant Bible blueprint with nanoid(10) node IDs and backfill
-existing Bible quests with blueprint_node_id values.
+Generate the Protestant Bible template with nanoid(10) node IDs and backfill
+existing Bible quests with template_node_id values.
 
 Usage:
-    python scripts/generate-bible-blueprint.py [--database-url URL] [--seed SEED] [--dry-run]
+    python scripts/generate-bible-template.py [--database-url URL] [--seed SEED] [--dry-run]
 
 If --database-url is not provided, reads DATABASE_URL from environment.
 Use --seed for reproducible ID generation across runs.
@@ -27,7 +27,7 @@ except ImportError:
 
 ALPHABET = string.ascii_letters + string.digits
 NODE_ID_LENGTH = 10
-BLUEPRINT_ID = "a0000000-0000-0000-0000-000000000001"
+TEMPLATE_ID = "a0000000-0000-0000-0000-000000000001"
 
 BIBLE_BOOKS = [
     {"id": "gen", "name": "Genesis", "short": "Gen", "chapters": 50, "verses": [31,25,24,26,32,22,24,22,29,32,32,20,18,24,21,16,27,33,38,18,34,24,20,67,34,35,46,22,35,43,55,32,20,31,29,43,36,30,23,23,57,38,34,34,28,34,31,22,33,26]},
@@ -125,9 +125,9 @@ class SeededNanoid:
         return "".join(result)
 
 
-def build_bible_blueprint(generator: SeededNanoid) -> tuple[dict, dict]:
+def build_bible_template(generator: SeededNanoid) -> tuple[dict, dict]:
     """
-    Build the full Bible blueprint JSONB structure.
+    Build the full Bible template JSONB structure.
     Returns (structure_dict, mapping_dict).
     mapping_dict maps (book_id, chapter_num) -> node_id for quest backfill.
     """
@@ -188,37 +188,36 @@ def build_bible_blueprint(generator: SeededNanoid) -> tuple[dict, dict]:
     return structure, mapping
 
 
-def upsert_blueprint(conn, structure: dict):
-    """Upsert the Bible blueprint row with the full structure."""
+def upsert_template(conn, structure: dict):
+    """Upsert the Bible template row with the full structure."""
     structure_json = json.dumps(structure, separators=(",", ":"))
     with conn.cursor() as cur:
         cur.execute("""
-            UPDATE public.template_blueprint
+            UPDATE public.template
             SET structure = %s::jsonb,
-                structure_version = structure_version + 1,
                 last_updated = NOW()
             WHERE id = %s
-        """, (structure_json, BLUEPRINT_ID))
+        """, (structure_json, TEMPLATE_ID))
 
         if cur.rowcount == 0:
             cur.execute("""
-                INSERT INTO public.template_blueprint (
-                    id, slug, name, icon, structure, structure_version,
+                INSERT INTO public.template (
+                    id, slug, name, icon, structure,
                     auto_sync, shared, active, locked_for_backward_compat,
                     download_profiles
                 ) VALUES (
                     %s, 'protestant-bible', 'Protestant Bible', 'book',
-                    %s::jsonb, 1, true, true, true, true, '{}'
+                    %s::jsonb, true, true, true, true, '{}'
                 )
-            """, (BLUEPRINT_ID, structure_json))
+            """, (TEMPLATE_ID, structure_json))
 
     conn.commit()
-    print(f"Blueprint upserted (id={BLUEPRINT_ID})")
+    print(f"Template upserted (id={TEMPLATE_ID})")
 
 
 def backfill_bible_quests(conn, mapping: dict):
     """
-    Set blueprint_node_id on existing Bible quests by matching metadata.
+    Set template_node_id on existing Bible quests by matching metadata.
     Uses tree-walking + metadata matching per C10.
     """
     with conn.cursor() as cur:
@@ -231,7 +230,7 @@ def backfill_bible_quests(conn, mapping: dict):
               AND p.active = true
               AND q.active = true
               AND q.metadata IS NOT NULL
-              AND q.blueprint_node_id IS NULL
+              AND q.template_node_id IS NULL
         """)
 
         updates = []
@@ -251,16 +250,16 @@ def backfill_bible_quests(conn, mapping: dict):
 
         if updates:
             cur.executemany("""
-                UPDATE public.quest SET blueprint_node_id = %s WHERE id = %s
+                UPDATE public.quest SET template_node_id = %s WHERE id = %s
             """, updates)
             conn.commit()
-            print(f"Backfilled {len(updates)} Bible quests with blueprint_node_id")
+            print(f"Backfilled {len(updates)} Bible quests with template_node_id")
         else:
             print("No Bible quests to backfill")
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Generate Protestant Bible blueprint")
+    parser = argparse.ArgumentParser(description="Generate Protestant Bible template")
     parser.add_argument("--database-url", help="PostgreSQL connection string")
     parser.add_argument("--seed", help="Seed for reproducible nanoid generation")
     parser.add_argument("--dry-run", action="store_true", help="Print structure stats without writing to DB")
@@ -269,11 +268,11 @@ def main():
     args = parser.parse_args()
 
     generator = SeededNanoid(seed=args.seed)
-    structure, mapping = build_bible_blueprint(generator)
+    structure, mapping = build_bible_template(generator)
 
     total_nodes = sum(1 for _ in _count_nodes(structure["root"]))
     structure_size = len(json.dumps(structure, separators=(",", ":")))
-    print(f"Generated Bible blueprint: {total_nodes} nodes, {structure_size / 1024 / 1024:.2f} MB")
+    print(f"Generated Bible template: {total_nodes} nodes, {structure_size / 1024 / 1024:.2f} MB")
 
     if args.output_json:
         with open(args.output_json, "w") as f:
@@ -300,7 +299,7 @@ def main():
 
     conn = psycopg2.connect(db_url)
     try:
-        upsert_blueprint(conn, structure)
+        upsert_template(conn, structure)
         backfill_bible_quests(conn, mapping)
     finally:
         conn.close()

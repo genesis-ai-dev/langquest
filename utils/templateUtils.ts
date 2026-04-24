@@ -1,37 +1,37 @@
 import type {
-  BlueprintNode,
-  BlueprintStructure
-} from '@/constants/blueprintTypes';
+  TemplateNode,
+  TemplateStructure
+} from '@/constants/templateTypes';
 import {
-  BLUEPRINT_FORMAT_VERSION,
-  validateBlueprintStructure
-} from '@/constants/blueprintTypes';
+  TEMPLATE_FORMAT_VERSION,
+  validateTemplateStructure
+} from '@/constants/templateTypes';
 
-export interface BlueprintIndex {
-  byId: Map<string, BlueprintNode>;
+export interface TemplateIndex {
+  byId: Map<string, TemplateNode>;
   parentOf: Map<string, string>;
   depthOf: Map<string, number>;
   pathOf: Map<string, string[]>;
 }
 
-export function parseBlueprintStructure(
+export function parseTemplateStructure(
   raw: unknown
-): BlueprintStructure | null {
+): TemplateStructure | null {
   if (!raw) return null;
   const data = typeof raw === 'string' ? JSON.parse(raw) : raw;
-  return validateBlueprintStructure(data);
+  return validateTemplateStructure(data);
 }
 
-export function buildBlueprintIndex(
-  structure: BlueprintStructure
-): BlueprintIndex {
-  const byId = new Map<string, BlueprintNode>();
+export function buildTemplateIndex(
+  structure: TemplateStructure
+): TemplateIndex {
+  const byId = new Map<string, TemplateNode>();
   const parentOf = new Map<string, string>();
   const depthOf = new Map<string, number>();
   const pathOf = new Map<string, string[]>();
 
   function walk(
-    node: BlueprintNode,
+    node: TemplateNode,
     parentId: string | null,
     depth: number,
     path: string[]
@@ -56,37 +56,37 @@ export function buildBlueprintIndex(
 }
 
 export function getNode(
-  idx: BlueprintIndex,
+  idx: TemplateIndex,
   nodeId: string
-): BlueprintNode | undefined {
+): TemplateNode | undefined {
   return idx.byId.get(nodeId);
 }
 
 export function listChildren(
-  idx: BlueprintIndex,
+  idx: TemplateIndex,
   nodeId: string
-): BlueprintNode[] {
+): TemplateNode[] {
   const node = idx.byId.get(nodeId);
   if (!node?.children) return [];
   return node.children.filter((c) => !c.deleted);
 }
 
 export function getNodePath(
-  idx: BlueprintIndex,
+  idx: TemplateIndex,
   nodeId: string
 ): string[] {
   return idx.pathOf.get(nodeId) ?? [];
 }
 
 export function getNodeDepth(
-  idx: BlueprintIndex,
+  idx: TemplateIndex,
   nodeId: string
 ): number {
   return idx.depthOf.get(nodeId) ?? -1;
 }
 
 export function getParentId(
-  idx: BlueprintIndex,
+  idx: TemplateIndex,
   nodeId: string
 ): string | undefined {
   return idx.parentOf.get(nodeId);
@@ -98,7 +98,7 @@ export function getParentId(
  * otherwise just `name`.
  */
 export function resolveLabel(
-  node: BlueprintNode,
+  node: TemplateNode,
   variables?: Record<string, string>
 ): string {
   if (node.short_label) return node.short_label;
@@ -116,10 +116,10 @@ export function resolveLabel(
  * at a given depth or across the whole tree.
  */
 export function findLinkableNodes(
-  idx: BlueprintIndex,
+  idx: TemplateIndex,
   filterType?: 'quest' | 'asset' | 'both'
-): BlueprintNode[] {
-  const result: BlueprintNode[] = [];
+): TemplateNode[] {
+  const result: TemplateNode[] = [];
   for (const node of idx.byId.values()) {
     if (node.deleted) continue;
     if (!node.linkable_type) continue;
@@ -136,9 +136,9 @@ export function findLinkableNodes(
  * with `is_download_unit: true`, or the node itself if it is one).
  */
 export function findDownloadUnit(
-  idx: BlueprintIndex,
+  idx: TemplateIndex,
   nodeId: string
-): BlueprintNode | undefined {
+): TemplateNode | undefined {
   let currentId: string | undefined = nodeId;
   while (currentId) {
     const node = idx.byId.get(currentId);
@@ -149,11 +149,11 @@ export function findDownloadUnit(
 }
 
 /**
- * Create a minimal empty blueprint structure.
+ * Create a minimal empty template structure.
  */
-export function createEmptyStructure(rootName: string): BlueprintStructure {
+export function createEmptyStructure(rootName: string): TemplateStructure {
   return {
-    format_version: BLUEPRINT_FORMAT_VERSION,
+    format_version: TEMPLATE_FORMAT_VERSION,
     root: {
       id: 'root',
       name: rootName,

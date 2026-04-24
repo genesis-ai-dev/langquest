@@ -32,9 +32,9 @@ export interface SaveRecordingParams {
   audioUri: string;
   assetName: string; // Pre-determined asset name (reserved to prevent duplicates)
   metadata?: AssetMetadata | null; // Optional verse metadata
-  blueprintLinkId?: string | null;
-  blueprintNodeId?: string | null;
-  spanEndBlueprintNodeId?: string | null;
+  templateLinkId?: string | null;
+  templateNodeId?: string | null;
+  spanEndTemplateNodeId?: string | null;
 }
 
 /**
@@ -56,9 +56,9 @@ export async function saveRecording(
     audioUri,
     assetName,
     metadata,
-    blueprintLinkId,
-    blueprintNodeId,
-    spanEndBlueprintNodeId
+    templateLinkId,
+    templateNodeId,
+    spanEndTemplateNodeId
   } = params;
 
   const newAssetId = String(uuid.v4());
@@ -113,9 +113,9 @@ export async function saveRecording(
         creator_id: userId,
         download_profiles: [userId],
         metadata: metadata ? JSON.stringify(metadata) : null,
-        blueprint_link_id: blueprintLinkId ?? null,
-        blueprint_node_id: blueprintNodeId ?? null,
-        span_end_blueprint_node_id: spanEndBlueprintNodeId ?? null
+        template_link_id: templateLinkId ?? null,
+        template_node_id: templateNodeId ?? null,
+        span_end_template_node_id: spanEndTemplateNodeId ?? null
       })
       .returning();
 

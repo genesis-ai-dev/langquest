@@ -2,16 +2,16 @@ import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
-import type { BlueprintNode } from '@/constants/blueprintTypes';
-import { resolveLabel } from '@/utils/blueprintUtils';
+import type { TemplateNode } from '@/constants/templateTypes';
+import { resolveLabel } from '@/utils/templateUtils';
 import { cn, useThemeColor } from '@/utils/styleUtils';
 import { LegendList } from '@legendapp/list';
 import { ChevronRightIcon, PlusCircleIcon } from 'lucide-react-native';
 import React from 'react';
 import { View } from 'react-native';
 
-interface BlueprintNodeListProps {
-  nodes: BlueprintNode[];
+interface TemplateNodeListProps {
+  nodes: TemplateNode[];
   onNodeSelect: (nodeId: string) => void;
   existingNodeIds?: Set<string>;
   canCreateNew?: boolean;
@@ -19,17 +19,17 @@ interface BlueprintNodeListProps {
 }
 
 /**
- * Generic list component for displaying blueprint tree nodes at any level.
+ * Generic list component for displaying template tree nodes at any level.
  * Replaces BibleBookList, FiaBookList, BibleChapterList, FiaPericopeList
- * with a single blueprint-driven component.
+ * with a single template-driven component.
  */
-export function BlueprintNodeList({
+export function TemplateNodeList({
   nodes,
   onNodeSelect,
   existingNodeIds,
   canCreateNew = false,
   emptyMessage = 'No items'
-}: BlueprintNodeListProps) {
+}: TemplateNodeListProps) {
   const primaryColor = useThemeColor('primary');
   const secondaryColor = useThemeColor('chart-2');
 
@@ -108,7 +108,7 @@ export function BlueprintNodeList({
   );
 }
 
-export function BlueprintNodeListSkeleton() {
+export function TemplateNodeListSkeleton() {
   return (
     <View className="gap-2 px-4 pt-4">
       {Array.from({ length: 8 }).map((_, i) => (

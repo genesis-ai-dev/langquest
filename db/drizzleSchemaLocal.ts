@@ -32,12 +32,12 @@ import {
   createRegionPropertyTable,
   createRegionSourceTable,
   createRegionTable,
-  createProjectBlueprintLinkTable,
+  createProjectTemplateLinkTable,
   createReportsTable,
   createRequestTable,
   createSubscriptionTable,
   createTagTable,
-  createTemplateBlueprintTable,
+  createTemplateTable,
   createVoteTable
 } from './drizzleSchemaColumns';
 
@@ -320,34 +320,34 @@ export const project_localRelations = relations(
   })
 );
 
-// Blueprint tables
-export const template_blueprint_local = createTemplateBlueprintTable('local');
+// Template tables
+export const template_local = createTemplateTable('local');
 
-export const project_blueprint_link_local = createProjectBlueprintLinkTable(
+export const project_template_link_local = createProjectTemplateLinkTable(
   'local',
   {
     project: project_local,
-    template_blueprint: template_blueprint_local
+    templateDef: template_local
   }
 );
 
-export const templateBlueprint_localRelations = relations(
-  template_blueprint_local,
+export const template_localRelations = relations(
+  template_local,
   ({ many }) => ({
-    project_links: many(project_blueprint_link_local)
+    project_links: many(project_template_link_local)
   })
 );
 
-export const projectBlueprintLink_localRelations = relations(
-  project_blueprint_link_local,
+export const projectTemplateLink_localRelations = relations(
+  project_template_link_local,
   ({ one }) => ({
     project: one(project_local, {
-      fields: [project_blueprint_link_local.project_id],
+      fields: [project_template_link_local.project_id],
       references: [project_local.id]
     }),
-    blueprint: one(template_blueprint_local, {
-      fields: [project_blueprint_link_local.blueprint_id],
-      references: [template_blueprint_local.id]
+    template: one(template_local, {
+      fields: [project_template_link_local.template_id],
+      references: [template_local.id]
     })
   })
 );

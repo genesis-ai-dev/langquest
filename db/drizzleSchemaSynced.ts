@@ -29,12 +29,12 @@ import {
   createRegionPropertyTable,
   createRegionSourceTable,
   createRegionTable,
-  createProjectBlueprintLinkTable,
+  createProjectTemplateLinkTable,
   createReportsTable,
   createRequestTable,
   createSubscriptionTable,
   createTagTable,
-  createTemplateBlueprintTable,
+  createTemplateTable,
   createVoteTable
 } from './drizzleSchemaColumns';
 
@@ -314,34 +314,34 @@ export const project_syncedRelations = relations(
   })
 );
 
-// Blueprint tables
-export const template_blueprint_synced = createTemplateBlueprintTable('synced');
+// Template tables
+export const template_synced = createTemplateTable('synced');
 
-export const project_blueprint_link_synced = createProjectBlueprintLinkTable(
+export const project_template_link_synced = createProjectTemplateLinkTable(
   'synced',
   {
     project: project_synced,
-    template_blueprint: template_blueprint_synced
+    templateDef: template_synced
   }
 );
 
-export const templateBlueprint_syncedRelations = relations(
-  template_blueprint_synced,
+export const template_syncedRelations = relations(
+  template_synced,
   ({ many }) => ({
-    project_links: many(project_blueprint_link_synced)
+    project_links: many(project_template_link_synced)
   })
 );
 
-export const projectBlueprintLink_syncedRelations = relations(
-  project_blueprint_link_synced,
+export const projectTemplateLink_syncedRelations = relations(
+  project_template_link_synced,
   ({ one }) => ({
     project: one(project_synced, {
-      fields: [project_blueprint_link_synced.project_id],
+      fields: [project_template_link_synced.project_id],
       references: [project_synced.id]
     }),
-    blueprint: one(template_blueprint_synced, {
-      fields: [project_blueprint_link_synced.blueprint_id],
-      references: [template_blueprint_synced.id]
+    template: one(template_synced, {
+      fields: [project_template_link_synced.template_id],
+      references: [template_synced.id]
     })
   })
 );

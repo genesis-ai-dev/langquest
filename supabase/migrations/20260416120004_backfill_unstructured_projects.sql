@@ -1,10 +1,10 @@
 -- ============================================================================
--- Backfill unstructured projects with auto-generated blueprints
+-- Backfill unstructured projects with auto-generated templates
 -- ============================================================================
 -- For each active unstructured project, walks the quest tree and generates
--- a blueprint JSONB structure mirroring the existing quest hierarchy.
+-- a template JSONB structure mirroring the existing quest hierarchy.
 -- Node IDs are random 10-char strings (nanoid-style, per C10).
--- These blueprints are locked_for_backward_compat since the underlying
+-- These templates are locked_for_backward_compat since the underlying
 -- projects use FK-based tree navigation (quest.parent_id).
 -- ============================================================================
 
@@ -26,8 +26,8 @@ DO $$
 DECLARE
   v_project RECORD;
   v_quest RECORD;
-  v_blueprint_id UUID;
-  v_pbl_id UUID;
+  v_template_id UUID;
+  v_ptl_id UUID;
   v_structure JSONB;
   v_quest_nodes JSONB;
   v_child_nodes JSONB;
@@ -41,8 +41,8 @@ BEGIN
     WHERE p.template = 'unstructured'
       AND p.active = true
   LOOP
-    -- Generate a blueprint ID
-    v_blueprint_id := gen_random_uuid();
+    -- Generate a template ID
+    v_template_id := gen_random_uuid();
     v_node_ids := '{}'::jsonb;
 
     -- First pass: assign node IDs to all quests in this project
@@ -113,17 +113,16 @@ BEGIN
       )
     );
 
-    -- Insert the blueprint
-    INSERT INTO public.template_blueprint (
-      id, name, icon, structure, structure_version,
+    -- Insert the template
+    INSERT INTO public.template (
+      id, name, icon, structure,
       auto_sync, shared, active, locked_for_backward_compat,
       download_profiles
     ) VALUES (
-      v_blueprint_id,
+      v_template_id,
       v_project.name || ' (auto-generated)',
       'folder',
       v_structure,
-      1,
       false,
       false,
       true,
@@ -131,28 +130,28 @@ BEGIN
       '{}'
     );
 
-    -- Create project_blueprint_link
-    v_pbl_id := gen_random_uuid();
-    INSERT INTO public.project_blueprint_link (
-      id, project_id, blueprint_id, role, active, download_profiles
+    -- Create project_template_link
+    v_ptl_id := gen_random_uuid();
+    INSERT INTO public.project_template_link (
+      id, project_id, template_id, role, active, download_profiles
     ) VALUES (
-      v_pbl_id, v_project.id, v_blueprint_id, 'primary', true, '{}'
+      v_ptl_id, v_project.id, v_template_id, 'primary', true, '{}'
     );
 
-    -- Set blueprint_link_id and blueprint_node_id on all quests
+    -- Set template_link_id and template_node_id on all quests
     UPDATE public.quest q
-    SET blueprint_link_id = v_pbl_id,
-        blueprint_node_id = v_node_ids->>q.id::text
+    SET template_link_id = v_ptl_id,
+        template_node_id = v_node_ids->>q.id::text
     WHERE q.project_id = v_project.id
       AND q.active = true
-      AND q.blueprint_node_id IS NULL;
+      AND q.template_node_id IS NULL;
 
-    -- Set blueprint_link_id on all assets for this project
+    -- Set template_link_id on all assets for this project
     UPDATE public.asset a
-    SET blueprint_link_id = v_pbl_id
+    SET template_link_id = v_ptl_id
     WHERE a.project_id = v_project.id
       AND a.active = true
-      AND a.blueprint_link_id IS NULL;
+      AND a.template_link_id IS NULL;
 
   END LOOP;
 END;

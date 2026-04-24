@@ -2,17 +2,17 @@ import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 /**
- * FIA Blueprint Refresh Edge Function
+ * FIA Template Refresh Edge Function
  *
  * Scheduled via pg_cron to run daily. Fetches the latest FIA pericope data
- * for all languages that have FIA blueprints, and applies additive changes
- * (new books, new pericopes) to the source blueprints.
+ * for all languages that have FIA templates, and applies additive changes
+ * (new books, new pericopes) to the source templates.
  *
  * Invoked by: pg_cron via pg_net HTTP call to this function
- * No request body needed — discovers languages from existing blueprints.
+ * No request body needed — discovers languages from existing templates.
  */
 
-interface BlueprintNode {
+interface TemplateNode {
   id: string;
   name: string;
   short_label?: string;
@@ -24,12 +24,12 @@ interface BlueprintNode {
   allows_spanning?: boolean;
   deleted?: boolean;
   metadata?: Record<string, unknown>;
-  children?: BlueprintNode[];
+  children?: TemplateNode[];
 }
 
-interface BlueprintStructure {
+interface TemplateStructure {
   format_version: number;
-  root: BlueprintNode;
+  root: TemplateNode;
 }
 
 Deno.serve(async (req) => {
@@ -38,36 +38,36 @@ Deno.serve(async (req) => {
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-    // Find all FIA-type source blueprints (non-frozen, auto_sync)
-    const { data: blueprints, error: bpError } = await supabase
-      .from('template_blueprint')
-      .select('id, slug, structure, structure_version, source_language_id')
+    // Find all FIA-type source templates (non-frozen, auto_sync)
+    const { data: templates, error: tmplError } = await supabase
+      .from('template')
+      .select('id, slug, structure, source_language_id')
       .eq('active', true)
       .eq('auto_sync', true)
       .eq('locked_for_backward_compat', false)
       .ilike('slug', 'fia-%');
 
-    if (bpError) {
-      console.error('Failed to fetch FIA blueprints:', bpError);
-      return new Response(JSON.stringify({ error: bpError.message }), {
+    if (tmplError) {
+      console.error('Failed to fetch FIA templates:', tmplError);
+      return new Response(JSON.stringify({ error: tmplError.message }), {
         status: 500,
         headers: { 'Content-Type': 'application/json' }
       });
     }
 
-    if (!blueprints?.length) {
+    if (!templates?.length) {
       return new Response(
-        JSON.stringify({ message: 'No FIA blueprints to refresh', updated: 0 }),
+        JSON.stringify({ message: 'No FIA templates to refresh', updated: 0 }),
         { status: 200, headers: { 'Content-Type': 'application/json' } }
       );
     }
 
     let updated = 0;
 
-    for (const bp of blueprints) {
+    for (const tmpl of templates) {
       try {
-        // Get the FIA language code from the blueprint's metadata or slug
-        const languageCode = bp.slug?.replace('fia-source-', '').replace('fia-', '');
+        // Get the FIA language code from the template's metadata or slug
+        const languageCode = tmpl.slug?.replace('fia-source-', '').replace('fia-', '');
         if (!languageCode) continue;
 
         // Fetch fresh pericope data from the FIA pericopes edge function
@@ -91,7 +91,7 @@ Deno.serve(async (req) => {
         const pericopeData = await pericopeResponse.json();
         if (!pericopeData.books?.length) continue;
 
-        const structure = bp.structure as BlueprintStructure;
+        const structure = tmpl.structure as TemplateStructure;
         const existingBookIds = new Set<string>();
         const existingPericopeIds = new Set<string>();
 
@@ -156,38 +156,33 @@ Deno.serve(async (req) => {
         }
 
         if (changed) {
-          const newVersion = bp.structure_version + 1;
           const { error: updateError } = await supabase
-            .from('template_blueprint')
+            .from('template')
             .update({
               structure,
-              structure_version: newVersion,
               last_updated: new Date().toISOString()
             })
-            .eq('id', bp.id)
-            .eq('structure_version', bp.structure_version);
+            .eq('id', tmpl.id);
 
           if (updateError) {
-            console.error(`Failed to update blueprint ${bp.id}:`, updateError);
+            console.error(`Failed to update template ${tmpl.id}:`, updateError);
           } else {
-            // Record revision
-            await supabase.from('blueprint_revision').insert({
-              blueprint_id: bp.id,
-              structure_version: newVersion,
+            await supabase.from('template_revision').insert({
+              template_id: tmpl.id,
               structure,
               saved_by: null
             });
             updated++;
-            console.log(`Updated FIA blueprint ${bp.slug} to v${newVersion}`);
+            console.log(`Updated FIA template ${tmpl.slug}`);
           }
         }
       } catch (err) {
-        console.error(`Error processing blueprint ${bp.id}:`, err);
+        console.error(`Error processing template ${tmpl.id}:`, err);
       }
     }
 
     return new Response(
-      JSON.stringify({ message: `Refreshed ${updated} FIA blueprints`, updated }),
+      JSON.stringify({ message: `Refreshed ${updated} FIA templates`, updated }),
       { status: 200, headers: { 'Content-Type': 'application/json' } }
     );
   } catch (err) {
