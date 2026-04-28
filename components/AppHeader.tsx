@@ -1,15 +1,18 @@
 import { Icon } from '@/components/ui/icon';
-import { Text } from '@/components/ui/text';
-import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
+import { useBreadcrumbs } from '@/hooks/useBreadcrumbs';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useSyncState } from '@/hooks/useSyncState';
+import { cn, useThemeToken } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { AttachmentState } from '@powersync/attachments';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
 import {
   AlertTriangle,
+  ChevronLeftIcon,
   ChevronRightIcon,
   CloudOff,
   HelpCircleIcon,
@@ -18,6 +21,7 @@ import {
 } from 'lucide-react-native';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
+import { ScrollView } from 'react-native-gesture-handler';
 import Animated, {
   cancelAnimation,
   Easing,
@@ -26,24 +30,34 @@ import Animated, {
   withRepeat,
   withTiming
 } from 'react-native-reanimated';
-import { Button } from './ui/button';
+import { Button, OpacityPressable } from './ui/button';
+import { Text } from './ui/text';
 
 export default function AppHeader({
   drawerToggleCallback,
-  isCloudLoading = false,
-  isNavigating = false,
   onOnboardingPress
 }: {
   drawerToggleCallback: () => void;
-  isCloudLoading?: boolean;
-  isNavigating?: boolean;
   onOnboardingPress?: () => void;
 }) {
-  const {
-    breadcrumbs,
-    canGoBack: _canGoBack,
-    goBack: _goBack
-  } = useAppNavigation();
+  const router = useRouter();
+  const breadcrumbs = useBreadcrumbs();
+  const isProjectsView = breadcrumbs.length <= 1;
+
+  // Get background HSL from generated-tokens.ts (format: "240 100% 98.04%")
+  const backgroundHsl = useThemeToken('background');
+
+  // Convert HSL format to hsla() with opacity
+  // Input: "240 100% 98.04%" -> Output: "hsla(240, 100%, 98.04%, opacity)"
+  const createHsla = (opacity: number): string => {
+    return `hsla(${backgroundHsl.replace(/\s+/g, ', ')}, ${opacity})`;
+  };
+
+  // Create opacity gradient from 0% to 100%
+  const opacityGradientColors: [string, string] = [
+    createHsla(0), // 0% opacity
+    createHsla(1) // 100% opacity
+  ];
 
   // const [pressedIndex, setPressedIndex] = useState<number | null>(null);
   const { t } = useLocalization();
@@ -126,50 +140,81 @@ export default function AppHeader({
     transform: [{ rotate: `${spinValue.value * 360}deg` }]
   }));
 
-  // Animation for cloud loading bar
-  const loadingProgress = useSharedValue(0);
-  const loadingOpacity = useSharedValue(0);
-
-  useEffect(() => {
-    if (isCloudLoading) {
-      // Start loading animation
-      loadingOpacity.value = withTiming(1, { duration: 200 });
-      loadingProgress.value = withTiming(0.9, {
-        duration: 1500,
-        easing: Easing.bezier(0.4, 0, 0.2, 1)
-      });
-    } else {
-      // Complete and fade out
-      if (loadingProgress.value > 0) {
-        loadingProgress.value = withTiming(1, { duration: 200 });
-        loadingOpacity.value = withTiming(0, { duration: 300 }, (finished) => {
-          if (finished) {
-            loadingProgress.value = 0;
-          }
-        });
-      }
-    }
-  }, [isCloudLoading, loadingOpacity, loadingProgress]);
-
-  const loadingBarStyle = useAnimatedStyle(() => ({
-    width: `${loadingProgress.value * 100}%`,
-    opacity: loadingOpacity.value
-  }));
-
   return (
-    <View className="relative bg-transparent p-4">
-      {/* Cloud Loading Bar */}
-      <Animated.View
-        style={loadingBarStyle}
-        className="absolute left-0 right-0 top-0 h-[2px] bg-primary shadow-sm"
-      />
-
+    <View className="relative bg-transparent">
       <View className="flex-row items-center">
+        {/* Back Button */}
+
+        <View className="flex-1 flex-row gap-2 overflow-hidden">
+          {router.canGoBack() && !isProjectsView && (
+            <Button variant="ghost" size="icon" onPress={() => router.back()}>
+              <Icon as={ChevronLeftIcon} className="size-6" />
+            </Button>
+          )}
+          <View className="relative h-11 flex-1">
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerClassName="flex-col justify-center pr-8"
+            >
+              <Text
+                className={cn(
+                  'font-semibold text-foreground',
+                  breadcrumbs.length === 1 && 'text-lg'
+                )}
+                numberOfLines={1}
+              >
+                {breadcrumbs.at(breadcrumbs.length - 1)?.label}
+              </Text>
+              {breadcrumbs.length > 1 && (
+                <View className="flex-row items-center">
+                  {breadcrumbs.slice(0, -1).map((crumb, index) => (
+                    <View key={index} className="flex-row items-center">
+                      {index > 0 && (
+                        <View
+                          className="flex items-center justify-center"
+                          style={{ height: 20, width: 20 }}
+                        >
+                          <Icon
+                            as={ChevronRightIcon}
+                            className="size-4 text-muted-foreground"
+                          />
+                        </View>
+                      )}
+                      <OpacityPressable onPress={crumb.onPress} hitSlop={5}>
+                        <Text className="text-sm leading-5 text-muted-foreground">
+                          {crumb.label}
+                        </Text>
+                      </OpacityPressable>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </ScrollView>
+            {breadcrumbs.length > 1 && (
+              <LinearGradient
+                colors={opacityGradientColors}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                pointerEvents="none"
+                style={{
+                  position: 'absolute',
+                  right: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: 40,
+                  zIndex: 10,
+                  elevation: 10
+                }}
+              />
+            )}
+          </View>
+        </View>
         {/* Breadcrumbs */}
-        <View className="flex-1 flex-row items-center overflow-hidden">
+        {/* <View className="flex-1 flex-row items-center overflow-hidden">
           {Array.isArray(breadcrumbs) && breadcrumbs.length > 0
-            ? breadcrumbs.map((crumb, index) => {
-                const isLast = index === breadcrumbs.length - 1;
+            ? breadcrumbs.slice(-3).map((crumb, index, slicedBreadcrumbs) => {
+                const isLast = index === slicedBreadcrumbs.length - 1;
                 const isFirst = index === 0;
 
                 return (
@@ -192,21 +237,17 @@ export default function AppHeader({
                     >
                       {crumb.onPress ? (
                         <Pressable
-                          onPress={isNavigating ? undefined : crumb.onPress}
-                          disabled={isNavigating}
+                          onPress={crumb.onPress}
                           // onPressIn={() => setPressedIndex(index)}
                           // onPressOut={() => setPressedIndex(null)}
                           hitSlop={5}
-                          className={`flex-shrink rounded p-1 ${
-                            isNavigating ? 'opacity-50' : ''
-                          }`}
+                          className="flex-shrink rounded p-1"
                           style={({ pressed }) => [
                             {
-                              backgroundColor:
-                                !isNavigating && pressed
-                                  ? 'rgba(255, 255, 255, 0.15)'
-                                  : '',
-                              opacity: pressed ? 0.8 : isNavigating ? 0.5 : 1,
+                              backgroundColor: pressed
+                                ? 'rgba(255, 255, 255, 0.15)'
+                                : '',
+                              opacity: pressed ? 0.8 : 1,
                               transform: [{ scale: pressed ? 0.98 : 1 }]
                             }
                           ]}
@@ -233,7 +274,7 @@ export default function AppHeader({
                 );
               })
             : null}
-        </View>
+        </View> */}
 
         {/* Help/Onboarding Button */}
         {onOnboardingPress && (
@@ -257,11 +298,10 @@ export default function AppHeader({
             variant="ghost"
             size="icon"
             onPress={drawerToggleCallback}
-            className="relative size-8"
-            hitSlop={10}
+            className="relative"
             testID="app-drawer-menu-button"
           >
-            <Icon as={MenuIcon} className="size-6" />
+            <Icon as={MenuIcon} className="size-6 text-foreground" />
 
             {/* Network Status Indicator - Bottom Right Corner */}
             {!isConnected ? (

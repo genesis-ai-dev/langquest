@@ -1,3 +1,8 @@
+# Supabase
+supabase/.branches
+supabase/.temp
+
+
 node_modules/
 .expo/
 dist/
@@ -12,9 +17,10 @@ web-build/
 llm_supp_files/
 /android
 /ios
-.env
-.env.*
+/.env
+/.env.*
 !.env.*.example
+!.env.x
 *.swp
 .vercel
 gitignore_scripts/
@@ -61,3 +67,9 @@ testing/client-migrations/*.sh
 testing/client-migrations/*.md
 # include readme only
 !testing/client-migrations/README.md
+
+
+# # dotenvx
+.env.keys
+supabase/.env.local
+supabase/functions/.env
