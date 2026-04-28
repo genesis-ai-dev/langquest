@@ -1,4 +1,4 @@
-import { renderAsync } from 'npm:@react-email/components';
+import { render } from 'npm:@react-email/render';
 import { createClient } from 'npm:@supabase/supabase-js';
 import { Ratelimit } from 'npm:@upstash/ratelimit';
 import { Redis } from 'npm:@upstash/redis';
@@ -13,8 +13,8 @@ const rawHookSecret = Deno.env.get('SEND_EMAIL_HOOK_SECRET');
 const hookSecret = rawHookSecret.startsWith('v1,whsec_')
   ? rawHookSecret.substring(9) // Remove the 'v1,' prefix
   : rawHookSecret;
-const supabaseUrl = Deno.env.get('SUPABASE_URL');
-const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+const supabaseUrl = Deno.env.get('EXPO_PUBLIC_SUPABASE_URL');
+const supabaseKey = Deno.env.get('SERVICE_ROLE_KEY');
 const supabase = createClient(supabaseUrl, supabaseKey);
 const signupEmailSubjects = {
   en: 'Confirm Your LangQuest Account',
@@ -173,8 +173,8 @@ Deno.serve(async (req) => {
           joinUrl,
           locale
         });
-        const html = await renderAsync(inviteComponent);
-        const text = await renderAsync(inviteComponent, {
+        const html = await render(inviteComponent);
+        const text = await render(inviteComponent, {
           plainText: true
         });
         const subject = emailSubjects.invite[locale] ?? emailSubjects.invite.en;
@@ -244,7 +244,7 @@ Deno.serve(async (req) => {
     const parsedRedirectTo = new URL(redirect_to);
     const parsedSiteUrl = new URL(site_url);
     const projectRef = parsedSiteUrl.host.split('.')[0];
-    const confirmation_url = `https://${parsedRedirectTo.host}/supabase/${projectRef}/auth/v1/verify?token=${token_hash}&type=${email_action_type}&redirect_to=${redirect_to.replace(parsedRedirectTo.host, `${parsedRedirectTo.host}/${locale}/${emailTypeEndpoint[email_action_type]}?project_ref=${projectRef}`)}`;
+    const confirmation_url = `${parsedRedirectTo.protocol}//${parsedRedirectTo.host}/supabase/${projectRef}/auth/v1/verify?token=${token_hash}&type=${email_action_type}&redirect_to=${redirect_to.replace(parsedRedirectTo.host, `${parsedRedirectTo.host}/${locale}/${emailTypeEndpoint[email_action_type]}`)}`;
     const languageEmailSubjects = emailSubjects[email_action_type];
     // Determine which template to use and prepare email data
     const subject = languageEmailSubjects[locale];
@@ -257,8 +257,8 @@ Deno.serve(async (req) => {
           confirmation_url,
           locale
         });
-        html = await renderAsync(emailComponent);
-        text = await renderAsync(emailComponent, {
+        html = await render(emailComponent);
+        text = await render(emailComponent, {
           plainText: true
         });
         break;
@@ -268,8 +268,8 @@ Deno.serve(async (req) => {
           confirmation_url,
           locale
         });
-        html = await renderAsync(resetPasswordComponent);
-        text = await renderAsync(resetPasswordComponent, {
+        html = await render(resetPasswordComponent);
+        text = await render(resetPasswordComponent, {
           plainText: true
         });
         break;

@@ -8,7 +8,7 @@ import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import { invite, profile_project_link, project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useUserRestrictions } from '@/hooks/db/useBlocks';
-import { useAppNavigation } from '@/hooks/useAppNavigation';
+
 import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
 import { cn, getThemeColor } from '@/utils/styleUtils';
@@ -16,6 +16,7 @@ import {
   useHybridData,
   useSimpleHybridInfiniteData
 } from '@/views/new/useHybridData';
+import RNAlert from '@blazejkustra/react-native-alert';
 import { LegendList } from '@legendapp/list';
 import {
   and,
@@ -27,6 +28,7 @@ import {
   notInArray,
   or
 } from 'drizzle-orm';
+import { useRouter } from 'expo-router';
 import {
   ArrowRightIcon,
   FolderPenIcon,
@@ -34,7 +36,6 @@ import {
   SearchIcon,
   UserIcon
 } from 'lucide-react-native';
-import RNAlert from '@blazejkustra/react-native-alert';
 import React, { useEffect } from 'react';
 import { ActivityIndicator, useWindowDimensions, View } from 'react-native';
 import { Dropdown } from 'react-native-element-dropdown';
@@ -89,7 +90,7 @@ export default function NextGenProjectsView() {
   const { db } = system;
   const { t } = useLocalization();
   const { currentUser, isAuthenticated } = useAuth();
-  const setAuthView = useLocalStore((state) => state.setAuthView);
+  const router = useRouter();
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = React.useState('');
   const [activeTab, setActiveTab] = React.useState<TabType>('my');
@@ -616,8 +617,6 @@ export default function NextGenProjectsView() {
     !isAuthenticated || activeTab === 'all' ? allProjects : myProjectsQuery;
   const { data: projectData, isLoading } = currentQuery;
 
-  const { goToProject } = useAppNavigation();
-
   // Get the first project for onboarding navigation
   const firstProject = React.useMemo(() => {
     if (Array.isArray(projectData) && projectData.length > 0) {
@@ -742,11 +741,7 @@ export default function NextGenProjectsView() {
 
   const _handleOnboardingCreateQuest = () => {
     if (firstProject) {
-      goToProject({
-        id: firstProject.id,
-        name: firstProject.name,
-        template: firstProject.template
-      });
+      router.push(`/(app)/project/${firstProject.id}`);
       // The onboarding will close and user can create quest in ProjectDirectoryView
     }
   };
@@ -754,22 +749,14 @@ export default function NextGenProjectsView() {
   const _handleOnboardingStartRecording = () => {
     if (firstProject) {
       // Navigate to project - user can then navigate to a quest and start recording
-      goToProject({
-        id: firstProject.id,
-        name: firstProject.name,
-        template: firstProject.template
-      });
+      router.push(`/(app)/project/${firstProject.id}`);
       // The recording view will be shown when user navigates to a quest
     }
   };
 
   const _handleOnboardingInviteCollaborators = () => {
     if (firstProject) {
-      goToProject({
-        id: firstProject.id,
-        name: firstProject.name,
-        template: firstProject.template
-      });
+      router.push(`/(app)/project/${firstProject.id}`);
       // User can access project membership modal from project settings
     }
   };
@@ -786,7 +773,7 @@ export default function NextGenProjectsView() {
         snapPoints={[700]}
         enableDynamicSizing={false}
       >
-        <View className="flex flex-1 flex-col gap-6 p-6 pt-0">
+        <View className="flex flex-1 flex-col gap-6 p-4 pt-0">
           <View className="flex flex-col gap-4">
             {/* Tabs */}
             <Tabs
@@ -830,7 +817,7 @@ export default function NextGenProjectsView() {
                   <Button
                     variant="default"
                     size="lg"
-                    onPress={() => setAuthView('sign-in')}
+                    onPress={() => router.push('/(auth)/sign-in')}
                     className="w-full"
                   >
                     <Text className="font-semibold">
@@ -840,7 +827,7 @@ export default function NextGenProjectsView() {
                   <Button
                     variant="outline"
                     size="lg"
-                    onPress={() => setAuthView('register')}
+                    onPress={() => router.push('/(auth)/register')}
                     className="w-full"
                   >
                     <Text>{t('createAccount') || 'Create Account'}</Text>
@@ -912,6 +899,7 @@ export default function NextGenProjectsView() {
                   ? `invite-${item.projectId}-${activeTab}`
                   : `project-${item.project.id}-${activeTab}`
               }
+              contentContainerClassName="pb-8"
               recycleItems
               estimatedItemSize={175}
               maintainVisibleContentPosition

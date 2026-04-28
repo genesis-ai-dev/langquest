@@ -15,31 +15,21 @@ import { Text } from '@/components/ui/text';
 import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
-import type { SharedAuthInfo } from '@/navigators/AuthNavigator';
-import { safeNavigate } from '@/utils/sharedUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { LockIcon, MailIcon } from 'lucide-react-native';
-import React from 'react';
-import { useForm } from 'react-hook-form';
+import React, { useEffect } from 'react';
+import { useForm, useWatch } from 'react-hook-form';
 import { View } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { z } from 'zod';
 
 const { supabaseConnector } = system;
 
-export default function SignInView({
-  onNavigate,
-  sharedAuthInfo
-}: {
-  onNavigate: (
-    view: 'register' | 'forgot-password',
-    sharedAuthInfo?: SharedAuthInfo
-  ) => void;
-  sharedAuthInfo?: SharedAuthInfo;
-}) {
+export default function SignInView() {
+  const { email: initialEmail } = useLocalSearchParams<{ email?: string }>();
   const { t } = useLocalization();
   const router = useRouter();
   const isOnline = useNetworkStatus();
@@ -75,9 +65,10 @@ export default function SignInView({
           {
             text: t('newUser'),
             onPress: () =>
-              safeNavigate(() =>
-                onNavigate('register', { email: form.getValues('email') })
-              )
+              router.navigate({
+                pathname: '/(auth)/register',
+                params: { email }
+              })
           }
         ]
       );
@@ -87,108 +78,114 @@ export default function SignInView({
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      email: sharedAuthInfo?.email
+      email: initialEmail || '',
+      password: ''
     }
   });
+
+  useEffect(() => {
+    if (initialEmail) {
+      form.setValue('email', initialEmail);
+    }
+  }, [form, initialEmail]);
+
+  const email = useWatch({ control: form.control, name: 'email' });
 
   const handleFormSubmit = form.handleSubmit((data) => login(data));
 
   return (
-    <Form {...form}>
-      <View className="relative flex-1">
-        <KeyboardAwareScrollView
-          className="mb-[62px] flex-1"
-          contentContainerClassName="m-safe flex flex-col gap-4 p-6"
-          showsVerticalScrollIndicator={false}
-          bottomOffset={96}
-          extraKeyboardSpace={20}
+    <KeyboardAwareScrollView
+      className="flex-1"
+      contentContainerClassName="m-safe flex flex-col gap-4 p-6"
+      showsVerticalScrollIndicator={false}
+      bottomOffset={96}
+      extraKeyboardSpace={20}
+    >
+      <Form {...form}>
+        <View className="mb-8 flex flex-col items-center justify-center text-center">
+          <Text className="text-6xl font-semibold text-primary">LangQuest</Text>
+          <Text>{t('welcome')}</Text>
+        </View>
+        <LanguageCombobox uiReadyOnly toggleUILocalization />
+        <FormField
+          control={form.control}
+          name="email"
+          render={({ field }) => (
+            <FormItem>
+              <FormControl>
+                <Input
+                  {...transformInputProps(field)}
+                  mask
+                  type="next"
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                  prefix={MailIcon}
+                  prefixStyling={false}
+                  placeholder={t('enterYourEmail')}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="password"
+          render={({ field }) => (
+            <FormItem>
+              <FormControl>
+                <Input
+                  {...transformInputProps(field)}
+                  onSubmitEditing={handleFormSubmit}
+                  returnKeyType="done"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  autoComplete="password"
+                  prefix={LockIcon}
+                  prefixStyling={false}
+                  placeholder={t('enterYourPassword')}
+                  secureTextEntry
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <Button
+          variant="plain"
+          onPress={() =>
+            router.navigate({
+              pathname: '/(auth)/forgot-password',
+              params: { email }
+            })
+          }
+          size="auto"
+          className="self-start"
         >
-          <View className="mb-8 flex flex-col items-center justify-center text-center">
-            <Text className="text-6xl font-semibold text-primary">
-              LangQuest
-            </Text>
-            <Text>{t('welcome')}</Text>
-          </View>
-          <LanguageCombobox uiReadyOnly toggleUILocalization />
-          <FormField
-            control={form.control}
-            name="email"
-            render={({ field }) => (
-              <FormItem>
-                <FormControl>
-                  <Input
-                    {...transformInputProps(field)}
-                    mask
-                    type="next"
-                    autoCapitalize="none"
-                    keyboardType="email-address"
-                    prefix={MailIcon}
-                    prefixStyling={false}
-                    placeholder={t('enterYourEmail')}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="password"
-            render={({ field }) => (
-              <FormItem>
-                <FormControl>
-                  <Input
-                    {...transformInputProps(field)}
-                    onSubmitEditing={handleFormSubmit}
-                    returnKeyType="done"
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    autoComplete="password"
-                    prefix={LockIcon}
-                    prefixStyling={false}
-                    placeholder={t('enterYourPassword')}
-                    secureTextEntry
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          <Text className="text-left">{t('forgotPassword')}</Text>
+        </Button>
+        <OfflineAlert />
+        <View className="flex flex-col gap-2">
+          <FormSubmit onPress={handleFormSubmit} disabled={!isOnline}>
+            <Text>{t('signIn')}</Text>
+          </FormSubmit>
           <Button
-            variant="plain"
             onPress={() =>
-              safeNavigate(() =>
-                onNavigate('forgot-password', { email: form.watch('email') })
-              )
+              router.navigate({
+                pathname: '/(auth)/register',
+                params: { email }
+              })
             }
-            size="auto"
-            className="self-start"
-            // className="native:px-0 native:py-0 h-auto self-start px-0 py-0"
+            variant="outline"
+            className="border-border bg-input"
+            disabled={isPending}
           >
-            <Text className="text-left">{t('forgotPassword')}</Text>
+            <Text>
+              {t('newUser')} {t('register')}
+            </Text>
           </Button>
-          <OfflineAlert />
-          <View className="flex flex-col gap-2">
-            <FormSubmit onPress={handleFormSubmit} disabled={!isOnline}>
-              <Text>{t('signIn')}</Text>
-            </FormSubmit>
-            <Button
-              onPress={() =>
-                safeNavigate(() =>
-                  onNavigate('register', { email: form.watch('email') })
-                )
-              }
-              variant="outline"
-              className="border-border bg-input"
-              disabled={isPending}
-            >
-              <Text>
-                {t('newUser')} {t('register')}
-              </Text>
-            </Button>
-          </View>
-        </KeyboardAwareScrollView>
-      </View>
-    </Form>
+        </View>
+      </Form>
+    </KeyboardAwareScrollView>
   );
 }

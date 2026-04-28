@@ -35,7 +35,6 @@ import {
   useLanguoidLinkSuggestions
 } from '@/hooks/db/useLanguoidLinkSuggestions';
 import { useUserMemberships } from '@/hooks/db/useProfiles';
-import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useLocalStore } from '@/store/localStore';
@@ -48,7 +47,6 @@ import {
   AlertTriangle,
   BellIcon,
   CheckIcon,
-  HomeIcon,
   LinkIcon,
   MailIcon,
   UserPlusIcon,
@@ -269,7 +267,6 @@ function LanguoidLinkSuggestionGroup({
 export default function NotificationsView() {
   const { t } = useLocalization();
   const { currentUser } = useAuth();
-  const { goToProjects } = useAppNavigation();
   const queryClient = useQueryClient();
   const isOnline = useNetworkStatus();
   const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
@@ -1107,6 +1104,7 @@ export default function NotificationsView() {
       <View className="flex-1 flex-col gap-4">
         <ScrollView
           className="flex-1"
+          contentContainerClassName="pb-safe android:pb-[calc(env(safe-area-inset-bottom)+1rem)]"
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           refreshControl={
@@ -1128,14 +1126,6 @@ export default function NotificationsView() {
                   <Text className="max-w-sm px-6 text-center text-sm text-muted-foreground">
                     {t('noNotificationsMessage')}
                   </Text>
-                  <Button
-                    variant="default"
-                    size="icon-lg"
-                    onPress={goToProjects}
-                    className="mt-4"
-                  >
-                    <Icon as={HomeIcon} className="text-primary-foreground" />
-                  </Button>
                 </View>
               </View>
             </View>

@@ -4,7 +4,7 @@ import {
   useAssetStatuses
 } from '@/database_services/status/asset';
 import { useQuestById } from '@/hooks/db/useQuests';
-import { useAppNavigation } from '@/hooks/useAppNavigation';
+import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import RNAlert from '@blazejkustra/react-native-alert';
@@ -37,12 +37,11 @@ export const AssetSettingsModal: React.FC<AssetSettingsModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   // const [isAssetLoaded, setIsAssetLoaded] = useState(true);
 
-  const { currentProjectId, currentQuestId } = useAppNavigation();
+  const { projectId, questId } = useNavigationHelpers();
 
-  const { quest } = useQuestById(currentQuestId);
-  const questId = quest?.id || '';
+  const { quest } = useQuestById(questId);
 
-  const { membership } = useUserPermissions(currentProjectId || '', 'manage');
+  const { membership } = useUserPermissions(projectId || '', 'manage');
   const isOwner = membership === 'owner';
 
   const layerStatus = useStatusContext();
@@ -52,7 +51,7 @@ export const AssetSettingsModal: React.FC<AssetSettingsModalProps> = ({
     isLoading,
     isError,
     refetch
-  } = useAssetStatuses(assetId, questId);
+  } = useAssetStatuses(assetId, questId || '');
 
   React.useEffect(() => {
     if (isError) {

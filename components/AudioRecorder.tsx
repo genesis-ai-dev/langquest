@@ -66,7 +66,6 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
   const [isRecordingActive, setIsRecordingActive] = useState(false);
   const [isRecordingPaused, setIsRecordingPaused] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
-
   const [permissionGranted, setPermissionGranted] = useState<boolean | null>(
     null
   );

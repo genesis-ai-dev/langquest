@@ -29,10 +29,7 @@ import {
 import type { FiaMetadata } from '@/db/drizzleSchemaColumns';
 import { system } from '@/db/powersync/system';
 import type { Project } from '@/hooks/db/useProjects';
-import {
-  useAppNavigation,
-  useCurrentNavigation
-} from '@/hooks/useAppNavigation';
+import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useAudioPlaybackCheckpoint } from '@/hooks/useAudioPlaybackCheckpoint';
 import { useLocalization } from '@/hooks/useLocalization';
 import { usePlayAllAudioController } from '@/hooks/usePlayAllAudioController';
@@ -49,10 +46,10 @@ import { toCompilableQuery } from '@powersync/drizzle-driver';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { and, asc, eq } from 'drizzle-orm';
-import { createAudioPlayer } from 'expo-audio';
+import { createAudioPlayer, type AudioPlayer } from 'expo-audio';
 import { useKeepAwake } from 'expo-keep-awake';
+import { Stack } from 'expo-router';
 import {
-  ArrowLeft,
   BookOpenIcon,
   ChevronLeft,
   Ellipsis,
@@ -267,21 +264,11 @@ const RecordingView = () => {
     };
   }, []);
 
-  // Get navigation state and functions
-  const { goBack } = useAppNavigation();
-  const navigation = useCurrentNavigation();
-  const { currentQuestId, currentProjectId } = navigation;
+  const { questId, projectId } = useNavigationHelpers();
 
-  // Get recording-specific data from navigation state
-  const navigationState = useLocalStore((state) => {
-    const stack = state.navigationStack;
-    if (!Array.isArray(stack) || stack.length === 0) return null;
-    return stack[stack.length - 1]!;
-  });
-
+  // Get recording-specific data from Zustand store (set before navigating)
+  const recordingData = useLocalStore((state) => state.currentRecordingData);
   const { t } = useLocalization();
-
-  const recordingData = navigationState?.recordingData;
   const bookChapterLabel =
     recordingData?.bookChapterLabel || t('recordingSession');
   const bookChapterLabelFull = recordingData?.bookChapterLabelFull;
@@ -313,15 +300,15 @@ const RecordingView = () => {
 
   // Static project fetch – data doesn't change during recording, no PowerSync listener needed
   const { data: currentProject = null } = useQuery({
-    queryKey: ['project', 'static', currentProjectId],
+    queryKey: ['project', 'static', projectId],
     queryFn: async () => {
-      if (!currentProjectId) return null;
+      if (!projectId) return null;
       const result = await system.db.query.project.findFirst({
-        where: (fields, { eq }) => eq(fields.id, currentProjectId)
+        where: (fields, { eq }) => eq(fields.id, projectId)
       });
       return (result as Project) ?? null;
     },
-    enabled: !!currentProjectId,
+    enabled: !!projectId,
     staleTime: Infinity
   });
 
@@ -333,25 +320,25 @@ const RecordingView = () => {
     languoid_id: string | null;
   }>({
     dataType: 'project-target-languoid-id',
-    queryKeyParams: [currentProjectId || ''],
+    queryKeyParams: [projectId || ''],
     offlineQuery: toCompilableQuery(
       system.db
         .select({ languoid_id: project_language_link.languoid_id })
         .from(project_language_link)
         .where(
           and(
-            eq(project_language_link.project_id, currentProjectId!),
+            eq(project_language_link.project_id, projectId!),
             eq(project_language_link.language_type, 'target')
           )
         )
         .limit(1)
     ),
     cloudQueryFn: async () => {
-      if (!currentProjectId) return [];
+      if (!projectId) return [];
       const { data, error } = await system.supabaseConnector.client
         .from('project_language_link')
         .select('languoid_id')
-        .eq('project_id', currentProjectId)
+        .eq('project_id', projectId)
         .eq('language_type', 'target')
         .not('languoid_id', 'is', null)
         .limit(1)
@@ -359,8 +346,8 @@ const RecordingView = () => {
       if (error) throw error;
       return data;
     },
-    enableCloudQuery: !!currentProjectId,
-    enableOfflineQuery: !!currentProjectId
+    enableCloudQuery: !!projectId,
+    enableOfflineQuery: !!projectId
   });
 
   const targetLanguoidId = targetLanguoidLink[0]?.languoid_id;
@@ -369,26 +356,26 @@ const RecordingView = () => {
   type Quest = typeof questTable.$inferSelect;
   const { data: questDataForFia } = useHybridData<Quest>({
     dataType: 'current-quest',
-    queryKeyParams: [currentQuestId || ''],
+    queryKeyParams: [questId || ''],
     offlineQuery: toCompilableQuery(
       system.db
         .select()
         .from(questTable)
-        .where(eq(questTable.id, currentQuestId!))
+        .where(eq(questTable.id, questId!))
         .limit(1)
     ),
     cloudQueryFn: async () => {
-      if (!currentQuestId) return [];
+      if (!questId) return [];
       const { data, error } = await system.supabaseConnector.client
         .from('quest')
         .select('*')
-        .eq('id', currentQuestId)
+        .eq('id', questId)
         .overrideTypes<Quest[]>();
       if (error) throw error;
       return data;
     },
-    enableCloudQuery: !!currentQuestId,
-    enableOfflineQuery: !!currentQuestId,
+    enableCloudQuery: !!questId,
+    enableOfflineQuery: !!questId,
     getItemId: (item) => item.id
   });
 
@@ -465,18 +452,18 @@ const RecordingView = () => {
 
   // Load name counter from AsyncStorage on mount
   React.useEffect(() => {
-    if (!currentQuestId || nameCounterLoadedRef.current) return;
+    if (!questId || nameCounterLoadedRef.current) return;
 
     const loadCounter = async () => {
       try {
-        const key = `bible_recording_counter_${currentQuestId}`;
+        const key = `bible_recording_counter_${questId}`;
         const saved = await AsyncStorage.getItem(key);
         if (saved) {
           const value = parseInt(saved, 10);
           if (!isNaN(value) && value > 0) {
             nameCounterRef.current = value;
             console.log(
-              `📊 Loaded name counter: ${value} for quest ${currentQuestId.slice(0, 8)}`
+              `📊 Loaded name counter: ${value} for quest ${questId.slice(0, 8)}`
             );
           }
         }
@@ -488,23 +475,23 @@ const RecordingView = () => {
     };
 
     void loadCounter();
-  }, [currentQuestId]);
+  }, [questId]);
 
   // Helper to save counter to AsyncStorage
   const saveNameCounter = React.useCallback(
     async (value: number) => {
-      if (!currentQuestId) return;
+      if (!questId) return;
       try {
-        const key = `bible_recording_counter_${currentQuestId}`;
+        const key = `bible_recording_counter_${questId}`;
         await AsyncStorage.setItem(key, String(value));
         console.log(
-          `💾 Saved name counter: ${value} for quest ${currentQuestId.slice(0, 8)}`
+          `💾 Saved name counter: ${value} for quest ${questId.slice(0, 8)}`
         );
       } catch (error) {
         console.error('Failed to save name counter:', error);
       }
     },
-    [currentQuestId]
+    [questId]
   );
 
   // Track which asset is currently playing during play-all
@@ -1870,7 +1857,7 @@ const RecordingView = () => {
             prev.filter((a) => a.id !== assetIdToReplace)
           );
           await queryClient.invalidateQueries({
-            queryKey: ['assets', 'by-quest', currentQuestId],
+            queryKey: ['assets', 'by-quest', questId],
             exact: false
           });
           console.log(`✅ REPLACE: Asset deleted successfully`);
@@ -1894,12 +1881,7 @@ const RecordingView = () => {
         debugLog('💾 Saving recording | order_index:', targetOrder);
 
         // Validate required data
-        if (
-          !currentProjectId ||
-          !currentQuestId ||
-          !currentProject ||
-          !currentUser
-        ) {
+        if (!projectId || !questId || !currentProject || !currentUser) {
           console.error('❌ Missing required data');
           return;
         }
@@ -1954,8 +1936,8 @@ const RecordingView = () => {
             };
 
             const newAssetId = await saveRecording({
-              questId: currentQuestId,
-              projectId: currentProjectId,
+              questId: questId,
+              projectId: projectId,
               targetLanguoidId: targetLanguoidId,
               userId: currentUser.id,
               orderIndex: targetOrder,
@@ -2024,7 +2006,7 @@ const RecordingView = () => {
         // Invalidate queries to sync order_index after insertions in the middle
         // This is needed because recordingService shifts order_index values
         await queryClient.invalidateQueries({
-          queryKey: ['assets', 'by-quest', currentQuestId],
+          queryKey: ['assets', 'by-quest', questId],
           exact: false
         });
 
@@ -2036,8 +2018,8 @@ const RecordingView = () => {
       }
     },
     [
-      currentProjectId,
-      currentQuestId,
+      projectId,
+      questId,
       currentProject,
       currentUser,
       queryClient,
@@ -2116,11 +2098,11 @@ const RecordingView = () => {
     } else if (wasVADActiveRef.current) {
       wasVADActiveRef.current = false;
       void queryClient.invalidateQueries({
-        queryKey: ['assets', 'by-quest', currentQuestId],
+        queryKey: ['assets', 'by-quest', questId],
         exact: false
       });
     }
-  }, [isVADActive, currentQuestId, queryClient]);
+  }, [isVADActive, questId, queryClient]);
 
   // ============================================================================
   // LAZY LOAD SEGMENT COUNTS
@@ -2474,14 +2456,14 @@ const RecordingView = () => {
         setSessionItems((prev) => prev.filter((a) => a.id !== assetId));
 
         await queryClient.invalidateQueries({
-          queryKey: ['assets', 'by-quest', currentQuestId],
+          queryKey: ['assets', 'by-quest', questId],
           exact: false
         });
       } catch (e) {
         console.error('Failed to delete local asset', e);
       }
     },
-    [queryClient, currentQuestId]
+    [queryClient, questId]
   );
 
   const handleMergeDownLocal = React.useCallback(
@@ -2553,14 +2535,14 @@ const RecordingView = () => {
         });
 
         await queryClient.invalidateQueries({
-          queryKey: ['assets', 'by-quest', currentQuestId],
+          queryKey: ['assets', 'by-quest', questId],
           exact: false
         });
       } catch (e) {
         console.error('Failed to merge local assets', e);
       }
     },
-    [assets, currentUser, queryClient, currentQuestId]
+    [assets, currentUser, queryClient, questId]
   );
 
   const handleBatchMergeSelected = React.useCallback(() => {
@@ -2662,7 +2644,7 @@ const RecordingView = () => {
 
                 cancelSelection();
                 await queryClient.invalidateQueries({
-                  queryKey: ['assets', 'by-quest', currentQuestId],
+                  queryKey: ['assets', 'by-quest', questId],
                   exact: false
                 });
 
@@ -2685,7 +2667,7 @@ const RecordingView = () => {
     currentUser,
     cancelSelection,
     queryClient,
-    currentQuestId
+    questId
   ]);
 
   const handleBatchDeleteSelected = React.useCallback(() => {
@@ -2720,7 +2702,7 @@ const RecordingView = () => {
 
                 cancelSelection();
                 await queryClient.invalidateQueries({
-                  queryKey: ['assets', 'by-quest', currentQuestId],
+                  queryKey: ['assets', 'by-quest', questId],
                   exact: false
                 });
 
@@ -2739,7 +2721,7 @@ const RecordingView = () => {
         }
       ]
     );
-  }, [assets, selectedAssetIds, cancelSelection, queryClient, currentQuestId]);
+  }, [assets, selectedAssetIds, cancelSelection, queryClient, questId]);
 
   // ============================================================================
   // SELECT ALL / DESELECT ALL
@@ -2799,7 +2781,7 @@ const RecordingView = () => {
 
         // Invalidate queries to refresh the list in parent view
         await queryClient.invalidateQueries({
-          queryKey: ['assets', 'by-quest', currentQuestId],
+          queryKey: ['assets', 'by-quest', questId],
           exact: false
         });
 
@@ -2812,7 +2794,7 @@ const RecordingView = () => {
         }
       }
     },
-    [renameAssetId, queryClient, currentQuestId]
+    [renameAssetId, queryClient, questId]
   );
 
   // ============================================================================
@@ -2828,6 +2810,15 @@ const RecordingView = () => {
     const timeoutIds = timeoutIdsRef.current;
 
     return () => {
+      // Normalize order_index for any recorded verses before leaving
+      const recordedVerses = Array.from(recordedVersesRef.current);
+      if (recordedVerses.length > 0 && questId) {
+        void normalizeOrderIndexForVerses(questId, recordedVerses).catch(
+          (error) => console.error('Failed to normalize order_index:', error)
+        );
+      }
+      void queryClient.invalidateQueries({ queryKey: ['assets'] });
+
       // Stop audio playback if playing (access via ref for latest state)
       if (audioContextCurrentRef.current.isPlaying) {
         void audioContextCurrentRef.current.stopCurrentSound();
@@ -2860,7 +2851,13 @@ const RecordingView = () => {
 
       debugLog('🧹 Cleaned up BibleRecordingView on unmount');
     };
-  }, [isPlayAllRunningRef, playbackCheckpoint, stopPlayAll]);
+  }, [
+    isPlayAllRunningRef,
+    playbackCheckpoint,
+    stopPlayAll,
+    questId,
+    queryClient
+  ]);
 
   // ============================================================================
   // RENDER HELPERS
@@ -3277,6 +3274,9 @@ const RecordingView = () => {
 
   return (
     <View className="flex-1 bg-background">
+      {bookChapterLabelFull && (
+        <Stack.Screen options={{ title: bookChapterLabelFull }} />
+      )}
       {(isVADActive || isPlayAllPlayerActive) && <KeepAwakeGuard />}
       {/* Full-screen VAD overlay - takes over entire screen */}
       {showFullScreenOverlay && (
@@ -3293,38 +3293,6 @@ const RecordingView = () => {
       )}
 
       {/* Header */}
-      <View className="flex-row items-center justify-between px-4 pb-2">
-        <View className="flex-row items-center gap-3">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="self-start p-0"
-            onPress={async () => {
-              // Normalize order_index for recorded verses before navigating back
-              const recordedVerses = Array.from(recordedVersesRef.current);
-              if (recordedVerses.length > 0 && currentQuestId) {
-                console.log(
-                  `📤 Returning with ${recordedVerses.length} recorded verse(s): [${recordedVerses.join(', ')}]`
-                );
-                try {
-                  await normalizeOrderIndexForVerses(
-                    currentQuestId,
-                    recordedVerses
-                  );
-                } catch (error) {
-                  console.error('Failed to normalize order_index:', error);
-                }
-              }
-              // Invalidate all asset queries so the parent list picks up new/deleted recordings
-              void queryClient.invalidateQueries({ queryKey: ['assets'] });
-              goBack();
-            }}
-          >
-            <Icon as={ArrowLeft} />
-            <Text>{t('back')}</Text>
-          </Button>
-        </View>
-      </View>
       <View className="flex-row items-center justify-between px-4 pb-2">
         <View className="flex-col">
           <Text className="text-base font-semibold text-foreground">
@@ -3545,7 +3513,7 @@ const RecordingView = () => {
       <FiaStepDrawer
         open={showFiaTextDrawer}
         onOpenChange={setShowFiaTextDrawer}
-        projectId={currentProjectId}
+        projectId={projectId}
         pericopeId={fiaPericopeId ?? undefined}
         questName={selectedQuestForFia?.name}
         fiaBookId={fiaMetaExtracted?.bookId}
