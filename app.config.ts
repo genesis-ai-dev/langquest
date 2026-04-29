@@ -79,8 +79,7 @@ export default ({ config }: ConfigContext): ExpoConfig =>
       supportsTablet: true,
       requireFullScreen: true,
       bundleIdentifier: getBundleIdentifier(appVariant),
-      // TODO: re-enable after provisioning profile is updated with Associated Domains capability
-      // associatedDomains: getSiteHosts(appVariant).map((h) => `applinks:${h}`),
+      associatedDomains: getSiteHosts(appVariant).map((h) => `applinks:${h}`),
       config: {
         usesNonExemptEncryption: false
       },
