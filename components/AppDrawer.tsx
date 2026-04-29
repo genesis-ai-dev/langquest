@@ -9,7 +9,7 @@ import {
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
-import { useAppNavigation } from '@/hooks/useAppNavigation';
+import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useAttachmentProgress } from '@/hooks/useAttachmentProgress';
 import { getUpdateVersion } from '@/hooks/useExpoUpdates';
 import { useLocalization } from '@/hooks/useLocalization';
@@ -64,14 +64,7 @@ export default function AppDrawer({
 }) {
   const { t } = useLocalization();
   const { signOut, currentUser, isAuthenticated } = useAuth();
-  const {
-    goToProjects,
-    goToProfile,
-    goToNotifications,
-    goToSettings,
-    goToCorruptedAttachments,
-    currentView
-  } = useAppNavigation();
+  const { goToProjects, pathname, router } = useNavigationHelpers();
 
   const notificationResult = useNotifications();
   const notificationCount = useMemo(
@@ -79,7 +72,20 @@ export default function AppDrawer({
     [notificationResult.totalCount]
   );
 
-  const setAuthView = useLocalStore((state) => state.setAuthView);
+  const currentView =
+    pathname === '/' || pathname === ''
+      ? 'projects'
+      : pathname.includes('/profile')
+        ? 'profile'
+        : pathname.includes('/notifications')
+          ? 'notifications'
+          : pathname.includes('/settings')
+            ? 'settings'
+            : pathname.includes('/corrupted-attachments')
+              ? 'corrupted-attachments'
+              : pathname.includes('/download-status')
+                ? 'download-status'
+                : undefined;
 
   // Always call hooks (Rules of Hooks), but only subscribe when drawer is visible
   // The hooks themselves handle memoization to prevent re-renders
@@ -241,29 +247,30 @@ export default function AppDrawer({
     [closeDrawerAndExecute, goToProjects]
   );
   const handleGoToNotifications = useCallback(
-    () => closeDrawerAndExecute(goToNotifications),
-    [closeDrawerAndExecute, goToNotifications]
+    () => closeDrawerAndExecute(() => router.push('/(app)/notifications')),
+    [closeDrawerAndExecute, router]
   );
   const handleGoToProfile = useCallback(
-    () => closeDrawerAndExecute(goToProfile),
-    [closeDrawerAndExecute, goToProfile]
+    () => closeDrawerAndExecute(() => router.push('/(app)/profile')),
+    [closeDrawerAndExecute, router]
   );
   const handleGoToSettings = useCallback(
-    () => closeDrawerAndExecute(goToSettings),
-    [closeDrawerAndExecute, goToSettings]
+    () => closeDrawerAndExecute(() => router.push('/(app)/settings')),
+    [closeDrawerAndExecute, router]
   );
   const handleGoToCorruptedAttachments = useCallback(
-    () => closeDrawerAndExecute(goToCorruptedAttachments),
-    [closeDrawerAndExecute, goToCorruptedAttachments]
+    () =>
+      closeDrawerAndExecute(() => router.push('/(app)/corrupted-attachments')),
+    [closeDrawerAndExecute, router]
   );
-  // const handleGoToDownloadStatus = useCallback(
-  //   () => closeDrawerAndExecute(goToDownloadStatus as () => void),
-  //   [closeDrawerAndExecute, goToDownloadStatus]
-  // );
+  const handleGoToDownloadStatus = useCallback(
+    () => closeDrawerAndExecute(() => router.push('/(app)/download-status')),
+    [closeDrawerAndExecute, router]
+  );
   const handleSignIn = useCallback(() => {
     setDrawerIsVisible(false);
-    setAuthView('sign-in');
-  }, [setDrawerIsVisible, setAuthView]);
+    router.push('/(auth)/sign-in');
+  }, [setDrawerIsVisible, router]);
   const handleSignOut = useCallback(() => {
     closeDrawerAndExecute(() => {
       void signOut();
@@ -660,7 +667,7 @@ export default function AppDrawer({
           {/* Main drawer items */}
           <View className="flex flex-col gap-2">
             {drawerItems.map((item, index) => {
-              const isActive = currentView === item.view;
+              const isActive = !!item.view && currentView === item.view;
 
               return (
                 <Button

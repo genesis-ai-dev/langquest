@@ -16,14 +16,14 @@ import type { asset_content_link } from '@/db/drizzleSchema';
 import { asset } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useProjectById } from '@/hooks/db/useProjects';
-import { useAppNavigation } from '@/hooks/useAppNavigation';
+import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useHasUserReported } from '@/hooks/useReports';
 import { useTranscription } from '@/hooks/useTranscription';
-import { useLocalStore } from '@/store/localStore';
 import { resolveTable } from '@/utils/dbUtils';
+import { useRouter } from 'expo-router';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import { fileExists, getLocalUri } from '@/utils/fileUtils';
 import { cn, getThemeColor } from '@/utils/styleUtils';
@@ -67,13 +67,10 @@ interface NextGenTranslationModalProps {
 }
 
 function useNextGenTranslation(assetId: string) {
-  const { isAuthenticated, isSystemReady } = useAuth();
-  // Use reactive isSystemReady from AuthContext instead of non-reactive isPowerSyncInitialized
-  const isPowerSyncReady = isSystemReady;
+  const { isAuthenticated } = useAuth();
 
-  // Only create offline query if PowerSync is initialized and user is authenticated
   const offlineQuery = React.useMemo(() => {
-    if (!isPowerSyncReady || !isAuthenticated) {
+    if (!isAuthenticated) {
       return 'SELECT * FROM asset WHERE 1=0' as any;
     }
     return toCompilableQuery(
@@ -85,7 +82,7 @@ function useNextGenTranslation(assetId: string) {
         }
       })
     );
-  }, [assetId, isPowerSyncReady, isAuthenticated]);
+  }, [assetId, isAuthenticated]);
 
   return useHybridData<
     Omit<typeof asset.$inferSelect, 'images'> & {
@@ -170,10 +167,10 @@ export default function NextGenTranslationModal({
   projectName
 }: NextGenTranslationModalProps) {
   const { project } = useProjectById(projectId);
-  const { currentQuestId } = useAppNavigation();
+  const { questId } = useNavigationHelpers();
   const { t } = useLocalization();
   const { currentUser, isAuthenticated } = useAuth();
-  const setAuthView = useLocalStore((state) => state.setAuthView);
+  const router = useRouter();
   const isOnline = useNetworkStatus();
   const queryClient = useQueryClient();
   const [pendingVoteType, setPendingVoteType] = useState<'up' | 'down' | null>(
@@ -300,7 +297,7 @@ export default function NextGenTranslationModal({
           throw new Error('Project is required');
         }
 
-        if (!currentQuestId) {
+        if (!questId) {
           throw new Error(
             'Quest context is missing. This is an unexpected error.'
           );
@@ -390,7 +387,7 @@ export default function NextGenTranslationModal({
           await tx
             .insert(resolveTable('quest_asset_link', tableOptions))
             .values({
-              quest_id: currentQuestId,
+              quest_id: questId,
               asset_id: newAsset.id,
               download_profiles: [currentUser.id]
             });
@@ -665,7 +662,7 @@ export default function NextGenTranslationModal({
                           <Button
                             onPress={() => {
                               onOpenChange(false);
-                              setAuthView('sign-in');
+                              router.push('/(auth)/sign-in');
                             }}
                             className="mt-4"
                           >

@@ -409,12 +409,20 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       for (let index = 0; index < uris.length; index++) {
         const resolved = await getCachedAudioUri(uris[index]!);
         resolvedUris.push(resolved);
-        const player = createAudioPlayer(resolved);
-        await waitForPlayerLoaded(player);
-        if (player.isLoaded) {
-          segmentDurations.current[index] = player.duration * 1000;
+        let player: AudioPlayer | null = null;
+        try {
+          player = createAudioPlayer(resolved);
+          await waitForPlayerLoaded(player);
+          if (player.isLoaded) {
+            segmentDurations.current[index] = player.duration * 1000;
+          }
+        } finally {
+          try {
+            player?.release();
+          } catch {
+            // Ignore release failures for temporary preloading players
+          }
         }
-        player.release();
       }
 
       const totalDuration = segmentDurations.current.reduce(

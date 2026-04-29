@@ -1,21 +1,17 @@
-import { Button } from '@/components/ui/button';
 import {
   Card,
   CardDescription,
   CardHeader,
   CardTitle
 } from '@/components/ui/card';
-import { Icon } from '@/components/ui/icon';
 import { Switch } from '@/components/ui/switch';
 import { Text } from '@/components/ui/text';
-import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useLocalStore } from '@/store/localStore';
 import { cn } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import type { Href } from 'expo-router';
-import { HomeIcon } from 'lucide-react-native';
 import React from 'react';
 import { Pressable, ScrollView, TouchableOpacity, View } from 'react-native';
 
@@ -37,7 +33,6 @@ interface SettingsItem {
 
 export default function SettingsView() {
   const { t } = useLocalization();
-  const { goToProjects } = useAppNavigation();
   const isOnline = useNetworkStatus();
 
   // Centralized settings store (select individual slices to avoid broad subscriptions)
@@ -425,13 +420,13 @@ export default function SettingsView() {
   };
 
   return (
-    <ScrollView className="p-4">
+    <ScrollView
+      className="flex-1"
+      contentContainerClassName="p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]"
+    >
       <View className="gap-6">
         <View className="flex-row items-center justify-between">
           <Text className="text-2xl font-bold">{t('settings')}</Text>
-          <Button variant="default" size="icon-lg" onPress={goToProjects}>
-            <Icon as={HomeIcon} className="text-primary-foreground" />
-          </Button>
         </View>
 
         {!isOnline && (

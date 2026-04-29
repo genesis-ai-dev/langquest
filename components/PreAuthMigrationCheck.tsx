@@ -11,6 +11,7 @@
  */
 
 import { system } from '@/db/powersync/system';
+import * as SplashScreen from 'expo-splash-screen';
 import React, { useCallback, useEffect, useState } from 'react';
 import { scheduleOnRN } from 'react-native-worklets';
 import { MigrationScreen } from './MigrationScreen';
@@ -57,16 +58,14 @@ export function PreAuthMigrationCheck({
     scheduleOnRN(checkMigrations);
   }, [checkMigrations]);
 
-  // Show migration screen if migrations are needed
   if (migrationState === 'needed') {
+    void SplashScreen.hideAsync();
     return <MigrationScreen onComplete={handleMigrationComplete} />;
   }
 
-  // Show loading while checking
   if (migrationState === 'checking') {
-    return null; // Render nothing while checking - app will show loading via AuthProvider
+    return null;
   }
 
-  // Migrations not needed or complete - render children (AuthProvider)
   return <>{children}</>;
 }

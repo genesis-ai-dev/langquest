@@ -13,7 +13,7 @@ import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
 import { profileService } from '@/database_services/profileService';
 import { system } from '@/db/powersync/system';
-import { useAppNavigation } from '@/hooks/useAppNavigation';
+import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { getNetworkStatus, useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useLocalStore } from '@/store/localStore';
@@ -33,7 +33,7 @@ import { ScrollView, View } from 'react-native';
 export default function AccountDeletionView() {
   const { t } = useLocalization();
   const { currentUser, signOut } = useAuth();
-  const { goToProjects, goBack } = useAppNavigation();
+  const { goToProjects, router } = useNavigationHelpers();
   const isOnline = useNetworkStatus();
   const [step, setStep] = useState<1 | 2>(1);
   const setSystemReady = useLocalStore((state) => state.setSystemReady);
@@ -44,18 +44,15 @@ export default function AccountDeletionView() {
         throw new Error('No user ID found');
       }
 
-      // Check network status inside mutation (not closure value)
       if (!getNetworkStatus()) {
         throw new Error(t('accountDeletionRequiresOnline'));
       }
 
-      // 1. Soft delete profile (set active = false)
       await profileService.deleteAccount(currentUser.id);
 
-      // 2. Wait for PowerSync to sync the profile.active change
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      // 3. Cleanup and reinitialize system before signing out
+      // Cleanup and reinitialize system before signing out
       console.log(
         '[AccountDeletionView] Cleaning up system before sign out...'
       );
@@ -133,12 +130,15 @@ export default function AccountDeletionView() {
   };
 
   return (
-    <ScrollView className="flex-1 bg-background">
+    <ScrollView
+      className="flex-1 bg-background"
+      contentContainerClassName="pb-safe android:pb-[calc(env(safe-area-inset-bottom)+1rem)]"
+    >
       <View className="flex flex-col gap-6 p-6">
         {/* Header */}
         <View className="flex flex-row items-center justify-between">
           <View className="flex flex-row items-center gap-3">
-            <Button variant="ghost" size="icon" onPress={goBack}>
+            <Button variant="ghost" size="icon" onPress={() => router.back()}>
               <Icon as={ChevronLeft} size={24} className="text-foreground" />
             </Button>
             <Text className="text-2xl font-bold text-foreground">
@@ -177,7 +177,7 @@ export default function AccountDeletionView() {
             </View>
 
             <View className="flex flex-col gap-2">
-              <Link href="/terms" push>
+              <Link href="/(app)/terms" push>
                 {t('viewTerms')}
               </Link>
             </View>
@@ -211,7 +211,11 @@ export default function AccountDeletionView() {
         <View className="flex flex-row gap-2">
           {step === 1 ? (
             <>
-              <Button variant="outline" onPress={goBack} className="flex-1">
+              <Button
+                variant="outline"
+                onPress={() => router.back()}
+                className="flex-1"
+              >
                 <Text>{t('cancel')}</Text>
               </Button>
               <Button
