@@ -42,7 +42,6 @@ export default function RegisterView() {
   const formSchema = z
     .object({
       email: z
-        .string()
         .email(t('enterValidEmail'))
         .nonempty(t('emailRequired'))
         .toLowerCase()
