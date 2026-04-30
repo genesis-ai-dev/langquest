@@ -1044,7 +1044,7 @@ export default function NextGenNewTranslationModal({
               </View>
             )}
             <FormSubmit
-              disabled={!isValid || !canTranslate}
+              disabled={!canTranslate}
               onPress={form.handleSubmit(
                 (data) => createTranslation(data),
                 () => {
