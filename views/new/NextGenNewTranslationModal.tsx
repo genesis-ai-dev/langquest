@@ -61,10 +61,11 @@ import {
   XIcon
 } from 'lucide-react-native';
 import React, { useRef, useState } from 'react';
-import { useForm, useWatch } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import type { TextInput } from 'react-native';
 import {
   ActivityIndicator,
+  Keyboard,
   Modal,
   Pressable,
   ScrollView,
@@ -187,29 +188,50 @@ export default function NextGenNewTranslationModal({
     }
   }, [visible, translationLanguageId]);
 
-  // Simpler schema - just validate that fields exist when provided
-  const translationSchema = z.object({
-    text: z.string().trim().optional(),
-    audioUri: z.string().optional()
-  });
+  // Schema with conditional validation based on translation type
+  const translationSchema = z
+    .object({
+      text: z.string().trim().optional(),
+      // Allow null during form interactions (e.g., when starting a new recording),
+      // but superRefine enforces that a recording must exist before submission
+      audioUri: z.union([z.string(), z.null()]).optional()
+    })
+    .superRefine((data, ctx) => {
+      // Validate based on current translation type
+      if (translationType === 'text' && !data.text) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message:
+            contentType === 'transcription'
+              ? t('enterTranscription')
+              : t('enterTranslation'),
+          path: ['text']
+        });
+      }
+      // Prevent form submission in audio mode when no recording exists
+      // (null is allowed during interactions, but not for submission)
+      if (translationType === 'audio' && !data.audioUri) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Please record audio',
+          path: ['audioUri']
+        });
+      }
+    });
 
   type TranslationFormData = z.infer<typeof translationSchema>;
 
+  const defaultValues: TranslationFormData = {
+    text: '',
+    audioUri: null
+  };
+
   const form = useForm<TranslationFormData>({
-    defaultValues: {
-      text: '',
-      audioUri: ''
-    },
+    defaultValues,
     resolver: zodResolver(translationSchema),
     disabled: !currentUser?.id || !canTranslate,
     mode: 'onChange'
   });
-
-  const subscription = useWatch({ control: form.control });
-  const isValid =
-    canTranslate &&
-    ((translationType === 'text' && !!subscription.text) ||
-      (translationType === 'audio' && !!subscription.audioUri));
 
   // State for AI prediction
   const [predictedTranslation, setPredictedTranslation] = useState<
@@ -403,9 +425,9 @@ export default function NextGenNewTranslationModal({
   // Button disabled only when actively predicting (prevents double-clicks)
   const isButtonDisabled = isPredicting;
 
+  // Initialize form when modal opens
   React.useEffect(() => {
     if (visible) {
-      form.reset();
       // Set initial text if provided (e.g., from AI transcription)
       if (initialText) {
         form.setValue('text', initialText);
@@ -438,19 +460,10 @@ export default function NextGenNewTranslationModal({
     }
   }, [visible, canTranslate, isAuthenticated, onClose, t, router]);
 
-  const { mutateAsync: createTranslation } = useMutation({
+  const { mutateAsync: createTranslation, isPending: isCreatingTranslation } = useMutation({
     mutationFn: async (data: TranslationFormData) => {
-      if (translationType === 'text' && !data.text) {
-        throw new Error(
-          contentType === 'transcription'
-            ? t('enterTranscription')
-            : t('enterTranslation')
-        );
-      }
-      if (translationType === 'audio' && !data.audioUri) {
-        throw new Error('Please record audio');
-      }
-
+      // Validation is handled by Zod schema via form.handleSubmit
+      // These runtime checks are defensive fallbacks
       if (!translationLanguageId || !projectId || !questId) {
         throw new Error('Missing required context');
       }
@@ -536,7 +549,8 @@ export default function NextGenNewTranslationModal({
       });
     },
     onSuccess: () => {
-      form.reset();
+      Keyboard.dismiss();
+      form.reset(defaultValues);
       RNAlert.alert(
         t('success'),
         contentType === 'transcription'
@@ -570,10 +584,35 @@ export default function NextGenNewTranslationModal({
     // Clean up audio file if exists
     const audioUri = form.getValues('audioUri');
     if (audioUri) void deleteIfExists(audioUri);
-    form.reset();
-    setPredictedTranslation(null);
     onClose();
   };
+
+  // Handle drawer open/change with form reset
+  const handleOpenChange = (open: boolean) => {
+    if (!open) {
+      handleClose();
+    }
+    // Reset form when modal closes
+    if (!open) {
+      form.reset(defaultValues);
+      setPredictedTranslation(null);
+      setPredictionDetails(null);
+    }
+  };
+
+  // Form submission handler
+  const handleFormSubmit = form.handleSubmit(
+    async (data) => {
+      await createTranslation(data);
+    },
+    (errors) => {
+      // Validation errors are shown inline via FormMessage
+      // Log in dev mode for debugging
+      if (__DEV__) {
+        console.error('[CREATE TRANSLATION] Form validation failed:', errors);
+      }
+    }
+  );
 
   const handlePredictTranslation = async () => {
     if (!contentPreview.trim()) {
@@ -672,9 +711,10 @@ export default function NextGenNewTranslationModal({
   return (
     <Drawer
       open={visible}
-      onOpenChange={(open) => !open && handleClose()}
+      onOpenChange={handleOpenChange}
       snapPoints={['80%']}
       enableDynamicSizing={false}
+      dismissible={!isCreatingTranslation}
     >
       <DrawerContent className="pb-safe">
         <Form {...form}>
@@ -1045,21 +1085,11 @@ export default function NextGenNewTranslationModal({
             )}
             <FormSubmit
               disabled={!canTranslate}
-              onPress={form.handleSubmit(
-                (data) => createTranslation(data),
-                () => {
-                  if (__DEV__) {
-                    console.error(
-                      '[CREATE TRANSLATION] Form validation failed'
-                    );
-                  }
-                  RNAlert.alert(t('error'), t('fillFields'));
-                }
-              )}
+              onPress={() => void handleFormSubmit()}
             >
               <Text className="text-base font-bold">{t('createObject')}</Text>
             </FormSubmit>
-            <DrawerClose>
+            <DrawerClose disabled={isCreatingTranslation}>
               <Text>{t('cancel')}</Text>
             </DrawerClose>
           </DrawerFooter>
