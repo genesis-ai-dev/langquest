@@ -123,6 +123,7 @@ export default function NextGenNewTranslationModal({
   const [contentType, setContentType] = useState<
     'translation' | 'transcription'
   >(initialContentType);
+  const [isRecording, setIsRecording] = useState(false);
 
   // Transcription hooks for AI transcription button
   const { mutateAsync: transcribeAudio, isPending: isTranscribing } =
@@ -1055,6 +1056,7 @@ export default function NextGenNewTranslationModal({
                           <AudioRecorder
                             onRecordingComplete={field.onChange}
                             resetRecording={() => field.onChange(null)}
+                            onRecordingStateChange={setIsRecording}
                           />
                         </FormControl>
                         <FormMessage />
@@ -1084,7 +1086,7 @@ export default function NextGenNewTranslationModal({
               </View>
             )}
             <FormSubmit
-              disabled={!canTranslate}
+              disabled={!canTranslate || isRecording}
               onPress={() => void handleFormSubmit()}
             >
               <Text className="text-base font-bold">{t('createObject')}</Text>
