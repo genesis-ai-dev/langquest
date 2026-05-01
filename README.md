@@ -170,6 +170,40 @@ adb logcat --pid=$(adb shell pidof -s com.etengenesis.langquest)
 
 7. Commit the migration file to your repository to track database schema changes.
 
+#### Adding Environment Variables to Edge Functions
+
+When adding new environment variables that are accessed by Edge Functions via `Deno.env.get()`, you need to declare them in `supabase/config.toml` under the `[edge_runtime.secrets]` section:
+
+1. Open `supabase/config.toml` and locate the `[edge_runtime.secrets]` section.
+
+2. Add your new secret in this format:
+   ```toml
+   [edge_runtime.secrets]
+   YOUR_NEW_SECRET = "env(YOUR_NEW_SECRET)"
+   ```
+
+3. Add the actual value to your `supabase/.env` file (or `supabase/.env.local` for local development):
+   ```
+   YOUR_NEW_SECRET=your_actual_secret_value
+   ```
+
+4. For remote deployments (preview/production), set the secret via the Supabase CLI:
+   ```bash
+   supabase secrets set YOUR_NEW_SECRET=your_actual_secret_value --project-ref <project-ref>
+   ```
+
+   Or for linked projects:
+   ```bash
+   supabase secrets set YOUR_NEW_SECRET=your_actual_secret_value
+   ```
+
+5. Restart your local environment for changes to take effect:
+   ```bash
+   npm run env
+   ```
+
+> **Note**: Without declaring the secret in `config.toml`, local Edge Functions won't be able to access the environment variable even if it's present in your `.env` file.
+
 > **Note**: If you need to repair the migration history table to match local migration files (for example, if migrations appear as reverted when they shouldn't be), you can run the following:
 
 ensure you've linked your project to the cloud:
