@@ -14,7 +14,7 @@
 
 INSERT INTO public.template (
   id, slug, name, icon, structure,
-  auto_sync, shared, active, locked_for_backward_compat,
+  auto_sync, shared, active,
   download_profiles
 ) VALUES (
   'a0000000-0000-0000-0000-000000000001',
@@ -22,7 +22,6 @@ INSERT INTO public.template (
   'Protestant Bible (Legacy)',
   'book',
   '{"format_version":1,"root":{"id":"root","name":"Protestant Bible","node_type":"root","linkable_type":"quest","children":[]}}',
-  true,
   true,
   true,
   true,
@@ -35,7 +34,7 @@ INSERT INTO public.template (
 
 INSERT INTO public.template (
   id, slug, name, icon, structure,
-  auto_sync, shared, active, locked_for_backward_compat,
+  auto_sync, shared, active,
   download_profiles
 ) VALUES (
   'a0000000-0000-0000-0000-000000000002',
@@ -46,7 +45,6 @@ INSERT INTO public.template (
   true,
   true,
   true,
-  true,
   '{}'
 ) ON CONFLICT (id) DO NOTHING;
 
@@ -54,11 +52,12 @@ INSERT INTO public.template (
 -- 3. Link existing Bible projects to the frozen template
 -- ============================================================================
 
-INSERT INTO project_template_link (project_id, template_id, role, active, download_profiles)
+INSERT INTO project_template_link (project_id, template_id, role, active, frozen, download_profiles)
 SELECT
   p.id,
   'a0000000-0000-0000-0000-000000000001',
   'primary',
+  true,
   true,
   COALESCE(p.download_profiles, '{}')
 FROM public.project p
@@ -70,11 +69,12 @@ ON CONFLICT (project_id, template_id) DO NOTHING;
 -- 4. Link existing FIA projects to the frozen template
 -- ============================================================================
 
-INSERT INTO project_template_link (project_id, template_id, role, active, download_profiles)
+INSERT INTO project_template_link (project_id, template_id, role, active, frozen, download_profiles)
 SELECT
   p.id,
   'a0000000-0000-0000-0000-000000000002',
   'primary',
+  true,
   true,
   COALESCE(p.download_profiles, '{}')
 FROM public.project p

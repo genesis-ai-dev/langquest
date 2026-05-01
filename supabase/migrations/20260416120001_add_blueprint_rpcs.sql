@@ -91,6 +91,7 @@ CREATE OR REPLACE FUNCTION public.publish_template(
   p_source_template_id UUID,
   p_structure          JSONB,
   p_name               TEXT,
+  p_description        TEXT DEFAULT NULL,
   p_icon               TEXT DEFAULT NULL,
   p_shared             BOOLEAN DEFAULT FALSE,
   p_target_link_ids    UUID[] DEFAULT '{}',
@@ -119,7 +120,7 @@ BEGIN
 
   -- If forking from an existing template, verify it exists and is usable
   IF p_source_template_id IS NOT NULL THEN
-    SELECT id, active, locked_for_backward_compat
+    SELECT id, active
     INTO v_source
     FROM template
     WHERE id = p_source_template_id;
@@ -141,26 +142,27 @@ BEGIN
           JOIN profile_project_link ppl ON ppl.project_id = ptl.project_id
           WHERE ptl.id = lid
             AND ptl.template_id = p_source_template_id
+            AND ptl.frozen = false
             AND ppl.profile_id = v_user_id
             AND ppl.membership = 'owner'
             AND ppl.active = true
         )
       ) THEN
         RETURN jsonb_build_object('ok', false, 'reason',
-          'Target link IDs include projects you do not own or links not on the source template');
+          'Target link IDs include projects you do not own, frozen links, or links not on the source template');
       END IF;
     END IF;
   END IF;
 
   -- Insert the new template (always a new row)
   INSERT INTO template (
-    id, name, icon, structure,
+    id, name, description, icon, structure,
     copied_from_template_id, creator_id,
-    shared, active, locked_for_backward_compat, auto_sync
+    shared, active, auto_sync
   ) VALUES (
-    v_new_id, p_name, p_icon, p_structure,
+    v_new_id, p_name, p_description, p_icon, p_structure,
     p_source_template_id, v_user_id,
-    p_shared, true, false, false
+    p_shared, true, false
   );
 
   -- Re-point selected project_template_link rows to the new template
@@ -182,7 +184,7 @@ $$;
 -- fork_template
 -- ============================================================================
 
-CREATE OR REPLACE FUNCTION public.fork_template(p_source_id UUID)
+CREATE OR REPLACE FUNCTION public.fork_template(p_source_id UUID, p_name TEXT)
 RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -193,6 +195,10 @@ DECLARE
   v_new_id UUID;
   v_source RECORD;
 BEGIN
+  IF p_name IS NULL OR trim(p_name) = '' THEN
+    RETURN jsonb_build_object('ok', false, 'reason', 'A name is required for the new template');
+  END IF;
+
   SELECT * INTO v_source
   FROM template
   WHERE id = p_source_id AND active = true;
@@ -205,14 +211,14 @@ BEGIN
 
   INSERT INTO template (
     id, name, icon, structure,
-    source_language_id, copied_from_template_id,
+    source_languoid_id, copied_from_template_id,
     auto_sync, shared, active, creator_id
   ) VALUES (
     v_new_id,
-    v_source.name || ' (copy)',
+    trim(p_name),
     v_source.icon,
     v_source.structure,
-    v_source.source_language_id,
+    v_source.source_languoid_id,
     p_source_id,
     false,
     false,
@@ -232,10 +238,11 @@ $$;
 -- ============================================================================
 
 CREATE OR REPLACE FUNCTION public.save_template_metadata(
-  p_template_id UUID,
-  p_name        TEXT DEFAULT NULL,
-  p_icon        TEXT DEFAULT NULL,
-  p_shared      BOOLEAN DEFAULT NULL
+  p_template_id   UUID,
+  p_name          TEXT DEFAULT NULL,
+  p_description   TEXT DEFAULT NULL,
+  p_icon          TEXT DEFAULT NULL,
+  p_shared        BOOLEAN DEFAULT NULL
 )
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -246,17 +253,13 @@ DECLARE
   v_user_id UUID := auth.uid();
   v_tmpl RECORD;
 BEGIN
-  SELECT id, creator_id, locked_for_backward_compat
+  SELECT id, creator_id
   INTO v_tmpl
   FROM template
   WHERE id = p_template_id;
 
   IF NOT FOUND THEN
     RETURN jsonb_build_object('ok', false, 'reason', 'Template not found');
-  END IF;
-
-  IF v_tmpl.locked_for_backward_compat THEN
-    RETURN jsonb_build_object('ok', false, 'reason', 'Template is frozen');
   END IF;
 
   IF v_tmpl.creator_id != v_user_id THEN
@@ -266,6 +269,7 @@ BEGIN
   UPDATE template
   SET
     name = COALESCE(p_name, name),
+    description = COALESCE(p_description, description),
     icon = COALESCE(p_icon, icon),
     shared = COALESCE(p_shared, shared),
     last_updated = NOW()
@@ -276,6 +280,6 @@ END;
 $$;
 
 -- Grant execute permissions
-GRANT EXECUTE ON FUNCTION public.publish_template(UUID, JSONB, TEXT, TEXT, BOOLEAN, UUID[], JSONB) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.fork_template(UUID) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.save_template_metadata(UUID, TEXT, TEXT, BOOLEAN) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.publish_template(UUID, JSONB, TEXT, TEXT, TEXT, BOOLEAN, UUID[], JSONB) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.fork_template(UUID, TEXT) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.save_template_metadata(UUID, TEXT, TEXT, TEXT, BOOLEAN) TO authenticated;

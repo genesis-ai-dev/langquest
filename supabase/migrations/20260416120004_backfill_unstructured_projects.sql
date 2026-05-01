@@ -4,8 +4,8 @@
 -- For each active unstructured project, walks the quest tree and generates
 -- a template JSONB structure mirroring the existing quest hierarchy.
 -- Node IDs are random 10-char strings (nanoid-style, per C10).
--- These templates are locked_for_backward_compat since the underlying
--- projects use FK-based tree navigation (quest.parent_id).
+-- These project links are frozen since the underlying projects use
+-- FK-based tree navigation (quest.parent_id).
 -- ============================================================================
 
 -- Helper: generate a random 10-char alphanumeric ID (nanoid-style)
@@ -109,6 +109,7 @@ BEGIN
         'id', 'root',
         'name', COALESCE(v_project.name, 'Project'),
         'node_type', 'root',
+        'linkable_type', 'quest',
         'children', v_quest_nodes
       )
     );
@@ -116,7 +117,7 @@ BEGIN
     -- Insert the template
     INSERT INTO public.template (
       id, name, icon, structure,
-      auto_sync, shared, active, locked_for_backward_compat,
+      auto_sync, shared, active,
       download_profiles
     ) VALUES (
       v_template_id,
@@ -126,16 +127,15 @@ BEGIN
       false,
       false,
       true,
-      true,
       '{}'
     );
 
-    -- Create project_template_link
+    -- Create frozen project_template_link
     v_ptl_id := gen_random_uuid();
     INSERT INTO public.project_template_link (
-      id, project_id, template_id, role, active, download_profiles
+      id, project_id, template_id, role, active, frozen, download_profiles
     ) VALUES (
-      v_ptl_id, v_project.id, v_template_id, 'primary', true, '{}'
+      v_ptl_id, v_project.id, v_template_id, 'primary', true, true, '{}'
     );
 
     -- Set template_link_id and template_node_id on all quests

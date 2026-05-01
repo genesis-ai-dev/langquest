@@ -364,15 +364,13 @@ export function createTemplateTable<
       ...getTableColumns(source),
       slug: text(),
       name: text().notNull(),
+      description: text(),
       icon: text(),
       structure: text({ mode: 'json' }).$type<TemplateStructure>(),
-      source_language_id: text(),
+      source_languoid_id: text(),
       copied_from_template_id: text(),
       auto_sync: int({ mode: 'boolean' }).notNull().default(false),
       shared: int({ mode: 'boolean' }).notNull().default(false),
-      locked_for_backward_compat: int({ mode: 'boolean' })
-        .notNull()
-        .default(false),
       creator_id: text(),
       project_count: int().notNull().default(0),
       download_profiles: text({ mode: 'json' }).$type<string[]>(),
@@ -421,6 +419,7 @@ export function createProjectTemplateLinkTable<
         .notNull()
         .references(() => templateDef.id),
       role: text(),
+      frozen: int({ mode: 'boolean' }).notNull().default(false),
       download_profiles: text({ mode: 'json' }).$type<string[]>(),
       ...extraColumns
     },

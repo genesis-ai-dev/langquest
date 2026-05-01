@@ -18,7 +18,7 @@ interface TemplateNode {
   short_label?: string;
   label_template?: string;
   node_type?: string;
-  linkable_type?: 'quest' | 'asset' | 'both' | null;
+  linkable_type: 'quest' | 'asset';
   is_download_unit?: boolean;
   is_version_anchor?: boolean;
   allows_spanning?: boolean;
@@ -38,13 +38,12 @@ Deno.serve(async (req) => {
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-    // Find all FIA-type source templates (non-frozen, auto_sync)
+    // Find all FIA-type source templates (auto_sync)
     const { data: templates, error: tmplError } = await supabase
       .from('template')
-      .select('id, slug, structure, source_language_id')
+      .select('id, slug, structure, source_languoid_id')
       .eq('active', true)
       .eq('auto_sync', true)
-      .eq('locked_for_backward_compat', false)
       .ilike('slug', 'fia-%');
 
     if (tmplError) {

@@ -172,6 +172,7 @@ def build_bible_template(generator: SeededNanoid) -> tuple[dict, dict]:
             "name": book["name"],
             "short_label": book["short"],
             "node_type": "book",
+            "linkable_type": "quest",
             "children": chapter_nodes,
         })
 
@@ -181,6 +182,7 @@ def build_bible_template(generator: SeededNanoid) -> tuple[dict, dict]:
             "id": "root",
             "name": "Protestant Bible",
             "node_type": "root",
+            "linkable_type": "quest",
             "children": book_nodes,
         },
     }
@@ -203,11 +205,11 @@ def upsert_template(conn, structure: dict):
             cur.execute("""
                 INSERT INTO public.template (
                     id, slug, name, icon, structure,
-                    auto_sync, shared, active, locked_for_backward_compat,
+                    auto_sync, shared, active,
                     download_profiles
                 ) VALUES (
                     %s, 'protestant-bible', 'Protestant Bible', 'book',
-                    %s::jsonb, true, true, true, true, '{}'
+                    %s::jsonb, true, true, true, '{}'
                 )
             """, (TEMPLATE_ID, structure_json))
 

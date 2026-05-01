@@ -117,13 +117,13 @@ export function resolveLabel(
  */
 export function findLinkableNodes(
   idx: TemplateIndex,
-  filterType?: 'quest' | 'asset' | 'both'
+  filterType?: 'quest' | 'asset'
 ): TemplateNode[] {
   const result: TemplateNode[] = [];
   for (const node of idx.byId.values()) {
     if (node.deleted) continue;
     if (!node.linkable_type) continue;
-    if (filterType && node.linkable_type !== filterType && node.linkable_type !== 'both') {
+    if (filterType && node.linkable_type !== filterType) {
       continue;
     }
     result.push(node);
@@ -158,6 +158,7 @@ export function createEmptyStructure(rootName: string): TemplateStructure {
       id: 'root',
       name: rootName,
       node_type: 'root',
+      linkable_type: 'quest',
       children: []
     }
   };

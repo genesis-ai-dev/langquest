@@ -16,12 +16,12 @@ CREATE TABLE IF NOT EXISTS public.template (
   name                        TEXT NOT NULL,
   icon                        TEXT,
   structure                   JSONB NOT NULL,
-  source_language_id          UUID REFERENCES public.language(id),
+  description                 TEXT,
+  source_languoid_id          UUID REFERENCES public.languoid(id),
   copied_from_template_id     UUID REFERENCES public.template(id),
   auto_sync                   BOOLEAN NOT NULL DEFAULT FALSE,
   shared                      BOOLEAN NOT NULL DEFAULT FALSE,
   active                      BOOLEAN NOT NULL DEFAULT TRUE,
-  locked_for_backward_compat  BOOLEAN NOT NULL DEFAULT FALSE,
   creator_id                  UUID REFERENCES public.profile(id),
   download_profiles           UUID[] NOT NULL DEFAULT '{}',
   project_count               INTEGER NOT NULL DEFAULT 0,
@@ -33,7 +33,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS template_slug_idx
   ON public.template(slug) WHERE slug IS NOT NULL;
 
 CREATE INDEX IF NOT EXISTS template_active_shared_idx
-  ON public.template(source_language_id, auto_sync, project_count DESC)
+  ON public.template(source_languoid_id, auto_sync, project_count DESC)
   WHERE active = true AND shared = true;
 
 CREATE INDEX IF NOT EXISTS template_auto_sync_idx
@@ -49,6 +49,7 @@ CREATE TABLE IF NOT EXISTS public.project_template_link (
   template_id   UUID NOT NULL REFERENCES public.template(id),
   role          TEXT,
   active        BOOLEAN NOT NULL DEFAULT TRUE,
+  frozen        BOOLEAN NOT NULL DEFAULT FALSE,
   download_profiles UUID[] NOT NULL DEFAULT '{}',
   created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE (project_id, template_id)

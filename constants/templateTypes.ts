@@ -11,10 +11,7 @@ export const templateNodeSchema: z.ZodType<TemplateNode> = z.lazy(() =>
     short_label: z.string().optional(),
     label_template: z.string().optional(),
     node_type: z.string().optional(),
-    linkable_type: z
-      .enum(['quest', 'asset', 'both'])
-      .nullable()
-      .optional(),
+    linkable_type: z.enum(['quest', 'asset']),
     is_download_unit: z.boolean().optional(),
     is_version_anchor: z.boolean().optional(),
     allows_spanning: z.boolean().optional(),
@@ -35,7 +32,7 @@ export type TemplateNode = {
   short_label?: string;
   label_template?: string;
   node_type?: string;
-  linkable_type?: 'quest' | 'asset' | 'both' | null;
+  linkable_type: 'quest' | 'asset';
   is_download_unit?: boolean;
   is_version_anchor?: boolean;
   allows_spanning?: boolean;
