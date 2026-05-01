@@ -35,7 +35,7 @@ import { Pressable, View } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { useItemDownload, useItemDownloadStatus } from './useHybridData';
 
-// Define props locally to avoid require cycle
+// Define props locally to avoid require cycle.
 
 type Asset = typeof asset_type.$inferSelect;
 
