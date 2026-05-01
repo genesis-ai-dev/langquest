@@ -10,7 +10,7 @@ import { Icon } from '@/components/ui/icon';
 import { Progress } from '@/components/ui/progress';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
-import { useAppNavigation } from '@/hooks/useAppNavigation';
+import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useAttachmentProgress } from '@/hooks/useAttachmentProgress';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
@@ -30,7 +30,7 @@ import { ScrollView, View } from 'react-native';
 
 export default function DownloadStatusView() {
   const { t } = useLocalization();
-  const { goToProjects } = useAppNavigation();
+  const { goToProjects } = useNavigationHelpers();
   const { isAuthenticated } = useAuth();
   const isConnected = useNetworkStatus();
 
@@ -107,7 +107,10 @@ export default function DownloadStatusView() {
   }, [progress.synced, progress.total]);
 
   return (
-    <ScrollView className="flex-1 bg-background">
+    <ScrollView
+      className="flex-1 bg-background"
+      contentContainerClassName="pb-safe android:pb-[calc(env(safe-area-inset-bottom)+1rem)]"
+    >
       <View className="flex-1 gap-4 p-4">
         {/* Header */}
         <View className="flex-row items-center justify-between">

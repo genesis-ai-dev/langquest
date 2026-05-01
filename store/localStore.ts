@@ -5,53 +5,19 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
 type Profile = typeof profile.$inferSelect;
-// Navigation types (forward declaration to avoid circular import)
-export type AppView =
-  | 'projects'
-  | 'quests'
-  | 'assets'
-  | 'asset-detail'
-  | 'bible-assets'
-  | 'recording'
-  | 'profile'
-  | 'notifications'
-  | 'settings'
-  | 'corrupted-attachments'
-  | 'account-deletion'
-  | 'download-status';
 
-export interface NavigationStackItem {
-  view: AppView;
-  projectId?: string;
-  projectName?: string;
-  projectTemplate?: string | null;
-  bookId?: string; // For Bible projects - which book is being viewed
-  questId?: string;
-  questName?: string;
-  assetId?: string;
-  assetName?: string;
-  timestamp: number;
-
-  // Optional: Pass full data objects to avoid re-querying
-  // Components will use these if available, otherwise fallback to querying
-  projectData?: Record<string, unknown>;
-  bookQuestData?: Record<string, unknown>;
-  questData?: Record<string, unknown>;
-  assetData?: Record<string, unknown>;
-
-  // Recording view specific data
-  recordingData?: {
-    recordingSession?: string;
-    bookChapterLabel?: string;
-    bookChapterLabelFull?: string;
-    initialOrderIndex?: number;
-    verse?: { from: number; to: number };
-    nextVerse?: number | null;
-    limitVerse?: number | null;
-    label?: string;
-    pericopeSequence?: { chapter: number; verse: number }[];
-    bookShortName?: string;
-  };
+// Recording data passed via Zustand (complex objects can't go in route params)
+export interface RecordingData {
+  recordingSession?: string;
+  bookChapterLabel?: string;
+  bookChapterLabelFull?: string;
+  initialOrderIndex?: number;
+  verse?: { from: number; to: number };
+  nextVerse?: number | null;
+  limitVerse?: number | null;
+  label?: string;
+  pericopeSequence?: { chapter: number; verse: number }[];
+  bookShortName?: string;
 }
 
 export type Language = typeof language.$inferSelect;
@@ -138,6 +104,7 @@ export interface RecentAsset {
 }
 
 export interface LocalState {
+  _hasHydrated: boolean;
   systemReady: boolean;
   setSystemReady: (ready: boolean) => void;
   currentUser: Profile | null;
@@ -203,25 +170,9 @@ export interface LocalState {
   vadMinSegmentLength: number;
   setVadMinSegmentLength: (duration: number) => void;
 
-  // Authentication view state
-  authView:
-    | 'sign-in'
-    | 'register'
-    | 'forgot-password'
-    | 'reset-password'
-    | null;
-  setAuthView: (
-    view: 'sign-in' | 'register' | 'forgot-password' | 'reset-password' | null
-  ) => void;
-
-  // Navigation context - just IDs, not full data
-  currentProjectId: string | null;
-  currentQuestId: string | null;
-  currentAssetId: string | null;
-
-  // State-driven navigation stack
-  navigationStack: NavigationStackItem[];
-  setNavigationStack: (stack: NavigationStackItem[]) => void;
+  // Recording data (stored in Zustand because complex objects can't go in route params)
+  currentRecordingData: RecordingData | null;
+  setCurrentRecordingData: (data: RecordingData | null) => void;
 
   // Recently visited items (max 5 each)
   recentProjects: RecentProject[];
@@ -284,14 +235,6 @@ export interface LocalState {
   acceptTerms: () => void;
   setUILanguage: (lang: Language) => void;
   setSavedLanguage: (lang: Language) => void;
-
-  // Navigation context setters
-  setCurrentContext: (
-    projectId?: string,
-    questId?: string,
-    assetId?: string
-  ) => void;
-  clearCurrentContext: () => void;
 
   // Recently visited functions
   addRecentProject: (project: RecentProject) => void;
@@ -370,9 +313,9 @@ export interface LocalState {
 export const useLocalStore = create<LocalState>()(
   persist(
     (set, _get) => ({
+      _hasHydrated: false,
       systemReady: false,
       setSystemReady: (ready) => set({ systemReady: ready }),
-
       currentUser: null,
       setCurrentUser: (user) => set({ currentUser: user }),
       uiLanguage: null,
@@ -410,24 +353,9 @@ export const useLocalStore = create<LocalState>()(
       vadRewindHalfPause: VAD_REWIND_HALF_PAUSE_DEFAULT,
       vadMinSegmentLength: VAD_MIN_SEGMENT_LENGTH_DEFAULT,
 
-      // Authentication view state
-      authView: null,
-      setAuthView: (view) => set({ authView: view }),
-
-      // Navigation context
-      currentProjectId: null,
-      currentQuestId: null,
-      currentAssetId: null,
-
-      // State-driven navigation stack
-      navigationStack: [{ view: 'projects', timestamp: Date.now() }],
-      setNavigationStack: (stack) => {
-        // Ensure navigationStack is always an array
-        const safeStack = Array.isArray(stack)
-          ? stack
-          : [{ view: 'projects' as AppView, timestamp: Date.now() }];
-        set({ navigationStack: safeStack });
-      },
+      // Recording data (stored in Zustand because complex objects can't go in route params)
+      currentRecordingData: null,
+      setCurrentRecordingData: (data) => set({ currentRecordingData: data }),
 
       // Recently visited items (max 5 each)
       recentProjects: [],
@@ -576,20 +504,6 @@ export const useLocalStore = create<LocalState>()(
           )
         }),
 
-      // Navigation context setters
-      setCurrentContext: (projectId, questId, assetId) =>
-        set({
-          currentProjectId: projectId || null,
-          currentQuestId: questId || null,
-          currentAssetId: assetId || null
-        }),
-      clearCurrentContext: () =>
-        set({
-          currentProjectId: null,
-          currentQuestId: null,
-          currentAssetId: null
-        }),
-
       // Recently visited functions
       addRecentProject: (project) =>
         set((state) => {
@@ -609,52 +523,49 @@ export const useLocalStore = create<LocalState>()(
           return { recentAssets: [asset, ...filtered].slice(0, 5) };
         }),
 
-      // Attachment sync methods with batching to prevent rapid updates
       setAttachmentSyncProgress: (() => {
         let pendingUpdate: Partial<
           LocalState['attachmentSyncProgress']
         > | null = null;
         let timeoutId: ReturnType<typeof setTimeout> | null = null;
-        const BATCH_DELAY_MS = 50; // Batch updates within 50ms
+        const BATCH_DELAY_MS = 100;
 
         return (progress: Partial<LocalState['attachmentSyncProgress']>) => {
-          // Merge with pending update
           pendingUpdate = pendingUpdate
             ? { ...pendingUpdate, ...progress }
             : progress;
 
-          // Clear existing timeout
           if (timeoutId) {
             clearTimeout(timeoutId);
           }
 
-          // Schedule batched update
           timeoutId = setTimeout(() => {
-            if (pendingUpdate) {
+            // Capture and clear BEFORE set() so re-entrant calls during
+            // synchronous React renders don't get discarded
+            const update = pendingUpdate;
+            pendingUpdate = null;
+            timeoutId = null;
+
+            if (update) {
               set((state) => {
                 const current = state.attachmentSyncProgress;
-                const updated = { ...current, ...pendingUpdate };
-
-                // Only update if values actually changed
-                const hasChanges = Object.keys(pendingUpdate!).some(
+                const hasChanges = Object.keys(update).some(
                   (key) =>
                     current[
                       key as keyof LocalState['attachmentSyncProgress']
                     ] !==
-                    updated[key as keyof LocalState['attachmentSyncProgress']]
+                    update[key as keyof LocalState['attachmentSyncProgress']]
                 );
 
                 if (!hasChanges) {
-                  return state; // No changes, return same state
+                  return state;
                 }
 
                 return {
-                  attachmentSyncProgress: updated
+                  attachmentSyncProgress: { ...current, ...update }
                 };
               });
-              pendingUpdate = null;
             }
-            timeoutId = null;
           }, BATCH_DELAY_MS);
         };
       })(),
@@ -800,7 +711,6 @@ export const useLocalStore = create<LocalState>()(
     {
       name: 'local-store',
       storage: createJSONStorage(() => AsyncStorage),
-      // skipHydration: true,
       onRehydrateStorage: () => async (state) => {
         console.log('rehydrating local store', state);
         if (state) {
@@ -826,7 +736,6 @@ export const useLocalStore = create<LocalState>()(
               if (oldValue !== null) {
                 const migratedValue = oldValue === 'true';
                 state.offlineUndownloadWarningEnabled = migratedValue;
-                // Optionally remove the old key after migration
                 await AsyncStorage.removeItem(OFFLINE_UNDOWNLOAD_WARNING_KEY);
                 console.log(
                   `[LocalStore] Migrated offline undownload warning preference: ${migratedValue}`
@@ -840,21 +749,24 @@ export const useLocalStore = create<LocalState>()(
             }
           }
         }
+        useLocalStore.setState({ _hasHydrated: true });
       },
       partialize: (state) =>
         Object.fromEntries(
           Object.entries(state).filter(
             ([key]) =>
-              ![
-                'systemReady',
-                'currentUser', // I don't think we're getting this from the local store any more
-                'currentProjectId',
-                'currentQuestId',
-                'currentAssetId',
-                'navigationStack'
-              ].includes(key)
+              !['_hasHydrated', 'systemReady', 'currentUser'].includes(key)
           )
         )
     }
   )
 );
+
+/**
+ * Returns true once the persisted store has finished rehydrating from AsyncStorage.
+ * Lives in the store itself (set via onRehydrateStorage) so it resets alongside
+ * all other state when the store is recreated during HMR — no stale-true flash.
+ */
+export function useHasHydrated() {
+  return useLocalStore((s) => s._hasHydrated);
+}

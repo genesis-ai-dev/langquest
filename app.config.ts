@@ -47,6 +47,17 @@ function getScheme(variant: string) {
   }
 }
 
+function getSiteHosts(variant: string): string[] {
+  switch (variant) {
+    case 'development':
+      return [siteHost, `preview.${siteHost}`];
+    case 'preview':
+      return [`preview.${siteHost}`];
+    default:
+      return [siteHost];
+  }
+}
+
 export default ({ config }: ConfigContext): ExpoConfig =>
   withUseThirdPartySQLitePod({
     ...config,
@@ -68,6 +79,7 @@ export default ({ config }: ConfigContext): ExpoConfig =>
       supportsTablet: true,
       requireFullScreen: true,
       bundleIdentifier: getBundleIdentifier(appVariant),
+      associatedDomains: getSiteHosts(appVariant).map((h) => `applinks:${h}`),
       config: {
         usesNonExemptEncryption: false
       },
@@ -88,15 +100,22 @@ export default ({ config }: ConfigContext): ExpoConfig =>
           action: 'VIEW',
           autoVerify: true,
           data: [
-            {
-              scheme: 'https',
-              host: siteHost,
-              pathPrefix: '/app'
-            },
-            {
+            ...getSiteHosts(appVariant).flatMap((host) => [
+              {
+                scheme: 'https',
+                host,
+                pathPattern: '/.*/reset-password'
+              },
+              {
+                scheme: 'https',
+                host,
+                pathPattern: '/.*/registration-confirmation'
+              }
+            ]),
+            ...getSiteHosts(appVariant).map((host) => ({
               scheme: getScheme(appVariant),
-              host: siteHost
-            }
+              host
+            }))
           ],
           category: ['BROWSABLE', 'DEFAULT']
         }

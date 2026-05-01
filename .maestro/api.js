@@ -1,7 +1,22 @@
 const supabaseUrl = MAESTRO_SUPABASE_URL;
 const serviceRoleKey = MAESTRO_SUPABASE_SERVICE_ROLE_KEY;
+const siteUrl = MAESTRO_SITE_URL;
 
-function deleteUser(email) {
+function getDefaultHeaders(extraHeaders) {
+  const headers = {
+    Authorization: 'Bearer ' + serviceRoleKey,
+    apikey: serviceRoleKey,
+    'Content-Type': 'application/json'
+  };
+
+  if (extraHeaders) {
+    Object.assign(headers, extraHeaders);
+  }
+
+  return headers;
+}
+
+function getUserByEmail(email) {
   // Validate email is defined and is a non-empty string
   if (!email || typeof email !== 'string' || email.trim() === '') {
     throw new Error(
@@ -9,38 +24,79 @@ function deleteUser(email) {
     );
   }
 
-  console.log('Deleting user with email:', email);
-  // First, get the user by email
+  console.log('Getting user by email:', email);
+
   const getUserResponse = http.get(
     supabaseUrl + '/auth/v1/admin/users?email=' + encodeURIComponent(email),
-    {
-      headers: {
-        Authorization: 'Bearer ' + serviceRoleKey,
-        apikey: serviceRoleKey,
-        'Content-Type': 'application/json'
-      }
-    }
+    { headers: getDefaultHeaders() }
   );
 
-  // Parse the response to get the user ID
   const responseData = JSON.parse(getUserResponse.body);
-  // Supabase Admin API returns { users: [...] } format
   const users = responseData.users || responseData;
+
   if (!users || users.length === 0) {
     throw new Error('User not found with email: ' + email);
   }
 
-  const userId = users[0].id;
-  console.log('Found user ID:', userId);
+  return users[0];
+}
+
+function deleteUser(email) {
+  const user = getUserByEmail(email);
+  console.log('Found user ID:', user.id);
+  console.log('Deleting user with email:', email);
 
   // Delete the user by ID
-  return http.delete(supabaseUrl + '/auth/v1/admin/users/' + userId, {
-    headers: {
-      Authorization: 'Bearer ' + serviceRoleKey,
-      apikey: serviceRoleKey,
-      'Content-Type': 'application/json'
-    }
+  return http.delete(supabaseUrl + '/auth/v1/admin/users/' + user.id, {
+    headers: getDefaultHeaders()
   });
+}
+
+function updateUserPassword(email, newPassword) {
+  // Validate inputs
+  if (!email || typeof email !== 'string' || email.trim() === '') {
+    throw new Error(
+      'Email is required and must be a non-empty string. Received: ' + email
+    );
+  }
+  if (
+    !newPassword ||
+    typeof newPassword !== 'string' ||
+    newPassword.length < 6
+  ) {
+    throw new Error(
+      'Password is required and must be at least 6 characters. Received: ' +
+        newPassword
+    );
+  }
+
+  const user = getUserByEmail(email);
+  console.log('Found user ID:', user.id);
+  console.log('Updating password for user:', email);
+
+  // Use Supabase Admin API to update the user's password directly
+  // This bypasses the need for email verification
+  const updateResponse = http.put(
+    supabaseUrl + '/auth/v1/admin/users/' + user.id,
+    {
+      headers: getDefaultHeaders(),
+      body: JSON.stringify({
+        password: newPassword
+      })
+    }
+  );
+
+  if (updateResponse.status !== 200) {
+    throw new Error(
+      'Failed to update password: ' +
+        updateResponse.status +
+        ' ' +
+        updateResponse.body
+    );
+  }
+
+  console.log('Successfully updated password for user:', email);
+  return JSON.parse(updateResponse.body);
 }
 
 function generatePasswordResetLink(email) {
@@ -53,34 +109,17 @@ function generatePasswordResetLink(email) {
 
   console.log('Generating password reset link for email:', email);
 
-  // Extract project ref from Supabase URL (format: https://{projectRef}.supabase.co/...)
-  const supabaseUrlMatch = supabaseUrl.match(/https?:\/\/([^.]+)\.supabase\./);
-  const projectRef = supabaseUrlMatch ? supabaseUrlMatch[1] : null;
-
-  if (!projectRef) {
-    throw new Error(
-      'Could not extract project ref from Supabase URL: ' + supabaseUrl
-    );
-  }
-
-  // Construct redirect_to URL in the same format as send-email function
-  // Format: https://langquest.org/en/reset-password?project_ref={projectRef}
   // Default to 'en' locale
   const locale = 'en';
-  const finalRedirectTo = `https://langquest.org/${locale}/reset-password?project_ref=${projectRef}`;
+  const finalRedirectTo = `${siteUrl}/${locale}/reset-password`;
 
-  console.log('Using project ref:', projectRef);
   console.log('Using redirect URL:', finalRedirectTo);
 
   // Use Supabase Admin API to generate a recovery link
   const generateLinkResponse = http.post(
     supabaseUrl + '/auth/v1/admin/generate_link',
     {
-      headers: {
-        Authorization: 'Bearer ' + serviceRoleKey,
-        apikey: serviceRoleKey,
-        'Content-Type': 'application/json'
-      },
+      headers: getDefaultHeaders(),
       body: JSON.stringify({
         type: 'recovery',
         email: email,
@@ -103,29 +142,6 @@ function generatePasswordResetLink(email) {
     throw new Error(
       'No reset link found in response: ' + generateLinkResponse.body
     );
-  }
-
-  // The generate_link API returns a link that goes through Supabase's verification endpoint
-  // We need to reconstruct it to match the send-email format:
-  // https://langquest.org/supabase/{projectRef}/auth/v1/verify?token=xxx&type=recovery&redirect_to=https://langquest.org/en/reset-password?project_ref={projectRef}
-
-  // Parse and update the redirect_to parameter manually (URL constructor may not be available in GraalJS)
-  // Extract token and other params, then reconstruct with the web reset password URL
-  const tokenMatch = resetLink.match(/[?&]token=([^&]+)/);
-  const typeMatch = resetLink.match(/[?&]type=([^&]+)/);
-
-  if (tokenMatch && projectRef) {
-    const token = tokenMatch[1];
-    const type = typeMatch ? typeMatch[1] : 'recovery';
-
-    // URL-encode the redirect URL for use in query parameter
-    const encodedRedirectTo = encodeURIComponent(finalRedirectTo);
-
-    // Reconstruct the verification URL in the same format as send-email function
-    resetLink = `https://langquest.org/supabase/${projectRef}/auth/v1/verify?token=${token}&type=${type}&redirect_to=${encodedRedirectTo}`;
-    console.log('Reconstructed reset link matching send-email format');
-  } else {
-    console.log('Could not parse reset link, using as-is');
   }
 
   console.log('Generated password reset link:', resetLink);
@@ -154,12 +170,7 @@ function deleteProject(projectName) {
       encodeURIComponent(projectName) +
       '&select=id',
     {
-      headers: {
-        Authorization: 'Bearer ' + serviceRoleKey,
-        apikey: serviceRoleKey,
-        'Content-Type': 'application/json',
-        Prefer: 'return=representation'
-      }
+      headers: getDefaultHeaders({ Prefer: 'return=representation' })
     }
   );
 
@@ -185,12 +196,7 @@ function deleteProject(projectName) {
   const deleteResponse = http.delete(
     supabaseUrl + '/rest/v1/project?id=eq.' + projectId,
     {
-      headers: {
-        Authorization: 'Bearer ' + serviceRoleKey,
-        apikey: serviceRoleKey,
-        'Content-Type': 'application/json',
-        Prefer: 'return=representation'
-      }
+      headers: getDefaultHeaders({ Prefer: 'return=representation' })
     }
   );
 
@@ -210,5 +216,6 @@ function deleteProject(projectName) {
 output.api = {
   deleteUser,
   generatePasswordResetLink,
-  deleteProject
+  deleteProject,
+  updateUserPassword
 };

@@ -428,17 +428,24 @@ export class System {
             return { retry: false };
           }
 
+          const errorMsg = exception.toString();
+
           if (
-            exception.toString() ===
-            'StorageApiError: The resource already exists'
+            errorMsg === 'StorageApiError: The resource already exists' ||
+            errorMsg.includes('row-level security policy')
           ) {
+            console.log(
+              '[PermAttachmentQueue] Permanent upload error (not retrying):',
+              _attachment.id,
+              errorMsg
+            );
             return { retry: false };
           }
 
           console.log(
             '[PermAttachmentQueue] onUploadError',
             JSON.stringify(_attachment, null, 2),
-            exception.toString()
+            errorMsg
           );
           return { retry: true };
         }

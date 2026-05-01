@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
-import { useAppNavigation } from '@/hooks/useAppNavigation';
+import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import type { CorruptedAttachment } from '@/services/corruptedAttachmentsService';
 import {
@@ -24,7 +24,7 @@ import RNAlert from '@blazejkustra/react-native-alert';
 
 export default function CorruptedAttachmentsView() {
   const { t } = useLocalization();
-  const { goToProjects } = useAppNavigation();
+  const { goToProjects } = useNavigationHelpers();
   const [corrupted, setCorrupted] = useState<CorruptedAttachment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -234,6 +234,7 @@ export default function CorruptedAttachmentsView() {
         </View>
         <ScrollView
           className="flex-1"
+          contentContainerClassName="pb-safe android:pb-[calc(env(safe-area-inset-bottom)+1rem)]"
           refreshControl={
             <RefreshControl
               refreshing={isRefreshing}
@@ -312,6 +313,7 @@ export default function CorruptedAttachmentsView() {
 
       <ScrollView
         className="flex-1"
+        contentContainerClassName="pb-safe android:pb-[calc(env(safe-area-inset-bottom)+1rem)]"
         refreshControl={
           <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />
         }

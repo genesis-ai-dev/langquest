@@ -15,7 +15,7 @@ import type { LayerStatus } from '@/database_services/types';
 import type { quest_closure } from '@/db/drizzleSchema';
 import { quest as questTable } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import { useAppNavigation } from '@/hooks/useAppNavigation';
+import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { cn } from '@/utils/styleUtils';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
@@ -72,7 +72,7 @@ export const QuestListItem: React.FC<QuestListItemProps> = ({
     },
     getItemId: (item) => item.id
   });
-  const { goToQuest } = useAppNavigation();
+  const { goToQuest } = useNavigationHelpers();
   const { currentUser } = useAuth();
   const { t } = useLocalization();
   const isDownloaded = useItemDownloadStatus(quest, currentUser?.id);
