@@ -12,7 +12,7 @@ create table if not exists public.project_dashboard_current (
 
   total_quests_versions int not null default 0,
 
-  expected_quests integer not null default 0;
+  expected_quests integer not null default 0,
   completed_quests int not null default 0,
   completed_subquests int not null default 0,
 
