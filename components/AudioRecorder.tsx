@@ -18,7 +18,7 @@ import {
 } from 'expo-audio';
 import type { LucideIcon } from 'lucide-react-native';
 import { Check, Mic, Pause, Play } from 'lucide-react-native';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { Platform, Pressable, View } from 'react-native';
 
 // Maximum file size in bytes (50MB)
@@ -31,9 +31,19 @@ interface ButtonConfig {
 }
 type RecordingQuality = 'HIGH_QUALITY' | 'LOW_QUALITY';
 
+export interface RecordingState {
+  isRecording: boolean;
+  isPaused: boolean;
+}
+
+export interface AudioRecorderRef {
+  stopRecording: () => Promise<string | null>;
+}
+
 interface AudioRecorderProps {
   onRecordingComplete: (uri: string) => void;
   resetRecording?: () => void;
+  onRecordingStateChange?: (state: RecordingState) => void;
 }
 
 // Fixed m4a container overhead (headers, metadata, atoms) — observed ~50-55KB across recordings
@@ -54,10 +64,8 @@ function calculateMaxDuration(options: RecordingOptions) {
   return maxDurationSeconds * 1000;
 }
 
-const AudioRecorder: React.FC<AudioRecorderProps> = ({
-  onRecordingComplete,
-  resetRecording
-}) => {
+const AudioRecorder = React.forwardRef<AudioRecorderRef, AudioRecorderProps>(
+  ({ onRecordingComplete, resetRecording, onRecordingStateChange }, ref) => {
   const { currentUser } = useAuth();
   const { t } = useLocalization();
   const [recordingUri, setRecordingUri] = useState<string | null>(null);
@@ -76,7 +84,9 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
   const playerListenerRef = useRef<{ remove: () => void } | null>(null);
 
   // Ref for stopRecording to avoid stale closure in status listener
-  const stopRecordingRef = useRef<(() => Promise<void>) | undefined>(undefined);
+  const stopRecordingRef = useRef<
+    (() => Promise<string | null>) | undefined
+  >(undefined);
 
   // Calculate max duration and warning threshold based on quality
   const maxDuration = calculateMaxDuration(RecordingPresets[quality]!);
@@ -88,6 +98,14 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
       setPermissionGranted(granted)
     );
   }, []);
+
+  // Notify parent of recording state changes
+  useEffect(() => {
+    onRecordingStateChange?.({
+      isRecording: isRecordingActive,
+      isPaused: isRecordingPaused
+    });
+  }, [isRecordingActive, isRecordingPaused, onRecordingStateChange]);
 
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY, (status) => {
     if (status.hasError) {
@@ -131,9 +149,9 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
     }
   }, []);
 
-  const stopRecording = useCallback(async () => {
+  const stopRecording = useCallback(async (): Promise<string | null> => {
     // Allow stopping from both active-recording and paused states
-    if (!recorder.isRecording && !isRecordingPaused) return;
+    if (!recorder.isRecording && !isRecordingPaused) return null;
 
     try {
       await recorder.stop();
@@ -151,10 +169,17 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
       setIsRecordingActive(false);
       setIsRecordingPaused(false);
       if (uri) onRecordingComplete(uri);
+      return uri ?? null;
     } catch (error) {
       console.error('Failed to stop recording:', error);
+      return null;
     }
   }, [recorder, recordingUri, onRecordingComplete, isRecordingPaused]);
+
+  // Expose imperative handle for parent to programmatically stop recording
+  useImperativeHandle(ref, () => ({
+    stopRecording
+  }));
 
   // Keep ref up to date for status listener
   stopRecordingRef.current = stopRecording;
@@ -310,7 +335,9 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
         },
         {
           icon: Check,
-          onPress: stopRecording
+          onPress: () => {
+            void stopRecording();
+          }
         }
       ];
     }
@@ -395,6 +422,8 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({
       )}
     </View>
   );
-};
+});
+
+AudioRecorder.displayName = 'AudioRecorder';
 
 export default AudioRecorder;

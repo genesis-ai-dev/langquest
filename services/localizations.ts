@@ -973,6 +973,19 @@ export const localizations = {
     thai: 'ป้อนการถอดความของคุณที่นี่',
     mandarin: '在此输入您的转录'
   },
+  pleaseRecordAudio: {
+    english: 'Please record audio',
+    french: 'Veuillez enregistrer un audio',
+    spanish: 'Por favor grabe un audio',
+    brazilian_portuguese: 'Por favor, grave um áudio',
+    tok_pisin: 'Plis rekodim audio',
+    indonesian: 'Silakan rekam audio',
+    nepali: 'कृपया अडियो रेकर्ड गर्नुहोस्',
+    hindi: 'कृपया ऑडियो रिकॉर्ड करें',
+    burmese: 'ကျေးဇူးပြု၍ အသံဖမ်းပါ',
+    thai: 'กรุณาบันทึกเสียง',
+    mandarin: '请录制音频'
+  },
   enterYourTranscriptionIn: {
     english: 'Enter your transcription in {language}',
     french: 'Entrez votre transcription dans {language}',

@@ -1,4 +1,7 @@
-import AudioRecorder from '@/components/AudioRecorder';
+import AudioRecorder, {
+  type AudioRecorderRef,
+  type RecordingState
+} from '@/components/AudioRecorder';
 import {
   Drawer,
   DrawerClose,
@@ -27,8 +30,8 @@ import { project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useLanguageById } from '@/hooks/db/useLanguages';
 import { useLanguoidById } from '@/hooks/db/useLanguoids';
-import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useNearbyTranslations } from '@/hooks/useNearbyTranslations';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useOrthographyExamples } from '@/hooks/useOrthographyExamples';
@@ -38,7 +41,6 @@ import { useTranslationPrediction } from '@/hooks/useTranslationPrediction';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useLocalStore } from '@/store/localStore';
 import { resolveTable } from '@/utils/dbUtils';
-import { useRouter } from 'expo-router';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import {
   deleteIfExists,
@@ -51,6 +53,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation } from '@tanstack/react-query';
 import { eq } from 'drizzle-orm';
+import { useRouter } from 'expo-router';
 import {
   EyeIcon,
   Lightbulb,
@@ -123,7 +126,11 @@ export default function NextGenNewTranslationModal({
   const [contentType, setContentType] = useState<
     'translation' | 'transcription'
   >(initialContentType);
-  const [isRecording, setIsRecording] = useState(false);
+  const [recordingState, setRecordingState] = useState<RecordingState>({
+    isRecording: false,
+    isPaused: false
+  });
+  const audioRecorderRef = useRef<AudioRecorderRef>(null);
 
   // Transcription hooks for AI transcription button
   const { mutateAsync: transcribeAudio, isPending: isTranscribing } =
@@ -182,23 +189,23 @@ export default function NextGenNewTranslationModal({
   );
 
   React.useEffect(() => {
-    if (__DEV__ && visible && !translationLanguageId) {
+    if (visible && !translationLanguageId) {
       console.error(
         '[NEW TRANSLATION MODAL] ERROR: translationLanguageId is empty!'
       );
     }
   }, [visible, translationLanguageId]);
 
-  // Schema with conditional validation based on translation type
+  // Schema with conditional validation based on translation type.
+  // Audio presence is NOT enforced here — it's set manually in handleFormSubmit
+  // so the error only surfaces on submit, not during onChange re-validation
+  // (which would flash the message when the user starts/pauses a recording).
   const translationSchema = z
     .object({
       text: z.string().trim().optional(),
-      // Allow null during form interactions (e.g., when starting a new recording),
-      // but superRefine enforces that a recording must exist before submission
       audioUri: z.union([z.string(), z.null()]).optional()
     })
     .superRefine((data, ctx) => {
-      // Validate based on current translation type
       if (translationType === 'text' && !data.text) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
@@ -207,15 +214,6 @@ export default function NextGenNewTranslationModal({
               ? t('enterTranscription')
               : t('enterTranslation'),
           path: ['text']
-        });
-      }
-      // Prevent form submission in audio mode when no recording exists
-      // (null is allowed during interactions, but not for submission)
-      if (translationType === 'audio' && !data.audioUri) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: 'Please record audio',
-          path: ['audioUri']
         });
       }
     });
@@ -445,6 +443,15 @@ export default function NextGenNewTranslationModal({
     }
   }, [visible, form, initialContentType, initialText]);
 
+  // Clear the "Please record audio" validation error as soon as the user
+  // starts or pauses a recording — at that point they've clearly begun,
+  // even if audioUri isn't finalized yet.
+  React.useEffect(() => {
+    if (recordingState.isRecording || recordingState.isPaused) {
+      form.clearErrors('audioUri');
+    }
+  }, [recordingState.isRecording, recordingState.isPaused, form]);
+
   // Warn if modal opens without permission or if anonymous
   React.useEffect(() => {
     if (visible && (!isAuthenticated || !canTranslate)) {
@@ -461,125 +468,130 @@ export default function NextGenNewTranslationModal({
     }
   }, [visible, canTranslate, isAuthenticated, onClose, t, router]);
 
-  const { mutateAsync: createTranslation, isPending: isCreatingTranslation } = useMutation({
-    mutationFn: async (data: TranslationFormData) => {
-      // Validation is handled by Zod schema via form.handleSubmit
-      // These runtime checks are defensive fallbacks
-      if (!translationLanguageId || !projectId || !questId) {
-        throw new Error('Missing required context');
-      }
+  const { mutateAsync: createTranslation, isPending: isCreatingTranslation } =
+    useMutation({
+      mutationFn: async (data: TranslationFormData) => {
+        // Validation is handled by Zod schema via form.handleSubmit
+        // These runtime checks are defensive fallbacks
+        if (!translationLanguageId || !projectId || !questId) {
+          throw new Error('Missing required context');
+        }
 
-      let audioAttachment: string | null = null;
-      if (data.audioUri) {
-        // Ensure attachment queues are ready before saving audio
-        // This handles the case where the app started offline and queues weren't initialized
-        await system.ensureAttachmentQueuesReady();
+        let audioAttachment: string | null = null;
+        if (data.audioUri) {
+          // Ensure attachment queues are ready before saving audio
+          // This handles the case where the app started offline and queues weren't initialized
+          await system.ensureAttachmentQueuesReady();
 
-        if (system.permAttachmentQueue) {
-          // Convert recording to local attachment path
-          // - On web: converts blob URL to OPFS file
-          // - On native: moves from cache dir to local attachments dir
-          const localAudioPath = await saveAudioLocally(data.audioUri);
+          if (system.permAttachmentQueue) {
+            // Convert recording to local attachment path
+            // - On web: converts blob URL to OPFS file
+            // - On native: moves from cache dir to local attachments dir
+            const localAudioPath = await saveAudioLocally(data.audioUri);
 
-          const attachment = await system.permAttachmentQueue.saveAudio(
-            getLocalAttachmentUri(localAudioPath)
+            const attachment = await system.permAttachmentQueue.saveAudio(
+              getLocalAttachmentUri(localAudioPath)
+            );
+            audioAttachment = attachment.filename;
+          }
+        }
+
+        // Guard against anonymous users
+        if (!currentUser?.id || !isAuthenticated) {
+          throw new Error('Must be logged in to create translations');
+        }
+
+        // Guard against PowerSync not being initialized
+        if (!system.isPowerSyncInitialized()) {
+          throw new Error(
+            'System not initialized - cannot create translations'
           );
-          audioAttachment = attachment.filename;
         }
-      }
 
-      // Guard against anonymous users
-      if (!currentUser?.id || !isAuthenticated) {
-        throw new Error('Must be logged in to create translations');
-      }
+        // Use local tables for prepublished content, synced tables for published content
+        const tableOptions = { localOverride: isLocalSource };
+        console.log(
+          `[CREATE ${contentType.toUpperCase()}] Starting transaction... (isLocalSource: ${isLocalSource})`
+        );
+        await system.db.transaction(async (tx) => {
+          const [newAsset] = await tx
+            .insert(resolveTable('asset', tableOptions))
+            .values({
+              source_asset_id: assetId,
+              source_language_id: translationLanguageId,
+              content_type: contentType,
+              project_id: projectId,
+              creator_id: currentUser.id,
+              download_profiles: [currentUser.id]
+            })
+            .returning();
 
-      // Guard against PowerSync not being initialized
-      if (!system.isPowerSyncInitialized()) {
-        throw new Error('System not initialized - cannot create translations');
-      }
+          if (!newAsset) {
+            throw new Error('Failed to insert asset');
+          }
 
-      // Use local tables for prepublished content, synced tables for published content
-      const tableOptions = { localOverride: isLocalSource };
-      console.log(
-        `[CREATE ${contentType.toUpperCase()}] Starting transaction... (isLocalSource: ${isLocalSource})`
-      );
-      await system.db.transaction(async (tx) => {
-        const [newAsset] = await tx
-          .insert(resolveTable('asset', tableOptions))
-          .values({
-            source_asset_id: assetId,
+          const contentValues: {
+            asset_id: string;
+            source_language_id: string;
+            download_profiles: string[];
+            text?: string;
+            audio?: string[];
+          } = {
+            asset_id: newAsset.id,
             source_language_id: translationLanguageId,
-            content_type: contentType,
-            project_id: projectId,
-            creator_id: currentUser.id,
             download_profiles: [currentUser.id]
-          })
-          .returning();
+          };
 
-        if (!newAsset) {
-          throw new Error('Failed to insert asset');
-        }
+          if (translationType === 'text' && data.text) {
+            contentValues.text = data.text;
+          } else if (translationType === 'audio' && audioAttachment) {
+            contentValues.audio = [audioAttachment];
+          }
 
-        const contentValues: {
-          asset_id: string;
-          source_language_id: string;
-          download_profiles: string[];
-          text?: string;
-          audio?: string[];
-        } = {
-          asset_id: newAsset.id,
-          source_language_id: translationLanguageId,
-          download_profiles: [currentUser.id]
-        };
+          await tx
+            .insert(resolveTable('asset_content_link', tableOptions))
+            .values(contentValues);
 
-        if (translationType === 'text' && data.text) {
-          contentValues.text = data.text;
-        } else if (translationType === 'audio' && audioAttachment) {
-          contentValues.audio = [audioAttachment];
-        }
-
-        await tx
-          .insert(resolveTable('asset_content_link', tableOptions))
-          .values(contentValues);
-
-        await tx.insert(resolveTable('quest_asset_link', tableOptions)).values({
-          quest_id: questId,
-          asset_id: newAsset.id,
-          download_profiles: [currentUser.id]
+          await tx
+            .insert(resolveTable('quest_asset_link', tableOptions))
+            .values({
+              quest_id: questId,
+              asset_id: newAsset.id,
+              download_profiles: [currentUser.id]
+            });
         });
-      });
-    },
-    onSuccess: () => {
-      Keyboard.dismiss();
-      form.reset(defaultValues);
-      RNAlert.alert(
-        t('success'),
-        contentType === 'transcription'
-          ? t('transcriptionSubmittedSuccessfully')
-          : t('translationSubmittedSuccessfully')
-      );
-      onSuccess?.();
-      onClose();
-    },
-    onError: (error) => {
-      console.error(
-        `[CREATE ${contentType.toUpperCase()}] Error creating ${contentType}:`,
-        error
-      );
-      console.error(
-        `[CREATE ${contentType.toUpperCase()}] Error stack:`,
-        error.stack
-      );
-      RNAlert.alert(
-        t('error'),
-        (contentType === 'transcription'
-          ? t('failedCreateTranscription')
-          : t('failedCreateTranslation')) +
-          '\n\n' +
-          error.message
-      );
-    }
-  });
+      },
+      onSuccess: () => {
+        Keyboard.dismiss();
+        form.reset(defaultValues);
+        RNAlert.alert(
+          t('success'),
+          contentType === 'transcription'
+            ? t('transcriptionSubmittedSuccessfully')
+            : t('translationSubmittedSuccessfully')
+        );
+        onSuccess?.();
+        onClose();
+      },
+      onError: (error) => {
+        console.error(
+          `[CREATE ${contentType.toUpperCase()}] Error creating ${contentType}:`,
+          error
+        );
+        console.error(
+          `[CREATE ${contentType.toUpperCase()}] Error stack:`,
+          error.stack
+        );
+        RNAlert.alert(
+          t('error'),
+          (contentType === 'transcription'
+            ? t('failedCreateTranscription')
+            : t('failedCreateTranslation')) +
+            '\n\n' +
+            error.message
+        );
+      }
+    });
 
   const handleClose = () => {
     // Clean up audio file if exists
@@ -601,19 +613,36 @@ export default function NextGenNewTranslationModal({
     }
   };
 
-  // Form submission handler
-  const handleFormSubmit = form.handleSubmit(
-    async (data) => {
-      await createTranslation(data);
-    },
-    (errors) => {
-      // Validation errors are shown inline via FormMessage
-      // Log in dev mode for debugging
-      if (__DEV__) {
-        console.error('[CREATE TRANSLATION] Form validation failed:', errors);
+  // Form submission handler - handles paused recording by stopping first
+  const handleFormSubmit = async () => {
+    // If recording is paused, stop it first and get the URI
+    if (recordingState.isPaused && audioRecorderRef.current) {
+      const uri = await audioRecorderRef.current.stopRecording();
+      if (uri) {
+        form.setValue('audioUri', uri);
       }
     }
-  );
+
+    // Audio presence check is set manually (not via Zod) so it only surfaces
+    // on submit — never during onChange re-validation.
+    if (translationType === 'audio' && !form.getValues('audioUri')) {
+      form.setError('audioUri', {
+        type: 'manual',
+        message: t('pleaseRecordAudio')
+      });
+      return;
+    }
+
+    return form.handleSubmit(
+      async (data) => {
+        await createTranslation(data);
+      },
+      (errors) => {
+        // Validation errors are shown inline via FormMessage
+        console.error('[CREATE TRANSLATION] Form validation failed:', errors);
+      }
+    )();
+  };
 
   const handlePredictTranslation = async () => {
     if (!contentPreview.trim()) {
@@ -668,12 +697,10 @@ export default function NextGenNewTranslationModal({
         targetLanguageName
       });
 
-      if (__DEV__) {
-        console.log(
-          '[AI PREDICTION] Raw response received:',
-          result.rawResponse?.substring(0, 100)
-        );
-      }
+      console.log(
+        '[AI PREDICTION] Raw response received:',
+        result.rawResponse?.substring(0, 100)
+      );
 
       setPredictedTranslation(result.translation);
       setPredictionDetails({
@@ -1054,9 +1081,10 @@ export default function NextGenNewTranslationModal({
                       <FormItem>
                         <FormControl>
                           <AudioRecorder
+                            ref={audioRecorderRef}
                             onRecordingComplete={field.onChange}
                             resetRecording={() => field.onChange(null)}
-                            onRecordingStateChange={setIsRecording}
+                            onRecordingStateChange={setRecordingState}
                           />
                         </FormControl>
                         <FormMessage />
@@ -1086,7 +1114,7 @@ export default function NextGenNewTranslationModal({
               </View>
             )}
             <FormSubmit
-              disabled={!canTranslate || isRecording}
+              disabled={!canTranslate || recordingState.isRecording}
               onPress={() => void handleFormSubmit()}
             >
               <Text className="text-base font-bold">{t('createObject')}</Text>
