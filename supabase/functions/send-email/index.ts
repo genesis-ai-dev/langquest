@@ -13,7 +13,7 @@ const rawHookSecret = Deno.env.get('SEND_EMAIL_HOOK_SECRET');
 const hookSecret = rawHookSecret.startsWith('v1,whsec_')
   ? rawHookSecret.substring(9) // Remove the 'v1,' prefix
   : rawHookSecret;
-const supabaseUrl = Deno.env.get('EXPO_PUBLIC_SUPABASE_URL');
+const supabaseUrl = Deno.env.get('SUPABASE_URL');
 const supabaseKey = Deno.env.get('SERVICE_ROLE_KEY');
 const supabase = createClient(supabaseUrl, supabaseKey);
 const signupEmailSubjects = {

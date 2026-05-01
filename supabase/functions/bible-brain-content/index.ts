@@ -6,7 +6,7 @@ import { createClient } from 'npm:@supabase/supabase-js';
 const BIBLE_BRAIN_API = 'https://4.dbt.io/api';
 
 function getSupabase() {
-  const url = Deno.env.get('EXPO_PUBLIC_SUPABASE_URL');
+  const url = Deno.env.get('SUPABASE_URL');
   const key = Deno.env.get('SERVICE_ROLE_KEY');
   if (!url || !key) return null;
   return createClient(url, key);
