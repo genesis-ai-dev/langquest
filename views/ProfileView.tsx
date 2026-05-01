@@ -18,8 +18,8 @@ import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
 import { profileService } from '@/database_services/profileService';
 import { system } from '@/db/powersync/system';
-import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { usePostHog } from '@/hooks/usePostHog';
 import {
@@ -43,7 +43,6 @@ import { Link } from 'expo-router';
 import {
   ChevronDown,
   ChevronRight,
-  HomeIcon,
   InfoIcon,
   MailIcon,
   MoreVertical,
@@ -59,11 +58,10 @@ import { z } from 'zod';
 
 export default function ProfileView() {
   // const { currentUser, setCurrentUser } = useAuth();
-  const { currentUser } = useAuth();
+  const { currentUser, isAuthenticated } = useAuth();
   const { t } = useLocalization();
-  const { goToProjects, navigate } = useAppNavigation();
+  const { router } = useNavigationHelpers();
   const isOnline = useNetworkStatus();
-  const systemReady = useLocalStore((state) => state.systemReady);
   const posthog = usePostHog();
   const setAnalyticsOptOut = useLocalStore((state) => state.setAnalyticsOptOut);
   const analyticsOptOut = useLocalStore((state) => state.analyticsOptOut);
@@ -232,7 +230,7 @@ export default function ProfileView() {
     <Form {...form}>
       <KeyboardAwareScrollView
         className="flex-1 bg-background"
-        contentContainerClassName="mb-safe flex flex-col gap-4 p-6"
+        contentContainerClassName="pb-safe android:pb-[calc(env(safe-area-inset-bottom)+1rem)] flex flex-col gap-4 p-6"
         bottomOffset={96}
         extraKeyboardSpace={20}
       >
@@ -240,9 +238,6 @@ export default function ProfileView() {
           <Text className="text-2xl font-bold text-foreground">
             {t('profile')}
           </Text>
-          <Button variant="default" size="icon-lg" onPress={goToProjects}>
-            <Icon as={HomeIcon} className="text-primary-foreground" />
-          </Button>
         </View>
         {__DEV__ && (
           <View className="flex flex-col gap-2">
@@ -486,7 +481,7 @@ export default function ProfileView() {
         />
 
         {/* Advanced Options Section - Always visible when authenticated */}
-        {currentUser && systemReady && (
+        {currentUser && isAuthenticated && (
           <View className="flex flex-col gap-4">
             <View className="h-px bg-border" />
             <Button
@@ -530,7 +525,7 @@ export default function ProfileView() {
                     <Button
                       variant="destructive"
                       onPress={() => {
-                        navigate({ view: 'account-deletion' });
+                        router.push('/(app)/account-deletion');
                       }}
                       className="mt-2"
                     >

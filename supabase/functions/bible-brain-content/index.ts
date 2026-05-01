@@ -7,7 +7,7 @@ const BIBLE_BRAIN_API = 'https://4.dbt.io/api';
 
 function getSupabase() {
   const url = Deno.env.get('SUPABASE_URL');
-  const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  const key = Deno.env.get('SERVICE_ROLE_KEY');
   if (!url || !key) return null;
   return createClient(url, key);
 }

@@ -134,26 +134,16 @@ export function useHybridData<TOfflineData, TCloudData = TOfflineData>(
   const getItemId = getItemIdProp || defaultGetItemId;
 
   const isOnline = useNetworkStatus();
-  // Use useContext directly to avoid throwing if AuthProvider isn't ready yet
   const authContext = useContext(AuthContext);
   const isAuthenticated = authContext?.isAuthenticated ?? false;
-  // Use reactive isSystemReady from AuthContext - this updates when PowerSync initializes
-  // Previously used a non-reactive useMemo with empty deps which never updated after mount
-  const isPowerSyncReady = authContext?.isSystemReady ?? false;
 
-  // Disable offline queries for anonymous users (cloud-only browsing)
-  // Anonymous users should only use cloud queries with TanStack Query caching
   const shouldEnableOfflineQuery =
     enableOfflineQuery && enabled && isAuthenticated;
 
-  // For anonymous users, use a safe SQL string that won't access system.db
-  // The warning is suppressed, but we still want to avoid any potential issues
   const safePlaceholderQuery =
     'SELECT 1 WHERE 1=0' as unknown as typeof offlineQuery;
-  const queryToUse =
-    isAuthenticated && isPowerSyncReady ? offlineQuery : safePlaceholderQuery;
-  const queryEnabled =
-    isAuthenticated && isPowerSyncReady && shouldEnableOfflineQuery;
+  const queryToUse = isAuthenticated ? offlineQuery : safePlaceholderQuery;
+  const queryEnabled = isAuthenticated && shouldEnableOfflineQuery;
 
   // Always call usePowerSyncQuery (React hooks rules require consistent hook calls)
   // For anonymous users, it will use safe query and be disabled, and warning is suppressed
@@ -192,7 +182,7 @@ export function useHybridData<TOfflineData, TCloudData = TOfflineData>(
   // Always enable cloud query immediately for anonymous users
   const shouldFetchCloud = enableCloudQuery !== false && isOnline && enabled;
   const cloudEnabled =
-    lazyLoadCloud && isAuthenticated && isPowerSyncReady
+    lazyLoadCloud && isAuthenticated
       ? shouldFetchCloud && !!cloudQueryFn && !isOfflineLoading
       : shouldFetchCloud && !!cloudQueryFn;
 
@@ -746,11 +736,8 @@ export function useHybridPaginatedData<TOfflineData, TCloudData = TOfflineData>(
   const getItemId = getItemIdProp || defaultGetItemId;
 
   const isOnline = useNetworkStatus();
-  // Use useContext directly to avoid throwing if AuthProvider isn't ready yet
   const authContext = useContext(AuthContext);
   const isAuthenticated = authContext?.isAuthenticated ?? false;
-  // Use reactive isSystemReady from AuthContext
-  const isPowerSyncReady = authContext?.isSystemReady ?? false;
 
   // Disable offline queries for anonymous users (cloud-only browsing)
   const shouldEnableOfflineQuery =
@@ -765,17 +752,14 @@ export function useHybridPaginatedData<TOfflineData, TCloudData = TOfflineData>(
     [page, pageSize]
   );
 
-  // Generate the offline query based on pagination context
-  // For anonymous users, use a safe SQL string that won't access system.db
   const offlineQueryValue = React.useMemo(() => {
-    if (isAuthenticated && isPowerSyncReady) {
+    if (isAuthenticated) {
       return offlineQuery(queryContext);
     }
     return 'SELECT 1 WHERE 1=0' as string | CompilableQuery<TOfflineData>;
-  }, [offlineQuery, queryContext, isAuthenticated, isPowerSyncReady]);
+  }, [offlineQuery, queryContext, isAuthenticated]);
 
-  const queryEnabled =
-    isAuthenticated && isPowerSyncReady && shouldEnableOfflineQuery;
+  const queryEnabled = isAuthenticated && shouldEnableOfflineQuery;
 
   // Fetch offline data using PowerSync's useQuery
   const {

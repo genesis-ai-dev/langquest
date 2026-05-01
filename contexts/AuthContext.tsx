@@ -466,8 +466,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               system.supabaseConnector.updateSession(null);
               setSessionType(null);
               await cleanupSystem();
-              // Clear authView from localStore to prevent showing auth modal after sign out
-              useLocalStore.getState().setAuthView(null);
               // Set system ready for anonymous browsing after sign out
               setIsSystemReady(true);
             } else {

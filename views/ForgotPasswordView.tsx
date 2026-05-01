@@ -15,27 +15,22 @@ import { Text } from '@/components/ui/text';
 import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
-import type { SharedAuthInfo } from '@/navigators/AuthNavigator';
-import { safeNavigate } from '@/utils/sharedUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { LockIcon, MailIcon } from 'lucide-react-native';
 import React from 'react';
-import { useForm } from 'react-hook-form';
-import { View } from 'react-native';
+import { useForm, useWatch } from 'react-hook-form';
+import { Linking, View } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { z } from 'zod';
 
 const { supabaseConnector } = system;
 
-export default function ForgotPasswordView({
-  onNavigate,
-  sharedAuthInfo
-}: {
-  onNavigate: (view: 'sign-in', sharedAuthInfo: SharedAuthInfo) => void;
-  sharedAuthInfo?: SharedAuthInfo;
-}) {
+export default function ForgotPasswordView() {
+  const { email: initialEmail } = useLocalSearchParams<{ email?: string }>();
+  const router = useRouter();
   const { t } = useLocalization();
   const isOnline = useNetworkStatus();
   const formSchema = z.object({
@@ -56,14 +51,18 @@ export default function ForgotPasswordView({
       if (error) throw error;
     },
     onSuccess: () => {
+      if (__DEV__ && process.env.EXPO_PUBLIC_APP_VARIANT === 'development')
+        Linking.openURL(process.env.EXPO_PUBLIC_RESEND_LOCAL_INBOX_URL!);
       RNAlert.alert(t('success'), t('checkEmailForResetLink'), [
         {
           text: t('ok'),
           isPreferred: true,
-          onPress: () =>
-            safeNavigate(() =>
-              onNavigate('sign-in', { email: form.getValues('email') })
-            )
+          onPress: () => {
+            router.dismissTo({
+              pathname: '/(auth)/sign-in',
+              params: { email }
+            });
+          }
         }
       ]);
     },
@@ -78,9 +77,11 @@ export default function ForgotPasswordView({
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      email: sharedAuthInfo?.email || ''
+      email: initialEmail || ''
     }
   });
+
+  const email = useWatch({ control: form.control, name: 'email' });
 
   const handleFormSubmit = form.handleSubmit((data) => resetPassword(data));
 
@@ -130,9 +131,10 @@ export default function ForgotPasswordView({
 
             <Button
               onPress={() =>
-                safeNavigate(() =>
-                  onNavigate('sign-in', { email: form.watch('email') })
-                )
+                router.dismissTo({
+                  pathname: '/(auth)/sign-in',
+                  params: { email }
+                })
               }
               disabled={isPending}
               variant="plain"

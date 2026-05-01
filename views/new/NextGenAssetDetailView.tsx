@@ -23,7 +23,7 @@ import {
 } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { AppConfig } from '@/db/supabase/AppConfig';
-import { useAppNavigation } from '@/hooks/useAppNavigation';
+import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useOrthographyExamples } from '@/hooks/useOrthographyExamples';
@@ -32,6 +32,7 @@ import { useTranscription } from '@/hooks/useTranscription';
 import { useTranscriptionLocalization } from '@/hooks/useTranscriptionLocalization';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useLocalStore } from '@/store/localStore';
+import { Stack } from 'expo-router';
 import {
   fileExists,
   getLocalAttachmentUriWithOPFS,
@@ -79,7 +80,6 @@ function useNextGenOfflineAsset(assetId: string) {
     }
 
     // Only create CompilableQuery when user is authenticated
-    // Check PowerSync status at query creation time
     try {
       if (!system.isPowerSyncInitialized()) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return
@@ -172,25 +172,19 @@ function useNextGenOfflineAsset(assetId: string) {
 export default function NextGenAssetDetailView() {
   const { t } = useLocalization();
   const { isAuthenticated } = useAuth();
-  const setAuthView = useLocalStore((state) => state.setAuthView);
-  const {
-    currentAssetId,
-    currentProjectId,
-    currentQuestId,
-    currentProjectData,
-    goBack
-  } = useAppNavigation();
+
+  const { assetId, projectId, questId, router } = useNavigationHelpers();
 
   // Debug logging moved to useEffect to prevent render loop
   useEffect(() => {
     if (__DEV__) {
       console.log('[ASSET DETAIL VIEW] Navigation context:', {
-        currentAssetId,
-        currentProjectId,
-        currentQuestId
+        assetId,
+        projectId,
+        questId
       });
     }
-  }, [currentAssetId, currentProjectId, currentQuestId]);
+  }, [assetId, projectId, questId]);
 
   const [showNewTranslationModal, setShowNewTranslationModal] = useState(false);
   const [translationsRefreshKey, setTranslationsRefreshKey] = useState(0);
@@ -220,17 +214,17 @@ export default function NextGenAssetDetailView() {
     data: queriedAsset,
     isLoading: isAssetLoading,
     refetch: refetchOfflineAsset
-  } = useNextGenOfflineAsset(currentAssetId || '');
+  } = useNextGenOfflineAsset(assetId || '');
 
   const offlineAsset = queriedAsset;
 
   // Load asset attachments when asset ID changes
   // useEffect(() => {
-  //   if (!currentAssetId) return;
+  //   if (!assetId) return;
 
   //   // Load attachments for audio support
-  //   // void system.tempAttachmentQueue?.loadAssetAttachments(currentAssetId);
-  // }, [currentAssetId]);
+  //   // void system.tempAttachmentQueue?.loadAssetAttachments(assetId);
+  // }, [assetId]);
 
   // Use passed project data if available (instant!), otherwise query using hybrid data
   // This supports both authenticated (offline) and anonymous (cloud-only) users
@@ -247,7 +241,7 @@ export default function NextGenAssetDetailView() {
       }
       return toCompilableQuery(
         system.db.query.project.findFirst({
-          where: currentProjectId ? eq(project.id, currentProjectId) : undefined
+          where: projectId ? eq(project.id, projectId) : undefined
         })
       );
     } catch (error) {
@@ -258,7 +252,7 @@ export default function NextGenAssetDetailView() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return
       return 'SELECT * FROM project WHERE 1=0' as any;
     }
-  }, [currentProjectId, isAuthenticated]);
+  }, [projectId, isAuthenticated]);
 
   // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   const projectOfflineQuery = React.useMemo(
@@ -271,51 +265,51 @@ export default function NextGenAssetDetailView() {
     typeof project.$inferSelect
   >({
     dataType: 'project-detail',
-    queryKeyParams: [currentProjectId || ''],
+    queryKeyParams: [projectId || ''],
     offlineQuery: projectOfflineQuery,
     cloudQueryFn: async () => {
-      if (!currentProjectId) return [];
+      if (!projectId) return [];
       const { data, error } = await system.supabaseConnector.client
         .from('project')
         .select('*')
-        .eq('id', currentProjectId)
+        .eq('id', projectId)
         .limit(1)
         .overrideTypes<(typeof project.$inferSelect)[]>();
       if (error) throw error;
       return data || [];
     },
-    enableCloudQuery: !!currentProjectId && !currentProjectData,
-    enableOfflineQuery: !!currentProjectId && !currentProjectData
+    enableCloudQuery: !!projectId,
+    enableOfflineQuery: !!projectId
   });
 
   // Prefer passed data for instant rendering!
   const queriedProjectData = queriedProjectDataArray?.[0];
-  const projectData = currentProjectData || queriedProjectData;
+  const projectData = queriedProjectData;
 
   // Get target languoid_id from project_language_link
   const { data: targetLanguoidLink = [] } = useHybridData<{
     languoid_id: string | null;
   }>({
     dataType: 'project-target-languoid-id',
-    queryKeyParams: [currentProjectId || ''],
+    queryKeyParams: [projectId || ''],
     offlineQuery: toCompilableQuery(
       system.db
         .select({ languoid_id: project_language_link.languoid_id })
         .from(project_language_link)
         .where(
           and(
-            eq(project_language_link.project_id, currentProjectId!),
+            eq(project_language_link.project_id, projectId!),
             eq(project_language_link.language_type, 'target')
           )
         )
         .limit(1)
     ),
     cloudQueryFn: async () => {
-      if (!currentProjectId) return [];
+      if (!projectId) return [];
       const { data, error } = await system.supabaseConnector.client
         .from('project_language_link')
         .select('languoid_id')
-        .eq('project_id', currentProjectId)
+        .eq('project_id', projectId)
         .eq('language_type', 'target')
         .not('languoid_id', 'is', null)
         .limit(1)
@@ -323,8 +317,8 @@ export default function NextGenAssetDetailView() {
       if (error) throw error;
       return data;
     },
-    enableCloudQuery: !!currentProjectId,
-    enableOfflineQuery: !!currentProjectId
+    enableCloudQuery: !!projectId,
+    enableOfflineQuery: !!projectId
   });
 
   const translationLanguageId = targetLanguoidLink[0]?.languoid_id || '';
@@ -333,7 +327,7 @@ export default function NextGenAssetDetailView() {
     hasAccess: canTranslateFromPermissions,
     membership: translateMembership
   } = useUserPermissions(
-    currentProjectId || '',
+    projectId || '',
     'translate',
     Boolean(projectData?.private)
   );
@@ -388,7 +382,7 @@ export default function NextGenAssetDetailView() {
         LayerType.ASSET,
         activeAsset.id || '',
         activeAsset as LayerStatus,
-        currentQuestId
+        questId
       );
 
   const allAttachmentIds = React.useMemo(() => {
@@ -443,7 +437,7 @@ export default function NextGenAssetDetailView() {
 
   // Fetch orthography examples for transcription localization
   const { data: orthographyExamples = [] } = useOrthographyExamples(
-    currentProjectId,
+    projectId,
     currentContentLanguageId
   );
 
@@ -457,7 +451,7 @@ export default function NextGenAssetDetailView() {
       // Also scroll the FlatList to the first item
       contentFlatListRef.current?.scrollToIndex({ index: 0, animated: false });
     });
-  }, [currentAssetId]);
+  }, [assetId]);
 
   // Reset to translations tab if source has no audio (transcription requires audio)
   useEffect(() => {
@@ -606,7 +600,7 @@ export default function NextGenAssetDetailView() {
   ]);
 
   const { hasReported, isLoading: isReportLoading } = useHasUserReported(
-    currentAssetId || '',
+    assetId || '',
     'assets'
   );
 
@@ -650,7 +644,7 @@ export default function NextGenAssetDetailView() {
     }
   };
 
-  if (!currentAssetId) {
+  if (!assetId) {
     return (
       <View className="flex-1">
         <View className="flex-1 items-center justify-center">
@@ -664,7 +658,7 @@ export default function NextGenAssetDetailView() {
 
   // Show loading skeleton if we're loading OR if we don't have asset data yet for the current asset
   // This prevents the "not available" flash when navigating between assets
-  if (isAssetLoading || (!activeAsset && currentAssetId)) {
+  if (isAssetLoading || (!activeAsset && assetId)) {
     return (
       <View className="flex-1">
         <AssetSkeleton />
@@ -822,6 +816,9 @@ export default function NextGenAssetDetailView() {
 
   return (
     <View className="mb-safe flex-1 px-4">
+      {activeAsset?.name && (
+        <Stack.Screen options={{ title: activeAsset.name }} />
+      )}
       {/* Header */}
       <View className="flex-row items-center justify-between gap-1">
         <View className="flex-1 flex-row items-center gap-4">
@@ -1137,7 +1134,7 @@ export default function NextGenAssetDetailView() {
         </View>
 
         <NextGenTranslationsList
-          assetId={currentAssetId}
+          assetId={assetId}
           assetName={activeAsset.name}
           refreshKey={translationsRefreshKey}
           projectData={
@@ -1158,7 +1155,7 @@ export default function NextGenAssetDetailView() {
       {/* New Translation Button with PrivateAccessGate */}
       {projectData?.private && !canTranslate ? (
         <PrivateAccessGate
-          projectId={currentProjectId || ''}
+          projectId={projectId || ''}
           projectName={(projectData?.name as string | undefined) ?? ''}
           isPrivate={true}
           action="translate"
@@ -1188,7 +1185,7 @@ export default function NextGenAssetDetailView() {
       !isAuthenticated ? (
         <Button
           className="-mx-4 flex-row items-center justify-center gap-2 px-6 py-4"
-          onPress={() => setAuthView('sign-in')}
+          onPress={() => router.push('/(auth)/sign-in')}
         >
           <Icon as={LockIcon} size={24} />
           <Text className="font-bold text-secondary">
@@ -1219,7 +1216,7 @@ export default function NextGenAssetDetailView() {
             setTranscriptionText(''); // Clear transcription text when modal closes
           }}
           onSuccess={handleTranslationSuccess}
-          assetId={currentAssetId}
+          assetId={assetId}
           assetName={activeAsset.name}
           assetContent={activeAsset.content}
           sourceLanguage={null}
@@ -1248,7 +1245,7 @@ export default function NextGenAssetDetailView() {
             refetchOfflineAsset();
             // Navigate back to assets list if content was blocked
             if (contentBlocked) {
-              goBack();
+              router.back();
             }
           }}
         />
