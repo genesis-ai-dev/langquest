@@ -73,6 +73,7 @@ function updateUserPassword(email, newPassword) {
   const user = getUserByEmail(email);
   console.log('Found user ID:', user.id);
   console.log('Updating password for user:', email);
+  console.log('New password length:', newPassword.length);
 
   // Use Supabase Admin API to update the user's password directly
   // This bypasses the need for email verification
@@ -85,6 +86,9 @@ function updateUserPassword(email, newPassword) {
       })
     }
   );
+
+  console.log('Update password response status:', updateResponse.status);
+  console.log('Update password response body:', updateResponse.body);
 
   if (updateResponse.status !== 200) {
     throw new Error(
