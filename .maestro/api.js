@@ -48,10 +48,7 @@ function getUserByEmail(email) {
   );
 
   if (!matchingUser) {
-    console.log(
-      'Available users:',
-      users.map((u) => u.email).join(', ')
-    );
+    console.log('Available users:', users.map((u) => u.email).join(', '));
     throw new Error(
       'No user found with exact email match: ' +
         email +
