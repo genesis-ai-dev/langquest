@@ -31,6 +31,9 @@ function getUserByEmail(email) {
     { headers: getDefaultHeaders() }
   );
 
+  console.log('Get user response status:', getUserResponse.status);
+  console.log('Get user response body:', getUserResponse.body);
+
   const responseData = JSON.parse(getUserResponse.body);
   const users = responseData.users || responseData;
 
@@ -38,7 +41,28 @@ function getUserByEmail(email) {
     throw new Error('User not found with email: ' + email);
   }
 
-  return users[0];
+  // Find the user that exactly matches the requested email
+  const normalizedSearchEmail = email.toLowerCase().trim();
+  const matchingUser = users.find(
+    (u) => u.email && u.email.toLowerCase().trim() === normalizedSearchEmail
+  );
+
+  if (!matchingUser) {
+    console.log(
+      'Available users:',
+      users.map((u) => u.email).join(', ')
+    );
+    throw new Error(
+      'No user found with exact email match: ' +
+        email +
+        '. Found ' +
+        users.length +
+        ' user(s) but none with matching email.'
+    );
+  }
+
+  console.log('Found matching user with ID:', matchingUser.id);
+  return matchingUser;
 }
 
 function deleteUser(email) {
