@@ -22,7 +22,9 @@ function deleteUser(email) {
     }
   );
 
-  // Parse the response to get the user ID
+  console.log('Get user response status:', getUserResponse.status);
+  console.log('Get user response body:', getUserResponse.body);
+
   const responseData = JSON.parse(getUserResponse.body);
   // Supabase Admin API returns { users: [...] } format
   const users = responseData.users || responseData;
@@ -30,17 +32,87 @@ function deleteUser(email) {
     throw new Error('User not found with email: ' + email);
   }
 
-  const userId = users[0].id;
-  console.log('Found user ID:', userId);
+  // Find the user that exactly matches the requested email
+  const normalizedSearchEmail = email.toLowerCase().trim();
+  const matchingUser = users.find(
+    (u) => u.email && u.email.toLowerCase().trim() === normalizedSearchEmail
+  );
+
+  if (!matchingUser) {
+    console.log('Available users:', users.map((u) => u.email).join(', '));
+    throw new Error(
+      'No user found with exact email match: ' +
+        email +
+        '. Found ' +
+        users.length +
+        ' user(s) but none with matching email.'
+    );
+  }
+
+  console.log('Found matching user with ID:', matchingUser.id);
+  return matchingUser;
+}
+
+function deleteUser(email) {
+  const user = getUserByEmail(email);
+  console.log('Found user ID:', user.id);
+  console.log('Deleting user with email:', email);
 
   // Delete the user by ID
-  return http.delete(supabaseUrl + '/auth/v1/admin/users/' + userId, {
-    headers: {
-      Authorization: 'Bearer ' + serviceRoleKey,
-      apikey: serviceRoleKey,
-      'Content-Type': 'application/json'
-    }
+  return http.delete(supabaseUrl + '/auth/v1/admin/users/' + user.id, {
+    headers: getDefaultHeaders()
   });
+}
+
+function updateUserPassword(email, newPassword) {
+  // Validate inputs
+  if (!email || typeof email !== 'string' || email.trim() === '') {
+    throw new Error(
+      'Email is required and must be a non-empty string. Received: ' + email
+    );
+  }
+  if (
+    !newPassword ||
+    typeof newPassword !== 'string' ||
+    newPassword.length < 6
+  ) {
+    throw new Error(
+      'Password is required and must be at least 6 characters. Received: ' +
+        newPassword
+    );
+  }
+
+  const user = getUserByEmail(email);
+  console.log('Found user ID:', user.id);
+  console.log('Updating password for user:', email);
+  console.log('New password length:', newPassword.length);
+
+  // Use Supabase Admin API to update the user's password directly
+  // This bypasses the need for email verification
+  const updateResponse = http.put(
+    supabaseUrl + '/auth/v1/admin/users/' + user.id,
+    {
+      headers: getDefaultHeaders(),
+      body: JSON.stringify({
+        password: newPassword
+      })
+    }
+  );
+
+  console.log('Update password response status:', updateResponse.status);
+  console.log('Update password response body:', updateResponse.body);
+
+  if (updateResponse.status !== 200) {
+    throw new Error(
+      'Failed to update password: ' +
+        updateResponse.status +
+        ' ' +
+        updateResponse.body
+    );
+  }
+
+  console.log('Successfully updated password for user:', email);
+  return JSON.parse(updateResponse.body);
 }
 
 function generatePasswordResetLink(email) {
