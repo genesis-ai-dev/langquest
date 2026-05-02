@@ -108,8 +108,8 @@ jobs:
       flow_path:
         [
           '.maestro/flows/register.yaml',
-          '.maestro/flows/sign-in.yaml',
-          '.maestro/flows/reset-password.yaml'
+          '.maestro/flows/reset-password.yaml',
+          '.maestro/flows/sign-in.yaml'
         ]
 
   ios_maestro:
@@ -126,8 +126,8 @@ jobs:
       flow_path:
         [
           '.maestro/flows/register.yaml',
-          '.maestro/flows/sign-in.yaml',
-          '.maestro/flows/reset-password.yaml'
+          '.maestro/flows/reset-password.yaml',
+          '.maestro/flows/sign-in.yaml'
         ]
     hooks:
       after_checkout:
