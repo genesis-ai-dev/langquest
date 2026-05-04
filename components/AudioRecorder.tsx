@@ -388,11 +388,13 @@ const AudioRecorder = React.forwardRef<AudioRecorderRef, AudioRecorderProps>(
         <Text className="text-center text-foreground">
           {durationDisplay.topLine}
         </Text>
-        <Text
-          className={`mb-2 text-center ${durationDisplay.isWarning ? 'text-destructive' : 'text-foreground'}`}
-        >
-          {durationDisplay.bottomLine}
-        </Text>
+        {isRecordingInProgress && (
+          <Text
+            className={`mb-2 text-center ${durationDisplay.isWarning ? 'text-destructive' : 'text-foreground'}`}
+          >
+            {durationDisplay.bottomLine}
+          </Text>
+        )}
         <View className="w-full flex-row justify-around">
           {buttons.map((button, index) => (
             <Button
