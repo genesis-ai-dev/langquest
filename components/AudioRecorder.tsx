@@ -277,9 +277,10 @@ const AudioRecorder = React.forwardRef<AudioRecorderRef, AudioRecorderProps>(
             (status) => {
               setPlaybackPosition(status.currentTime * 1000);
               if (status.didJustFinish) {
+                player.pause();
+                player.seekTo(0);
                 setIsPlaying(false);
                 setPlaybackPosition(0);
-                player.seekTo(0);
               }
             }
           );

@@ -90,11 +90,7 @@ export default function RegisterView() {
             ui_language_id: currentLanguage?.id, // Keep for backward compatibility
             email_verified: false
           },
-          emailRedirectTo: `${process.env.EXPO_PUBLIC_SITE_URL}${
-            process.env.EXPO_PUBLIC_APP_VARIANT !== 'production'
-              ? `?env=${process.env.EXPO_PUBLIC_APP_VARIANT}`
-              : ''
-          }`
+          emailRedirectTo: process.env.EXPO_PUBLIC_SITE_URL
         }
       });
 

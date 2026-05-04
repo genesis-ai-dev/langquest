@@ -51,7 +51,7 @@ export default function ForgotPasswordView() {
       if (error) throw error;
     },
     onSuccess: () => {
-      if (__DEV__ && process.env.EXPO_PUBLIC_APP_VARIANT === 'development')
+      if (__DEV__ && process.env.NODE_ENV === 'development')
         Linking.openURL(process.env.EXPO_PUBLIC_RESEND_LOCAL_INBOX_URL!);
       RNAlert.alert(t('success'), t('checkEmailForResetLink'), [
         {
