@@ -153,6 +153,7 @@ const AudioRecorder = React.forwardRef<AudioRecorderRef, AudioRecorderProps>(
       }
       if (playerRef.current) {
         playerRef.current.pause();
+        playerRef.current.remove();
         playerRef.current.release();
         playerRef.current = null;
       }
