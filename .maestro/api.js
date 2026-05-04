@@ -31,6 +31,9 @@ function getUserByEmail(email) {
     { headers: getDefaultHeaders() }
   );
 
+  console.log('Get user response status:', getUserResponse.status);
+  console.log('Get user response body:', getUserResponse.body);
+
   const responseData = JSON.parse(getUserResponse.body);
   const users = responseData.users || responseData;
 
@@ -38,7 +41,25 @@ function getUserByEmail(email) {
     throw new Error('User not found with email: ' + email);
   }
 
-  return users[0];
+  // Find the user that exactly matches the requested email
+  const normalizedSearchEmail = email.toLowerCase().trim();
+  const matchingUser = users.find(
+    (u) => u.email && u.email.toLowerCase().trim() === normalizedSearchEmail
+  );
+
+  if (!matchingUser) {
+    console.log('Available users:', users.map((u) => u.email).join(', '));
+    throw new Error(
+      'No user found with exact email match: ' +
+        email +
+        '. Found ' +
+        users.length +
+        ' user(s) but none with matching email.'
+    );
+  }
+
+  console.log('Found matching user with ID:', matchingUser.id);
+  return matchingUser;
 }
 
 function deleteUser(email) {
@@ -73,6 +94,7 @@ function updateUserPassword(email, newPassword) {
   const user = getUserByEmail(email);
   console.log('Found user ID:', user.id);
   console.log('Updating password for user:', email);
+  console.log('New password length:', newPassword.length);
 
   // Use Supabase Admin API to update the user's password directly
   // This bypasses the need for email verification
@@ -85,6 +107,9 @@ function updateUserPassword(email, newPassword) {
       })
     }
   );
+
+  console.log('Update password response status:', updateResponse.status);
+  console.log('Update password response body:', updateResponse.body);
 
   if (updateResponse.status !== 200) {
     throw new Error(
