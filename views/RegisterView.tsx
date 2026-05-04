@@ -46,10 +46,16 @@ export default function RegisterView() {
         .nonempty(t('emailRequired'))
         .toLowerCase()
         .trim(),
-      password: z.string(t('passwordRequired')).min(6, t('passwordMinLength')),
-      confirmPassword: z.string(t('confirmPassword')),
+      password: z
+        .string(t('passwordRequired'))
+        .nonempty(t('passwordRequired'))
+        .min(6, t('passwordMinLength')),
+      confirmPassword: z
+        .string(t('passwordRequired'))
+        .nonempty(t('passwordRequired')),
       username: z
         .string(t('usernameRequired'))
+        .nonempty(t('usernameRequired'))
         .min(
           3,
           t('usernameRequired') || 'Username must be at least 3 characters'
