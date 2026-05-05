@@ -1073,7 +1073,10 @@ export default function NextGenNewTranslationModal({
                   </View>
                 </TabsContent>
 
-                <TabsContent value="audio" className="min-h-36">
+                <TabsContent
+                  value="audio"
+                  className="flex min-h-36 flex-col justify-end"
+                >
                   <FormField
                     control={form.control}
                     name="audioUri"

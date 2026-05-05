@@ -384,17 +384,19 @@ const AudioRecorder = React.forwardRef<AudioRecorderRef, AudioRecorderProps>(
     const durationDisplay = getDurationDisplay();
 
     return (
-      <View className="items-center p-4">
-        <Text className="text-center text-foreground">
-          {durationDisplay.topLine}
-        </Text>
-        {isRecordingInProgress && (
-          <Text
-            className={`mb-2 text-center ${durationDisplay.isWarning ? 'text-destructive' : 'text-foreground'}`}
-          >
-            {durationDisplay.bottomLine}
+      <View className="items-center gap-3">
+        <View className="items-center">
+          {isRecordingInProgress && (
+            <Text
+              className={`text-center ${durationDisplay.isWarning ? 'text-destructive' : 'text-foreground'}`}
+            >
+              {durationDisplay.bottomLine}
+            </Text>
+          )}
+          <Text className="text-center text-xl text-foreground">
+            {durationDisplay.topLine}
           </Text>
-        )}
+        </View>
         <View className="w-full flex-row justify-around">
           {buttons.map((button, index) => (
             <Button
