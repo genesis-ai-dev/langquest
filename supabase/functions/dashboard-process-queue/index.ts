@@ -1,10 +1,6 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import pg from 'npm:pg@8.11.3';
-import {
-  processQueue,
-  resolveLimit,
-  type QueueRow
-} from './core.ts';
+import { processQueue, resolveLimit, type QueueRow } from './core.ts';
 import type {
   JsonRecord,
   ProjectDashboardContext,
@@ -12,9 +8,14 @@ import type {
 } from './types.ts';
 
 const dbUrl =
-  Deno.env.get('SUPABASE_DB_URL') ||
-  Deno.env.get('PS_DATA_SOURCE_URI') ||
-  'postgresql://postgres:postgres@db:5432/postgres';
+  asString(Deno.env.get('SUPABASE_DB_URL')) ||
+  asString(Deno.env.get('PS_DATA_SOURCE_URI'));
+
+if (!dbUrl) {
+  throw new Error(
+    'Missing database connection string. Set SUPABASE_DB_URL or PS_DATA_SOURCE_URI.'
+  );
+}
 
 const { Pool } = pg as unknown as {
   Pool: new (opts: { connectionString: string; max?: number }) => any;
@@ -147,7 +148,9 @@ async function fetchProjectContext(
       `,
       [assetIds]
     );
-    assetContentLinks = aclResult.rows.map((row: { row: JsonRecord }) => row.row);
+    assetContentLinks = aclResult.rows.map(
+      (row: { row: JsonRecord }) => row.row
+    );
   }
 
   const projectTemplate = asString(project.template);
@@ -263,9 +266,10 @@ async function upsertDashboard(
 }
 
 async function markQueueSuccess(client: any, queueId: string): Promise<void> {
-  await client.query('delete from public.dashboard_refresh_queue where id = $1', [
-    queueId
-  ]);
+  await client.query(
+    'delete from public.dashboard_refresh_queue where id = $1',
+    [queueId]
+  );
 }
 
 async function markQueueFailure(
@@ -313,18 +317,19 @@ Deno.serve(async (req) => {
     const result = await withClient((client) =>
       processQueue({
         limit,
-        claimQueueRows: (batchLimit: number) => claimQueueRows(client, batchLimit),
+        claimQueueRows: (batchLimit: number) =>
+          claimQueueRows(client, batchLimit),
         fetchProjectContext: (projectId: string) =>
           fetchProjectContext(client, projectId),
         upsertDashboard: (payload: ProjectDashboardPayload) =>
           upsertDashboard(client, payload),
-        markQueueSuccess: (queueId: string) => markQueueSuccess(client, queueId),
+        markQueueSuccess: (queueId: string) =>
+          markQueueSuccess(client, queueId),
         markQueueFailure: (
           queueId: string,
           currentRetryCount: number,
           errorMessage: string
-        ) =>
-          markQueueFailure(client, queueId, currentRetryCount, errorMessage)
+        ) => markQueueFailure(client, queueId, currentRetryCount, errorMessage)
       })
     );
 

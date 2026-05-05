@@ -69,7 +69,8 @@ export interface ProjectBaseInfo {
   template: ProjectTemplate;
 }
 
-export interface ProjectDashboardPayload extends ProjectBaseInfo, DashboardMetrics {}
+export interface ProjectDashboardPayload
+  extends ProjectBaseInfo, DashboardMetrics {}
 
 export interface ProjectDashboardContext {
   project: JsonRecord;

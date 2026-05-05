@@ -22,7 +22,9 @@ function asBoolean(value: unknown, fallback = false): boolean {
   return fallback;
 }
 
-function getContentType(value: unknown): 'source' | 'translation' | 'transcription' | null {
+function getContentType(
+  value: unknown
+): 'source' | 'translation' | 'transcription' | null {
   const normalized = asString(value)?.toLowerCase();
   if (
     normalized === 'source' ||
@@ -116,9 +118,15 @@ export function buildGenericDashboardMetrics(
   );
 
   const activeAssets = assets.filter((a) => asBoolean(a.active, true));
-  const sourceAssets = assets.filter((a) => getContentType(a.content_type) === 'source');
-  const activeSourceAssets = sourceAssets.filter((a) => asBoolean(a.active, true));
-  const inactiveSourceAssets = sourceAssets.filter((a) => !asBoolean(a.active, true));
+  const sourceAssets = assets.filter(
+    (a) => getContentType(a.content_type) === 'source'
+  );
+  const activeSourceAssets = sourceAssets.filter((a) =>
+    asBoolean(a.active, true)
+  );
+  const inactiveSourceAssets = sourceAssets.filter(
+    (a) => !asBoolean(a.active, true)
+  );
   const activeSourceAssetIds = new Set(
     activeSourceAssets
       .map((a) => asString(a.id))
@@ -299,7 +307,10 @@ export function buildGenericDashboardMetrics(
         .filter((id): id is string => id !== null)
     );
 
-    const hierarchyQuestIds = new Set<string>([rootQuestId, ...descendantsById]);
+    const hierarchyQuestIds = new Set<string>([
+      rootQuestId,
+      ...descendantsById
+    ]);
     const hierarchyAssetIds = new Set<string>();
     for (const questId of hierarchyQuestIds) {
       const ids = questToAssetIds.get(questId);
@@ -319,7 +330,8 @@ export function buildGenericDashboardMetrics(
 
     const hierarchyLanguoids = distinct(
       hierarchyAssets.map(
-        (asset) => asString(asset.languoid_id) ?? asString(asset.source_language_id)
+        (asset) =>
+          asString(asset.languoid_id) ?? asString(asset.source_language_id)
       )
     );
 
@@ -406,8 +418,7 @@ export function buildGenericDashboardMetrics(
   );
   const totalOwners = countWhere(
     profileProjectLinks,
-    (ppl) =>
-      asBoolean(ppl.active, true) && asString(ppl.membership) === 'owner'
+    (ppl) => asBoolean(ppl.active, true) && asString(ppl.membership) === 'owner'
   );
 
   const completedQuests = countWhere(rootQuests, (quest) => {
@@ -437,7 +448,9 @@ export function buildGenericDashboardMetrics(
       activeSourceAssets,
       (asset) => assetHasAudio.get(asString(asset.id) ?? '') === true
     ),
-    assets_with_image: countWhere(activeSourceAssets, (asset) => hasImage(asset)),
+    assets_with_image: countWhere(activeSourceAssets, (asset) =>
+      hasImage(asset)
+    ),
     assets_with_transcription: countWhere(
       activeSourceAssets,
       (asset) => sourceHasTranscription.get(asString(asset.id) ?? '') === true
@@ -448,7 +461,8 @@ export function buildGenericDashboardMetrics(
     ),
     total_source_languages: distinct(
       activeSourceAssets.map(
-        (asset) => asString(asset.languoid_id) ?? asString(asset.source_language_id)
+        (asset) =>
+          asString(asset.languoid_id) ?? asString(asset.source_language_id)
       )
     ).length,
     total_target_languages: totalTargetLanguages,

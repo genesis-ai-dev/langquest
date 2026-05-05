@@ -32,7 +32,9 @@ export type QueueProcessResult = {
 type QueueProcessorDeps = {
   limit: number;
   claimQueueRows: (limit: number) => Promise<QueueRow[]>;
-  fetchProjectContext: (projectId: string) => Promise<ProjectDashboardContext | null>;
+  fetchProjectContext: (
+    projectId: string
+  ) => Promise<ProjectDashboardContext | null>;
   upsertDashboard: (payload: ProjectDashboardPayload) => Promise<void>;
   markQueueSuccess: (queueId: string) => Promise<void>;
   markQueueFailure: (

@@ -178,9 +178,7 @@ function getLatestByCreatedAt(rows: JsonRecord[]): JsonRecord | null {
   })[0];
 }
 
-function buildFiaPericopeExpectedMap(
-  rows: JsonRecord[]
-): Map<string, number> {
+function buildFiaPericopeExpectedMap(rows: JsonRecord[]): Map<string, number> {
   const map = new Map<string, number>();
   for (const row of rows) {
     const itemId = asString(row.item_id)?.toLowerCase();
@@ -217,9 +215,15 @@ export function buildFiaDashboard(
   );
 
   const activeAssets = assets.filter((a) => asBoolean(a.active, true));
-  const sourceAssets = assets.filter((a) => getContentType(a.content_type) === 'source');
-  const activeSourceAssets = sourceAssets.filter((a) => asBoolean(a.active, true));
-  const inactiveSourceAssets = sourceAssets.filter((a) => !asBoolean(a.active, true));
+  const sourceAssets = assets.filter(
+    (a) => getContentType(a.content_type) === 'source'
+  );
+  const activeSourceAssets = sourceAssets.filter((a) =>
+    asBoolean(a.active, true)
+  );
+  const inactiveSourceAssets = sourceAssets.filter(
+    (a) => !asBoolean(a.active, true)
+  );
   const activeSourceAssetIds = new Set(
     activeSourceAssets
       .map((a) => asString(a.id))
@@ -297,8 +301,14 @@ export function buildFiaDashboard(
   const assetHasText = new Map<string, boolean>();
   const assetHasAudio = new Map<string, boolean>();
   for (const [assetId, aclRows] of aclByAssetId.entries()) {
-    assetHasText.set(assetId, aclRows.some((row) => hasText(row.text)));
-    assetHasAudio.set(assetId, aclRows.some((row) => hasAudio(row)));
+    assetHasText.set(
+      assetId,
+      aclRows.some((row) => hasText(row.text))
+    );
+    assetHasAudio.set(
+      assetId,
+      aclRows.some((row) => hasAudio(row))
+    );
   }
 
   const members: Record<string, MemberStats> = {};
@@ -318,7 +328,8 @@ export function buildFiaDashboard(
   };
 
   for (const quest of activeQuests) addMemberQuest(asString(quest.creator_id));
-  for (const asset of activeSourceAssets) addMemberAsset(asString(asset.creator_id));
+  for (const asset of activeSourceAssets)
+    addMemberAsset(asString(asset.creator_id));
 
   const activeRootQuests = activeQuests.filter(
     (quest) => asString(quest.parent_id) === null
@@ -348,7 +359,10 @@ export function buildFiaDashboard(
     );
     if (rootIds.size === 0) continue;
 
-    const groupedSubquestRows = new Map<string, { pericopeId: string; rows: JsonRecord[] }>();
+    const groupedSubquestRows = new Map<
+      string,
+      { pericopeId: string; rows: JsonRecord[] }
+    >();
 
     for (const subquest of activeSubquests) {
       const parentId = asString(subquest.parent_id);
@@ -401,8 +415,14 @@ export function buildFiaDashboard(
           const verseRange = parseVerseRange(asset.metadata);
           if (!verseRange) continue;
 
-          const clampedStart = Math.max(1, Math.min(expectedItems, verseRange.from));
-          const clampedEnd = Math.max(1, Math.min(expectedItems, verseRange.to));
+          const clampedStart = Math.max(
+            1,
+            Math.min(expectedItems, verseRange.from)
+          );
+          const clampedEnd = Math.max(
+            1,
+            Math.min(expectedItems, verseRange.to)
+          );
           const start = Math.min(clampedStart, clampedEnd);
           const end = Math.max(clampedStart, clampedEnd);
 
@@ -422,10 +442,13 @@ export function buildFiaDashboard(
       );
 
       const latestSubquest = getLatestByCreatedAt(group.rows);
-      const creatorIds = distinct(group.rows.map((row) => asString(row.creator_id)));
+      const creatorIds = distinct(
+        group.rows.map((row) => asString(row.creator_id))
+      );
       const languoids = distinct(
         subquestAssets.map(
-          (asset) => asString(asset.languoid_id) ?? asString(asset.source_language_id)
+          (asset) =>
+            asString(asset.languoid_id) ?? asString(asset.source_language_id)
         )
       );
 
@@ -491,7 +514,10 @@ export function buildFiaDashboard(
         subquest.itemsExpected > 0 &&
         subquest.itemsCompleted === subquest.itemsExpected
     );
-    console.log('fia total subquests expected:', context.templateStructureRows.length)
+    console.log(
+      'fia total subquests expected:',
+      context.templateStructureRows.length
+    );
     const totalSubquestsExpected = countWhere(
       context.templateStructureRows,
       (row) =>
@@ -511,7 +537,8 @@ export function buildFiaDashboard(
     ]);
     const questLanguoids = distinct(
       hierarchyAssets.map(
-        (asset) => asString(asset.languoid_id) ?? asString(asset.source_language_id)
+        (asset) =>
+          asString(asset.languoid_id) ?? asString(asset.source_language_id)
       )
     );
 
@@ -531,12 +558,14 @@ export function buildFiaDashboard(
   const questEntries = Object.values(questsJson);
   const totalTargetLanguages = countWhere(
     projectLanguageLinks,
-    (pll) => asBoolean(pll.active, true) && asString(pll.language_type) === 'target'
+    (pll) =>
+      asBoolean(pll.active, true) && asString(pll.language_type) === 'target'
   );
 
   const totalMembers = countWhere(
     profileProjectLinks,
-    (ppl) => asBoolean(ppl.active, true) && asString(ppl.membership) === 'member'
+    (ppl) =>
+      asBoolean(ppl.active, true) && asString(ppl.membership) === 'member'
   );
   const totalOwners = countWhere(
     profileProjectLinks,
@@ -549,7 +578,12 @@ export function buildFiaDashboard(
       (sum, quest) => sum + quest.totalSubquestsCreated,
       0
     ),
-    expected_quests: context.templateStructureRows.filter((row) => row.parent_id === null || row.parent_id === undefined && asPositiveInteger(row.item_count) !== null).length,
+    expected_quests: context.templateStructureRows.filter(
+      (row) =>
+        row.parent_id === null ||
+        (row.parent_id === undefined &&
+          asPositiveInteger(row.item_count) !== null)
+    ).length,
     total_assets: activeSourceAssets.length,
     total_quests_versions: quests.length,
     completed_quests: countWhere(questEntries, (quest) => quest.questCompleted),
@@ -567,7 +601,9 @@ export function buildFiaDashboard(
       activeSourceAssets,
       (asset) => assetHasAudio.get(asString(asset.id) ?? '') === true
     ),
-    assets_with_image: countWhere(activeSourceAssets, (asset) => hasImage(asset)),
+    assets_with_image: countWhere(activeSourceAssets, (asset) =>
+      hasImage(asset)
+    ),
     assets_with_transcription: countWhere(
       activeSourceAssets,
       (asset) => sourceHasTranscription.get(asString(asset.id) ?? '') === true
@@ -578,7 +614,8 @@ export function buildFiaDashboard(
     ),
     total_source_languages: distinct(
       activeSourceAssets.map(
-        (asset) => asString(asset.languoid_id) ?? asString(asset.source_language_id)
+        (asset) =>
+          asString(asset.languoid_id) ?? asString(asset.source_language_id)
       )
     ).length,
     total_target_languages: totalTargetLanguages,
