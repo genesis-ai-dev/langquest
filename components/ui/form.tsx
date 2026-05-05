@@ -220,17 +220,26 @@ const FormMessage = React.forwardRef<
 });
 FormMessage.displayName = 'FormMessage';
 
+/**
+ * `FormSubmit` does NOT auto-disable for invalid forms. The button stays
+ * clickable; pressing an invalid form runs `form.handleSubmit(...)`, which
+ * surfaces validation errors inline via `FormMessage` so the user can see
+ * exactly what's wrong rather than staring at an unresponsive button.
+ *
+ * Each form is responsible for its own external blockers (offline,
+ * permissions, etc.) by explicitly passing `disabled` — no global policy
+ * lives here. The `loading` indicator is still managed automatically from
+ * the form's `isSubmitting` state.
+ */
 const FormSubmit = ({
   children,
-  disabled,
   ...props
-}: React.ComponentProps<typeof Button>) => {
+}: Omit<React.ComponentProps<typeof Button>, 'loading'>) => {
   const { control } = useFormContext();
-  const { isValid, isSubmitting } = useFormState({ control });
-  const isDisabled = !isValid || isSubmitting || !!disabled;
+  const { isSubmitting } = useFormState({ control });
 
   return (
-    <Button {...props} disabled={isDisabled} loading={isSubmitting}>
+    <Button {...props} loading={isSubmitting}>
       {children}
     </Button>
   );

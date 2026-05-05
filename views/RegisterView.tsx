@@ -42,15 +42,20 @@ export default function RegisterView() {
   const formSchema = z
     .object({
       email: z
-        .string()
         .email(t('enterValidEmail'))
         .nonempty(t('emailRequired'))
         .toLowerCase()
         .trim(),
-      password: z.string(t('passwordRequired')).min(6, t('passwordMinLength')),
-      confirmPassword: z.string(t('confirmPassword')),
+      password: z
+        .string(t('passwordRequired'))
+        .nonempty(t('passwordRequired'))
+        .min(6, t('passwordMinLength')),
+      confirmPassword: z
+        .string(t('passwordRequired'))
+        .nonempty(t('passwordRequired')),
       username: z
         .string(t('usernameRequired'))
+        .nonempty(t('usernameRequired'))
         .min(
           3,
           t('usernameRequired') || 'Username must be at least 3 characters'
@@ -85,11 +90,7 @@ export default function RegisterView() {
             ui_language_id: currentLanguage?.id, // Keep for backward compatibility
             email_verified: false
           },
-          emailRedirectTo: `${process.env.EXPO_PUBLIC_SITE_URL}${
-            process.env.EXPO_PUBLIC_APP_VARIANT !== 'production'
-              ? `?env=${process.env.EXPO_PUBLIC_APP_VARIANT}`
-              : ''
-          }`
+          emailRedirectTo: process.env.EXPO_PUBLIC_SITE_URL
         }
       });
 

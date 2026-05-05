@@ -89,6 +89,17 @@ For each field:
 </FormSubmit>
 ```
 
+`FormSubmit` does NOT auto-disable for invalid forms. The button stays clickable; pressing an invalid form runs `form.handleSubmit(...)`, which surfaces validation errors inline via `FormMessage` so the user can see exactly what to fix instead of guessing why a greyed-out button isn't responding.
+
+If a specific form needs to block submission for an external reason (offline, missing permission, etc.), pass `disabled` explicitly. Pair it with a visible explanation (an inline alert, banner, or hint) so the user understands why:
+
+```tsx
+<OfflineAlert />
+<FormSubmit onPress={handleFormSubmit} disabled={!isOnline}>
+  <Text>{t('submit')}</Text>
+</FormSubmit>
+```
+
 **For drawer forms:**
 - Wrap form in `<Form {...form}>` inside `<DrawerContent>`
 - Submit in `<DrawerFooter>` as `<FormSubmit>`
@@ -98,7 +109,7 @@ For each field:
 
 ## Step 6: Handle Edge Cases
 
-- **Network awareness:** Check `useNetworkStatus()`, disable submit when offline, show `Alert` with `WifiOffIcon`
+- **Network awareness:** Check `useNetworkStatus()`, render `<OfflineAlert />` near the submit button, and pass `disabled={!isOnline}` to `FormSubmit` only when the form genuinely cannot be submitted offline
 - **PII masking:** Add `mask` prop to email, username, and any PII fields
 - **Keyboard dismissal:** Call `Keyboard.dismiss()` in `onSuccess` before navigation
 - **New password fields:** Use `textContentType="newPassword"` (iOS) + `autoComplete="new-password"` (Android)
@@ -124,6 +135,8 @@ Avoid:
 - Using custom loading spinners instead of `ActivityIndicator`
 - Not dismissing keyboard before navigation — causes UI flickering
 - Inline `onSubmitEditing` without `void` — promise returned to handler
+- Disabling `FormSubmit` for invalid form state — let the user press it so `form.handleSubmit(...)` can surface the field-level error messages
+- Disabling `FormSubmit` without showing *why* it's disabled (offline, permissions, etc.) — pair the disable with an inline alert/banner so the user isn't left guessing
 </anti_patterns>
 
 <success_criteria>

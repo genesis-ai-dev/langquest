@@ -1,12 +1,6 @@
 // Minimal queue worker for local Supabase. Processes at most one queued job per request.
 import pg from 'npm:pg@8.11.3';
 
-function asString(value: unknown): string | null {
-  if (typeof value !== 'string') return null;
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
-
 const dbUrl =
   Deno.env.get('SUPABASE_DB_URL') || Deno.env.get('PS_DATA_SOURCE_URI');
 
