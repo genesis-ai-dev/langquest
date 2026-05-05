@@ -1117,7 +1117,12 @@ export default function NextGenNewTranslationModal({
               </View>
             )}
             <FormSubmit
-              disabled={!canTranslate || recordingState.isRecording}
+              disabled={
+                !canTranslate ||
+                recordingState.isRecording ||
+                recordingState.isPaused ||
+                (translationType === 'audio' && !form.getValues('audioUri'))
+              }
               onPress={() => void handleFormSubmit()}
             >
               <Text className="text-base font-bold">{t('createObject')}</Text>
