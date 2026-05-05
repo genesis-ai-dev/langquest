@@ -11,9 +11,7 @@ const dbUrl =
   Deno.env.get('SUPABASE_DB_URL') || Deno.env.get('PS_DATA_SOURCE_URI');
 
 if (!dbUrl) {
-  throw new Error(
-    'Missing database connection string. Set SUPABASE_DB_URL or PS_DATA_SOURCE_URI.'
-  );
+  throw new Error('Missing database connection string.');
 }
 
 const { Pool } = pg as unknown as {
