@@ -13,24 +13,34 @@
 --   - Populated by Postgres on INSERT: clients MUST NOT include in mutation payloads
 --   - Independent of created_at/last_updated: reflects server clock only
 --   - Immutable after INSERT: no UPDATE code path modifies this column
+--   - Safe pattern: add column (no default), then SET DEFAULT - avoids accidental backfills on existing rows
 
--- Add uploaded_at to asset_content_link table
+-- Add uploaded_at to asset_content_link table (safe pattern: add column, then set default)
 alter table asset_content_link
-  add column if not exists uploaded_at timestamptz null default now();
+  add column if not exists uploaded_at timestamptz null;
+
+alter table asset_content_link
+  alter column uploaded_at set default now();
 
 comment on column asset_content_link.uploaded_at is
   'Server-confirmed upload time for payment reporting. Set by DEFAULT now() on INSERT. Clients must not write this column.';
 
--- Add uploaded_at to vote table
+-- Add uploaded_at to vote table (safe pattern: add column, then set default)
 alter table vote
-  add column if not exists uploaded_at timestamptz null default now();
+  add column if not exists uploaded_at timestamptz null;
+
+alter table vote
+  alter column uploaded_at set default now();
 
 comment on column vote.uploaded_at is
   'Server-confirmed upload time for payment reporting. Set by DEFAULT now() on INSERT. Clients must not write this column.';
 
--- Add uploaded_at to asset table
+-- Add uploaded_at to asset table (safe pattern: add column, then set default)
 alter table asset
-  add column if not exists uploaded_at timestamptz null default now();
+  add column if not exists uploaded_at timestamptz null;
+
+alter table asset
+  alter column uploaded_at set default now();
 
 comment on column asset.uploaded_at is
   'Server-confirmed upload time for payment reporting. Set by DEFAULT now() on INSERT. Clients must not write this column.';
