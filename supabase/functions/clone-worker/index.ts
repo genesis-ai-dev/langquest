@@ -8,8 +8,7 @@ function asString(value: unknown): string | null {
 }
 
 const dbUrl =
-  asString(Deno.env.get('SUPABASE_DB_URL')) ||
-  asString(Deno.env.get('PS_DATA_SOURCE_URI'));
+  Deno.env.get('SUPABASE_DB_URL') || Deno.env.get('PS_DATA_SOURCE_URI');
 
 if (!dbUrl) {
   throw new Error(
