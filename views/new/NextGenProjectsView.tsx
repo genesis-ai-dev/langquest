@@ -102,7 +102,9 @@ export default function NextGenProjectsView() {
     .object({
       name: z.string(t('nameRequired')).nonempty(t('nameRequired')).trim(),
       // this is the TARGET languoid we're translating to
-      target_languoid_id: z.string().min(1, t('selectLanguage')),
+      target_languoid_id: z
+        .string(t('selectLanguage'))
+        .min(1, t('selectLanguage')),
       // FIA content language (source) - required when template is 'fia'
       source_languoid_id: z.string().optional(),
       description: z

@@ -41,7 +41,6 @@ import { system } from '@/db/powersync/system';
 import { useProjectById } from '@/hooks/db/useProjects';
 import type { Quest } from '@/hooks/db/useQuests';
 import { useHasUserReported } from '@/hooks/db/useReports';
-import { useNavigationHelpers } from '@/hooks/useNavigation';
 import {
   useBibleBookCreation,
   useBibleBooks
@@ -52,6 +51,7 @@ import {
 } from '@/hooks/useFiaBookCreation';
 import { useFiaBooks } from '@/hooks/useFiaBooks';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useProjectSourceLanguoid } from '@/hooks/useProjectSourceLanguoid';
 import { useQuestDownloadDiscovery } from '@/hooks/useQuestDownloadDiscovery';
 import { useQuestOffloadVerification } from '@/hooks/useQuestOffloadVerification';
@@ -65,6 +65,7 @@ import { getThemeColor, useThemeColor } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Stack } from 'expo-router';
 import {
   BookOpenIcon,
   ChurchIcon,
@@ -93,7 +94,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import z from 'zod';
 import { BibleBookList } from './BibleBookList';
 import { FiaBookList } from './FiaBookList';
-import { Stack } from 'expo-router';
 import { QuestListView } from './QuestListView';
 
 export default function ProjectDirectoryView() {
@@ -349,7 +349,7 @@ export default function ProjectDirectoryView() {
 
   const formSchema = z.object({
     name: z.string(t('nameRequired')).nonempty(t('nameRequired')).trim(),
-    description: z.string().max(196).trim().optional()
+    description: z.string().max(1024).trim().optional()
   });
   type FormData = z.infer<typeof formSchema>;
 

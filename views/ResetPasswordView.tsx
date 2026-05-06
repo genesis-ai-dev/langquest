@@ -37,9 +37,13 @@ export default function ResetPasswordView({
     .object({
       password: z
         .string(t('passwordRequired'))
+        .nonempty(t('passwordRequired'))
         .min(6, t('passwordMinLength'))
         .trim(),
-      confirmPassword: z.string(t('confirmPassword')).trim()
+      confirmPassword: z
+        .string(t('confirmPassword'))
+        .nonempty(t('confirmPassword'))
+        .trim()
     })
     .refine((data) => data.password === data.confirmPassword, {
       message: t('passwordsNoMatch'),

@@ -1,6 +1,6 @@
 /** @type {import('expo/fingerprint').Config} */
 const config = {
-  sourceSkips: ['GitIgnore']
+  sourceSkips: ['GitIgnore', 'PackageJsonAndroidAndIosScriptsIfNotContainRun']
 };
 
 module.exports = config;
