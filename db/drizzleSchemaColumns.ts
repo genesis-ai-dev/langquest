@@ -21,6 +21,7 @@ import {
   matchedOnOptions,
   membershipOptions,
   reasonOptions,
+  requestTypeOptions,
   sourceOptions,
   statusOptions,
   templateOptions,
@@ -518,6 +519,53 @@ export function createReportsTable<
           table.record_table
         ),
         index('reporter_id_idx').on(table.reporter_id),
+        ...normalizeParams(extraConfig, table)
+      ];
+    }
+  );
+
+  return table;
+}
+
+export function createFeedbackTable<
+  T extends TableSource,
+  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
+>(
+  source: T,
+  { profile }: { profile: typeof profile_synced | typeof profile_local },
+  columns?: TColumnsMap,
+  extraConfig?: (
+    self: BuildExtraConfigColumns<'feedback', TColumnsMap, 'sqlite'>
+  ) => SQLiteTableExtraConfigValue[]
+) {
+  const extraColumns = (columns ?? {}) as TColumnsMap;
+  const table = getTableCreator(source)(
+    'feedback',
+    {
+      // Minimal columns - no active, no last_updated
+      id: text()
+        .primaryKey()
+        .$defaultFn(() => uuid.v4()),
+      created_at: text().notNull().default(timestampDefault),
+      source: text({ enum: sourceOptions })
+        .default(source === 'local' ? 'local' : 'synced')
+        .notNull(),
+      // _metadata is required for PowerSync sync tracking
+      _metadata: text({ mode: 'json' }).$type<OpMetadata>(),
+      profile_id: text()
+        .notNull()
+        .references(() => profile.id),
+      name: text(),
+      title: text().notNull(),
+      request_type: text({ enum: requestTypeOptions }).notNull(),
+      description: text().notNull(),
+      app_version: text(),
+      ...extraColumns
+    },
+    (table) => {
+      return [
+        index('feedback_profile_id_idx').on(table.profile_id),
+        index('feedback_request_type_idx').on(table.request_type),
         ...normalizeParams(extraConfig, table)
       ];
     }

@@ -104,6 +104,10 @@ bucket_definitions:
         WHERE sender_profile_id = bucket.profile_id
         AND active = true
 
+      # Sync user feedback
+      - SELECT * FROM feedback
+        WHERE profile_id = bucket.profile_id
+
   project_memberships:
     parameters: |
       SELECT project_id FROM profile_project_link

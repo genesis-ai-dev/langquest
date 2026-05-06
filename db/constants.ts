@@ -1,6 +1,6 @@
 // Schema version tracking for migrations
 // This file has no dependencies to avoid circular imports
-export const APP_SCHEMA_VERSION = '2.3';
+export const APP_SCHEMA_VERSION = '2.4';
 
 export const reasonOptions = [
   'inappropriate_content',
@@ -30,3 +30,10 @@ export const contentTypeOptions = [
 ] as const;
 
 export const matchedOnOptions = ['name', 'alias', 'iso_code'] as const;
+
+export const requestTypeOptions = [
+  'bug',
+  'feature_request',
+  'general',
+  'other'
+] as const;
