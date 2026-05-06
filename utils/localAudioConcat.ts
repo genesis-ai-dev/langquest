@@ -825,57 +825,22 @@ export async function getQuestAudioUrisByAssetList(
         with: {
           languoid: true
         },
-        where: (content, { isNotNull }) => isNotNull(content.audio)
+        where: (content, { isNotNull }) => isNotNull(content.audio),
+        orderBy: (content) => [
+          asc(content.order_index),
+          asc(content.created_at)
+        ]
       }
     },
     orderBy: [asc(asset.order_index), asc(asset.created_at)]
   });
 
-  const assetById = new Map(assets.map((a) => [a.id, a]));
-  const linksByAssetId = new Map<
-    string,
-    Array<{
-      id: string;
-      asset_id: string;
-      audio: string[] | null;
-      order_index: number | null;
-      created_at: string | null;
-      text: string | null;
-      source: string | null;
-      languoid: { name: string | null } | null;
-    }>
-  >();
-
-  for (const assetItem of assets) {
-    if (assetItem.content && assetItem.content.length > 0) {
-      // Sort content links by order_index, then created_at
-      const sortedContent = [...assetItem.content].sort((a, b) => {
-        const aOrder = a.order_index ?? 0;
-        const bOrder = b.order_index ?? 0;
-        if (aOrder !== bOrder) return aOrder - bOrder;
-        const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
-        const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
-        return aTime - bTime;
-      });
-      linksByAssetId.set(assetItem.id, sortedContent);
-    }
-  }
-
   const output: QuestAudioAssetItem[] = [];
   const seenKeys = new Set<string>();
 
-  for (const selectedAssetId of assetIds) {
-    const assetInfo = assetById.get(selectedAssetId);
-    const assetLinks = linksByAssetId.get(selectedAssetId) ?? [];
-
-    assetLinks.sort((a, b) => {
-      const aOrder = a.order_index || 0;
-      const bOrder = b.order_index || 0;
-      if (aOrder !== bOrder) return aOrder - bOrder;
-      const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
-      const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
-      return aTime - bTime;
-    });
+  // Assets are already sorted by the database query (orderBy: order_index, created_at)
+  for (const assetItem of assets) {
+    const assetLinks = assetItem.content ?? [];
 
     for (const contentLink of assetLinks) {
       if (!contentLink.audio?.length) continue;
@@ -907,16 +872,16 @@ export async function getQuestAudioUrisByAssetList(
         }
 
         const normalizedUri = normalizeFileUri(localUri);
-        const dedupeKey = `${selectedAssetId}:${contentLink.order_index || 0}:${normalizedUri}`;
+        const dedupeKey = `${assetItem.id}:${contentLink.order_index || 0}:${normalizedUri}`;
         if (seenKeys.has(dedupeKey)) continue;
         seenKeys.add(dedupeKey);
 
         output.push({
-          assetId: selectedAssetId,
-          assetOrderIndex: assetInfo?.order_index ?? 0,
-          assetName: assetInfo?.name ?? null,
+          assetId: assetItem.id,
+          assetOrderIndex: assetItem.order_index ?? 0,
+          assetName: assetItem.name ?? null,
           text: contentLink.text ?? null,
-          metadata: assetInfo?.metadata ?? null,
+          metadata: assetItem.metadata ?? null,
           languoidName: contentLink.languoid?.name ?? null,
           segmentOrder: contentLink.order_index || 0,
           uri: localUri,
