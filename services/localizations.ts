@@ -12786,7 +12786,7 @@ export const localizations = {
   },
   feedbackTypeFeature: {
     english: 'Feature Request',
-    french: "Demande de fonctionnalité",
+    french: 'Demande de fonctionnalité',
     spanish: 'Solicitud de función',
     brazilian_portuguese: 'Solicitação de recurso',
     tok_pisin: 'Asking long wanpela samting',
@@ -12853,12 +12853,17 @@ export const localizations = {
     english: 'Thank you for your feedback! We appreciate your input.',
     french: 'Merci pour votre retour ! Nous apprécions votre contribution.',
     spanish: '¡Gracias por su comentario! Agradecemos su aporte.',
-    brazilian_portuguese: 'Obrigado pelo seu feedback! Agradecemos sua contribuição.',
+    brazilian_portuguese:
+      'Obrigado pelo seu feedback! Agradecemos sua contribuição.',
     tok_pisin: 'Tenkyu long feedback bilong yu! Mi laikim tok bilong yu.',
-    indonesian: 'Terima kasih atas masukan Anda! Kami menghargai kontribusi Anda.',
-    nepali: 'तपाईंको प्रतिक्रियाको लागि धन्यवाद! हामी तपाईंको योगदानको कदर गर्छौं।',
-    hindi: 'आपकी प्रतिक्रिया के लिए धन्यवाद! हम आपके योगदान की सराहना करते हैं।',
-    burmese: 'သင့်အကြောင်းအကြာင်းများအတွက် ကျေးဇူးတင်ပါသည်! သင့်ပံ့ပိုးမှုကို တန်ဖိုးထားပါသည်။',
+    indonesian:
+      'Terima kasih atas masukan Anda! Kami menghargai kontribusi Anda.',
+    nepali:
+      'तपाईंको प्रतिक्रियाको लागि धन्यवाद! हामी तपाईंको योगदानको कदर गर्छौं।',
+    hindi:
+      'आपकी प्रतिक्रिया के लिए धन्यवाद! हम आपके योगदान की सराहना करते हैं।',
+    burmese:
+      'သင့်အကြောင်းအကြာင်းများအတွက် ကျေးဇူးတင်ပါသည်! သင့်ပံ့ပိုးမှုကို တန်ဖိုးထားပါသည်။',
     thai: 'ขอบคุณสำหรับข้อเสนอแนะของคุณ! เราขอบคุณสำหรับความคิดเห็นของคุณ',
     mandarin: '感谢您的反馈！我们感谢您的意见。'
   },
@@ -12866,7 +12871,8 @@ export const localizations = {
     english: 'Failed to submit feedback. Please try again.',
     french: 'Échec de la soumission du retour. Veuillez réessayer.',
     spanish: 'Error al enviar el comentario. Por favor intente de nuevo.',
-    brazilian_portuguese: 'Falha ao enviar feedback. Por favor, tente novamente.',
+    brazilian_portuguese:
+      'Falha ao enviar feedback. Por favor, tente novamente.',
     tok_pisin: 'No inap submitim feedback. Plis traim agen.',
     indonesian: 'Gagal mengirim masukan. Silakan coba lagi.',
     nepali: 'प्रतिक्रिया पेस गर्न असफल भयो। कृपया फेरि प्रयास गर्नुहोस्।',
@@ -12876,30 +12882,25 @@ export const localizations = {
     mandarin: '提交反馈失败。请重试。'
   },
   feedbackOfflineWarning: {
-    english: 'You are offline. Your feedback will be submitted when you reconnect.',
-    french: 'Vous êtes hors ligne. Votre retour sera soumis lorsque vous vous reconnecterez.',
+    english:
+      'You are offline. Your feedback will be submitted when you reconnect.',
+    french:
+      'Vous êtes hors ligne. Votre retour sera soumis lorsque vous vous reconnecterez.',
     spanish: 'Está desconectado. Su comentario se enviará cuando se reconecte.',
-    brazilian_portuguese: 'Você está offline. Seu feedback será enviado quando você se reconectar.',
-    tok_pisin: 'Yu no i stap online. Feedback bilong yu bai i go taim yu kam bek.',
-    indonesian: 'Anda offline. Masukan Anda akan dikirim saat Anda terhubung kembali.',
-    nepali: 'तपाईं अफलाइन हुनुहुन्छ। तपाईं पुन: जडान हुँदा तपाईंको प्रतिक्रिया पेस गरिनेछ।',
-    hindi: 'आप ऑफ़लाइन हैं। पुनः कनेक्ट होने पर आपकी प्रतिक्रिया जमा कर दी जाएगी।',
-    burmese: 'သင်အော့ဖ်လိုင်းဖြစ်နေသည်။ ပြန်ချိတ်ဆက်သောအခါ သင့်အကြောင်းကို တင်သွင်းပါမည်။',
+    brazilian_portuguese:
+      'Você está offline. Seu feedback será enviado quando você se reconectar.',
+    tok_pisin:
+      'Yu no i stap online. Feedback bilong yu bai i go taim yu kam bek.',
+    indonesian:
+      'Anda offline. Masukan Anda akan dikirim saat Anda terhubung kembali.',
+    nepali:
+      'तपाईं अफलाइन हुनुहुन्छ। तपाईं पुन: जडान हुँदा तपाईंको प्रतिक्रिया पेस गरिनेछ।',
+    hindi:
+      'आप ऑफ़लाइन हैं। पुनः कनेक्ट होने पर आपकी प्रतिक्रिया जमा कर दी जाएगी।',
+    burmese:
+      'သင်အော့ဖ်လိုင်းဖြစ်နေသည်။ ပြန်ချိတ်ဆက်သောအခါ သင့်အကြောင်းကို တင်သွင်းပါမည်။',
     thai: 'คุณออฟไลน์อยู่ ข้อเสนอแนะของคุณจะถูกส่งเมื่อคุณเชื่อมต่ออีกครั้ง',
     mandarin: '您处于离线状态。重新连接后，您的反馈将被提交。'
-  },
-  ok: {
-    english: 'OK',
-    french: 'OK',
-    spanish: 'OK',
-    brazilian_portuguese: 'OK',
-    tok_pisin: 'Orait',
-    indonesian: 'OK',
-    nepali: 'ठीक छ',
-    hindi: 'ठीक है',
-    burmese: 'အိုကေ',
-    thai: 'ตกลง',
-    mandarin: '确定'
   }
 } as const;
 

@@ -468,13 +468,16 @@ export const feedback_synced = createFeedbackTable('synced', {
   profile: profile_synced
 });
 
-export const feedback_syncedRelations = relations(feedback_synced, ({ one }) => ({
-  profile: one(profile_synced, {
-    fields: [feedback_synced.profile_id],
-    references: [profile_synced.id],
-    relationName: 'feedback'
+export const feedback_syncedRelations = relations(
+  feedback_synced,
+  ({ one }) => ({
+    profile: one(profile_synced, {
+      fields: [feedback_synced.profile_id],
+      references: [profile_synced.id],
+      relationName: 'feedback'
+    })
   })
-}));
+);
 
 export const blocked_users_synced = createBlockedUsersTable('synced', {
   profile: profile_synced
