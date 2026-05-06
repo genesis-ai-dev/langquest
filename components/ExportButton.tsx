@@ -103,11 +103,6 @@ export function ExportButton({
   //     return null;
   // }
 
-  // Allow export only for local content
-  if (isQuestPublished || passedQuestPublished) {
-    return null;
-  }
-
   // If membership is still loading and we don't have passed membership, don't show button yet
   if (!passedMembership && isMembershipLoading) {
     return null;
