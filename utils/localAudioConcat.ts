@@ -835,11 +835,35 @@ export async function getQuestAudioUrisByAssetList(
     orderBy: [asc(asset.order_index), asc(asset.created_at)]
   });
 
+  // Deduplicate assets by ID (first wins, synced preferred as it comes first)
+  const seenAssetIds = new Set<string>();
+  const dedupedAssets = assets.filter((assetItem) => {
+    if (seenAssetIds.has(assetItem.id)) {
+      return false;
+    }
+    seenAssetIds.add(assetItem.id);
+    return true;
+  });
+
+  // Deduplicate content links within each asset by ID (prefer synced over local)
+  for (const assetItem of dedupedAssets) {
+    if (!assetItem.content) continue;
+
+    const seenContentIds = new Set<string>();
+    assetItem.content = assetItem.content.filter((contentLink) => {
+      if (seenContentIds.has(contentLink.id)) {
+        return false;
+      }
+      seenContentIds.add(contentLink.id);
+      return true;
+    });
+  }
+
   const output: QuestAudioAssetItem[] = [];
   const seenKeys = new Set<string>();
 
   // Assets are already sorted by the database query (orderBy: order_index, created_at)
-  for (const assetItem of assets) {
+  for (const assetItem of dedupedAssets) {
     const assetLinks = assetItem.content ?? [];
 
     for (const contentLink of assetLinks) {
