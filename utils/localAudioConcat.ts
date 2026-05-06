@@ -802,46 +802,63 @@ export async function getQuestAudioUrisByAssetList(
     return [];
   }
 
-  // Local-only source (requested): no synced fallback.
-  const assetContentLinkLocal = resolveTable('asset_content_link', {
-    localOverride: true
+  // Query assets with their content links and languoid info in a single query
+  const assets = await system.db.query.asset.findMany({
+    columns: {
+      id: true,
+      order_index: true,
+      name: true,
+      metadata: true
+    },
+    where: inArray(asset.id, assetIds),
+    with: {
+      content: {
+        columns: {
+          id: true,
+          asset_id: true,
+          audio: true,
+          order_index: true,
+          created_at: true,
+          text: true,
+          source: true
+        },
+        with: {
+          languoid: true
+        },
+        where: (content, { isNotNull }) => isNotNull(content.audio)
+      }
+    },
+    orderBy: [asc(asset.order_index), asc(asset.created_at)]
   });
 
-  const assetsInfo = await system.db
-    .select({
-      id: asset.id,
-      order_index: asset.order_index,
-      name: asset.name,
-      metadata: asset.metadata
-    })
-    .from(asset)
-    .where(inArray(asset.id, assetIds));
+  const assetById = new Map(assets.map((a) => [a.id, a]));
+  const linksByAssetId = new Map<
+    string,
+    Array<{
+      id: string;
+      asset_id: string;
+      audio: string[] | null;
+      order_index: number | null;
+      created_at: string | null;
+      text: string | null;
+      source: string | null;
+      languoid: { name: string | null } | null;
+    }>
+  >();
 
-  const contentLinks = await system.db
-    .select({
-      asset_id: assetContentLinkLocal.asset_id,
-      audio: assetContentLinkLocal.audio,
-      order_index: assetContentLinkLocal.order_index,
-      created_at: assetContentLinkLocal.created_at,
-      text: assetContentLinkLocal.text,
-      languoid_name: languoid.name
-    })
-    .from(assetContentLinkLocal)
-    .leftJoin(languoid, eq(assetContentLinkLocal.languoid_id, languoid.id))
-    .where(
-      and(
-        inArray(assetContentLinkLocal.asset_id, assetIds),
-        isNotNull(assetContentLinkLocal.audio)
-      )
-    );
-
-  const assetById = new Map(assetsInfo.map((a) => [a.id, a]));
-  const linksByAssetId = new Map<string, typeof contentLinks>();
-
-  for (const link of contentLinks) {
-    const list = linksByAssetId.get(link.asset_id) ?? [];
-    list.push(link);
-    linksByAssetId.set(link.asset_id, list);
+  for (const assetItem of assets) {
+    if (assetItem.content && assetItem.content.length > 0) {
+      // Sort content links by order_index, then created_at
+      const sortedContent = [...assetItem.content].sort((a, b) => {
+        const aOrder = a.order_index ?? 0;
+        const bOrder = b.order_index ?? 0;
+        if (aOrder !== bOrder) return aOrder - bOrder;
+        const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return aTime - bTime;
+      });
+      linksByAssetId.set(assetItem.id, sortedContent);
+    }
   }
 
   const output: QuestAudioAssetItem[] = [];
@@ -900,7 +917,7 @@ export async function getQuestAudioUrisByAssetList(
           assetName: assetInfo?.name ?? null,
           text: contentLink.text ?? null,
           metadata: assetInfo?.metadata ?? null,
-          languoidName: contentLink.languoid_name ?? null,
+          languoidName: contentLink.languoid?.name ?? null,
           segmentOrder: contentLink.order_index || 0,
           uri: localUri,
           createdAt: contentLink.created_at
