@@ -3959,6 +3959,34 @@ export const localizations = {
     thai: 'เชิญสมาชิก',
     mandarin: '邀请成员'
   },
+  inviteMembersTitle: {
+    english: 'Invite Members',
+    french: 'Inviter des membres',
+    spanish: 'Invitar Miembros',
+    brazilian_portuguese: 'Convidar Membros',
+    tok_pisin: 'Invitim ol Member',
+    indonesian: 'Undang Anggota',
+    nepali: 'सदस्यहरूलाई आमन्त्रित गर्नुहोस्',
+    hindi: 'सदस्यों को आमंत्रित करें',
+    burmese: 'အဖွဲ့ဝင်များကို ဖိတ်ခေါ်ပါ',
+    thai: 'เชิญสมาชิก',
+    mandarin: '邀请成员'
+  },
+  inviteMembersDescription: {
+    english: 'Invite others to collaborate on translation work.',
+    french: "Invitez d'autres à collaborer sur le travail de traduction.",
+    spanish: 'Invita a otros a colaborar en el trabajo de traducción.',
+    brazilian_portuguese:
+      'Convide outros para colaborar no trabalho de tradução.',
+    tok_pisin: 'Inivitim ol narapela long helpim wok bilong tanim tok.',
+    indonesian:
+      'Undang orang lain untuk berkolaborasi dalam pekerjaan penerjemahan.',
+    nepali: 'अनुवाद कार्यमा सहयोग गर्न अरूलाई आमन्त्रित गर्नुहोस्।',
+    hindi: 'अनुवाद कार्य पर सहयोग करने के लिए दूसरों को आमंत्रित करें।',
+    burmese: 'ဘာသာပြန်အလုပ်၌ပူးပေါင်းဆောင်ရွက်ဖိတ်ခေါ်ပါ။',
+    thai: 'เชิญผู้อื่นมาร่วมงานแปลด้วยกัน',
+    mandarin: '邀请其他人协作进行翻译工作。'
+  },
   inviteAsOwner: {
     english: 'Invite as owner',
     french: 'Inviter en tant que propriétaire',
