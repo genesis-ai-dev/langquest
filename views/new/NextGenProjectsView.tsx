@@ -39,6 +39,11 @@ import {
 import React, { useEffect } from 'react';
 import { ActivityIndicator, useWindowDimensions, View } from 'react-native';
 import { Dropdown } from 'react-native-element-dropdown';
+import {
+  KeyboardAvoidingView,
+  KeyboardAwareScrollView
+} from 'react-native-keyboard-controller';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { InvitedProjectListItem } from './InvitedProjectListItem';
 import { ProjectListItem } from './ProjectListItem';
 
@@ -730,6 +735,7 @@ export default function NextGenProjectsView() {
   }, [filteredInvites, data, activeTab]);
 
   const dimensions = useWindowDimensions();
+  const { bottom } = useSafeAreaInsets();
 
   // Handlers for onboarding flow (kept for potential future use)
   const _handleOnboardingCreateProject = () => {
@@ -775,35 +781,40 @@ export default function NextGenProjectsView() {
         snapPoints={[700]}
         enableDynamicSizing={false}
       >
-        <View className="flex flex-1 flex-col gap-6 p-4 pt-0">
-          <View className="flex flex-col gap-4">
-            {/* Tabs */}
-            <Tabs
-              value={activeTab}
-              onValueChange={(v) => setActiveTab(v as TabType)}
-            >
-              <TabsList className="w-full">
-                {isAuthenticated ? (
-                  <>
-                    <TabsTrigger value="my">
-                      <Text>{t('myProjects')}</Text>
-                    </TabsTrigger>
-                    <TabsTrigger value="all">
-                      <Text>{t('allProjects')}</Text>
-                    </TabsTrigger>
-                  </>
-                ) : (
-                  <>
-                    <TabsTrigger value="my">
-                      <Text>{t('signIn') || 'Sign In'}</Text>
-                    </TabsTrigger>
-                    <TabsTrigger value="all">
-                      <Text>{t('allProjects')}</Text>
-                    </TabsTrigger>
-                  </>
-                )}
-              </TabsList>
-            </Tabs>
+        <KeyboardAvoidingView
+          className="flex flex-1"
+          behavior="padding"
+          keyboardVerticalOffset={bottom + 42}
+        >
+          <View className="flex flex-1 flex-col gap-6 p-4 pt-0">
+            <View className="flex flex-col gap-4">
+              {/* Tabs */}
+              <Tabs
+                value={activeTab}
+                onValueChange={(v) => setActiveTab(v as TabType)}
+              >
+                <TabsList className="w-full">
+                  {isAuthenticated ? (
+                    <>
+                      <TabsTrigger value="my">
+                        <Text>{t('myProjects')}</Text>
+                      </TabsTrigger>
+                      <TabsTrigger value="all">
+                        <Text>{t('allProjects')}</Text>
+                      </TabsTrigger>
+                    </>
+                  ) : (
+                    <>
+                      <TabsTrigger value="my">
+                        <Text>{t('signIn') || 'Sign In'}</Text>
+                      </TabsTrigger>
+                      <TabsTrigger value="all">
+                        <Text>{t('allProjects')}</Text>
+                      </TabsTrigger>
+                    </>
+                  )}
+                </TabsList>
+              </Tabs>
 
             {/* Show login invitation for anonymous users in "my" tab, otherwise show search */}
             {!isAuthenticated && activeTab === 'my' ? (
@@ -963,12 +974,13 @@ export default function NextGenProjectsView() {
                     )}
                   </View>
                 </View>
-              )}
-            />
-          )}
-        </View>
+            )}
+          />
+        )}
+      </View>
+      </KeyboardAvoidingView>
 
-        <DrawerContent className="pb-safe">
+      <DrawerContent className="pb-safe">
           <Form {...form}>
             <DrawerHeader>
               <DrawerTitle>{t('newProject')}</DrawerTitle>
