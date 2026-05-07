@@ -15,12 +15,7 @@ import {
   DrawerHeader,
   DrawerTitle
 } from '@/components/ui/drawer';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle
-} from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Form,
   FormControl,
@@ -133,7 +128,12 @@ function InviteMembersBanner({
           <Icon as={UsersIcon} className="text-primary" size={20} />
           <CardTitle className="text-base">{t('inviteMembersTitle')}</CardTitle>
         </View>
-        <Button variant="ghost" size="icon" className="h-8 w-8" onPress={onDismiss}>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          onPress={onDismiss}
+        >
           <Icon as={XIcon} size={16} className="text-muted-foreground" />
         </Button>
       </CardHeader>
@@ -147,7 +147,11 @@ function InviteMembersBanner({
           className="w-full flex-row items-center gap-2"
           onPress={onInvite}
         >
-          <Icon as={UserPlusIcon} size={16} className="text-primary-foreground" />
+          <Icon
+            as={UserPlusIcon}
+            size={16}
+            className="text-primary-foreground"
+          />
           <Text className="text-primary-foreground">{t('inviteMembers')}</Text>
         </Button>
       </CardContent>
