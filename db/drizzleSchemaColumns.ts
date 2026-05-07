@@ -377,6 +377,7 @@ export function createAssetTable<
       creator_id: text().references(() => profile.id),
       order_index: int().notNull().default(0),
       metadata: text(), // JSON metadata for asset-specific data (e.g., verse range)
+      uploaded_at: text(), // Nullable - set by server trigger when content is uploaded
       ...extraColumns
     },
     (table) => {
@@ -625,6 +626,7 @@ export function createAssetContentLinkTable<
       source_language_id: text(), // FK to language dropped - migrating to languoid
       languoid_id: text(), // Reference to languoid table
       order_index: int().notNull().default(0),
+      uploaded_at: text(), // Nullable - set by server trigger when content is uploaded
       ...extraColumns
     },
     (table) => {
