@@ -7,6 +7,9 @@
 
 -- IMPORTANT: This requires the pg_net extension (available on Supabase)
 
+-- Enable pg_net extension for HTTP requests from Postgres
+CREATE EXTENSION IF NOT EXISTS pg_net;
+
 -- Create the webhook trigger function
 CREATE OR REPLACE FUNCTION public.trigger_feedback_webhook()
 RETURNS TRIGGER AS $$
