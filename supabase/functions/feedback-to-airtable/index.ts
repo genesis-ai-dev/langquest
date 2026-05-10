@@ -1,5 +1,5 @@
+import { createClient } from '@supabase/supabase-js';
 import Airtable from 'airtable';
-import { Webhook } from 'standardwebhooks';
 
 /**
  * Supabase Edge Function: feedback-to-airtable
@@ -7,11 +7,11 @@ import { Webhook } from 'standardwebhooks';
  * This function receives webhook calls from Supabase when new feedback is inserted,
  * then forwards the data to Airtable using the official Airtable.js SDK.
  *
- * For Joel: Set these environment variables in your Supabase project:
+ * Environment variables to set in your Supabase project:
  * - AIRTABLE_API_KEY: Your Airtable Personal Access Token
  * - AIRTABLE_BASE_ID: The ID of your Airtable base
  * - AIRTABLE_TABLE_NAME: The name of the table (default: 'Feedback')
- * - FEEDBACK_WEBHOOK_SECRET: The webhook secret for verifying requests
+ * - FEEDBACK_FUNCTION_SECRET: Secret for simple auth via X-Feedback-Secret header
  *
  * Or alternatively, if you prefer a different integration pattern:
  * - Use a Database Webhook (Supabase Dashboard > Database > Webhooks)
@@ -40,7 +40,12 @@ interface WebhookPayload {
 const AIRTABLE_API_KEY = Deno.env.get('AIRTABLE_API_KEY');
 const AIRTABLE_BASE_ID = Deno.env.get('AIRTABLE_BASE_ID');
 const AIRTABLE_TABLE_NAME = Deno.env.get('AIRTABLE_TABLE_NAME');
-const WEBHOOK_SECRET = Deno.env.get('FEEDBACK_WEBHOOK_SECRET');
+const AIRTABLE_PARTNER_RECORD_ID = Deno.env.get('AIRTABLE_PARTNER_RECORD_ID');
+const FUNCTION_SECRET = Deno.env.get('FEEDBACK_FUNCTION_SECRET');
+
+// Supabase configuration (for looking up usernames)
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
 // Initialize Airtable client
 let airtableBase: Airtable.Base | null = null;
@@ -49,50 +54,99 @@ if (AIRTABLE_API_KEY && AIRTABLE_BASE_ID) {
   airtableBase = airtable.base(AIRTABLE_BASE_ID);
 }
 
+// Initialize Supabase client (for username lookup)
+let supabase: ReturnType<typeof createClient> | null = null;
+if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
+  supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+}
+
 /**
- * Formats the request type for display in Airtable
+ * Fetches the username from Supabase profile table using profile_id
+ * Returns null if not found or on error
+ */
+async function getUsernameFromProfile(
+  profileId: string
+): Promise<string | null> {
+  if (!supabase) {
+    console.warn(
+      '[feedback-to-airtable] Supabase client not configured, skipping username lookup'
+    );
+    return null;
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('profile')
+      .select('username')
+      .eq('id', profileId)
+      .single();
+
+    if (error) {
+      console.warn(
+        '[feedback-to-airtable] Error fetching username:',
+        error.message
+      );
+      return null;
+    }
+
+    return data?.username || null;
+  } catch (err) {
+    console.warn('[feedback-to-airtable] Exception fetching username:', err);
+    return null;
+  }
+}
+
+/**
+ * Formats the request type to match Airtable single-select values exactly
+ * These must match the existing options in the Airtable "Request Type" field
  */
 function formatRequestType(type: string): string {
   const typeMap: Record<string, string> = {
-    bug: 'Bug Report',
-    feature_request: 'Feature Request',
-    general: 'General Feedback',
-    other: 'Other'
+    bug: '🐞 Bug',
+    feature_request: '✨ Feature',
+    general: '💬 General',
+    other: '📝 Other'
   };
   return typeMap[type] || type;
 }
 
 /**
  * Sends feedback data to Airtable using the Airtable.js SDK
- * For Joel: Modify this function to match your Airtable schema
+ * Modify this function to match your Airtable schema
  */
-async function sendToAirtable(feedback: FeedbackRecord): Promise<void> {
+async function sendToAirtable(
+  feedback: FeedbackRecord,
+  username: string | null
+): Promise<void> {
   if (!airtableBase) {
     console.warn('[feedback-to-airtable] Airtable not configured - skipping');
     return;
   }
 
-  // Map feedback fields to Airtable fields
-  // For Joel: Adjust these field names to match your Airtable table
-  const airtableFields = {
-    // Required fields
+  // Determine the display name: use provided name, fallback to username, then 'Anonymous'
+  const displayName = feedback.name || username || 'Anonymous';
+
+  // Map feedback fields to Airtable columns
+  const airtableFields: Record<string, unknown> = {
+    // Match your Airtable column names exactly
+    Date: feedback.created_at,
     Title: feedback.title,
     Description: feedback.description,
     'Request Type': formatRequestType(feedback.request_type),
-    'Submitted At': feedback.created_at,
 
-    // Optional fields - adjust names as needed
-    Name: feedback.name || 'Anonymous',
-    'App Version': feedback.app_version || 'unknown',
-    'User ID': feedback.profile_id,
-    'Feedback ID': feedback.id
+    'Your Name': displayName,
+    'App Version': feedback.app_version || 'unknown'
   };
 
+  // Add Partner link if configured (Airtable linked record field)
+  if (AIRTABLE_PARTNER_RECORD_ID) {
+    airtableFields.Partners = [AIRTABLE_PARTNER_RECORD_ID];
+  }
+
   try {
-    // Airtable.js SDK expects { fields: {...} } when creating a record
-    const record = await airtableBase(AIRTABLE_TABLE_NAME).create({
-      fields: airtableFields
-    });
+    // Airtable.js SDK expects fields directly, not wrapped in { fields: ... }
+    const record =
+      await airtableBase(AIRTABLE_TABLE_NAME).create(airtableFields);
     console.log(
       '[feedback-to-airtable] Successfully sent to Airtable:',
       record.getId()
@@ -110,68 +164,42 @@ Deno.serve(async (req) => {
   console.log('[feedback-to-airtable] Received request');
 
   try {
-    // Verify webhook signature if secret is configured
-    if (WEBHOOK_SECRET) {
-      const payload = await req.text();
-      const headers = Object.fromEntries(req.headers.entries());
-
-      try {
-        const wh = new Webhook(WEBHOOK_SECRET);
-        wh.verify(payload, headers);
-      } catch (err) {
+    // Simple secret verification - check X-Webhook-Secret header if configured
+    if (FUNCTION_SECRET) {
+      const providedSecret = req.headers.get('X-Function-Secret');
+      if (providedSecret !== FUNCTION_SECRET) {
         console.error(
-          '[feedback-to-airtable] Webhook verification failed:',
-          err
+          '[feedback-to-airtable] Invalid or missing X-Webhook-Secret header'
         );
         return new Response('Unauthorized', { status: 401 });
       }
-
-      // Parse the verified payload
-      const body = JSON.parse(payload) as WebhookPayload;
-
-      // Only process INSERT events
-      if (body.type !== 'INSERT' || body.table !== 'feedback') {
-        console.log(
-          '[feedback-to-airtable] Ignoring event:',
-          body.type,
-          body.table
-        );
-        return new Response('Ignored', { status: 200 });
-      }
-
-      // Send to Airtable
-      await sendToAirtable(body.record);
-
-      return new Response(
-        JSON.stringify({ success: true, message: 'Feedback sent to Airtable' }),
-        {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' }
-        }
-      );
-    } else {
-      // No webhook secret configured - process directly (for testing)
-      const body = (await req.json()) as WebhookPayload;
-
-      if (body.type !== 'INSERT' || body.table !== 'feedback') {
-        console.log(
-          '[feedback-to-airtable] Ignoring event:',
-          body.type,
-          body.table
-        );
-        return new Response('Ignored', { status: 200 });
-      }
-
-      await sendToAirtable(body.record);
-
-      return new Response(
-        JSON.stringify({ success: true, message: 'Feedback sent to Airtable' }),
-        {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' }
-        }
-      );
     }
+
+    const body = (await req.json()) as WebhookPayload;
+
+    // Only process INSERT events
+    if (body.type !== 'INSERT' || body.table !== 'feedback') {
+      console.log(
+        '[feedback-to-airtable] Ignoring event:',
+        body.type,
+        body.table
+      );
+      return new Response('Ignored', { status: 200 });
+    }
+
+    // Fetch username from profile (not stored in feedback table)
+    const username = await getUsernameFromProfile(body.record.profile_id);
+
+    // Send to Airtable
+    await sendToAirtable(body.record, username);
+
+    return new Response(
+      JSON.stringify({ success: true, message: 'Feedback sent to Airtable' }),
+      {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      }
+    );
   } catch (error) {
     console.error('[feedback-to-airtable] Error processing request:', error);
     return new Response(
@@ -188,7 +216,7 @@ Deno.serve(async (req) => {
 });
 
 /**
- * Setup instructions for Joel:
+ * Setup instructions:
  *
  * 1. Deploy this function:
  *    supabase functions deploy feedback-to-airtable
@@ -196,8 +224,9 @@ Deno.serve(async (req) => {
  * 2. Set environment variables in Supabase Dashboard:
  *    - AIRTABLE_API_KEY: Your Airtable Personal Access Token
  *    - AIRTABLE_BASE_ID: Your Airtable base ID (starts with 'app')
- *    - AIRTABLE_TABLE_NAME: Name of the table (default: 'Feedback')
- *    - FEEDBACK_WEBHOOK_SECRET: Random secret for webhook verification
+ *    - AIRTABLE_TABLE_NAME: Name of the table (e.g., 'Feedback')
+ *    - AIRTABLE_PARTNER_RECORD_ID: (Optional) Record ID for the Partner linked field
+ *    - FEEDBACK_FUNCTION_SECRET: Random secret for webhook verification
  *
  * 3. Set up Database Webhook in Supabase:
  *    - Go to Dashboard > Database > Webhooks
@@ -206,13 +235,16 @@ Deno.serve(async (req) => {
  *    - URL: https://<project-ref>.supabase.co/functions/v1/feedback-to-airtable
  *    - Headers: Include the webhook secret if configured
  *
- * 4. Airtable Table Schema (suggested):
+ * 4. Columns that MUST exist in your Airtable table (you already have most of these):
+ *    - Date (Date field)
  *    - Title (Single line text)
  *    - Description (Long text)
- *    - Request Type (Single select: Bug Report, Feature Request, General Feedback, Other)
- *    - Name (Single line text)
- *    - App Version (Single line text)
- *    - User ID (Single line text)
- *    - Feedback ID (Single line text)
- *    - Submitted At (Date time)
+ *    - Request Type (Single select with: 🐞 Bug, ✨ Feature, 💬 General, 📝 Other)
+ *
+ * 5. Columns you may need to ADD (optional, but recommended):
+ *    - Name (Single line text) - shows who submitted
+ *    - App Version (Single line text) - helps track issues
+ *    - Partners (Linked record) - set AIRTABLE_PARTNER_RECORD_ID to auto-link
+ *
+ *    If you don't want to add these columns, remove them from the airtableFields object.
  */

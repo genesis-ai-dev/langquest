@@ -6,9 +6,6 @@
 -- This SQL uses Supabase Vault for secure configuration storage.
 
 -- IMPORTANT: This requires the pg_net extension (available on Supabase)
--- Configure webhook secret via Supabase Vault:
---   SELECT vault.set_secret('feedback_webhook_secret', 'your-secret-here');
--- The webhook URL is constructed dynamically from the supabase_url vault secret.
 
 -- Create the webhook trigger function
 CREATE OR REPLACE FUNCTION public.trigger_feedback_webhook()
@@ -16,28 +13,39 @@ RETURNS TRIGGER AS $$
 DECLARE
     supabase_url TEXT;
     webhook_url TEXT;
-    webhook_secret TEXT;
+    function_secret TEXT;
     payload JSONB;
     headers JSONB;
 BEGIN
-    -- Get supabase_url from vault (already configured for other functions)
-    -- Constructs the full webhook URL dynamically: {supabase_url}/functions/v1/feedback-to-airtable
+    -- Get supabase_url from vault.decrypted_secrets (NOT vault.get_secret)
     BEGIN
-        supabase_url := vault.get_secret('supabase_url');
+        SELECT decrypted_secret INTO supabase_url
+        FROM vault.decrypted_secrets
+        WHERE name = 'supabase_url'
+        LIMIT 1;
     EXCEPTION WHEN OTHERS THEN
         supabase_url := NULL;
     END;
 
-    -- Get webhook secret from vault (optional, for signature verification)
+    -- Get function secret from vault.decrypted_secrets (required for auth)
     BEGIN
-        webhook_secret := vault.get_secret('feedback_webhook_secret');
+        SELECT decrypted_secret INTO function_secret
+        FROM vault.decrypted_secrets
+        WHERE name = 'feedback_function_secret'
+        LIMIT 1;
     EXCEPTION WHEN OTHERS THEN
-        webhook_secret := NULL;
+        function_secret := NULL;
     END;
 
     -- Skip if supabase_url not configured
     IF supabase_url IS NULL OR supabase_url = '' THEN
         RAISE LOG '[feedback_webhook] supabase_url not configured in vault, skipping';
+        RETURN NEW;
+    END IF;
+
+    -- Skip if function_secret not configured (required for authentication)
+    IF function_secret IS NULL OR function_secret = '' THEN
+        RAISE LOG '[feedback_webhook] feedback_function_secret not configured in vault, skipping';
         RETURN NEW;
     END IF;
 
@@ -52,16 +60,15 @@ BEGIN
         'old_record', NULL
     );
 
-    -- Build headers
+    -- Build headers with simple secret verification
     headers := jsonb_build_object(
         'Content-Type', 'application/json'
     );
 
-    -- Add webhook signature if secret is configured
-    IF webhook_secret IS NOT NULL AND webhook_secret != '' THEN
+    -- Add X-Function-Secret header if configured
+    IF function_secret IS NOT NULL AND function_secret != '' THEN
         headers := headers || jsonb_build_object(
-            'webhook-signature', 't=' || extract(epoch from now())::text || ',' ||
-                encode(hmac(payload::text, webhook_secret, 'sha256'), 'hex')
+            'X-Function-Secret', function_secret
         );
     END IF;
 
@@ -91,4 +98,4 @@ CREATE TRIGGER feedback_webhook_trigger
 -- URL: https://<project-ref>.supabase.co/functions/v1/feedback-to-airtable
 
 COMMENT ON FUNCTION public.trigger_feedback_webhook() IS
-    'Trigger function to send feedback to Airtable via webhook. Uses supabase_url from vault to construct the webhook URL dynamically. Optionally set feedback_webhook_secret in vault for signature verification. Or use Dashboard webhooks instead.';
+    'Trigger function to send feedback to Airtable. Uses vault.decrypted_secrets to get supabase_url and feedback_function_secret (both REQUIRED). Sends X-Function-Secret header for authentication.';
