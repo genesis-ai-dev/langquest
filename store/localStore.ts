@@ -308,6 +308,11 @@ export interface LocalState {
   ) => void;
   removeFiaAttachment: (pericopeId: string) => void;
   clearCompletedFiaAttachments: () => void;
+
+  // Invite members banner dismissal tracking (projectId -> timestamp)
+  dismissedInviteBanners: Record<string, number>;
+  dismissInviteBanner: (projectId: string) => void;
+  resetInviteBannerDismissal: (projectId: string) => void;
 }
 
 export const useLocalStore = create<LocalState>()(
@@ -706,7 +711,23 @@ export const useLocalStore = create<LocalState>()(
           fiaAttachmentQueue: state.fiaAttachmentQueue.filter(
             (i) => i.status !== 'completed'
           )
-        }))
+        })),
+
+      // Invite members banner dismissal
+      dismissedInviteBanners: {},
+      dismissInviteBanner: (projectId) =>
+        set((state) => ({
+          dismissedInviteBanners: {
+            ...state.dismissedInviteBanners,
+            [projectId]: Date.now()
+          }
+        })),
+      resetInviteBannerDismissal: (projectId) =>
+        set((state) => {
+          const next = { ...state.dismissedInviteBanners };
+          delete next[projectId];
+          return { dismissedInviteBanners: next };
+        })
     }),
     {
       name: 'local-store',

@@ -39,6 +39,11 @@ import {
 import React, { useEffect } from 'react';
 import { ActivityIndicator, useWindowDimensions, View } from 'react-native';
 import { Dropdown } from 'react-native-element-dropdown';
+import {
+  KeyboardAvoidingView,
+  KeyboardAwareScrollView
+} from 'react-native-keyboard-controller';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { InvitedProjectListItem } from './InvitedProjectListItem';
 import { ProjectListItem } from './ProjectListItem';
 
@@ -730,6 +735,7 @@ export default function NextGenProjectsView() {
   }, [filteredInvites, data, activeTab]);
 
   const dimensions = useWindowDimensions();
+  const { bottom } = useSafeAreaInsets();
 
   // Handlers for onboarding flow (kept for potential future use)
   const _handleOnboardingCreateProject = () => {
@@ -775,198 +781,209 @@ export default function NextGenProjectsView() {
         snapPoints={[700]}
         enableDynamicSizing={false}
       >
-        <View className="flex flex-1 flex-col gap-6 p-4 pt-0">
-          <View className="flex flex-col gap-4">
-            {/* Tabs */}
-            <Tabs
-              value={activeTab}
-              onValueChange={(v) => setActiveTab(v as TabType)}
-            >
-              <TabsList className="w-full">
-                {isAuthenticated ? (
-                  <>
-                    <TabsTrigger value="my">
-                      <Text>{t('myProjects')}</Text>
-                    </TabsTrigger>
-                    <TabsTrigger value="all">
-                      <Text>{t('allProjects')}</Text>
-                    </TabsTrigger>
-                  </>
-                ) : (
-                  <>
-                    <TabsTrigger value="my">
-                      <Text>{t('signIn') || 'Sign In'}</Text>
-                    </TabsTrigger>
-                    <TabsTrigger value="all">
-                      <Text>{t('allProjects')}</Text>
-                    </TabsTrigger>
-                  </>
-                )}
-              </TabsList>
-            </Tabs>
-
-            {/* Show login invitation for anonymous users in "my" tab, otherwise show search */}
-            {!isAuthenticated && activeTab === 'my' ? (
-              <View className="flex flex-col gap-6 rounded-lg border border-border bg-card p-6">
-                <View className="flex flex-col items-center gap-4">
-                  <Icon as={UserIcon} size={48} className="text-primary" />
-                  <View className="flex flex-col items-center gap-2">
-                    <Text variant="h4" className="text-center">
-                      {t('signInToSaveOrContribute') ||
-                        'Sign in to save or contribute to projects'}
-                    </Text>
-                  </View>
-                  <Button
-                    variant="default"
-                    size="lg"
-                    onPress={() => router.push('/(auth)/sign-in')}
-                    className="w-full"
-                  >
-                    <Text className="font-semibold">
-                      {t('signIn') || 'Sign In'}
-                    </Text>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="lg"
-                    onPress={() => router.push('/(auth)/register')}
-                    className="w-full"
-                  >
-                    <Text>{t('createAccount') || 'Create Account'}</Text>
-                  </Button>
-                </View>
-                {/* Arrow and option to view all projects */}
-                <View className="flex flex-col items-center gap-2 border-t border-border pt-4">
-                  <Text className="text-sm text-muted-foreground">
-                    {t('orBrowseAllProjects') ||
-                      'Or browse all public projects'}
-                  </Text>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onPress={() => setActiveTab('all')}
-                    className="flex-row items-center gap-2"
-                  >
-                    <Text>{t('viewAllProjects') || 'View All Projects'}</Text>
-                    <Icon as={ArrowRightIcon} size={16} />
-                  </Button>
-                </View>
-              </View>
-            ) : (
-              <>
-                {/* Search and filter */}
-                <View className="flex flex-row items-center gap-2">
-                  <Input
-                    className="flex-1"
-                    placeholder={t('searchProjects')}
-                    value={searchQuery}
-                    onChangeText={setSearchQuery}
-                    prefix={SearchIcon}
-                    prefixStyling={false}
-                    size="sm"
-                    returnKeyType="search"
-                    suffix={
-                      isFetchingProjects && searchQuery ? (
-                        <ActivityIndicator
-                          size="small"
-                          color={getThemeColor('primary')}
-                        />
-                      ) : undefined
-                    }
-                    suffixStyling={false}
-                    hitSlop={12}
-                  />
-                  {currentUser && (
-                    <DrawerTrigger size="icon-lg">
-                      <Icon as={PlusIcon} className="text-primary-foreground" />
-                    </DrawerTrigger>
+        <KeyboardAvoidingView
+          className="flex flex-1"
+          behavior="padding"
+          keyboardVerticalOffset={bottom + 42}
+        >
+          <View className="flex flex-1 flex-col gap-6 p-4 pt-0">
+            <View className="flex flex-col gap-4">
+              {/* Tabs */}
+              <Tabs
+                value={activeTab}
+                onValueChange={(v) => setActiveTab(v as TabType)}
+              >
+                <TabsList className="w-full">
+                  {isAuthenticated ? (
+                    <>
+                      <TabsTrigger value="my">
+                        <Text>{t('myProjects')}</Text>
+                      </TabsTrigger>
+                      <TabsTrigger value="all">
+                        <Text>{t('allProjects')}</Text>
+                      </TabsTrigger>
+                    </>
+                  ) : (
+                    <>
+                      <TabsTrigger value="my">
+                        <Text>{t('signIn') || 'Sign In'}</Text>
+                      </TabsTrigger>
+                      <TabsTrigger value="all">
+                        <Text>{t('allProjects')}</Text>
+                      </TabsTrigger>
+                    </>
                   )}
-                </View>
-              </>
-            )}
-          </View>
+                </TabsList>
+              </Tabs>
 
-          {/* Show project list only if not showing login invitation */}
-          {!isAuthenticated && activeTab === 'my' ? null : isLoading ||
-            (isFetchingProjects && searchQuery && allItems.length === 0) ? (
-            <ProjectListSkeleton />
-          ) : (
-            <LegendList
-              key={`${activeTab}-${dimensions.width}-${allItems.length}`}
-              data={allItems}
-              columnWrapperStyle={{ gap: 12 }}
-              numColumns={dimensions.width > 768 && allItems.length > 1 ? 2 : 1}
-              keyExtractor={(item) =>
-                item.type === 'invite'
-                  ? `invite-${item.projectId}-${activeTab}`
-                  : `project-${item.project.id}-${activeTab}`
-              }
-              contentContainerClassName="pb-8"
-              recycleItems
-              estimatedItemSize={175}
-              maintainVisibleContentPosition
-              renderItem={({ item }) => {
-                if (item.type === 'invite') {
+              {/* Show login invitation for anonymous users in "my" tab, otherwise show search */}
+              {!isAuthenticated && activeTab === 'my' ? (
+                <View className="flex flex-col gap-6 rounded-lg border border-border bg-card p-6">
+                  <View className="flex flex-col items-center gap-4">
+                    <Icon as={UserIcon} size={48} className="text-primary" />
+                    <View className="flex flex-col items-center gap-2">
+                      <Text variant="h4" className="text-center">
+                        {t('signInToSaveOrContribute') ||
+                          'Sign in to save or contribute to projects'}
+                      </Text>
+                    </View>
+                    <Button
+                      variant="default"
+                      size="lg"
+                      onPress={() => router.push('/(auth)/sign-in')}
+                      className="w-full"
+                    >
+                      <Text className="font-semibold">
+                        {t('signIn') || 'Sign In'}
+                      </Text>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="lg"
+                      onPress={() => router.push('/(auth)/register')}
+                      className="w-full"
+                    >
+                      <Text>{t('createAccount') || 'Create Account'}</Text>
+                    </Button>
+                  </View>
+                  {/* Arrow and option to view all projects */}
+                  <View className="flex flex-col items-center gap-2 border-t border-border pt-4">
+                    <Text className="text-sm text-muted-foreground">
+                      {t('orBrowseAllProjects') ||
+                        'Or browse all public projects'}
+                    </Text>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onPress={() => setActiveTab('all')}
+                      className="flex-row items-center gap-2"
+                    >
+                      <Text>{t('viewAllProjects') || 'View All Projects'}</Text>
+                      <Icon as={ArrowRightIcon} size={16} />
+                    </Button>
+                  </View>
+                </View>
+              ) : (
+                <>
+                  {/* Search and filter */}
+                  <View className="flex flex-row items-center gap-2">
+                    <Input
+                      className="flex-1"
+                      placeholder={t('searchProjects')}
+                      value={searchQuery}
+                      onChangeText={setSearchQuery}
+                      prefix={SearchIcon}
+                      prefixStyling={false}
+                      size="sm"
+                      returnKeyType="search"
+                      suffix={
+                        isFetchingProjects && searchQuery ? (
+                          <ActivityIndicator
+                            size="small"
+                            color={getThemeColor('primary')}
+                          />
+                        ) : undefined
+                      }
+                      suffixStyling={false}
+                      hitSlop={12}
+                    />
+                    {currentUser && (
+                      <DrawerTrigger size="icon-lg">
+                        <Icon
+                          as={PlusIcon}
+                          className="text-primary-foreground"
+                        />
+                      </DrawerTrigger>
+                    )}
+                  </View>
+                </>
+              )}
+            </View>
+
+            {/* Show project list only if not showing login invitation */}
+            {!isAuthenticated && activeTab === 'my' ? null : isLoading ||
+              (isFetchingProjects && searchQuery && allItems.length === 0) ? (
+              <ProjectListSkeleton />
+            ) : (
+              <LegendList
+                key={`${activeTab}-${dimensions.width}-${allItems.length}`}
+                data={allItems}
+                columnWrapperStyle={{ gap: 12 }}
+                numColumns={
+                  dimensions.width > 768 && allItems.length > 1 ? 2 : 1
+                }
+                keyExtractor={(item) =>
+                  item.type === 'invite'
+                    ? `invite-${item.projectId}-${activeTab}`
+                    : `project-${item.project.id}-${activeTab}`
+                }
+                contentContainerClassName="pb-8"
+                recycleItems
+                estimatedItemSize={175}
+                maintainVisibleContentPosition
+                renderItem={({ item }) => {
+                  if (item.type === 'invite') {
+                    return (
+                      <InvitedProjectListItem
+                        projectId={item.projectId}
+                        searchQuery={searchQuery}
+                        className={cn(dimensions.width > 768 && 'h-[212px]')}
+                      />
+                    );
+                  }
                   return (
-                    <InvitedProjectListItem
-                      projectId={item.projectId}
-                      searchQuery={searchQuery}
+                    <ProjectListItem
+                      project={item.project}
                       className={cn(dimensions.width > 768 && 'h-[212px]')}
                     />
                   );
+                }}
+                onEndReached={() => {
+                  if (
+                    allProjects.hasNextPage &&
+                    !allProjects.isFetchingNextPage
+                  ) {
+                    allProjects.fetchNextPage();
+                  }
+                }}
+                onEndReachedThreshold={0.5}
+                ListFooterComponent={() =>
+                  allProjects.isFetchingNextPage && (
+                    <View className="p-4">
+                      <ActivityIndicator
+                        size="small"
+                        color={getThemeColor('primary')}
+                      />
+                    </View>
+                  )
                 }
-                return (
-                  <ProjectListItem
-                    project={item.project}
-                    className={cn(dimensions.width > 768 && 'h-[212px]')}
-                  />
-                );
-              }}
-              onEndReached={() => {
-                if (
-                  allProjects.hasNextPage &&
-                  !allProjects.isFetchingNextPage
-                ) {
-                  allProjects.fetchNextPage();
-                }
-              }}
-              onEndReachedThreshold={0.5}
-              ListFooterComponent={() =>
-                allProjects.isFetchingNextPage && (
-                  <View className="p-4">
-                    <ActivityIndicator
-                      size="small"
-                      color={getThemeColor('primary')}
-                    />
+                ListEmptyComponent={() => (
+                  <View className="flex-1 items-center justify-center py-16">
+                    <View className="flex-col items-center gap-2">
+                      <Text className="text-muted-foreground">
+                        {searchQuery
+                          ? t('noProjectsFound')
+                          : activeTab === 'my'
+                            ? t('noProjectsYet')
+                            : t('noProjectsAvailable')}
+                      </Text>
+                      {activeTab === 'my' && !searchQuery && (
+                        <Button
+                          variant="default"
+                          onPress={() => setIsCreateOpen(true)}
+                          className="mt-2"
+                        >
+                          <Icon as={PlusIcon} size={16} />
+                          <Text>{t('newProject')}</Text>
+                        </Button>
+                      )}
+                    </View>
                   </View>
-                )
-              }
-              ListEmptyComponent={() => (
-                <View className="flex-1 items-center justify-center py-16">
-                  <View className="flex-col items-center gap-2">
-                    <Text className="text-muted-foreground">
-                      {searchQuery
-                        ? t('noProjectsFound')
-                        : activeTab === 'my'
-                          ? t('noProjectsYet')
-                          : t('noProjectsAvailable')}
-                    </Text>
-                    {activeTab === 'my' && !searchQuery && (
-                      <Button
-                        variant="default"
-                        onPress={() => setIsCreateOpen(true)}
-                        className="mt-2"
-                      >
-                        <Icon as={PlusIcon} size={16} />
-                        <Text>{t('newProject')}</Text>
-                      </Button>
-                    )}
-                  </View>
-                </View>
-              )}
-            />
-          )}
-        </View>
+                )}
+              />
+            )}
+          </View>
+        </KeyboardAvoidingView>
 
         <DrawerContent className="pb-safe">
           <Form {...form}>
