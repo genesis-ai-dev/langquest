@@ -29,11 +29,12 @@ import {
 import type { FiaMetadata } from '@/db/drizzleSchemaColumns';
 import { system } from '@/db/powersync/system';
 import type { Project } from '@/hooks/db/useProjects';
-import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useAudioPlaybackCheckpoint } from '@/hooks/useAudioPlaybackCheckpoint';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { usePlayAllAudioController } from '@/hooks/usePlayAllAudioController';
 import { useSingleAudioController } from '@/hooks/useSingleAudioController';
+import { useUndoHistory } from '@/hooks/useUndoHistory';
 import { useLocalStore } from '@/store/localStore';
 import { resolveTable } from '@/utils/dbUtils';
 import {
@@ -46,7 +47,7 @@ import { toCompilableQuery } from '@powersync/drizzle-driver';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { and, asc, eq } from 'drizzle-orm';
-import { createAudioPlayer, type AudioPlayer } from 'expo-audio';
+import { createAudioPlayer } from 'expo-audio';
 import { useKeepAwake } from 'expo-keep-awake';
 import { Stack } from 'expo-router';
 import {
@@ -55,7 +56,8 @@ import {
   Ellipsis,
   ListVideo,
   Plus,
-  SquareIcon
+  SquareIcon,
+  Undo2
 } from 'lucide-react-native';
 import React, { useMemo } from 'react';
 import { InteractionManager, View } from 'react-native';
@@ -121,6 +123,11 @@ interface VersePillItem {
   id: string; // Unique ID for the pill (e.g., 'pill-verse-5')
   order_index: number;
   verse: { from: number; to: number } | null; // Verse metadata
+}
+
+interface UndoAssetHistoryItem {
+  id: string;
+  name?: string | null;
 }
 
 // Union type for items in the list (assets or verse pills)
@@ -633,6 +640,11 @@ const RecordingView = () => {
   const [assetDurations, setAssetDurations] = React.useState<
     Map<string, number>
   >(new Map());
+  const {
+    push: pushUndoHistory,
+    list: listUndoHistory,
+    length: undoLength
+  } = useUndoHistory<UndoAssetHistoryItem[], UndoAssetHistoryItem[]>();
 
   // SESSION-ONLY ITEMS: Assets and verse pills created during this recording session
   // When user exits and returns, the list starts with just the initial verse pill
@@ -1836,12 +1848,24 @@ const RecordingView = () => {
 
   const handleRecordingComplete = React.useCallback(
     async (uri: string, recordingDuration: number, _waveformData: number[]) => {
+      let replacePreviousData: UndoAssetHistoryItem[] = [];
+      let didReplaceDeleteSucceed = false;
+
       // REPLACE MODE: Delete the asset being replaced (only once, on first recording)
       debugLog(
         `🔍 handleRecordingComplete | assetToReplaceRef.current: ${assetToReplaceRef.current?.slice(0, 8) ?? 'null'}`
       );
       if (assetToReplaceRef.current) {
         const assetIdToReplace = assetToReplaceRef.current;
+        const replacedItem = sessionItemsRef.current.find(
+          (item) => isAsset(item) && item.id === assetIdToReplace
+        );
+        replacePreviousData = [
+          {
+            id: assetIdToReplace,
+            name: replacedItem && isAsset(replacedItem) ? replacedItem.name : null
+          }
+        ];
         assetToReplaceRef.current = null; // Clear immediately to prevent duplicate deletions
         setIsReplacing(false); // Reset replace mode after first recording
         wasReplaceRef.current = true; // Mark as replace so auto-scroll doesn't move position
@@ -1860,6 +1884,7 @@ const RecordingView = () => {
             queryKey: ['assets', 'by-quest', questId],
             exact: false
           });
+          didReplaceDeleteSucceed = true;
           console.log(`✅ REPLACE: Asset deleted successfully`);
         } catch (e) {
           console.error('❌ REPLACE: Failed to delete asset', e);
@@ -1960,6 +1985,23 @@ const RecordingView = () => {
               verse: verseToUse,
               duration: recordingDuration > 0 ? recordingDuration : undefined
             });
+            if (didReplaceDeleteSucceed && replacePreviousData.length > 0) {
+              pushUndoHistory({
+                domain: 'asset',
+                action: 'replace',
+                previousData: replacePreviousData,
+                newData: [{ id: newAssetId }],
+                canUndo: false
+              });
+            } else {
+              pushUndoHistory({
+                domain: 'asset',
+                action: 'create',
+                previousData: [],
+                newData: [{ id: newAssetId }],
+                canUndo: false
+              });
+            }
 
             // Pre-populate metadata Maps so the lazy loading effect
             // skips this asset entirely (avoids expensive Audio.Sound.createAsync)
@@ -2027,7 +2069,8 @@ const RecordingView = () => {
       recordingSessionId,
       addSessionAsset,
       saveNameCounter,
-      getInsertionContext
+      getInsertionContext,
+      pushUndoHistory
     ]
   );
 
@@ -2454,6 +2497,13 @@ const RecordingView = () => {
 
         // Remove from session assets list
         setSessionItems((prev) => prev.filter((a) => a.id !== assetId));
+        pushUndoHistory({
+          domain: 'asset',
+          action: 'delete',
+          previousData: [{ id: assetId }],
+          newData: [],
+          canUndo: false
+        });
 
         await queryClient.invalidateQueries({
           queryKey: ['assets', 'by-quest', questId],
@@ -2463,7 +2513,7 @@ const RecordingView = () => {
         console.error('Failed to delete local asset', e);
       }
     },
-    [queryClient, questId]
+    [pushUndoHistory, queryClient, questId]
   );
 
   const handleMergeDownLocal = React.useCallback(
@@ -2517,6 +2567,13 @@ const RecordingView = () => {
 
         // Remove merged asset from session list (second one gets deleted)
         setSessionItems((prev) => prev.filter((a) => a.id !== second.id));
+        pushUndoHistory({
+          domain: 'asset',
+          action: 'merge',
+          previousData: [{ id: first.id }, { id: second.id }],
+          newData: [{ id: first.id }],
+          canUndo: false
+        });
 
         // Force re-load of segment count for the merged asset
         debugLog(
@@ -2542,7 +2599,7 @@ const RecordingView = () => {
         console.error('Failed to merge local assets', e);
       }
     },
-    [assets, currentUser, queryClient, questId]
+    [assets, currentUser, pushUndoHistory, queryClient, questId]
   );
 
   const handleBatchMergeSelected = React.useCallback(() => {
@@ -2625,6 +2682,15 @@ const RecordingView = () => {
                 setSessionItems((prev) =>
                   prev.filter((a) => !deletedIds.has(a.id))
                 );
+                pushUndoHistory({
+                  domain: 'asset',
+                  action: 'merge',
+                  previousData: selectedOrdered.map((asset) => ({
+                    id: asset.id
+                  })),
+                  newData: [{ id: target.id }],
+                  canUndo: false
+                });
 
                 // Force re-load of segment count for the merged target asset
                 debugLog(
@@ -2666,6 +2732,7 @@ const RecordingView = () => {
     selectedAssetIds,
     currentUser,
     cancelSelection,
+    pushUndoHistory,
     queryClient,
     questId
   ]);
@@ -2699,6 +2766,15 @@ const RecordingView = () => {
                 setSessionItems((prev) =>
                   prev.filter((a) => !deletedIds.has(a.id))
                 );
+                pushUndoHistory({
+                  domain: 'asset',
+                  action: 'delete',
+                  previousData: selectedOrdered.map((asset) => ({
+                    id: asset.id
+                  })),
+                  newData: [],
+                  canUndo: false
+                });
 
                 cancelSelection();
                 await queryClient.invalidateQueries({
@@ -2721,7 +2797,14 @@ const RecordingView = () => {
         }
       ]
     );
-  }, [assets, selectedAssetIds, cancelSelection, queryClient, questId]);
+  }, [
+    assets,
+    selectedAssetIds,
+    cancelSelection,
+    pushUndoHistory,
+    queryClient,
+    questId
+  ]);
 
   // ============================================================================
   // SELECT ALL / DESELECT ALL
@@ -2778,6 +2861,13 @@ const RecordingView = () => {
             asset.id === renameAssetId ? { ...asset, name: newName } : asset
           )
         );
+        pushUndoHistory({
+          domain: 'asset',
+          action: 'rename',
+          previousData: [{ id: renameAssetId, name: renameAssetName }],
+          newData: [{ id: renameAssetId, name: newName }],
+          canUndo: false
+        });
 
         // Invalidate queries to refresh the list in parent view
         await queryClient.invalidateQueries({
@@ -2794,7 +2884,7 @@ const RecordingView = () => {
         }
       }
     },
-    [renameAssetId, queryClient, questId]
+    [renameAssetId, renameAssetName, pushUndoHistory, queryClient, questId]
   );
 
   // ============================================================================
@@ -3305,6 +3395,18 @@ const RecordingView = () => {
           </Text>
         </View>
         <View className="flex-row items-center justify-end gap-3">
+          <Button
+            variant="ghost"
+            size="icon"
+            disabled={undoLength() === 0}
+            onPress={() => {
+              listUndoHistory().forEach((item, index) =>
+                console.log(index, item)
+              );
+            }}
+          >
+            <Icon as={Undo2} size={20} className="text-primary" />
+          </Button>
           {assets.length > 0 && (
             <Button
               variant="ghost"
