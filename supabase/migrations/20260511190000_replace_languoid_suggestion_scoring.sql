@@ -17,8 +17,23 @@
 --     - length(f) >= 4 AND length(w) >= 3
 --     - Exact:    w <% lower(f) AND strict_word_similarity(w, lower(f)) >= 0.7
 --                 → strength = 1.0
---     - Spelling: similarity(w, lower(f)) >= 0.5
---                 → strength = similarity_score
+--     - Spelling: lev_sim(w, lower(f)) >= 0.7
+--                 → strength = lev_sim
+--                 where lev_sim = 1 - levenshtein(w, lower(f))
+--                                 / greatest(length(w), length(lower(f)))
+--     - The trigram `<%` / `%` operators serve only as the index-friendly
+--       pre-filter on the cross join. The strength itself is computed from
+--       Levenshtein because trigram similarity rewards shared substrings
+--       rather than edit distance, so e.g. similarity('santhani','santali')
+--       = 0.444 (below threshold) while lev_sim = 1 - 2/8 = 0.75 (correctly
+--       identifies "santhani" as a 2-edit misspelling of "santali"), and
+--       similarity('santhani','sani') = 0.555 (false positive) while
+--       lev_sim = 1 - 4/8 = 0.5 (correctly demoted).
+--     - The 0.7 threshold = "at most ~30% of the longer word changed". This
+--       admits genuine variants (`santhali`/`santali` lev_sim 0.875,
+--       `santhani`/`santali` 0.75, `pashto`/`pashtu` 0.83) and rejects
+--       substring/sound-alike noise (`santhani`/`salani` 0.625,
+--       `santhani`/`shani` 0.625, `santhali`/`thali` 0.625).
 --
 --   Step 3 — Per-(candidate, field) score:
 --     - field_weight = 1.0 if field is the candidate's primary name, else 0.85
@@ -43,6 +58,7 @@
 -- ============================================================================
 
 create extension if not exists pg_trgm;
+create extension if not exists fuzzystrmatch;
 
 -- ----------------------------------------------------------------------------
 -- 1. Functional trigram indexes on lower(name)
@@ -161,7 +177,12 @@ begin
           and (l.creator_id is null or l.creator_id <> p_profile_id)
       ),
       -- One row per evaluable field: the candidate's primary name plus each
-      -- of its active aliases. Field-level scores are computed independently.
+      -- distinct alias name. We deduplicate identical alias *names* on the
+      -- same languoid (e.g., "Santali" appearing as both an endonym and an
+      -- exonym), because the contract defines per_word_value and word counts
+      -- in terms of distinct words and fields, not raw row counts. Without
+      -- the DISTINCT, duplicated alias rows inflate project_count beyond
+      -- total_project_words and produce per_word_value > 100.
       fields as (
         select
           c.id as candidate_id,
@@ -172,7 +193,7 @@ begin
         from candidates c
         where length(c.primary_name) >= 4
         union all
-        select
+        select distinct
           c.id,
           c.primary_name,
           la.name,
@@ -181,11 +202,23 @@ begin
         from candidates c
         inner join public.languoid_alias la
           on la.subject_languoid_id = c.id and la.active = true
+          and not ('hhbib_lgcode' = any(la.source_names))
         where length(la.name) >= 4
       ),
       -- Step 2: per-(field, word, source) match strength.
-      -- The trigram operator pre-filter (`<%` / `%`) lets the planner use the
-      -- functional GIN indexes created above to skip non-candidate fields.
+      -- The trigram operators (`<%` / `%`) act ONLY as the index-friendly
+      -- pre-filter on the cross join: if a candidate field shares no
+      -- meaningful trigram overlap with the word, it never reaches the
+      -- strength computation. Strength itself uses two paths:
+      --   1. Exact-word path (via `<%` AND strict_word_similarity >= 0.7),
+      --      strength = 1.0 — this is what makes "english" inside
+      --      "Modern English" score as a perfect word match.
+      --   2. Spelling path (via Levenshtein-similarity >= 0.7),
+      --      strength = lev_sim — captures real typos / spelling variants
+      --      ("santhani" → "santali") in a way trigram similarity cannot.
+      --      The 0.7 floor allows up to ~30% of the longer word to change,
+      --      which is enough for transliteration variants while excluding
+      --      substring noise like ("santhali" → "thali", lev_sim 0.625).
       field_word_match as (
         select
           f.candidate_id,
@@ -199,12 +232,27 @@ begin
             when aw.word <% lower(f.field_text)
                  and strict_word_similarity(aw.word, lower(f.field_text)) >= 0.7
               then 1.0::numeric
-            when similarity(aw.word, lower(f.field_text)) >= 0.5
-              then similarity(aw.word, lower(f.field_text))::numeric
+            when ls.lev_sim >= 0.7
+              then ls.lev_sim
             else null
           end as strength
         from fields f
         cross join all_words aw
+        cross join lateral (
+          -- Compute Levenshtein-similarity exactly once per row.
+          -- `levenshtein` is hard-capped at 255 chars per arg; clip
+          -- defensively so a pathological description-style alias never
+          -- aborts the whole query.
+          select
+            case
+              when length(aw.word) <= 255
+                   and length(lower(f.field_text)) <= 255
+                then 1.0
+                     - levenshtein(aw.word, lower(f.field_text))::numeric
+                     / greatest(length(aw.word), length(lower(f.field_text)))
+              else 0::numeric
+            end as lev_sim
+        ) ls
         where length(aw.word) >= 3
           and (
             aw.word <% lower(f.field_text)
@@ -356,5 +404,9 @@ comment on function public.create_languoid_link_suggestions is
   'project name words. The candidate inherits its best-scoring field, with '
   'primary preferred over alias for ties. Combines a project-context score '
   '(per_word_value scaled by project completeness) with a user-intent score '
-  '(plus a multi-word bonus). Drops candidates below 25 points and stores '
-  'the positional rank in match_rank (1 = top).';
+  '(plus a multi-word bonus). Strength uses pg_trgm `<%` + '
+  'strict_word_similarity (>= 0.7) for the exact-word path (strength = 1.0) '
+  'and Levenshtein-similarity (>= 0.7) for the spelling path; trigram `<%`/`%` '
+  'operators are kept as the index-friendly cross-join pre-filter. Drops '
+  'candidates below 25 points and stores the positional rank in match_rank '
+  '(1 = top).';
