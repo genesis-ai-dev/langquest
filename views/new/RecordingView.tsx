@@ -15,12 +15,14 @@ import { formatPericopeVerseLabel } from '@/constants/bibleStructure';
 import { useAudio } from '@/contexts/AudioContext';
 import { useAuth } from '@/contexts/AuthContext';
 import {
-  getNextOrderIndex as getNextAclOrderIndex,
   normalizeOrderIndexForVerses,
   renameAsset,
-  updateContentLinkOrder
+  softDeleteAssetsFromQuest,
+  softMergeAssetsInQuest
 } from '@/database_services/assetService';
+import { undo as undoAssetOperation } from '@/database_services/assetUndoService';
 import { audioSegmentService } from '@/database_services/audioSegmentService';
+import type { AssetOperationTypes } from '@/database_services/types';
 import {
   asset_content_link,
   project_language_link,
@@ -46,7 +48,7 @@ import RNAlert from '@blazejkustra/react-native-alert';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, inArray } from 'drizzle-orm';
 import { createAudioPlayer } from 'expo-audio';
 import { useKeepAwake } from 'expo-keep-awake';
 import { Stack } from 'expo-router';
@@ -642,9 +644,16 @@ const RecordingView = () => {
   >(new Map());
   const {
     push: pushUndoHistory,
+    undo: undoHistory,
     list: listUndoHistory,
     length: undoLength
   } = useUndoHistory<UndoAssetHistoryItem[], UndoAssetHistoryItem[]>();
+  const currentUndoOperation = React.useMemo(() => {
+    const history = listUndoHistory();
+    return history.length > 0
+      ? (history[history.length - 1] as AssetOperationTypes)
+      : null;
+  }, [listUndoHistory, undoLength]);
 
   // SESSION-ONLY ITEMS: Assets and verse pills created during this recording session
   // When user exits and returns, the list starts with just the initial verse pill
@@ -1863,7 +1872,8 @@ const RecordingView = () => {
         replacePreviousData = [
           {
             id: assetIdToReplace,
-            name: replacedItem && isAsset(replacedItem) ? replacedItem.name : null
+            name:
+              replacedItem && isAsset(replacedItem) ? replacedItem.name : null
           }
         ];
         assetToReplaceRef.current = null; // Clear immediately to prevent duplicate deletions
@@ -1875,7 +1885,10 @@ const RecordingView = () => {
         );
 
         try {
-          await audioSegmentService.deleteAudioSegment(assetIdToReplace);
+          if (!questId) {
+            throw new Error('Missing questId for replace soft delete');
+          }
+          await softDeleteAssetsFromQuest(questId, [assetIdToReplace]);
           // Remove from session assets list
           setSessionItems((prev) =>
             prev.filter((a) => a.id !== assetIdToReplace)
@@ -1991,7 +2004,7 @@ const RecordingView = () => {
                 action: 'replace',
                 previousData: replacePreviousData,
                 newData: [{ id: newAssetId }],
-                canUndo: false
+                canUndo: true
               });
             } else {
               pushUndoHistory({
@@ -1999,7 +2012,7 @@ const RecordingView = () => {
                 action: 'create',
                 previousData: [],
                 newData: [{ id: newAssetId }],
-                canUndo: false
+                canUndo: true
               });
             }
 
@@ -2493,7 +2506,8 @@ const RecordingView = () => {
   const handleDeleteLocalAsset = React.useCallback(
     async (assetId: string) => {
       try {
-        await audioSegmentService.deleteAudioSegment(assetId);
+        if (!questId) return;
+        await softDeleteAssetsFromQuest(questId, [assetId]);
 
         // Remove from session assets list
         setSessionItems((prev) => prev.filter((a) => a.id !== assetId));
@@ -2502,7 +2516,7 @@ const RecordingView = () => {
           action: 'delete',
           previousData: [{ id: assetId }],
           newData: [],
-          canUndo: false
+          canUndo: true
         });
 
         await queryClient.invalidateQueries({
@@ -2521,73 +2535,73 @@ const RecordingView = () => {
       try {
         const first = assets[index];
         const second = assets[index + 1];
-        if (!first || !second || !currentUser) return;
+        if (!first || !second) return;
         if (first.source === 'cloud' || second.source === 'cloud') return;
 
-        const contentLocal = resolveTable('asset_content_link', {
-          localOverride: true
+        if (!questId) return;
+        const mergeResult = await softMergeAssetsInQuest({
+          questId,
+          assetsToMerge: [{ id: first.id }, { id: second.id }],
+          fallbackProjectId: projectId,
+          fallbackCreatorId: currentUser?.id ?? null
         });
-        const secondContent = await system.db
-          .select()
-          .from(contentLocal)
-          .where(eq(contentLocal.asset_id, second.id))
-          .orderBy(asc(contentLocal.order_index), asc(contentLocal.created_at));
+        if (!mergeResult) return;
 
-        // Get next available order_index for the target asset (local table)
-        let nextOrder = await getNextAclOrderIndex(first.id, {
-          localOverride: true
-        });
+        // Remove merged source assets and add the newly linked asset.
+        const sourceIds = new Set([first.id, second.id]);
+        setSessionItems((prev) => {
+          const withoutSources = prev.filter((item) => !sourceIds.has(item.id));
+          const newMergedAsset: UIAsset = {
+            type: 'asset',
+            id: mergeResult.newAssetId,
+            name: mergeResult.newAssetName,
+            created_at: new Date().toISOString(),
+            order_index:
+              typeof mergeResult.orderIndex === 'number'
+                ? mergeResult.orderIndex
+                : first.order_index,
+            source: 'local',
+            segmentCount: 1,
+            verse: first.verse ?? null
+          };
 
-        for (const c of secondContent) {
-          if (!c.audio) continue;
-          await system.db.insert(contentLocal).values({
-            asset_id: first.id,
-            source_language_id: c.source_language_id, // Deprecated field, kept for backward compatibility
-            languoid_id: c.languoid_id ?? c.source_language_id ?? null, // Use languoid_id if available, fallback to source_language_id
-            text: c.text || '',
-            audio: c.audio,
-            download_profiles: [currentUser.id],
-            order_index: nextOrder++
+          return [...withoutSources, newMergedAsset].sort((a, b) => {
+            if (a.order_index === b.order_index) {
+              if (isPill(a) && isAsset(b)) return -1;
+              if (isAsset(a) && isPill(b)) return 1;
+              if (isAsset(a) && isAsset(b)) {
+                return a.created_at.localeCompare(b.created_at);
+              }
+              return 0;
+            }
+            return a.order_index > b.order_index ? 1 : -1;
           });
-        }
-
-        await audioSegmentService.deleteAudioSegment(second.id);
-
-        // Normalize all content links on target to 1-based ordering
-        const allContent = await system.db
-          .select({ id: contentLocal.id })
-          .from(contentLocal)
-          .where(eq(contentLocal.asset_id, first.id))
-          .orderBy(asc(contentLocal.order_index), asc(contentLocal.created_at));
-        await updateContentLinkOrder(
-          first.id,
-          allContent.map((c) => c.id),
-          { localOverride: true }
-        );
-
-        // Remove merged asset from session list (second one gets deleted)
-        setSessionItems((prev) => prev.filter((a) => a.id !== second.id));
+        });
         pushUndoHistory({
           domain: 'asset',
           action: 'merge',
           previousData: [{ id: first.id }, { id: second.id }],
-          newData: [{ id: first.id }],
-          canUndo: false
+          newData: [{ id: mergeResult.newAssetId }],
+          canUndo: true
         });
 
-        // Force re-load of segment count for the merged asset
+        // Force re-load of segment count for the new merged asset
         debugLog(
-          `🔄 Forcing segment count reload for merged asset: ${first.id}`
+          `🔄 Forcing segment count reload for merged asset: ${mergeResult.newAssetId}`
         );
-        loadedAssetIdsRef.current.delete(first.id);
+        loadedAssetIdsRef.current.delete(mergeResult.newAssetId);
         setAssetSegmentCounts((prev) => {
           const next = new Map(prev);
           next.delete(first.id);
+          next.delete(second.id);
+          next.delete(mergeResult.newAssetId);
           return next;
         });
         setAssetDurations((prev) => {
           const next = new Map(prev);
           next.delete(first.id);
+          next.delete(second.id);
+          next.delete(mergeResult.newAssetId);
           return next;
         });
 
@@ -2599,7 +2613,7 @@ const RecordingView = () => {
         console.error('Failed to merge local assets', e);
       }
     },
-    [assets, currentUser, pushUndoHistory, queryClient, questId]
+    [assets, currentUser?.id, projectId, pushUndoHistory, queryClient, questId]
   );
 
   const handleBatchMergeSelected = React.useCallback(() => {
@@ -2622,89 +2636,76 @@ const RecordingView = () => {
           onPress: () => {
             void (async () => {
               try {
-                if (!currentUser) return;
-
-                const target = selectedOrdered[0]!;
-                const rest = selectedOrdered.slice(1);
-                const contentLocal = resolveTable('asset_content_link', {
-                  localOverride: true
+                if (!questId) return;
+                const mergeResult = await softMergeAssetsInQuest({
+                  questId,
+                  assetsToMerge: selectedOrdered.map((asset) => ({
+                    id: asset.id
+                  })),
+                  fallbackProjectId: projectId,
+                  fallbackCreatorId: currentUser?.id ?? null
                 });
+                if (!mergeResult) return;
 
-                for (const src of rest) {
-                  const srcContent = await system.db
-                    .select()
-                    .from(contentLocal)
-                    .where(eq(contentLocal.asset_id, src.id))
-                    .orderBy(
-                      asc(contentLocal.order_index),
-                      asc(contentLocal.created_at)
-                    );
-
-                  // Get next available order_index for the target asset (local table)
-                  let nextOrder = await getNextAclOrderIndex(target.id, {
-                    localOverride: true
-                  });
-
-                  for (const c of srcContent) {
-                    if (!c.audio) continue;
-                    await system.db.insert(contentLocal).values({
-                      asset_id: target.id,
-                      source_language_id: c.source_language_id, // Deprecated field, kept for backward compatibility
-                      languoid_id:
-                        c.languoid_id ?? c.source_language_id ?? null, // Use languoid_id if available, fallback to source_language_id
-                      text: c.text || '',
-                      audio: c.audio,
-                      download_profiles: [currentUser.id],
-                      order_index: nextOrder++
-                    });
-                  }
-
-                  await audioSegmentService.deleteAudioSegment(src.id);
-                }
-
-                // Normalize all content links on target to 1-based ordering
-                const allContent = await system.db
-                  .select({ id: contentLocal.id })
-                  .from(contentLocal)
-                  .where(eq(contentLocal.asset_id, target.id))
-                  .orderBy(
-                    asc(contentLocal.order_index),
-                    asc(contentLocal.created_at)
+                const mergedSourceIds = new Set(
+                  selectedOrdered.map((a) => a.id)
+                );
+                setSessionItems((prev) => {
+                  const withoutSources = prev.filter(
+                    (item) => !mergedSourceIds.has(item.id)
                   );
-                await updateContentLinkOrder(
-                  target.id,
-                  allContent.map((c) => c.id),
-                  { localOverride: true }
-                );
+                  const firstSelected = selectedOrdered[0]!;
+                  const newMergedAsset: UIAsset = {
+                    type: 'asset',
+                    id: mergeResult.newAssetId,
+                    name: mergeResult.newAssetName,
+                    created_at: new Date().toISOString(),
+                    order_index:
+                      typeof mergeResult.orderIndex === 'number'
+                        ? mergeResult.orderIndex
+                        : firstSelected.order_index,
+                    source: 'local',
+                    segmentCount: 1,
+                    verse: firstSelected.verse ?? null
+                  };
 
-                // Remove merged assets from session list (all except target get deleted)
-                const deletedIds = new Set(rest.map((a) => a.id));
-                setSessionItems((prev) =>
-                  prev.filter((a) => !deletedIds.has(a.id))
-                );
+                  return [...withoutSources, newMergedAsset].sort((a, b) => {
+                    if (a.order_index === b.order_index) {
+                      if (isPill(a) && isAsset(b)) return -1;
+                      if (isAsset(a) && isPill(b)) return 1;
+                      if (isAsset(a) && isAsset(b)) {
+                        return a.created_at.localeCompare(b.created_at);
+                      }
+                      return 0;
+                    }
+                    return a.order_index > b.order_index ? 1 : -1;
+                  });
+                });
                 pushUndoHistory({
                   domain: 'asset',
                   action: 'merge',
                   previousData: selectedOrdered.map((asset) => ({
                     id: asset.id
                   })),
-                  newData: [{ id: target.id }],
-                  canUndo: false
+                  newData: [{ id: mergeResult.newAssetId }],
+                  canUndo: true
                 });
 
                 // Force re-load of segment count for the merged target asset
                 debugLog(
-                  `🔄 Forcing segment count reload for merged asset: ${target.id}`
+                  `🔄 Forcing segment count reload for merged asset: ${mergeResult.newAssetId}`
                 );
-                loadedAssetIdsRef.current.delete(target.id);
+                loadedAssetIdsRef.current.delete(mergeResult.newAssetId);
                 setAssetSegmentCounts((prev) => {
                   const next = new Map(prev);
-                  next.delete(target.id);
+                  selectedOrdered.forEach((asset) => next.delete(asset.id));
+                  next.delete(mergeResult.newAssetId);
                   return next;
                 });
                 setAssetDurations((prev) => {
                   const next = new Map(prev);
-                  next.delete(target.id);
+                  selectedOrdered.forEach((asset) => next.delete(asset.id));
+                  next.delete(mergeResult.newAssetId);
                   return next;
                 });
 
@@ -2730,8 +2731,9 @@ const RecordingView = () => {
   }, [
     assets,
     selectedAssetIds,
-    currentUser,
     cancelSelection,
+    currentUser?.id,
+    projectId,
     pushUndoHistory,
     queryClient,
     questId
@@ -2757,9 +2759,11 @@ const RecordingView = () => {
           onPress: () => {
             void (async () => {
               try {
-                for (const asset of selectedOrdered) {
-                  await audioSegmentService.deleteAudioSegment(asset.id);
-                }
+                if (!questId) return;
+                await softDeleteAssetsFromQuest(
+                  questId,
+                  selectedOrdered.map((asset) => asset.id)
+                );
 
                 // Remove deleted assets from session list
                 const deletedIds = new Set(selectedOrdered.map((a) => a.id));
@@ -2773,7 +2777,7 @@ const RecordingView = () => {
                     id: asset.id
                   })),
                   newData: [],
-                  canUndo: false
+                  canUndo: true
                 });
 
                 cancelSelection();
@@ -2866,7 +2870,7 @@ const RecordingView = () => {
           action: 'rename',
           previousData: [{ id: renameAssetId, name: renameAssetName }],
           newData: [{ id: renameAssetId, name: newName }],
-          canUndo: false
+          canUndo: true
         });
 
         // Invalidate queries to refresh the list in parent view
@@ -3362,6 +3366,140 @@ const RecordingView = () => {
     [isReplacing]
   );
 
+  const updateSessionItemsAfterUndo = React.useCallback(
+    async (operation: AssetOperationTypes) => {
+      if (operation.action === 'rename') {
+        const previousNameMap = new Map(
+          operation.previousData.map((item) => [item.id, item.name ?? null])
+        );
+
+        setSessionItems((prev) =>
+          prev.map((item) =>
+            isAsset(item) && previousNameMap.has(item.id)
+              ? {
+                  ...item,
+                  name: previousNameMap.get(item.id) ?? item.name
+                }
+              : item
+          )
+        );
+        return;
+      }
+
+      if (
+        operation.action === 'delete' ||
+        operation.action === 'merge' ||
+        operation.action === 'replace' ||
+        operation.action === 'create'
+      ) {
+        const previousIds = Array.from(
+          new Set(operation.previousData.map((item) => item.id))
+        );
+        const newIds = new Set(operation.newData.map((item) => item.id));
+
+        const assetLocal = resolveTable('asset', { localOverride: true });
+        const restoredAssetsRaw =
+          previousIds.length > 0
+            ? await system.db
+                .select()
+                .from(assetLocal)
+                .where(inArray(assetLocal.id, previousIds))
+            : [];
+
+        const restoredAssets: UIAsset[] = restoredAssetsRaw.map(
+          (asset, index) => {
+            let verse: { from: number; to: number } | null = null;
+            try {
+              const parsed =
+                typeof asset.metadata === 'string'
+                  ? (JSON.parse(asset.metadata) as {
+                      verse?: { from: number; to: number };
+                    })
+                  : null;
+              if (parsed?.verse?.from && parsed.verse.to) {
+                verse = { from: parsed.verse.from, to: parsed.verse.to };
+              }
+            } catch {
+              verse = null;
+            }
+
+            return {
+              type: 'asset',
+              id: asset.id,
+              name: asset.name ?? 'Unnamed',
+              created_at: asset.created_at ?? new Date().toISOString(),
+              order_index:
+                typeof asset.order_index === 'number'
+                  ? asset.order_index
+                  : index,
+              source: 'local',
+              segmentCount: assetSegmentCounts.get(asset.id) ?? 1,
+              duration: assetDurations.get(asset.id),
+              verse
+            };
+          }
+        );
+
+        setSessionItems((prev) => {
+          const withoutNewData = prev.filter((item) => !newIds.has(item.id));
+          const existingIds = new Set(withoutNewData.map((item) => item.id));
+          const restoredToAdd = restoredAssets.filter(
+            (item) => !existingIds.has(item.id)
+          );
+          const next = [...withoutNewData, ...restoredToAdd];
+
+          return next.sort((a, b) => {
+            if (a.order_index === b.order_index) {
+              if (isPill(a) && isAsset(b)) return -1;
+              if (isAsset(a) && isPill(b)) return 1;
+              if (isAsset(a) && isAsset(b)) {
+                return a.created_at.localeCompare(b.created_at);
+              }
+              return 0;
+            }
+            return a.order_index > b.order_index ? 1 : -1;
+          });
+        });
+      }
+    },
+    [assetDurations, assetSegmentCounts]
+  );
+
+  const handleUndoAction = React.useCallback(() => {
+    const history = listUndoHistory();
+    history.forEach((item, index) => console.log(index, item));
+
+    const lastOperation = history[history.length - 1] as
+      | AssetOperationTypes
+      | undefined;
+    if (!lastOperation?.canUndo) return;
+
+    if (!projectId || !questId) {
+      console.warn('[Undo] Missing projectId or questId, cannot execute undo');
+      return;
+    }
+
+    void undoHistory(async (entry) => {
+      const operation = {
+        ...(entry as AssetOperationTypes),
+        domain: 'asset'
+      } as AssetOperationTypes;
+      await undoAssetOperation(projectId, questId, operation);
+      await updateSessionItemsAfterUndo(operation);
+      await queryClient.invalidateQueries({
+        queryKey: ['assets', 'by-quest', questId],
+        exact: false
+      });
+    });
+  }, [
+    listUndoHistory,
+    projectId,
+    queryClient,
+    questId,
+    undoHistory,
+    updateSessionItemsAfterUndo
+  ]);
+
   return (
     <View className="flex-1 bg-background">
       {bookChapterLabelFull && (
@@ -3398,12 +3536,8 @@ const RecordingView = () => {
           <Button
             variant="ghost"
             size="icon"
-            disabled={undoLength() === 0}
-            onPress={() => {
-              listUndoHistory().forEach((item, index) =>
-                console.log(index, item)
-              );
-            }}
+            disabled={!currentUndoOperation?.canUndo}
+            onPress={handleUndoAction}
           >
             <Icon as={Undo2} size={20} className="text-primary" />
           </Button>
