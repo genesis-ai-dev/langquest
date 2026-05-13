@@ -112,7 +112,9 @@ export function handleInviteDeepLink(url: string): DeepLinkResult {
 
   // Check if this is a notifications/invite deep link
   if (path.includes('notifications')) {
-    console.log('[DeepLinkHandler] Invite deep link detected, navigating to notifications');
+    console.log(
+      '[DeepLinkHandler] Invite deep link detected, navigating to notifications'
+    );
 
     return {
       handled: true,
