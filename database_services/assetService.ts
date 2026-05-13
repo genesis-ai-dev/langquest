@@ -6,6 +6,7 @@ import { system } from '@/db/powersync/system';
 import { resolveTable } from '@/utils/dbUtils';
 import { and, asc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
 import uuid from 'react-native-uuid';
+import { enqueue as enqueueAssetGc } from './assetGarbageCollectorService';
 
 /**
  * Asset metadata structure for verse ranges
@@ -313,6 +314,8 @@ export async function softDeleteAssetsFromQuest(
         )
       );
   });
+
+  await enqueueAssetGc(assetIds, 'delete');
 }
 
 /**
@@ -437,6 +440,9 @@ export async function softMergeAssetsInQuest(params: {
       newAssetName: first.name ?? 'Merged',
       orderIndex: first.order_index
     };
+  }).then(async (result) => {
+    await enqueueAssetGc(sourceIds, 'merge');
+    return result;
   });
 }
 

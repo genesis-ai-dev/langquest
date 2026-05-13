@@ -3,6 +3,7 @@ import { resolveTable } from '@/utils/dbUtils';
 import { and, eq, inArray } from 'drizzle-orm';
 import uuid from 'react-native-uuid';
 import type { AssetOperationTypes } from './types';
+import { dequeue as dequeueAssetGc } from './assetGarbageCollectorService';
 import { renameAsset } from './assetService';
 import { audioSegmentService } from './audioSegmentService';
 
@@ -89,6 +90,7 @@ async function undoDelete(
 ): Promise<void> {
   const previousIds = operation.previousData.map((item) => item.id);
   await restoreAssetsToQuest(projectId, questId, previousIds);
+  await dequeueAssetGc(previousIds);
 }
 
 async function undoMerge(
@@ -100,6 +102,7 @@ async function undoMerge(
   const newIds = operation.newData.map((item) => item.id);
 
   await restoreAssetsToQuest(projectId, questId, previousIds);
+  await dequeueAssetGc(previousIds);
   // IMPORTANT: keep audio files, since previous records still use them.
   await deleteAssetsPhysically(newIds, { preserveAudioFiles: true });
 }
@@ -113,6 +116,7 @@ async function undoReplace(
   const newIds = operation.newData.map((item) => item.id);
 
   await restoreAssetsToQuest(projectId, questId, previousIds);
+  await dequeueAssetGc(previousIds);
   await deleteAssetsPhysically(newIds);
 }
 

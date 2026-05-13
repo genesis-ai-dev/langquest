@@ -14,6 +14,7 @@ import { Text } from '@/components/ui/text';
 import { formatPericopeVerseLabel } from '@/constants/bibleStructure';
 import { useAudio } from '@/contexts/AudioContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { run as runAssetGarbageCollector } from '@/database_services/assetGarbageCollectorService';
 import {
   normalizeOrderIndexForVerses,
   renameAsset,
@@ -21,7 +22,6 @@ import {
   softMergeAssetsInQuest
 } from '@/database_services/assetService';
 import { undo as undoAssetOperation } from '@/database_services/assetUndoService';
-import { audioSegmentService } from '@/database_services/audioSegmentService';
 import type { AssetOperationTypes } from '@/database_services/types';
 import {
   asset_content_link,
@@ -3500,6 +3500,15 @@ const RecordingView = () => {
     updateSessionItemsAfterUndo
   ]);
 
+  React.useEffect(() => {
+    return () => {
+      void runAssetGarbageCollector();
+      // .then((entries) => {
+      //   console.log('[AssetGC] run on exit result:', entries);
+      // });
+    };
+  }, []);
+
   return (
     <View className="flex-1 bg-background">
       {bookChapterLabelFull && (
@@ -3521,8 +3530,8 @@ const RecordingView = () => {
       )}
 
       {/* Header */}
-      <View className="flex-row items-center justify-between px-4 pb-2">
-        <View className="flex-col">
+      <View className="flex-row items-center px-4 pb-2">
+        <View className="flex-1 flex-col">
           <Text className="text-base font-semibold text-foreground">
             {(bookChapterLabelFull || bookChapterLabel).length > 25
               ? `${(bookChapterLabelFull || bookChapterLabel).slice(0, 25)}...`
@@ -3532,7 +3541,7 @@ const RecordingView = () => {
             {assets.length} {t('assets').toLowerCase()}
           </Text>
         </View>
-        <View className="flex-row items-center justify-end gap-3">
+        <View className="ml-2 flex-row items-center justify-end gap-3">
           <Button
             variant="ghost"
             size="icon"
