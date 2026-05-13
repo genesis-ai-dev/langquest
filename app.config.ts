@@ -110,6 +110,11 @@ export default ({ config }: ConfigContext): ExpoConfig =>
                 scheme: 'https',
                 host,
                 pathPattern: '/.*/registration-confirmation'
+              },
+              {
+                scheme: 'https',
+                host,
+                pathPattern: '/.*/notifications'
               }
             ]),
             ...getSiteHosts(appVariant).map((host) => ({

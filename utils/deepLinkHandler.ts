@@ -1,8 +1,10 @@
 import { system } from '@/db/powersync/system';
 
-interface DeepLinkResult {
+export interface DeepLinkResult {
   handled: boolean;
-  type?: 'password-reset' | 'email-confirmation';
+  type?: 'password-reset' | 'email-confirmation' | 'invite';
+  navigateTo?: string;
+  params?: Record<string, string>;
 }
 
 interface ParsedDeepLink {
@@ -97,4 +99,40 @@ export async function handleAuthDeepLink(url: string): Promise<DeepLinkResult> {
     console.error('[DeepLinkHandler] Error handling deep link:', error);
     return { handled: false };
   }
+}
+
+/**
+ * Handle invite deep links - navigates to notifications page
+ * This is called for non-auth deep links like invite links
+ */
+export function handleInviteDeepLink(url: string): DeepLinkResult {
+  console.log('[DeepLinkHandler] Processing potential invite deep link:', url);
+
+  const { params, path } = parseDeepLink(url);
+
+  // Check if this is a notifications/invite deep link
+  if (path.includes('notifications')) {
+    console.log('[DeepLinkHandler] Invite deep link detected, navigating to notifications');
+
+    return {
+      handled: true,
+      type: 'invite',
+      navigateTo: '/notifications',
+      params
+    };
+  }
+
+  // Check for custom scheme deep links (langquest://notifications)
+  if (url.includes('://notifications')) {
+    console.log('[DeepLinkHandler] Custom scheme notifications link detected');
+
+    return {
+      handled: true,
+      type: 'invite',
+      navigateTo: '/notifications',
+      params
+    };
+  }
+
+  return { handled: false };
 }

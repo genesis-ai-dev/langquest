@@ -241,7 +241,7 @@ Deep links (password reset, email confirmation) require both the local Supabase 
 #### How it works
 
 1. The app triggers an auth action (e.g., password reset)
-2. Local Supabase sends an email with a link pointing to `SUPABASE_AUTH_SITE_URL` (the website)
+2. Local Supabase sends an email with a link pointing to `AUTH_SITE_URL` (the website)
 3. The website processes the link and redirects back to the app via the scheme set in the `NEXT_PUBLIC_APP_SCHEME` environment variable
 4. The app handles the deep link and completes the auth flow
 
