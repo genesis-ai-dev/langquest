@@ -166,7 +166,11 @@ Deno.serve(async (req) => {
             .single();
           locale = language?.locale ?? 'en';
         }
-        const joinUrl = `${Deno.env.get('PLAY_STORE_URL')}`;
+        // Construct the invite URL that goes to the website notifications page
+        // The website will handle deep linking to the app or redirecting to stores
+        const siteUrl = Deno.env.get('AUTH_SITE_URL');
+        const joinUrl = `${siteUrl}/notifications`;
+
         const inviteComponent = React.createElement(InviteEmail, {
           projectName: project?.name ?? 'Unknown Project',
           inviterName: sender?.username ?? 'A LangQuest user',
