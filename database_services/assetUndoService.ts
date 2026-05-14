@@ -4,7 +4,7 @@ import { and, eq, inArray } from 'drizzle-orm';
 import uuid from 'react-native-uuid';
 import type { AssetOperationTypes } from './types';
 import { dequeue as dequeueAssetGc } from './assetGarbageCollectorService';
-import { renameAsset } from './assetService';
+import { batchUpdateAssetMetadata, renameAsset } from './assetService';
 import { audioSegmentService } from './audioSegmentService';
 
 async function restoreAssetsToQuest(
@@ -120,6 +120,17 @@ async function undoReplace(
   await deleteAssetsPhysically(newIds);
 }
 
+async function undoMove(operation: AssetOperationTypes): Promise<void> {
+  const updates = operation.previousData.map((item) => ({
+    assetId: item.id,
+    metadata: item.metadata ?? null,
+    order_index: item.order_index ?? item.orderIndex ?? undefined
+  }));
+
+  if (updates.length === 0) return;
+  await batchUpdateAssetMetadata(updates);
+}
+
 /**
  * Revert a recorded asset operation.
  * Receives context IDs and the history operation payload.
@@ -152,6 +163,9 @@ export async function undo(
       return;
     case 'replace':
       await undoReplace(projectId, questId, operation);
+      return;
+    case 'move':
+      await undoMove(operation);
       return;
     default:
       throw new Error(`Unsupported asset undo action: ${operation.action}`);

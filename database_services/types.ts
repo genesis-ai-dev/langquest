@@ -24,12 +24,15 @@ export type AssetOperationAction =
   | 'rename'
   | 'merge'
   | 'delete'
-  | 'replace';
+  | 'replace'
+  | 'move';
 
 export interface AssetOperationDataItem {
   id: string;
   name?: string | null;
-  orderIndex?: number | null;
+  // orderIndex?: number | null;
+  order_index?: number | null;
+  metadata?: Record<string, any> | null;
 }
 
 export interface AssetOperationTypes {

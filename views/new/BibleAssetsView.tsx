@@ -14,7 +14,6 @@ import {
 import { Text } from '@/components/ui/text';
 import { useAudio } from '@/contexts/AudioContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { Stack } from 'expo-router';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import type { asset } from '@/db/drizzleSchema';
 import {
@@ -23,12 +22,12 @@ import {
   quest as questTable
 } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import { useDebouncedState } from '@/hooks/use-debounced-state';
 import { useProjectById } from '@/hooks/db/useProjects';
-import { useNavigationHelpers } from '@/hooks/useNavigation';
+import { useDebouncedState } from '@/hooks/use-debounced-state';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useAudioPlaybackCheckpoint } from '@/hooks/useAudioPlaybackCheckpoint';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { usePlayAllAudioController } from '@/hooks/usePlayAllAudioController';
 import { useQuestDownloadStatusLive } from '@/hooks/useQuestDownloadStatusLive';
 import { useSingleAudioController } from '@/hooks/useSingleAudioController';
@@ -38,6 +37,7 @@ import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import RNAlert from '@blazejkustra/react-native-alert';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useKeepAwake } from 'expo-keep-awake';
+import { Stack } from 'expo-router';
 import {
   BookmarkPlusIcon,
   BookOpenIcon,
@@ -54,6 +54,7 @@ import {
   SearchIcon,
   SettingsIcon,
   SquareIcon,
+  Undo2,
   UserPlusIcon
 } from 'lucide-react-native';
 import React from 'react';
@@ -87,7 +88,6 @@ import {
   DrawerContent,
   DrawerDescription,
   DrawerHeader,
-  DrawerScrollView,
   DrawerTitle
 } from '@/components/ui/drawer';
 import { VerseAssigner } from '@/components/VerseAssigner';
@@ -104,8 +104,16 @@ import {
   batchUpdateAssetMetadata,
   getNextOrderIndex,
   renameAsset,
+  softDeleteAssetsFromQuest,
+  softMergeAssetsInQuest,
   updateContentLinkOrder
 } from '@/database_services/assetService';
+import { run as runAssetGarbageCollector } from '@/database_services/assetGarbageCollectorService';
+import { undo as undoAssetOperation } from '@/database_services/assetUndoService';
+import type {
+  AssetOperationDataItem,
+  AssetOperationTypes
+} from '@/database_services/types';
 import { audioSegmentService } from '@/database_services/audioSegmentService';
 import { createQuestRecordingSession } from '@/database_services/questService';
 import type { FiaMetadata } from '@/db/drizzleSchemaColumns';
@@ -115,14 +123,15 @@ import { useBlockedAssetsCount } from '@/hooks/useBlockedCount';
 import { useFiaPericopeSteps } from '@/hooks/useFiaPericopeSteps';
 import { useQuestOffloadVerification } from '@/hooks/useQuestOffloadVerification';
 import { useHasUserReported } from '@/hooks/useReports';
+import { useUndoHistory } from '@/hooks/useUndoHistory';
 import { resolveTable } from '@/utils/dbUtils';
 import { fileExists, getLocalAttachmentUriWithOPFS } from '@/utils/fileUtils';
 import { publishQuest as publishQuestUtils } from '@/utils/publishQuest';
 import { offloadQuest } from '@/utils/questOffloadUtils';
-import { cn, getThemeColor } from '@/utils/styleUtils';
+import { getThemeColor } from '@/utils/styleUtils';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { and, asc, eq, gte, lte } from 'drizzle-orm';
+import { asc, eq } from 'drizzle-orm';
 import { ScrollView as GHScrollView } from 'react-native-gesture-handler';
 import type { ReorderableListReorderEvent } from 'react-native-reorderable-list';
 import ReorderableList, {
@@ -133,7 +142,6 @@ import { AssetCardItem } from './AssetCardItem';
 import { RecordSelectionControls } from './recording/components/RecordSelectionControls';
 import { RenameAssetDrawer } from './recording/components/RenameAssetDrawer';
 import { useSelectionMode } from './recording/hooks/useSelectionMode';
-// import RecordingViewSimplified from './recording/components/RecordingViewSimplified';
 
 type Asset = typeof asset.$inferSelect;
 
@@ -540,7 +548,25 @@ export default function BibleAssetsView() {
   const { currentUser } = useAuth();
   const audioContext = useAudio();
   const queryClient = useQueryClient();
+  const {
+    push: pushUndoHistory,
+    undo: undoHistory,
+    list: listUndoHistory,
+    length: undoLength
+  } = useUndoHistory<AssetOperationDataItem[], AssetOperationDataItem[]>();
+  const currentUndoOperation = React.useMemo(() => {
+    const history = listUndoHistory();
+    return history[history.length - 1] as AssetOperationTypes | undefined;
+  }, [listUndoHistory, undoLength]);
   const insets = useSafeAreaInsets();
+
+  React.useEffect(() => {
+    return () => {
+      void runAssetGarbageCollector().then((entries) => {
+        console.log('[AssetGC] run on exit result:', entries);
+      });
+    };
+  }, []);
 
   // Selection mode for batch operations
   const {
@@ -1333,9 +1359,23 @@ export default function BibleAssetsView() {
           onPress: () => {
             void (async () => {
               try {
-                for (const asset of selectedAssets) {
-                  await audioSegmentService.deleteAudioSegment(asset.id);
-                }
+                if (!questId) return;
+
+                const previousData = selectedAssets.map((asset) => ({
+                  id: asset.id,
+                  name: asset.name ?? null,
+                  orderIndex: asset.order_index
+                }));
+                const selectedIds = selectedAssets.map((asset) => asset.id);
+
+                await softDeleteAssetsFromQuest(questId, selectedIds);
+                pushUndoHistory({
+                  domain: 'asset',
+                  action: 'delete',
+                  previousData,
+                  newData: [],
+                  canUndo: true
+                });
 
                 cancelSelection();
                 setSelectedForRecording(null);
@@ -1357,7 +1397,16 @@ export default function BibleAssetsView() {
         }
       ]
     );
-  }, [assets, selectedAssetIds, cancelSelection, queryClient, t, refetch]);
+  }, [
+    assets,
+    cancelSelection,
+    pushUndoHistory,
+    queryClient,
+    questId,
+    refetch,
+    selectedAssetIds,
+    t
+  ]);
 
   // Handle batch merge of selected assets
   const handleBatchMergeSelected = React.useCallback(() => {
@@ -1383,63 +1432,36 @@ export default function BibleAssetsView() {
           onPress: () => {
             void (async () => {
               try {
-                if (!currentUser) return;
+                if (!questId) return;
 
-                const target = selectedAssets[0]!;
-                const rest = selectedAssets.slice(1);
-                const contentLocal = resolveTable('asset_content_link', {
-                  localOverride: true
+                const previousData = selectedAssets.map((asset) => ({
+                  id: asset.id,
+                  name: asset.name ?? null,
+                  orderIndex: asset.order_index
+                }));
+
+                const merged = await softMergeAssetsInQuest({
+                  questId,
+                  assetsToMerge: selectedAssets.map((asset) => ({ id: asset.id })),
+                  fallbackProjectId: projectId ?? null,
+                  fallbackCreatorId: currentUser?.id ?? null
                 });
 
-                for (const src of rest) {
-                  // Find all content links for the source asset, ordered by order_index
-                  const srcContent = await system.db
-                    .select()
-                    .from(asset_content_link)
-                    .where(eq(asset_content_link.asset_id, src.id))
-                    .orderBy(
-                      asc(asset_content_link.order_index),
-                      asc(asset_content_link.created_at)
-                    );
+                if (!merged) return;
 
-                  // Get the next available order_index for the target asset (local table)
-                  let nextOrder = await getNextOrderIndex(target.id, {
-                    localOverride: true
-                  });
-
-                  // Insert them for the target asset with sequential order_index
-                  for (const c of srcContent) {
-                    if (!c.audio) continue;
-                    await system.db.insert(contentLocal).values({
-                      asset_id: target.id,
-                      source_language_id: c.source_language_id,
-                      languoid_id:
-                        c.languoid_id ?? c.source_language_id ?? null,
-                      text: c.text || '',
-                      audio: c.audio,
-                      download_profiles: [currentUser.id],
-                      order_index: nextOrder++
-                    });
-                  }
-
-                  // Delete the source asset
-                  await audioSegmentService.deleteAudioSegment(src.id);
-                }
-
-                // Normalize all content links on target to 1-based ordering
-                const allContent = await system.db
-                  .select({ id: contentLocal.id })
-                  .from(contentLocal)
-                  .where(eq(contentLocal.asset_id, target.id))
-                  .orderBy(
-                    asc(contentLocal.order_index),
-                    asc(contentLocal.created_at)
-                  );
-                await updateContentLinkOrder(
-                  target.id,
-                  allContent.map((c) => c.id),
-                  { localOverride: true }
-                );
+                pushUndoHistory({
+                  domain: 'asset',
+                  action: 'merge',
+                  previousData,
+                  newData: [
+                    {
+                      id: merged.newAssetId,
+                      name: merged.newAssetName,
+                      order_index: merged.orderIndex
+                    }
+                  ],
+                  canUndo: true
+                });
 
                 cancelSelection();
                 setSelectedForRecording(null);
@@ -1447,7 +1469,7 @@ export default function BibleAssetsView() {
                 void refetch();
 
                 console.log(
-                  `✅ Batch merge completed: ${selectedAssets.length} assets merged into ${target.id.slice(0, 8)}`
+                  `✅ Batch merge completed: ${selectedAssets.length} assets merged into ${merged.newAssetId.slice(0, 8)}`
                 );
               } catch (e) {
                 console.error('Failed to batch merge assets', e);
@@ -1466,7 +1488,10 @@ export default function BibleAssetsView() {
     selectedAssetIds,
     currentUser,
     cancelSelection,
+    projectId,
+    pushUndoHistory,
     queryClient,
+    questId,
     t,
     refetch
   ]);
@@ -1493,6 +1518,14 @@ export default function BibleAssetsView() {
         // and throw if it's synced (immutable)
         await renameAsset(renameAssetId, newName);
 
+        pushUndoHistory({
+          domain: 'asset',
+          action: 'rename',
+          previousData: [{ id: renameAssetId, name: renameAssetName }],
+          newData: [{ id: renameAssetId, name: newName }],
+          canUndo: true
+        });
+
         // Invalidate queries to refresh the list
         void queryClient.invalidateQueries({ queryKey: ['assets'] });
         void refetch();
@@ -1504,7 +1537,75 @@ export default function BibleAssetsView() {
         }
       }
     },
-    [renameAssetId, queryClient, refetch, t]
+    [renameAssetId, renameAssetName, pushUndoHistory, queryClient, refetch, t]
+  );
+
+  const handleUndoAction = React.useCallback(() => {
+    const history = listUndoHistory();
+    history.forEach((item, index) => console.log(index, item));
+
+    const lastOperation = history[history.length - 1] as
+      | AssetOperationTypes
+      | undefined;
+    if (!lastOperation?.canUndo) return;
+
+    if (!projectId || !questId) {
+      console.warn('[Undo] Missing projectId or questId, cannot execute undo');
+      return;
+    }
+
+    void undoHistory(async (entry) => {
+      const operation = {
+        ...(entry as AssetOperationTypes),
+        domain: 'asset'
+      } as AssetOperationTypes;
+
+      await undoAssetOperation(projectId, questId, operation);
+      await queryClient.invalidateQueries({ queryKey: ['assets'] });
+      await refetch();
+    });
+  }, [
+    listUndoHistory,
+    projectId,
+    queryClient,
+    questId,
+    refetch,
+    undoHistory
+  ]);
+
+  const buildMoveHistoryEntries = React.useCallback(
+    (updates: AssetUpdatePayload[]) => {
+      const assetsById = new Map(assets.map((asset) => [asset.id, asset]));
+      const previousData: AssetOperationDataItem[] = [];
+      const newData: AssetOperationDataItem[] = [];
+
+      for (const update of updates) {
+        const current = assetsById.get(update.assetId);
+        if (!current) continue;
+
+        const currentMetadata = getAssetMetadata(current.metadata) ?? null;
+        const nextMetadata =
+          update.metadata !== undefined ? update.metadata : currentMetadata;
+        const nextOrderIndex =
+          update.order_index !== undefined
+            ? update.order_index
+            : current.order_index;
+
+        previousData.push({
+          id: current.id,
+          order_index: current.order_index,
+          metadata: currentMetadata as Record<string, any> | null
+        });
+        newData.push({
+          id: current.id,
+          order_index: nextOrderIndex,
+          metadata: (nextMetadata ?? null) as Record<string, any> | null
+        });
+      }
+
+      return { previousData, newData };
+    },
+    [assets, getAssetMetadata]
   );
 
   // Auto-assign labels to assets when a separator is created with assetId
@@ -1638,7 +1739,18 @@ export default function BibleAssetsView() {
         // Batch update all affected assets
         if (assetsToUpdate.length > 0) {
           try {
+            const { previousData, newData } =
+              buildMoveHistoryEntries(assetsToUpdate);
             await batchUpdateAssetMetadata(assetsToUpdate);
+            if (previousData.length > 0) {
+              pushUndoHistory({
+                domain: 'asset',
+                action: 'move',
+                previousData,
+                newData,
+                canUndo: true
+              });
+            }
 
             // Invalidate queries to refresh the UI
             void queryClient.invalidateQueries({ queryKey: ['assets'] });
@@ -1661,6 +1773,8 @@ export default function BibleAssetsView() {
     manualSeparators,
     listItems,
     assets,
+    buildMoveHistoryEntries,
+    pushUndoHistory,
     queryClient,
     refetch,
     getAssetMetadata
@@ -1771,7 +1885,18 @@ export default function BibleAssetsView() {
       // Batch update all affected assets
       if (assetsToUpdate.length > 0) {
         try {
+          const { previousData, newData } =
+            buildMoveHistoryEntries(assetsToUpdate);
           await batchUpdateAssetMetadata(assetsToUpdate);
+          if (previousData.length > 0) {
+            pushUndoHistory({
+              domain: 'asset',
+              action: 'move',
+              previousData,
+              newData,
+              canUndo: true
+            });
+          }
           // Invalidate queries to refresh the UI
           void queryClient.invalidateQueries({ queryKey: ['assets'] });
           void refetch();
@@ -1784,7 +1909,14 @@ export default function BibleAssetsView() {
         );
       }
     },
-    [listItems, queryClient, refetch, getAssetMetadata]
+    [
+      buildMoveHistoryEntries,
+      getAssetMetadata,
+      listItems,
+      pushUndoHistory,
+      queryClient,
+      refetch
+    ]
   );
 
   // Compute the allowed range for a new separator based on existing separators
@@ -1792,102 +1924,102 @@ export default function BibleAssetsView() {
   // - rangeFrom = previous separator's "to" + 1 (or 1 if no previous)
   // - rangeTo = CURRENT separator's "from" - 1 (or verseCount if current has no "from")
   // Note: Currently unused but kept for potential future use
-  const _computeAllowedRange = React.useCallback(
-    (separatorKey: string) => {
-      const currentIdx = listItems.findIndex((i) => i.key === separatorKey);
-      if (currentIdx === -1) {
-        return { from: 1, to: verseCount || 1 };
-      }
+  // const _computeAllowedRange = React.useCallback(
+  //   (separatorKey: string) => {
+  //     const currentIdx = listItems.findIndex((i) => i.key === separatorKey);
+  //     if (currentIdx === -1) {
+  //       return { from: 1, to: verseCount || 1 };
+  //     }
 
-      const currentSep = listItems[currentIdx];
+  //     const currentSep = listItems[currentIdx];
 
-      // Get the CURRENT separator's "from" value (this is the ceiling for new range)
-      let currentFrom: number | undefined;
-      if (currentSep?.type === 'separator') {
-        currentFrom = currentSep.from;
-      }
+  //     // Get the CURRENT separator's "from" value (this is the ceiling for new range)
+  //     let currentFrom: number | undefined;
+  //     if (currentSep?.type === 'separator') {
+  //       currentFrom = currentSep.from;
+  //     }
 
-      // Look backward for the PREVIOUS separator to get its "to" value
-      let prevTo: number | undefined;
-      for (let i = currentIdx - 1; i >= 0; i--) {
-        const item = listItems[i];
-        if (item?.type === 'separator' && item.to !== undefined) {
-          prevTo = item.to;
-          break;
-        }
-      }
+  //     // Look backward for the PREVIOUS separator to get its "to" value
+  //     let prevTo: number | undefined;
+  //     for (let i = currentIdx - 1; i >= 0; i--) {
+  //       const item = listItems[i];
+  //       if (item?.type === 'separator' && item.to !== undefined) {
+  //         prevTo = item.to;
+  //         break;
+  //       }
+  //     }
 
-      // Calculate range:
-      // - From: previous separator's "to" + 1, or 1 if no previous
-      // - To: CURRENT separator's "from" - 1, or verseCount if current has no "from"
-      const rangeFrom = prevTo !== undefined ? prevTo + 1 : 1;
-      const rangeTo =
-        currentFrom !== undefined ? currentFrom - 1 : verseCount || 1;
+  //     // Calculate range:
+  //     // - From: previous separator's "to" + 1, or 1 if no previous
+  //     // - To: CURRENT separator's "from" - 1, or verseCount if current has no "from"
+  //     const rangeFrom = prevTo !== undefined ? prevTo + 1 : 1;
+  //     const rangeTo =
+  //       currentFrom !== undefined ? currentFrom - 1 : verseCount || 1;
 
-      // Ensure valid range (from <= to)
-      const finalFrom = Math.max(1, rangeFrom);
-      const finalTo = Math.max(finalFrom, Math.min(rangeTo, verseCount || 1));
+  //     // Ensure valid range (from <= to)
+  //     const finalFrom = Math.max(1, rangeFrom);
+  //     const finalTo = Math.max(finalFrom, Math.min(rangeTo, verseCount || 1));
 
-      return { from: finalFrom, to: finalTo };
-    },
-    [listItems, verseCount]
-  );
+  //     return { from: finalFrom, to: finalTo };
+  //   },
+  //   [listItems, verseCount]
+  // );
 
   // Compute available ranges for a new label (not editing existing)
   // Returns all gaps between existing separators
   // Note: Currently unused but kept for potential future use
-  const _computeAvailableRanges = React.useCallback(() => {
-    const ranges: { from: number; to: number }[] = [];
+  // const _computeAvailableRanges = React.useCallback(() => {
+  //   const ranges: { from: number; to: number }[] = [];
 
-    // Get all separators with valid from/to values, sorted by 'from'
-    const separators = listItems
-      .filter(
-        (item): item is ListItemSeparator =>
-          item.type === 'separator' &&
-          item.from !== undefined &&
-          item.to !== undefined
-      )
-      .sort((a, b) => (a.from ?? 0) - (b.from ?? 0));
+  //   // Get all separators with valid from/to values, sorted by 'from'
+  //   const separators = listItems
+  //     .filter(
+  //       (item): item is ListItemSeparator =>
+  //         item.type === 'separator' &&
+  //         item.from !== undefined &&
+  //         item.to !== undefined
+  //     )
+  //     .sort((a, b) => (a.from ?? 0) - (b.from ?? 0));
 
-    // First gap: from 1 to first separator's from - 1
-    if (separators.length > 0) {
-      const first = separators[0];
-      if (first?.from !== undefined) {
-        const firstFrom = first.from;
-        if (firstFrom > 1) {
-          ranges.push({ from: 1, to: firstFrom - 1 });
-        }
-      }
-    } else {
-      // No separators, entire range is available
-      ranges.push({ from: 1, to: verseCount || 1 });
-    }
+  //   // First gap: from 1 to first separator's from - 1
+  //   if (separators.length > 0) {
+  //     const first = separators[0];
+  //     if (first?.from !== undefined) {
+  //       const firstFrom = first.from;
+  //       if (firstFrom > 1) {
+  //         ranges.push({ from: 1, to: firstFrom - 1 });
+  //       }
+  //     }
+  //   } else {
+  //     // No separators, entire range is available
+  //     ranges.push({ from: 1, to: verseCount || 1 });
+  //   }
 
-    // Gaps between separators
-    for (let i = 0; i < separators.length - 1; i++) {
-      const current = separators[i];
-      const next = separators[i + 1];
-      if (
-        current &&
-        next &&
-        current.to !== undefined &&
-        next.from !== undefined &&
-        current.to < next.from - 1
-      ) {
-        ranges.push({ from: current.to + 1, to: next.from - 1 });
-      }
-    }
+  //   // Gaps between separators
+  //   for (let i = 0; i < separators.length - 1; i++) {
+  //     const current = separators[i];
+  //     const next = separators[i + 1];
+  //     if (
+  //       current &&
+  //       next &&
+  //       current.to !== undefined &&
+  //       next.from !== undefined &&
+  //       current.to < next.from - 1
+  //     ) {
+  //       ranges.push({ from: current.to + 1, to: next.from - 1 });
+  //     }
+  //   }
 
-    // Last gap: from last separator's to + 1 to verseCount
-    if (separators.length > 0) {
-      const last = separators[separators.length - 1];
-      if (last?.to !== undefined && last.to < (verseCount || 1)) {
-        ranges.push({ from: last.to + 1, to: verseCount || 1 });
-      }
-    }
+  //   // Last gap: from last separator's to + 1 to verseCount
+  //   if (separators.length > 0) {
+  //     const last = separators[separators.length - 1];
+  //     if (last?.to !== undefined && last.to < (verseCount || 1)) {
+  //       ranges.push({ from: last.to + 1, to: verseCount || 1 });
+  //     }
+  //   }
 
-    return ranges;
-  }, [listItems, verseCount]);
+  //   return ranges;
+  // }, [listItems, verseCount]);
 
   // Get all available verses (not occupied by separators)
   const getAvailableVerses = React.useCallback(() => {
@@ -2119,7 +2251,17 @@ export default function BibleAssetsView() {
           })
         );
 
+        const { previousData, newData } = buildMoveHistoryEntries(updates);
         await batchUpdateAssetMetadata(updates);
+        if (previousData.length > 0) {
+          pushUndoHistory({
+            domain: 'asset',
+            action: 'move',
+            previousData,
+            newData,
+            canUndo: true
+          });
+        }
 
         // Close drawer and clear selection
         setShowVerseAssignerDrawer(false);
@@ -2137,7 +2279,9 @@ export default function BibleAssetsView() {
     [
       assets,
       selectedAssetIds,
+      buildMoveHistoryEntries,
       cancelSelection,
+      pushUndoHistory,
       queryClient,
       refetch,
       t,
@@ -2185,7 +2329,17 @@ export default function BibleAssetsView() {
         })
       );
 
+      const { previousData, newData } = buildMoveHistoryEntries(updates);
       await batchUpdateAssetMetadata(updates);
+      if (previousData.length > 0) {
+        pushUndoHistory({
+          domain: 'asset',
+          action: 'move',
+          previousData,
+          newData,
+          canUndo: true
+        });
+      }
 
       // Close drawer and clear selection
       setShowVerseAssignerDrawer(false);
@@ -2202,7 +2356,9 @@ export default function BibleAssetsView() {
   }, [
     assets,
     selectedAssetIds,
+    buildMoveHistoryEntries,
     cancelSelection,
+    pushUndoHistory,
     queryClient,
     refetch,
     t,
@@ -2255,85 +2411,85 @@ export default function BibleAssetsView() {
   // This function reads assets from DB and reassigns order_index with thousand scale
   // NOTE: This function is now available in assetService.ts and is called by RecordingView
   // ============================================================================
-  const _normalizeOrderIndexForVerses = React.useCallback(
-    async (verses: number[]) => {
-      if (!questId || verses.length === 0) return;
+  // const _normalizeOrderIndexForVerses = React.useCallback(
+  //   async (verses: number[]) => {
+  //     if (!questId || verses.length === 0) return;
 
-      const assetTable = resolveTable('asset', { localOverride: true });
-      const questAssetLinkTable = resolveTable('quest_asset_link', {
-        localOverride: true
-      });
+  //     const assetTable = resolveTable('asset', { localOverride: true });
+  //     const questAssetLinkTable = resolveTable('quest_asset_link', {
+  //       localOverride: true
+  //     });
 
-      for (const verse of verses) {
-        // Calculate order_index range for this verse
-        // Formula: verse * 1000 * 1000 to (verse + 1) * 1000 * 1000 - 1
-        // Example: verse 7 → 7000000 to 7999999
-        const minOrderIndex = verse * 1000 * 1000;
-        const maxOrderIndex = (verse + 1) * 1000 * 1000 - 1;
+  //     for (const verse of verses) {
+  //       // Calculate order_index range for this verse
+  //       // Formula: verse * 1000 * 1000 to (verse + 1) * 1000 * 1000 - 1
+  //       // Example: verse 7 → 7000000 to 7999999
+  //       const minOrderIndex = verse * 1000 * 1000;
+  //       const maxOrderIndex = (verse + 1) * 1000 * 1000 - 1;
 
-        try {
-          // Query assets by order_index range using join with quest_asset_link
-          // This ensures we only get assets that belong to this quest
-          const assetsInVerse = await system.db
-            .select({
-              id: assetTable.id,
-              name: assetTable.name,
-              order_index: assetTable.order_index
-            })
-            .from(assetTable)
-            .innerJoin(
-              questAssetLinkTable,
-              eq(assetTable.id, questAssetLinkTable.asset_id)
-            )
-            .where(
-              and(
-                eq(questAssetLinkTable.quest_id, questId),
-                gte(assetTable.order_index, minOrderIndex),
-                lte(assetTable.order_index, maxOrderIndex)
-              )
-            )
-            .orderBy(asc(assetTable.order_index));
+  //       try {
+  //         // Query assets by order_index range using join with quest_asset_link
+  //         // This ensures we only get assets that belong to this quest
+  //         const assetsInVerse = await system.db
+  //           .select({
+  //             id: assetTable.id,
+  //             name: assetTable.name,
+  //             order_index: assetTable.order_index
+  //           })
+  //           .from(assetTable)
+  //           .innerJoin(
+  //             questAssetLinkTable,
+  //             eq(assetTable.id, questAssetLinkTable.asset_id)
+  //           )
+  //           .where(
+  //             and(
+  //               eq(questAssetLinkTable.quest_id, questId),
+  //               gte(assetTable.order_index, minOrderIndex),
+  //               lte(assetTable.order_index, maxOrderIndex)
+  //             )
+  //           )
+  //           .orderBy(asc(assetTable.order_index));
 
-          if (assetsInVerse.length === 0) {
-            continue;
-          }
+  //         if (assetsInVerse.length === 0) {
+  //           continue;
+  //         }
 
-          // Recalculate order_index with thousand scale
-          // Formula: (verse * 1000 + sequential) * 1000
-          // sequential starts at 1: 7001000, 7002000, 7003000...
-          const updates: AssetUpdatePayload[] = [];
-          let hasChanges = false;
+  //         // Recalculate order_index with thousand scale
+  //         // Formula: (verse * 1000 + sequential) * 1000
+  //         // sequential starts at 1: 7001000, 7002000, 7003000...
+  //         const updates: AssetUpdatePayload[] = [];
+  //         let hasChanges = false;
 
-          for (let i = 0; i < assetsInVerse.length; i++) {
-            const asset = assetsInVerse[i];
-            if (!asset) continue;
+  //         for (let i = 0; i < assetsInVerse.length; i++) {
+  //           const asset = assetsInVerse[i];
+  //           if (!asset) continue;
 
-            const sequential = i + 1; // 1-based
-            const newOrderIndex = (verse * 1000 + sequential) * 1000;
+  //           const sequential = i + 1; // 1-based
+  //           const newOrderIndex = (verse * 1000 + sequential) * 1000;
 
-            // Only update if order_index changed
-            if (asset.order_index !== newOrderIndex) {
-              hasChanges = true;
-              updates.push({
-                assetId: asset.id,
-                order_index: newOrderIndex
-              });
-            }
-          }
+  //           // Only update if order_index changed
+  //           if (asset.order_index !== newOrderIndex) {
+  //             hasChanges = true;
+  //             updates.push({
+  //               assetId: asset.id,
+  //               order_index: newOrderIndex
+  //             });
+  //           }
+  //         }
 
-          if (hasChanges && updates.length > 0) {
-            await batchUpdateAssetMetadata(updates);
-            console.log(
-              `  ✅ Verse ${verse}: normalized ${updates.length} of ${assetsInVerse.length} asset(s)`
-            );
-          }
-        } catch (error) {
-          console.error(`  ❌ Failed to normalize verse ${verse}:`, error);
-        }
-      }
-    },
-    [questId]
-  );
+  //         if (hasChanges && updates.length > 0) {
+  //           await batchUpdateAssetMetadata(updates);
+  //           console.log(
+  //             `  ✅ Verse ${verse}: normalized ${updates.length} of ${assetsInVerse.length} asset(s)`
+  //           );
+  //         }
+  //       } catch (error) {
+  //         console.error(`  ❌ Failed to normalize verse ${verse}:`, error);
+  //       }
+  //     }
+  //   },
+  //   [questId]
+  // );
 
   // Calculate available range for adding verse label above a specific asset
   // Returns only verses between the previous separator's "to" and next separator's "from"
@@ -3072,11 +3228,6 @@ export default function BibleAssetsView() {
     []
   );
 
-  // OLD handlePlayAllAssets - Asset ranges for play-all: maps each asset to its time range
-  // const assetTimeRangesRef = React.useRef<
-  //   { assetId: string; startMs: number; endMs: number }[]
-  // >([]);
-
   // Calculate which asset should be highlighted based on position
   // NOTE: This is only used for handlePlayAsset (individual)
   // handlePlayAll (new function) controls currentlyPlayingAssetId directly
@@ -3090,23 +3241,6 @@ export default function BibleAssetsView() {
     if (audioContext.currentAudioId !== PLAY_ALL_AUDIO_ID) {
       return audioContext.currentAudioId;
     }
-
-    // OLD handlePlayAllAssets logic - commented out
-    // // Play-all mode (handlePlayAllAssets): Use time ranges if available
-    // const ranges = assetTimeRangesRef.current;
-    // if (ranges.length > 0) {
-    //   const position = audioContext.position;
-    //   for (const range of ranges) {
-    //     if (position >= range.startMs && position < range.endMs) {
-    //       return range.assetId;
-    //     }
-    //   }
-    //   // Position beyond all ranges - return last asset
-    //   return ranges[ranges.length - 1]?.assetId || null;
-    // }
-
-    // // Fallback to first asset in order
-    // return assetOrderRef.current[0] || null;
 
     return null;
   }, [
@@ -3633,7 +3767,17 @@ export default function BibleAssetsView() {
       // Batch update all changed assets
       if (updates.length > 0) {
         try {
+          const { previousData, newData } = buildMoveHistoryEntries(updates);
           await batchUpdateAssetMetadata(updates);
+          if (previousData.length > 0) {
+            pushUndoHistory({
+              domain: 'asset',
+              action: 'move',
+              previousData,
+              newData,
+              canUndo: true
+            });
+          }
 
           // Invalidate queries to refresh the UI
           void queryClient.invalidateQueries({ queryKey: ['assets'] });
@@ -3643,7 +3787,7 @@ export default function BibleAssetsView() {
         }
       }
     },
-    [queryClient, refetch, getAssetMetadata]
+    [buildMoveHistoryEntries, getAssetMetadata, pushUndoHistory, queryClient, refetch]
   );
 
   if (!questId) {
@@ -3815,6 +3959,14 @@ export default function BibleAssetsView() {
           </View>
           <View className="flex-row items-center gap-1">
             {/* Action buttons close to title: Refresh, PlayAll, AddLabel */}
+            <Button
+              variant="ghost"
+              size="icon"
+              disabled={!currentUndoOperation?.canUndo}
+              onPress={handleUndoAction}
+            >
+              <Icon as={Undo2} size={18} className="text-primary" />
+            </Button>
             <Button
               variant="ghost"
               size="icon"
@@ -4251,7 +4403,7 @@ export default function BibleAssetsView() {
               onRemove={handleRemoveLabelFromSelected}
               hasSelectedAssetsWithLabels={selectedAssetsHaveLabels}
               className="mx-4"
-              ScrollViewComponent={DrawerScrollView}
+              ScrollViewComponent={GHScrollView}
             />
           </DrawerContent>
         </Drawer>
