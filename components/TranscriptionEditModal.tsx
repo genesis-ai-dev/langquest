@@ -101,10 +101,7 @@ export default function TranscriptionEditModal({
       });
     },
     onSuccess: () => {
-      RNAlert.alert(
-        t('success'),
-        'Transcription saved successfully'
-      );
+      RNAlert.alert(t('success'), 'Transcription saved successfully');
       onSuccess?.();
       onClose();
     },

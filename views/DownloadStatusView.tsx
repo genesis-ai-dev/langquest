@@ -239,9 +239,7 @@ export default function DownloadStatusView() {
               </View>
             </CardTitle>
             <CardDescription>
-              {isConnected
-                ? t('online')
-                : t('offline')}
+              {isConnected ? t('online') : t('offline')}
             </CardDescription>
           </CardHeader>
         </Card>
@@ -252,9 +250,7 @@ export default function DownloadStatusView() {
             <CardHeader>
               <CardTitle className="flex-row items-center gap-2">
                 <Icon as={CloudDownload} size={20} className="text-primary" />
-                <Text className="ml-1">
-                  {t('attachmentDownloadProgress')}
-                </Text>
+                <Text className="ml-1">{t('attachmentDownloadProgress')}</Text>
               </CardTitle>
               <CardDescription>
                 {isLoading
@@ -347,8 +343,7 @@ export default function DownloadStatusView() {
                   {progress.downloading > 0 && (
                     <Badge variant="default" className="bg-blue-500 px-3 py-1">
                       <Text className="text-xs">
-                        {t('downloading')}:{' '}
-                        {progress.downloading}
+                        {t('downloading')}: {progress.downloading}
                       </Text>
                     </Badge>
                   )}

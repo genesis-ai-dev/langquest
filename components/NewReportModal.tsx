@@ -84,21 +84,17 @@ export const ReportModal: React.FC<ReportModalProps> = ({
 
   const handleSubmit = async () => {
     if (!currentUser || !isAuthenticated) {
-      RNAlert.alert(
-        t('signInRequired'),
-        t('blockContentLoginMessage'),
-        [
-          { text: t('cancel'), style: 'cancel' },
-          {
-            text: t('signIn'),
-            isPreferred: true,
-            onPress: () => {
-              onClose();
-              router.push('/(auth)/sign-in');
-            }
+      RNAlert.alert(t('signInRequired'), t('blockContentLoginMessage'), [
+        { text: t('cancel'), style: 'cancel' },
+        {
+          text: t('signIn'),
+          isPreferred: true,
+          onPress: () => {
+            onClose();
+            router.push('/(auth)/sign-in');
           }
-        ]
-      );
+        }
+      ]);
       return;
     }
 

@@ -562,9 +562,7 @@ function VADSettingsDrawerInternal({
         // Wait a bit for energy detection to stabilize
         await new Promise((resolve) => setTimeout(resolve, 200));
       } catch {
-        setCalibrationError(
-          t('vadCalibrationFailed')
-        );
+        setCalibrationError(t('vadCalibrationFailed'));
         return;
       }
     }
@@ -602,9 +600,7 @@ function VADSettingsDrawerInternal({
 
       const samples = calibrationSamplesRef.current;
       if (samples.length === 0) {
-        setCalibrationError(
-          t('vadCalibrationFailed')
-        );
+        setCalibrationError(t('vadCalibrationFailed'));
         setIsCalibrating(false);
         setCalibrationProgress(0);
         return;
@@ -622,9 +618,7 @@ function VADSettingsDrawerInternal({
 
       // Check for reasonable noise level (only check if too quiet - allow loud environments)
       if (normalizedAverage < 0.0001) {
-        setCalibrationError(
-          t('vadCalibrationFailed')
-        );
+        setCalibrationError(t('vadCalibrationFailed'));
         setIsCalibrating(false);
         setCalibrationProgress(0);
         return;

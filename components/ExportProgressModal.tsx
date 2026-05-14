@@ -62,9 +62,7 @@ export function ExportProgressModal({
           exportData?.status === 'pending' ? (
             <>
               <ActivityIndicator size="large" />
-              <Text className="text-center">
-                {t('exporting')}
-              </Text>
+              <Text className="text-center">{t('exporting')}</Text>
             </>
           ) : exportData?.status === 'ready' ? (
             <>

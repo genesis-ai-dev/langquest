@@ -295,20 +295,14 @@ export default function NextGenNewTranslationModal({
   // Handle AI transcription from source audio
   const handleAiTranscription = async () => {
     if (!isAuthenticated) {
-      RNAlert.alert(
-        t('error'),
-        t('pleaseLogInToTranscribe')
-      );
+      RNAlert.alert(t('error'), t('pleaseLogInToTranscribe'));
       return;
     }
 
     // Use pre-resolved audio URIs from parent
     const audioUri = resolvedAudioUris[0];
     if (!audioUri) {
-      RNAlert.alert(
-        t('error'),
-        t('audioNotAvailable')
-      );
+      RNAlert.alert(t('error'), t('audioNotAvailable'));
       return;
     }
 

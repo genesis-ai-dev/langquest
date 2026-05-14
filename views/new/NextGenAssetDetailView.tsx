@@ -692,19 +692,13 @@ export default function NextGenAssetDetailView() {
   // Transcription handler for source audio
   const handleTranscribe = async (uri: string) => {
     if (!isAuthenticated) {
-      RNAlert.alert(
-        t('error'),
-        t('pleaseLogInToTranscribe')
-      );
+      RNAlert.alert(t('error'), t('pleaseLogInToTranscribe'));
       return;
     }
 
     // Validate the audio URI exists
     if (!uri) {
-      RNAlert.alert(
-        t('error'),
-        t('audioNotAvailable')
-      );
+      RNAlert.alert(t('error'), t('audioNotAvailable'));
       return;
     }
 
@@ -715,10 +709,7 @@ export default function NextGenAssetDetailView() {
         const exists = await fileExists(uri);
         if (!exists) {
           console.log('[Transcription] Audio file not found at URI:', uri);
-          RNAlert.alert(
-            t('error'),
-            t('audioNotAvailable')
-          );
+          RNAlert.alert(t('error'), t('audioNotAvailable'));
           return;
         }
       } catch (error) {

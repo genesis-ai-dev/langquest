@@ -832,9 +832,7 @@ export default function NextGenProjectsView() {
                       onPress={() => router.push('/(auth)/sign-in')}
                       className="w-full"
                     >
-                      <Text className="font-semibold">
-                        {t('signIn')}
-                      </Text>
+                      <Text className="font-semibold">{t('signIn')}</Text>
                     </Button>
                     <Button
                       variant="outline"

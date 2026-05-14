@@ -60,9 +60,7 @@ export const DownloadConfirmationModal: React.FC<
   };
 
   const title =
-    downloadType === 'project'
-      ? t('downloadProject')
-      : t('downloadQuest');
+    downloadType === 'project' ? t('downloadProject') : t('downloadQuest');
 
   return (
     <Drawer

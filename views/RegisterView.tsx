@@ -56,10 +56,7 @@ export default function RegisterView() {
       username: z
         .string(t('usernameRequired'))
         .nonempty(t('usernameRequired'))
-        .min(
-          3,
-          t('usernameRequired')
-        )
+        .min(3, t('usernameRequired'))
     })
     .refine((data) => data.password === data.confirmPassword, {
       message: t('passwordsNoMatch'),
@@ -105,9 +102,7 @@ export default function RegisterView() {
     onError: (error) => {
       RNAlert.alert(
         t('error'),
-        error instanceof Error
-          ? error.message
-          : t('registrationFail')
+        error instanceof Error ? error.message : t('registrationFail')
       );
     }
   });

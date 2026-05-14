@@ -176,9 +176,7 @@ export function QuestDownloadDiscoveryDrawer({
     >
       <DrawerContent className="pb-safe">
         <DrawerHeader>
-          <DrawerTitle>
-            {t('discoveringQuestData')}
-          </DrawerTitle>
+          <DrawerTitle>{t('discoveringQuestData')}</DrawerTitle>
           <Text className="text-sm text-muted-foreground">
             {isDiscovering
               ? t('analyzingRelatedRecords')
@@ -235,9 +233,7 @@ export function QuestDownloadDiscoveryDrawer({
 
         <DrawerFooter>
           <View className="flex-row items-center justify-between rounded-lg bg-muted p-3">
-            <Text className="text-sm font-semibold">
-              {t('totalRecords')}:
-            </Text>
+            <Text className="text-sm font-semibold">{t('totalRecords')}:</Text>
             <Text className="text-lg font-bold text-primary">
               {totalRecords}
             </Text>
@@ -258,9 +254,7 @@ export function QuestDownloadDiscoveryDrawer({
             disabled={isDiscovering || totalRecords === 0}
           >
             <Text className="font-bold">
-              {isDiscovering
-                ? t('discovering')
-                : t('continueToDownload')}
+              {isDiscovering ? t('discovering') : t('continueToDownload')}
             </Text>
           </Button>
 

@@ -57,9 +57,7 @@ export default function SignInView() {
     onError: (error) => {
       RNAlert.alert(
         t('error'),
-        error instanceof Error
-          ? error.message
-          : t('signInError'),
+        error instanceof Error ? error.message : t('signInError'),
         [
           { text: t('ok'), isPreferred: true },
           {

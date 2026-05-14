@@ -114,18 +114,13 @@ export function ExportTypeSelector({
     ) {
       Clipboard.setStringAsync(exportData.share_url)
         .then(() => {
-          RNAlert.alert(
-            t('success'),
-            t('linkCopied')
-          );
+          RNAlert.alert(t('success'), t('linkCopied'));
           setIsCopyingLink(false);
         })
         .catch((error) => {
           RNAlert.alert(
             t('error'),
-            error instanceof Error
-              ? error.message
-              : t('exportFailed')
+            error instanceof Error ? error.message : t('exportFailed')
           );
           setIsCopyingLink(false);
         });
@@ -136,9 +131,7 @@ export function ExportTypeSelector({
     <Drawer open={visible} onOpenChange={onClose} snapPoints={[300]}>
       <DrawerContent className="bg-background">
         <DrawerHeader className="flex-row items-center justify-between">
-          <DrawerTitle>
-            {t('selectExportType')}
-          </DrawerTitle>
+          <DrawerTitle>{t('selectExportType')}</DrawerTitle>
         </DrawerHeader>
 
         <View className="flex-col gap-3">
@@ -149,9 +142,7 @@ export function ExportTypeSelector({
           >
             <Icon as={Share2Icon} size={20} />
             <View className="min-w-0 flex-1 flex-shrink flex-col gap-1">
-              <Text className="font-semibold">
-                {t('shareLocally')}
-              </Text>
+              <Text className="font-semibold">{t('shareLocally')}</Text>
               <Text className="flex-shrink text-sm text-muted-foreground">
                 {t('shareLocallyDescription')}
               </Text>
@@ -168,9 +159,7 @@ export function ExportTypeSelector({
               >
                 <Icon as={CopyIcon} size={20} />
                 <View className="min-w-0 flex-1 flex-shrink flex-col gap-1">
-                  <Text className="font-semibold">
-                    {t('copyFeedbackLink')}
-                  </Text>
+                  <Text className="font-semibold">{t('copyFeedbackLink')}</Text>
                   <Text className="flex-shrink text-sm text-muted-foreground">
                     {t('copyFeedbackLinkDescription')}
                   </Text>

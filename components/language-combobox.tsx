@@ -307,8 +307,7 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
     if (shouldShowCreate) {
       sorted.unshift({
         value: '__create_new__',
-        label:
-          t('createLanguage', { name: trimmedQuery }),
+        label: t('createLanguage', { name: trimmedQuery }),
         displayLabel: trimmedQuery,
         isCreateOption: true
       });

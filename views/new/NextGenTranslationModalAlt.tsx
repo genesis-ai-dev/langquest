@@ -447,29 +447,20 @@ export default function NextGenTranslationModal({
 
   const handleTranscribe = async (uri: string) => {
     if (!isAuthenticated) {
-      RNAlert.alert(
-        t('error'),
-        t('pleaseLogInToTranscribe')
-      );
+      RNAlert.alert(t('error'), t('pleaseLogInToTranscribe'));
       return;
     }
 
     // Validate the audio file exists before attempting transcription
     if (!uri) {
-      RNAlert.alert(
-        t('error'),
-        t('audioNotAvailable')
-      );
+      RNAlert.alert(t('error'), t('audioNotAvailable'));
       return;
     }
 
     const exists = await fileExists(uri);
     if (!exists) {
       console.log('[Transcription] Audio file not found at URI:', uri);
-      RNAlert.alert(
-        t('error'),
-        t('audioNotAvailable')
-      );
+      RNAlert.alert(t('error'), t('audioNotAvailable'));
       return;
     }
 

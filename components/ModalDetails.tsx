@@ -220,9 +220,7 @@ export const ModalDetails: React.FC<ModalDetailsProps> = ({
                   size={20}
                 />
                 <Text className="flex-1">
-                  {isDownloaded
-                    ? t('downloaded')
-                    : t('notDownloaded')}
+                  {isDownloaded ? t('downloaded') : t('notDownloaded')}
                 </Text>
               </View>
 
@@ -266,9 +264,7 @@ export const ModalDetails: React.FC<ModalDetailsProps> = ({
                       }}
                     >
                       <Icon as={CloudOffIcon} className="text-white" />
-                      <Text className="text-white">
-                        {t('offloadQuest')}
-                      </Text>
+                      <Text className="text-white">{t('offloadQuest')}</Text>
                     </Button>
                   </View>
                 )}
