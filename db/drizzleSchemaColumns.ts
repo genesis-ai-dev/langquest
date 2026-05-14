@@ -18,6 +18,7 @@ import {
 import uuid from 'react-native-uuid';
 import {
   contentTypeOptions,
+  emailStatusOptions,
   matchedOnOptions,
   membershipOptions,
   reasonOptions,
@@ -868,6 +869,7 @@ export function createInviteTable<
   ) => SQLiteTableExtraConfigValue[]
 ) {
   const extraColumns = (columns ?? {}) as TColumnsMap;
+
   const table = getTableCreator(source)(
     'invite',
     {
@@ -883,10 +885,18 @@ export function createInviteTable<
       project_id: text()
         .notNull()
         .references(() => project.id),
+      // Email tracking columns
+      resend_email_id: text(),
+      email_status: text({ enum: emailStatusOptions }),
+      email_sent_at: text(), // ISO timestamp
+      email_delivered_at: text(), // ISO timestamp
+      email_bounced_at: text(), // ISO timestamp
+      bounce_reason: text(),
       ...extraColumns
     },
     (table) => [
       index('idx_invite_request_receiver_email').on(table.email),
+      index('idx_invite_resend_email_id').on(table.resend_email_id),
       ...normalizeParams(extraConfig, table)
     ]
   );

@@ -30,3 +30,10 @@ export const contentTypeOptions = [
 ] as const;
 
 export const matchedOnOptions = ['name', 'alias', 'iso_code'] as const;
+
+export const emailStatusOptions = [
+  'sent',
+  'delivered',
+  'bounced',
+  'complained'
+] as const;

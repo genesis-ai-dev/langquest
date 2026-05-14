@@ -182,7 +182,7 @@ Deno.serve(async (req) => {
           plainText: true
         });
         const subject = emailSubjects.invite[locale] ?? emailSubjects.invite.en;
-        const { error } = await resend.emails.send({
+        const { data: emailData, error } = await resend.emails.send({
           from: 'LangQuest <invitations@langquest.org>',
           to: [record.receiver_email],
           subject,
@@ -190,6 +190,21 @@ Deno.serve(async (req) => {
           text
         });
         if (error) throw error;
+
+        // Update invite with email tracking data
+        const { error: updateError } = await supabase
+          .from('invite')
+          .update({
+            resend_email_id: emailData?.id,
+            email_status: 'sent',
+            email_sent_at: new Date().toISOString()
+          })
+          .eq('id', record.id);
+
+        if (updateError) {
+          console.error('Failed to update invite email tracking:', updateError);
+          // Don't throw - email was sent successfully, just tracking failed
+        }
       }
       return new Response(
         JSON.stringify({
