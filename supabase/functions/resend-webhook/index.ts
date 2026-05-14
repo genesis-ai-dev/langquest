@@ -6,7 +6,9 @@ const supabaseKey = Deno.env.get('SERVICE_ROLE_KEY');
 const resendWebhookSecret = Deno.env.get('RESEND_WEBHOOK_SECRET');
 
 if (!supabaseUrl || !supabaseKey) {
-  throw new Error('Missing required environment variables: SUPABASE_URL or SERVICE_ROLE_KEY');
+  throw new Error(
+    'Missing required environment variables: SUPABASE_URL or SERVICE_ROLE_KEY'
+  );
 }
 
 const supabase = createClient(supabaseUrl, supabaseKey, {
@@ -17,7 +19,10 @@ const supabase = createClient(supabaseUrl, supabaseKey, {
  * Verify Resend webhook signature
  * Resend signs webhooks using the webhook secret
  */
-async function verifySignature(payload: string, signature: string | null): Promise<boolean> {
+async function verifySignature(
+  payload: string,
+  signature: string | null
+): Promise<boolean> {
   if (!resendWebhookSecret || !signature) {
     console.warn('Missing webhook secret or signature');
     return false;
@@ -79,10 +84,10 @@ interface ResendWebhookPayload {
 Deno.serve(async (req) => {
   // Only accept POST requests
   if (req.method !== 'POST') {
-    return new Response(
-      JSON.stringify({ error: 'Method not allowed' }),
-      { status: 405, headers: { 'Content-Type': 'application/json' } }
-    );
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+      status: 405,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 
   try {
@@ -93,10 +98,10 @@ Deno.serve(async (req) => {
     if (resendWebhookSecret) {
       const isValid = await verifySignature(payload, signature);
       if (!isValid) {
-        return new Response(
-          JSON.stringify({ error: 'Invalid signature' }),
-          { status: 401, headers: { 'Content-Type': 'application/json' } }
-        );
+        return new Response(JSON.stringify({ error: 'Invalid signature' }), {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' }
+        });
       }
     }
 
@@ -115,7 +120,9 @@ Deno.serve(async (req) => {
 
     if (findError || !invite) {
       // Email might not be an invite (could be auth email), just acknowledge
-      console.log(`[Resend Webhook] No invite found for email ${emailId}, acknowledging`);
+      console.log(
+        `[Resend Webhook] No invite found for email ${emailId}, acknowledging`
+      );
       return new Response(JSON.stringify({ success: true }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' }
@@ -172,7 +179,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log(`[Resend Webhook] Updated invite ${invite.id} with status ${updateData.email_status}`);
+    console.log(
+      `[Resend Webhook] Updated invite ${invite.id} with status ${updateData.email_status}`
+    );
 
     return new Response(JSON.stringify({ success: true }), {
       status: 200,
