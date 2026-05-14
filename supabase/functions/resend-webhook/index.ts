@@ -1,5 +1,6 @@
-import { createClient } from 'npm:@supabase/supabase-js@2';
-import { crypto } from 'jsr:@std/crypto';
+import "@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from '@supabase/supabase-js';
+import { Resend } from 'resend';
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL');
 const supabaseKey = Deno.env.get('SERVICE_ROLE_KEY');
@@ -14,54 +15,6 @@ if (!supabaseUrl || !supabaseKey) {
 const supabase = createClient(supabaseUrl, supabaseKey, {
   auth: { persistSession: false, autoRefreshToken: false }
 });
-
-/**
- * Verify Resend webhook signature
- * Resend signs webhooks using the webhook secret
- */
-async function verifySignature(
-  payload: string,
-  signature: string | null
-): Promise<boolean> {
-  if (!resendWebhookSecret || !signature) {
-    console.warn('Missing webhook secret or signature');
-    return false;
-  }
-
-  try {
-    const encoder = new TextEncoder();
-    const key = await crypto.subtle.importKey(
-      'raw',
-      encoder.encode(resendWebhookSecret),
-      { name: 'HMAC', hash: 'SHA-256' },
-      false,
-      ['sign', 'verify']
-    );
-
-    const signatureBytes = hexToBytes(signature);
-    const payloadBytes = encoder.encode(payload);
-
-    const isValid = await crypto.subtle.verify(
-      'HMAC',
-      key,
-      signatureBytes,
-      payloadBytes
-    );
-
-    return isValid;
-  } catch (error) {
-    console.error('Signature verification failed:', error);
-    return false;
-  }
-}
-
-function hexToBytes(hex: string): Uint8Array {
-  const bytes = new Uint8Array(hex.length / 2);
-  for (let i = 0; i < hex.length; i += 2) {
-    bytes[i / 2] = parseInt(hex.substring(i, i + 2), 16);
-  }
-  return bytes;
-}
 
 interface ResendWebhookPayload {
   type: string;
@@ -92,20 +45,47 @@ Deno.serve(async (req) => {
 
   try {
     const payload = await req.text();
-    const signature = req.headers.get('resend-signature');
 
-    // Verify signature in production
+    let event: ResendWebhookPayload;
+
+    // https://resend.com/docs/webhooks/verify-webhooks-requests — raw body + Svix headers
     if (resendWebhookSecret) {
-      const isValid = await verifySignature(payload, signature);
-      if (!isValid) {
+      const resendApiKey = Deno.env.get('RESEND_API_KEY');
+      if (!resendApiKey) {
+        console.error(
+          '[Resend Webhook] RESEND_API_KEY is required when RESEND_WEBHOOK_SECRET is set'
+        );
+        return new Response(
+          JSON.stringify({ error: 'Server configuration error' }),
+          { status: 500, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+      const id = req.headers.get('svix-id');
+      const timestamp = req.headers.get('svix-timestamp');
+      const signature = req.headers.get('svix-signature');
+      if (!id || !timestamp || !signature) {
+        return new Response(
+          JSON.stringify({ error: 'Missing Svix webhook headers' }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+      try {
+        const resend = new Resend(resendApiKey);
+        event = resend.webhooks.verify({
+          payload,
+          headers: { id, timestamp, signature },
+          webhookSecret: resendWebhookSecret
+        }) as unknown as ResendWebhookPayload;
+      } catch (error) {
+        console.error('[Resend Webhook] SDK verification failed:', error);
         return new Response(JSON.stringify({ error: 'Invalid signature' }), {
           status: 401,
           headers: { 'Content-Type': 'application/json' }
         });
       }
+    } else {
+      event = JSON.parse(payload) as ResendWebhookPayload;
     }
-
-    const event: ResendWebhookPayload = JSON.parse(payload);
     const { type, data } = event;
     const emailId = data.id;
 

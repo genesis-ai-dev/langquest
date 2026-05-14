@@ -1,6 +1,6 @@
 {
   "imports": {
     "@supabase/functions-js": "jsr:@supabase/functions-js@^2",
-    "@supabase/sql-to-rest": "npm:@supabase/sql-to-rest"
+    "@supabase/supabase-js": "npm:@supabase/supabase-js@2"
   }
 }

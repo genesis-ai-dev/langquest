@@ -1,3 +1,13 @@
 {
-  "imports": {}
+  "imports": {
+    "@react-email/components": "npm:@react-email/components",
+    "@react-email/render": "npm:@react-email/render",
+    "@supabase/functions-js": "jsr:@supabase/functions-js@^2",
+    "@supabase/supabase-js": "npm:@supabase/supabase-js",
+    "@upstash/ratelimit": "npm:@upstash/ratelimit",
+    "@upstash/redis": "npm:@upstash/redis",
+    "react": "npm:react",
+    "resend": "npm:resend@6.12.3",
+    "standardwebhooks": "npm:standardwebhooks"
+  }
 }

@@ -1,21 +1,26 @@
-import { render } from 'npm:@react-email/render';
-import { createClient } from 'npm:@supabase/supabase-js';
-import { Ratelimit } from 'npm:@upstash/ratelimit';
-import { Redis } from 'npm:@upstash/redis';
-import React from 'npm:react';
-import { Resend } from 'npm:resend';
-import { Webhook } from 'npm:standardwebhooks';
+import { render } from '@react-email/render';
+import '@supabase/functions-js/edge-runtime.d.ts';
+import { createClient } from '@supabase/supabase-js';
+import { Ratelimit } from '@upstash/ratelimit';
+import { Redis } from '@upstash/redis';
+import React from 'react';
+import { Resend } from 'resend';
+import { Webhook } from 'standardwebhooks';
 import { ConfirmEmail } from './_templates/confirm-email.tsx';
 import { InviteEmail } from './_templates/invite-email.tsx';
 import { ResetPassword } from './_templates/reset-password.tsx';
+
 const resend = new Resend(Deno.env.get('RESEND_API_KEY'));
-const rawHookSecret = Deno.env.get('SEND_EMAIL_HOOK_SECRET');
+const rawHookSecret = Deno.env.get('SEND_EMAIL_HOOK_SECRET')!;
+const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+const supabaseKey = Deno.env.get('SERVICE_ROLE_KEY')!;
+
 const hookSecret = rawHookSecret.startsWith('v1,whsec_')
   ? rawHookSecret.substring(9) // Remove the 'v1,' prefix
   : rawHookSecret;
-const supabaseUrl = Deno.env.get('SUPABASE_URL');
-const supabaseKey = Deno.env.get('SERVICE_ROLE_KEY');
+
 const supabase = createClient(supabaseUrl, supabaseKey);
+
 const signupEmailSubjects = {
   en: 'Confirm Your LangQuest Account',
   es: 'Confirma tu cuenta de LangQuest',
@@ -29,6 +34,7 @@ const signupEmailSubjects = {
   th: 'ยืนยันบัญชี LangQuest ของคุณ',
   'zh-CN': '确认您的 LangQuest 账户'
 };
+
 // Email subject translations
 const emailSubjects = {
   signup: signupEmailSubjects,
@@ -60,6 +66,7 @@ const emailSubjects = {
     'zh-CN': '您已被邀请加入 LangQuest 上的项目'
   }
 };
+
 const emailTypeEndpoint = {
   email_change: 'registration-confirmation',
   signup: 'registration-confirmation',

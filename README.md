@@ -85,6 +85,7 @@ adb logcat --pid=$(adb shell pidof -s com.etengenesis.langquest)
 
 - Download [Docker Desktop](https://www.docker.com/get-started) (docker compose version 4.24.0 or greater required)
 - Install [psql](https://www.tigerdata.com/blog/how-to-install-psql-on-mac-ubuntu-debian-windows)
+- Install [Deno](https://docs.deno.com/runtime/getting_started/installation/) for Supabase Edge Functions local development and editor IntelliSense
 
 ### Running Local Services
 
