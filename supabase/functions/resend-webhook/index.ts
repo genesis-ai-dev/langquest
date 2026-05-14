@@ -1,4 +1,4 @@
-import "@supabase/functions-js/edge-runtime.d.ts";
+import '@supabase/functions-js/edge-runtime.d.ts';
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
 
@@ -20,16 +20,16 @@ interface ResendWebhookPayload {
   type: string;
   created_at: string;
   data: {
-    id: string;
-    object: string;
+    email_id: string;
     to: string[];
     from: string;
     created_at: string;
     subject: string;
     bounce?: {
-      type: 'hard_bounce' | 'soft_bounce' | 'block';
+      type: string;
       message: string;
-      code?: number;
+      diagnosticCode?: string[];
+      subType?: string;
     };
   };
 }
@@ -87,7 +87,7 @@ Deno.serve(async (req) => {
       event = JSON.parse(payload) as ResendWebhookPayload;
     }
     const { type, data } = event;
-    const emailId = data.id;
+    const emailId = data.email_id;
 
     console.log(`[Resend Webhook] Received ${type} for email ${emailId}`);
 
