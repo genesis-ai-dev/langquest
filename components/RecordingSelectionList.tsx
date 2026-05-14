@@ -15,12 +15,15 @@ import type { LegendListRef } from '@legendapp/list';
 import { LegendList } from '@legendapp/list';
 import { ArrowDownNarrowWide, Mic } from 'lucide-react-native';
 import React from 'react';
+import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import { TouchableOpacity, View } from 'react-native';
 import { Icon } from './ui/icon';
 
 export interface RecordingSelectionListHandle {
   scrollToIndex: (index: number, animated?: boolean) => void;
+  scrollToOffset: (offset: number, animated?: boolean) => void;
   getSelectedIndex: () => number;
+  getScrollOffset: () => number;
 }
 
 interface RecordingSelectionListPropsBase<T> {
@@ -76,6 +79,7 @@ function RecordingSelectionListInternal<T>(
 
   const listRef = React.useRef<LegendListRef>(null);
   const selectedIndexRef = React.useRef(value);
+  const scrollOffsetRef = React.useRef(0);
 
   // Total item count includes all data items + 1 boundary item at the end
   const itemCount = data.length + 1;
@@ -101,14 +105,22 @@ function RecordingSelectionListInternal<T>(
     [itemCount]
   );
 
+  const scrollToOffset = React.useCallback((offset: number, animated = true) => {
+    const clamped = Math.max(0, offset);
+    listRef.current?.scrollToOffset({ offset: clamped, animated });
+  }, []);
+
   React.useImperativeHandle(
     ref,
     () => ({
       scrollToIndex: (index: number, animated = true) =>
         scrollToIndex(index, animated),
-      getSelectedIndex: () => selectedIndexRef.current
+      scrollToOffset: (offset: number, animated = true) =>
+        scrollToOffset(offset, animated),
+      getSelectedIndex: () => selectedIndexRef.current,
+      getScrollOffset: () => scrollOffsetRef.current
     }),
-    [scrollToIndex]
+    [scrollToIndex, scrollToOffset]
   );
 
   // Handle item press - select this item
@@ -240,6 +252,13 @@ function RecordingSelectionListInternal<T>(
     ]
   );
 
+  const handleScroll = React.useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      scrollOffsetRef.current = event.nativeEvent.contentOffset.y;
+    },
+    []
+  );
+
   return (
     <View className={className} style={{ flex: 1 }}>
       <LegendList
@@ -260,6 +279,8 @@ function RecordingSelectionListInternal<T>(
           paddingBottom: bottomInset
         }}
         extraData={extraData}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
       />
     </View>
   );

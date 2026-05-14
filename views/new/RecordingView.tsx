@@ -22,7 +22,10 @@ import {
   softMergeAssetsInQuest
 } from '@/database_services/assetService';
 import { undo as undoAssetOperation } from '@/database_services/assetUndoService';
-import type { AssetOperationTypes } from '@/database_services/types';
+import type {
+  AssetOperationDataItem,
+  AssetOperationTypes
+} from '@/database_services/types';
 import {
   asset_content_link,
   project_language_link,
@@ -125,11 +128,6 @@ interface VersePillItem {
   id: string; // Unique ID for the pill (e.g., 'pill-verse-5')
   order_index: number;
   verse: { from: number; to: number } | null; // Verse metadata
-}
-
-interface UndoAssetHistoryItem {
-  id: string;
-  name?: string | null;
 }
 
 // Union type for items in the list (assets or verse pills)
@@ -647,7 +645,7 @@ const RecordingView = () => {
     undo: undoHistory,
     list: listUndoHistory,
     length: undoLength
-  } = useUndoHistory<UndoAssetHistoryItem[], UndoAssetHistoryItem[]>();
+  } = useUndoHistory<AssetOperationDataItem[], AssetOperationDataItem[]>();
   const currentUndoOperation = React.useMemo(() => {
     const history = listUndoHistory();
     return history.length > 0
@@ -1117,6 +1115,7 @@ const RecordingView = () => {
 
   // Auto-scroll request token to ignore stale scheduled scrolls
   const scrollRequestIdRef = React.useRef(0);
+  const pendingUndoScrollOffsetRef = React.useRef<number | null>(null);
 
   // Schedule a single scroll after list/layout settle.
   // If another insertion happens before this runs, the older request is ignored.
@@ -1148,6 +1147,12 @@ const RecordingView = () => {
     const currentCount = sessionItems.length;
     const previousCount = previousItemCountRef.current;
     const currentInsertionIndex = insertionIndexRef.current;
+
+    // Undo can change list length, but we preserve scroll manually in handleUndoAction.
+    if (pendingUndoScrollOffsetRef.current !== null) {
+      previousItemCountRef.current = currentCount;
+      return;
+    }
 
     // Only scroll if a new item was added (count increased)
     if (currentCount > previousCount && currentCount > 0) {
@@ -1857,7 +1862,7 @@ const RecordingView = () => {
 
   const handleRecordingComplete = React.useCallback(
     async (uri: string, recordingDuration: number, _waveformData: number[]) => {
-      let replacePreviousData: UndoAssetHistoryItem[] = [];
+      let replacePreviousData: AssetOperationDataItem[] = [];
       let didReplaceDeleteSucceed = false;
 
       // REPLACE MODE: Delete the asset being replaced (only once, on first recording)
@@ -1865,7 +1870,7 @@ const RecordingView = () => {
         `🔍 handleRecordingComplete | assetToReplaceRef.current: ${assetToReplaceRef.current?.slice(0, 8) ?? 'null'}`
       );
       if (assetToReplaceRef.current) {
-        const assetIdToReplace = assetToReplaceRef.current;
+      const assetIdToReplace = assetToReplaceRef.current;
         const replacedItem = sessionItemsRef.current.find(
           (item) => isAsset(item) && item.id === assetIdToReplace
         );
@@ -3479,6 +3484,9 @@ const RecordingView = () => {
       return;
     }
 
+    const preservedScrollOffset = listRef.current?.getScrollOffset() ?? 0;
+    pendingUndoScrollOffsetRef.current = preservedScrollOffset;
+
     void undoHistory(async (entry) => {
       const operation = {
         ...(entry as AssetOperationTypes),
@@ -3490,6 +3498,17 @@ const RecordingView = () => {
         queryKey: ['assets', 'by-quest', questId],
         exact: false
       });
+      InteractionManager.runAfterInteractions(() => {
+        requestAnimationFrame(() => {
+          const restoreOffset =
+            pendingUndoScrollOffsetRef.current ?? preservedScrollOffset;
+          listRef.current?.scrollToOffset(restoreOffset, false);
+          pendingUndoScrollOffsetRef.current = null;
+        });
+      });
+    }).catch((error) => {
+      pendingUndoScrollOffsetRef.current = null;
+      console.error('[Undo] Failed to preserve scroll position:', error);
     });
   }, [
     listUndoHistory,
