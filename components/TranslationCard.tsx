@@ -63,13 +63,15 @@ export const TranslationCard = ({
         <CardHeader className="flex-row items-start justify-between gap-4">
           {/* Left side: Content */}
           <View className="flex-1 flex-col gap-3">
-            {/* Text preview */}
-            <Text
-              numberOfLines={2}
-              className="text-base leading-relaxed text-foreground"
-            >
-              {previewText}
-            </Text>
+            {/* Text preview — hidden for audio-only cards; shown for text cards and truly empty cards */}
+            {(previewText || !hasAudio) && (
+              <Text
+                numberOfLines={2}
+                className="text-base leading-relaxed text-foreground"
+              >
+                {previewText}
+              </Text>
+            )}
 
             {/* Audio Player */}
             {hasAudio && (

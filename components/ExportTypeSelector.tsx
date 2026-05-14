@@ -91,10 +91,7 @@ export function ExportTypeSelector({
             }
           },
           onError: (error) => {
-            const errorMessage =
-              error.message ||
-              exportFailedMessage ||
-              'Failed to create export link';
+            const errorMessage = error.message || exportFailedMessage;
             RNAlert.alert(errorTitle, errorMessage);
             setIsCopyingLink(false);
           }
