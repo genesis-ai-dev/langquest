@@ -21,6 +21,7 @@ import {
   TooltipTrigger
 } from '@/components/ui/tooltip';
 import { useAuth } from '@/contexts/AuthContext';
+import { emailStatusOptions } from '@/db/constants';
 import type { profile, request } from '@/db/drizzleSchema';
 import { invite, project as projectTable } from '@/db/drizzleSchema';
 import {
@@ -76,6 +77,12 @@ interface Invitation {
   created_at: string;
   last_updated: string;
   receiver_profile_id: string | null;
+  resend_email_id: string | null;
+  email_status: (typeof emailStatusOptions)[number] | null;
+  email_sent_at: string | null;
+  email_delivered_at: string | null;
+  email_bounced_at: string | null;
+  bounce_reason: string | null;
   count?: number;
 }
 
@@ -282,15 +289,9 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
         ['pending', 'expired', 'declined', 'withdrawn'].includes(inv.status)
       )
       .map((inv) => ({
-        id: inv.id,
-        email: inv.email,
+        ...inv,
         name: inv.email,
-        role: inv.as_owner ? 'owner' : 'member',
-        status: inv.status,
-        created_at: inv.created_at,
-        last_updated: inv.last_updated,
-        receiver_profile_id: inv.receiver_profile_id,
-        count: inv.count
+        role: inv.as_owner ? 'owner' : 'member'
       }));
   }, [invites]);
 
@@ -889,6 +890,15 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
       }
     };
 
+    const isBounced = invitation.email_status === 'bounced';
+    const showResendButton =
+      withdrawInvitePermissions.hasAccess &&
+      (invitation.status === 'expired' || isBounced);
+    const showWithdrawButton =
+      withdrawInvitePermissions.hasAccess &&
+      invitation.status === 'pending' &&
+      !isBounced;
+
     return (
       <View
         key={invitation.id}
@@ -909,36 +919,45 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                 <Icon as={CrownIcon} size={16} className="text-primary" />
               )}
             </View>
-            <Badge
-              variant={getStatusVariant(invitation.status)}
-              className="mt-1 self-start"
-            >
-              <Text variant="small">{getStatusDisplay(invitation.status)}</Text>
-            </Badge>
+            <View className="mt-1 flex-row flex-wrap items-center gap-1">
+              <Badge variant={getStatusVariant(invitation.status)}>
+                <Text variant="small">
+                  {getStatusDisplay(invitation.status)}
+                </Text>
+              </Badge>
+              {isBounced && (
+                <Badge variant="destructive">
+                  <Text variant="small">{t('emailBounced')}</Text>
+                </Badge>
+              )}
+            </View>
+            {isBounced && invitation.bounce_reason && (
+              <Text variant="small" className="mt-1 text-destructive">
+                {invitation.bounce_reason}
+              </Text>
+            )}
           </View>
         </View>
 
         <View className="flex-row gap-1">
-          {withdrawInvitePermissions.hasAccess &&
-            invitation.status === 'expired' && (
-              <Button
-                variant="outline"
-                size="icon-sm"
-                onPress={() => void handleResendInvitation(invitation.id)}
-              >
-                <Icon as={RefreshCcwIcon} size={20} className="text-primary" />
-              </Button>
-            )}
-          {withdrawInvitePermissions.hasAccess &&
-            invitation.status === 'pending' && (
-              <Button
-                variant="outline"
-                size="icon-sm"
-                onPress={() => void handleWithdrawInvitation(invitation.id)}
-              >
-                <Icon as={CircleXIcon} size={20} className="text-destructive" />
-              </Button>
-            )}
+          {showResendButton && (
+            <Button
+              variant="outline"
+              size="icon-sm"
+              onPress={() => void handleResendInvitation(invitation.id)}
+            >
+              <Icon as={RefreshCcwIcon} size={20} className="text-primary" />
+            </Button>
+          )}
+          {showWithdrawButton && (
+            <Button
+              variant="outline"
+              size="icon-sm"
+              onPress={() => void handleWithdrawInvitation(invitation.id)}
+            >
+              <Icon as={CircleXIcon} size={20} className="text-destructive" />
+            </Button>
+          )}
         </View>
       </View>
     );

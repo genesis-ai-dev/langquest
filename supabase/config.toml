@@ -324,6 +324,7 @@ inspector_port = 8083
 [edge_runtime.secrets]
 SEND_EMAIL_HOOK_SECRET = "env(SEND_EMAIL_HOOK_SECRET)"
 RESEND_API_KEY = "env(RESEND_API_KEY)"
+RESEND_WEBHOOK_SECRET = "env(RESEND_WEBHOOK_SECRET)"
 SERVICE_ROLE_KEY = "env(SERVICE_ROLE_KEY)"
 UPSTASH_REDIS_REST_URL = "env(UPSTASH_REDIS_REST_URL)"
 UPSTASH_REDIS_REST_TOKEN = "env(UPSTASH_REDIS_REST_TOKEN)"
@@ -356,6 +357,11 @@ s3_secret_key = "env(S3_SECRET_KEY)"
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/send-email/index.ts"
+
+[functions.resend-webhook]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/resend-webhook/index.ts"
 
 [functions.clone-worker]
 enabled = true

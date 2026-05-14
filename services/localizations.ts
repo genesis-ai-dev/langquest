@@ -4078,6 +4078,19 @@ export const localizations = {
     thai: 'ถอนคำเชิญ',
     mandarin: '撤回邀请'
   },
+  emailBounced: {
+    english: 'Email Bounced',
+    french: 'Email rejeté',
+    spanish: 'Email rechazado',
+    brazilian_portuguese: 'Email rejeitado',
+    tok_pisin: 'Email i go bek',
+    indonesian: 'Email dibalikkan',
+    nepali: 'इमेल उछालियो',
+    hindi: 'ईमेल वापस हो गया',
+    burmese: 'အီးမေးလ် ပြန်လာသည်',
+    thai: 'อีเมลถูกตีกลับ',
+    mandarin: '邮件被退回'
+  },
   you: {
     english: 'You',
     french: 'Toi',
