@@ -449,7 +449,7 @@ export default function NextGenTranslationModal({
     if (!isAuthenticated) {
       RNAlert.alert(
         t('error'),
-        t('pleaseLogInToTranscribe') || 'Please log in to transcribe audio'
+        t('pleaseLogInToTranscribe')
       );
       return;
     }
@@ -458,8 +458,7 @@ export default function NextGenTranslationModal({
     if (!uri) {
       RNAlert.alert(
         t('error'),
-        t('audioNotAvailable') ||
-          'Audio not available. The file may not have been downloaded yet.'
+        t('audioNotAvailable')
       );
       return;
     }
@@ -469,8 +468,7 @@ export default function NextGenTranslationModal({
       console.log('[Transcription] Audio file not found at URI:', uri);
       RNAlert.alert(
         t('error'),
-        t('audioNotAvailable') ||
-          'Audio not available. The file may not have been downloaded yet.'
+        t('audioNotAvailable')
       );
       return;
     }
@@ -489,7 +487,7 @@ export default function NextGenTranslationModal({
         error instanceof Error ? error.message : 'Unknown error';
       RNAlert.alert(
         t('error'),
-        `${t('transcriptionFailed') || 'Failed to transcribe audio.'}\n\n${errorMessage}`
+        `${t('transcriptionFailed')}\n\n${errorMessage}`
       );
     }
   };
@@ -666,7 +664,7 @@ export default function NextGenTranslationModal({
                             }}
                             className="mt-4"
                           >
-                            <Text>{t('signIn') || 'Sign In'}</Text>
+                            <Text>{t('signIn')}</Text>
                           </Button>
                         </Alert>
                       ) : (

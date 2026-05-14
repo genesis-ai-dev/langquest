@@ -50,7 +50,7 @@ export function ExportProgressModal({
     <Drawer open={visible} onOpenChange={onClose} snapPoints={[300]}>
       <DrawerContent className="bg-background">
         <DrawerHeader className="flex-row items-center justify-between">
-          <DrawerTitle>{t('exportProgress') || 'Export Progress'}</DrawerTitle>
+          <DrawerTitle>{t('exportProgress')}</DrawerTitle>
           <DrawerClose variant="ghost" size="icon">
             <Icon as={XIcon} size={24} />
           </DrawerClose>
@@ -63,15 +63,14 @@ export function ExportProgressModal({
             <>
               <ActivityIndicator size="large" />
               <Text className="text-center">
-                {t('exporting') ||
-                  'Exporting chapter... This may take a few moments.'}
+                {t('exporting')}
               </Text>
             </>
           ) : exportData?.status === 'ready' ? (
             <>
               <Icon as={CheckCircleIcon} size={48} className="text-chart-3" />
               <Text className="text-center font-semibold">
-                {t('exportReady') || 'Export is ready!'}
+                {t('exportReady')}
               </Text>
               {exportData.share_url && (
                 <Button
@@ -79,7 +78,7 @@ export function ExportProgressModal({
                   className="w-full flex-row items-center gap-2"
                 >
                   <Icon as={Share2Icon} size={16} />
-                  <Text>{t('share') || 'Share'}</Text>
+                  <Text>{t('share')}</Text>
                 </Button>
               )}
             </>
@@ -87,7 +86,7 @@ export function ExportProgressModal({
             <>
               <Icon as={XCircleIcon} size={48} className="text-destructive" />
               <Text className="text-center font-semibold">
-                {t('exportFailed') || 'Export failed'}
+                {t('exportFailed')}
               </Text>
               {exportData.error_message && (
                 <Text className="text-center text-sm text-muted-foreground">
@@ -98,7 +97,7 @@ export function ExportProgressModal({
           ) : null}
 
           <Button variant="ghost" onPress={onClose} className="mt-2">
-            <Text>{t('close') || 'Close'}</Text>
+            <Text>{t('close')}</Text>
           </Button>
         </View>
       </DrawerContent>

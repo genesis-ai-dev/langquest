@@ -58,11 +58,11 @@ export default function RegisterView() {
         .nonempty(t('usernameRequired'))
         .min(
           3,
-          t('usernameRequired') || 'Username must be at least 3 characters'
+          t('usernameRequired')
         )
     })
     .refine((data) => data.password === data.confirmPassword, {
-      message: t('passwordsNoMatch') || 'Passwords do not match',
+      message: t('passwordsNoMatch'),
       path: ['confirmPassword']
     });
 
@@ -104,10 +104,10 @@ export default function RegisterView() {
     },
     onError: (error) => {
       RNAlert.alert(
-        t('error') || 'Error',
+        t('error'),
         error instanceof Error
           ? error.message
-          : t('registrationFail') || 'Registration failed'
+          : t('registrationFail')
       );
     }
   });

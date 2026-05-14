@@ -356,7 +356,7 @@ export default function AppDrawer({
     } else {
       // Anonymous user - show Sign In button prominently
       items.push({
-        name: t('signIn') || 'Sign In',
+        name: t('signIn'),
         icon: UserIcon,
         onPress: handleSignIn
       });

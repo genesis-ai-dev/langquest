@@ -56,12 +56,12 @@ export default function SignInView() {
     },
     onError: (error) => {
       RNAlert.alert(
-        t('error') || 'Error',
+        t('error'),
         error instanceof Error
           ? error.message
-          : t('signInError') || 'Sign in failed',
+          : t('signInError'),
         [
-          { text: t('ok') || 'OK', isPreferred: true },
+          { text: t('ok'), isPreferred: true },
           {
             text: t('newUser'),
             onPress: () =>

@@ -563,7 +563,7 @@ function VADSettingsDrawerInternal({
         await new Promise((resolve) => setTimeout(resolve, 200));
       } catch {
         setCalibrationError(
-          t('vadCalibrationFailed') || 'Failed to start microphone'
+          t('vadCalibrationFailed')
         );
         return;
       }
@@ -603,8 +603,7 @@ function VADSettingsDrawerInternal({
       const samples = calibrationSamplesRef.current;
       if (samples.length === 0) {
         setCalibrationError(
-          t('vadCalibrationFailed') ||
-            'Calibration failed. Please try again in a quieter environment.'
+          t('vadCalibrationFailed')
         );
         setIsCalibrating(false);
         setCalibrationProgress(0);
@@ -624,8 +623,7 @@ function VADSettingsDrawerInternal({
       // Check for reasonable noise level (only check if too quiet - allow loud environments)
       if (normalizedAverage < 0.0001) {
         setCalibrationError(
-          t('vadCalibrationFailed') ||
-            'Calibration failed. Please ensure there is some background noise.'
+          t('vadCalibrationFailed')
         );
         setIsCalibrating(false);
         setCalibrationProgress(0);
@@ -1252,7 +1250,7 @@ function VADSettingsDrawerInternal({
                           color={primaryForegroundColor}
                         />
                         <Text className="text-primary-foreground">
-                          {t('vadCalibrating') || 'Calibrating...'}{' '}
+                          {t('vadCalibrating')}{' '}
                           {Math.round(calibrationProgress)}%
                         </Text>
                       </View>
@@ -1264,7 +1262,7 @@ function VADSettingsDrawerInternal({
                           className="text-primary-foreground"
                         />
                         <Text className="text-primary-foreground">
-                          {t('vadAutoCalibrate') || 'Auto-Calibrate'}
+                          {t('vadAutoCalibrate')}
                         </Text>
                       </View>
                     )}

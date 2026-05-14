@@ -102,7 +102,7 @@ export default function TranscriptionEditModal({
     },
     onSuccess: () => {
       RNAlert.alert(
-        t('success') || 'Success',
+        t('success'),
         'Transcription saved successfully'
       );
       onSuccess?.();
@@ -111,7 +111,7 @@ export default function TranscriptionEditModal({
     onError: (error: Error) => {
       console.error('[SAVE TRANSCRIPTION] Error:', error);
       RNAlert.alert(
-        t('error') || 'Error',
+        t('error'),
         error.message || 'Failed to save transcription'
       );
     }
@@ -119,7 +119,7 @@ export default function TranscriptionEditModal({
 
   const handleSave = () => {
     if (!editedText.trim()) {
-      RNAlert.alert(t('error') || 'Error', 'Please enter some text');
+      RNAlert.alert(t('error'), 'Please enter some text');
       return;
     }
     saveTranscriptionMutation.mutate(editedText);
@@ -131,7 +131,7 @@ export default function TranscriptionEditModal({
         'Discard Changes?',
         'You have unsaved changes. Are you sure you want to close?',
         [
-          { text: t('cancel') || 'Cancel', style: 'cancel' },
+          { text: t('cancel'), style: 'cancel' },
           {
             text: 'Discard',
             style: 'destructive',

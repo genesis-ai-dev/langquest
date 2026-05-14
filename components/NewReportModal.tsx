@@ -86,12 +86,11 @@ export const ReportModal: React.FC<ReportModalProps> = ({
     if (!currentUser || !isAuthenticated) {
       RNAlert.alert(
         t('signInRequired'),
-        t('blockContentLoginMessage') ||
-          'We store information about what to block on your account. Please register to ensure blocked content can be properly hidden.',
+        t('blockContentLoginMessage'),
         [
           { text: t('cancel'), style: 'cancel' },
           {
-            text: t('signIn') || 'Sign In',
+            text: t('signIn'),
             isPreferred: true,
             onPress: () => {
               onClose();
@@ -252,8 +251,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
                     ) : (
                       <View className="rounded-md bg-primary/10 p-4">
                         <Text variant="small" className="leading-5">
-                          {t('blockContentLoginMessage') ||
-                            'We store information about what to block on your account. Please register to ensure blocked content can be properly hidden.'}
+                          {t('blockContentLoginMessage')}
                         </Text>
                       </View>
                     )}
