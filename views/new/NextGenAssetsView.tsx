@@ -52,6 +52,7 @@ import {
   SettingsIcon,
   SquareIcon,
   ShieldOffIcon,
+  Undo2,
   UserPlusIcon
 } from 'lucide-react-native';
 import React from 'react';
@@ -75,10 +76,16 @@ import { ReportModal } from '@/components/NewReportModal';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { QuestOffloadVerificationDrawer } from '@/components/QuestOffloadVerificationDrawer';
 import {
-  getNextOrderIndex,
   renameAsset,
-  updateContentLinkOrder
+  softDeleteAssetsFromQuest,
+  softMergeAssetsInQuest
 } from '@/database_services/assetService';
+import { run as runAssetGarbageCollector } from '@/database_services/assetGarbageCollectorService';
+import { undo as undoAssetOperation } from '@/database_services/assetUndoService';
+import type {
+  AssetOperationDataItem,
+  AssetOperationTypes
+} from '@/database_services/types';
 import { audioSegmentService } from '@/database_services/audioSegmentService';
 import { createQuestRecordingSession } from '@/database_services/questService';
 import { AppConfig } from '@/db/supabase/AppConfig';
@@ -86,6 +93,7 @@ import { useAssetsByQuest } from '@/hooks/db/useAssets';
 import { useBlockedAssetsCount } from '@/hooks/useBlockedCount';
 import { useQuestOffloadVerification } from '@/hooks/useQuestOffloadVerification';
 import { useHasUserReported } from '@/hooks/useReports';
+import { useUndoHistory } from '@/hooks/useUndoHistory';
 import { resolveTable } from '@/utils/dbUtils';
 import { fileExists, getLocalAttachmentUriWithOPFS } from '@/utils/fileUtils';
 import { publishQuest as publishQuestUtils } from '@/utils/publishQuest';
@@ -119,6 +127,16 @@ export default function NextGenAssetsView() {
   const { currentUser } = useAuth();
   const audioContext = useAudio();
   const queryClient = useQueryClient();
+  const {
+    push: pushUndoHistory,
+    undo: undoHistory,
+    list: listUndoHistory,
+    length: undoLength
+  } = useUndoHistory<AssetOperationDataItem[], AssetOperationDataItem[]>();
+  const currentUndoOperation = React.useMemo(() => {
+    const history = listUndoHistory();
+    return history[history.length - 1] as AssetOperationTypes | undefined;
+  }, [listUndoHistory, undoLength]);
   const insets = useSafeAreaInsets();
 
   // Selection mode for batch operations and playAll start point
@@ -477,9 +495,23 @@ export default function NextGenAssetsView() {
           onPress: () => {
             void (async () => {
               try {
-                for (const asset of selectedAssets) {
-                  await audioSegmentService.deleteAudioSegment(asset.id);
-                }
+                if (!questId) return;
+
+                const previousData = selectedAssets.map((asset) => ({
+                  id: asset.id,
+                  name: asset.name ?? null,
+                  order_index: asset.order_index
+                }));
+                const selectedIds = selectedAssets.map((asset) => asset.id);
+
+                await softDeleteAssetsFromQuest(questId, selectedIds);
+                pushUndoHistory({
+                  domain: 'asset',
+                  action: 'delete',
+                  previousData,
+                  newData: [],
+                  canUndo: true
+                });
 
                 cancelSelection();
                 void queryClient.invalidateQueries({ queryKey: ['assets'] });
@@ -496,7 +528,16 @@ export default function NextGenAssetsView() {
         }
       ]
     );
-  }, [assets, selectedAssetIds, cancelSelection, queryClient, t, refetch]);
+  }, [
+    assets,
+    cancelSelection,
+    pushUndoHistory,
+    queryClient,
+    questId,
+    refetch,
+    selectedAssetIds,
+    t
+  ]);
 
   const handleBatchMergeSelected = React.useCallback(() => {
     const selectedAssets = assets.filter(
@@ -519,58 +560,36 @@ export default function NextGenAssetsView() {
           onPress: () => {
             void (async () => {
               try {
-                if (!currentUser) return;
+                if (!questId) return;
 
-                const target = selectedAssets[0]!;
-                const rest = selectedAssets.slice(1);
-                const contentLocal = resolveTable('asset_content_link', {
-                  localOverride: true
+                const previousData = selectedAssets.map((asset) => ({
+                  id: asset.id,
+                  name: asset.name ?? null,
+                  order_index: asset.order_index
+                }));
+
+                const merged = await softMergeAssetsInQuest({
+                  questId,
+                  assetsToMerge: selectedAssets.map((asset) => ({ id: asset.id })),
+                  fallbackProjectId: projectId ?? null,
+                  fallbackCreatorId: currentUser?.id ?? null
                 });
 
-                for (const src of rest) {
-                  const srcContent = await system.db
-                    .select()
-                    .from(asset_content_link)
-                    .where(eq(asset_content_link.asset_id, src.id))
-                    .orderBy(
-                      asc(asset_content_link.order_index),
-                      asc(asset_content_link.created_at)
-                    );
+                if (!merged) return;
 
-                  let nextOrder = await getNextOrderIndex(target.id, {
-                    localOverride: true
-                  });
-
-                  for (const c of srcContent) {
-                    if (!c.audio) continue;
-                    await system.db.insert(contentLocal).values({
-                      asset_id: target.id,
-                      source_language_id: c.source_language_id,
-                      languoid_id:
-                        c.languoid_id ?? c.source_language_id ?? null,
-                      text: c.text || '',
-                      audio: c.audio,
-                      download_profiles: [currentUser.id],
-                      order_index: nextOrder++
-                    });
-                  }
-
-                  await audioSegmentService.deleteAudioSegment(src.id);
-                }
-
-                const allContent = await system.db
-                  .select({ id: contentLocal.id })
-                  .from(contentLocal)
-                  .where(eq(contentLocal.asset_id, target.id))
-                  .orderBy(
-                    asc(contentLocal.order_index),
-                    asc(contentLocal.created_at)
-                  );
-                await updateContentLinkOrder(
-                  target.id,
-                  allContent.map((c) => c.id),
-                  { localOverride: true }
-                );
+                pushUndoHistory({
+                  domain: 'asset',
+                  action: 'merge',
+                  previousData,
+                  newData: [
+                    {
+                      id: merged.newAssetId,
+                      name: merged.newAssetName,
+                      order_index: merged.orderIndex
+                    }
+                  ],
+                  canUndo: true
+                });
 
                 cancelSelection();
                 void queryClient.invalidateQueries({ queryKey: ['assets'] });
@@ -592,7 +611,10 @@ export default function NextGenAssetsView() {
     selectedAssetIds,
     currentUser,
     cancelSelection,
+    projectId,
+    pushUndoHistory,
     queryClient,
+    questId,
     t,
     refetch
   ]);
@@ -603,6 +625,13 @@ export default function NextGenAssetsView() {
 
       try {
         await renameAsset(renameAssetId, newName);
+        pushUndoHistory({
+          domain: 'asset',
+          action: 'rename',
+          previousData: [{ id: renameAssetId, name: renameAssetName }],
+          newData: [{ id: renameAssetId, name: newName }],
+          canUndo: true
+        });
         void queryClient.invalidateQueries({ queryKey: ['assets'] });
         void refetch();
       } catch (error) {
@@ -613,8 +642,41 @@ export default function NextGenAssetsView() {
         }
       }
     },
-    [renameAssetId, queryClient, refetch, t]
+    [renameAssetId, renameAssetName, pushUndoHistory, queryClient, refetch, t]
   );
+
+  const handleUndoAction = React.useCallback(() => {
+    const history = listUndoHistory();
+    history.forEach((item, index) => console.log(index, item));
+
+    const lastOperation = history[history.length - 1] as
+      | AssetOperationTypes
+      | undefined;
+    if (!lastOperation?.canUndo) return;
+
+    if (!projectId || !questId) {
+      console.warn('[Undo] Missing projectId or questId, cannot execute undo');
+      return;
+    }
+
+    void undoHistory(async (entry) => {
+      const operation = {
+        ...(entry as AssetOperationTypes),
+        domain: 'asset'
+      } as AssetOperationTypes;
+
+      await undoAssetOperation(projectId, questId, operation);
+      await queryClient.invalidateQueries({ queryKey: ['assets'] });
+      await refetch();
+    });
+  }, [
+    listUndoHistory,
+    projectId,
+    queryClient,
+    questId,
+    refetch,
+    undoHistory
+  ]);
 
   const blockIndividualPlayRef = React.useRef(false);
   const stableOnPlay = React.useCallback((assetId: string) => {
@@ -1468,6 +1530,7 @@ export default function NextGenAssetsView() {
       // Reset state
       playbackCheckpoint.clearAllCheckpoints();
       setCurrentlyPlayingAssetId(null);
+      void runAssetGarbageCollector();
     };
   }, [isPlayAllRunningRef, playbackCheckpoint, stopPlayAll]);
 
@@ -1491,6 +1554,14 @@ export default function NextGenAssetsView() {
       <View className="flex flex-row items-center justify-between">
         <View className="flex flex-row items-center gap-2">
           <Text className="text-xl font-semibold">{t('assets')}</Text>
+          <Button
+            variant="ghost"
+            size="icon"
+            disabled={!currentUndoOperation?.canUndo}
+            onPress={handleUndoAction}
+          >
+            <Icon as={Undo2} size={18} className="text-primary" />
+          </Button>
           <Button
             variant="ghost"
             size="icon"
