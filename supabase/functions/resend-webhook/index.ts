@@ -94,7 +94,7 @@ Deno.serve(async (req) => {
 
     // Find invite by resend_email_id
     const { data: invite, error: findError } = await supabase
-      .from('invite') 
+      .from('invite')
       .select('id, email_status, count, email')
       .eq('resend_email_id', emailId)
       .single();
