@@ -8,8 +8,7 @@ import {
   Preview,
   Tailwind,
   Text
-} from 'npm:@react-email/components';
-import * as React from 'npm:react';
+} from '@react-email/components';
 
 interface InviteEmailProps {
   projectName: string;

@@ -37,3 +37,10 @@ export const requestTypeOptions = [
   'general',
   'other'
 ] as const;
+
+export const emailStatusOptions = [
+  'sent',
+  'delivered',
+  'bounced',
+  'complained'
+] as const;

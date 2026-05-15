@@ -7,6 +7,7 @@ import { ProjectSettingsModal } from '@/components/ProjectSettingsModal';
 import { QuestDownloadDiscoveryDrawer } from '@/components/QuestDownloadDiscoveryDrawer';
 import { QuestOffloadVerificationDrawer } from '@/components/QuestOffloadVerificationDrawer';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Drawer,
   DrawerClose,
@@ -37,6 +38,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/contexts/AuthContext';
 
 import type { quest } from '@/db/drizzleSchema';
+import { invite, profile_project_link } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useProjectById } from '@/hooks/db/useProjects';
 import type { Quest } from '@/hooks/db/useQuests';
@@ -64,8 +66,10 @@ import { offloadQuest } from '@/utils/questOffloadUtils';
 import { getThemeColor, useThemeColor } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Stack } from 'expo-router';
+import { and, count, eq } from 'drizzle-orm';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import {
   BookOpenIcon,
   ChurchIcon,
@@ -77,7 +81,8 @@ import {
   SearchIcon,
   SettingsIcon,
   UserPlusIcon,
-  UsersIcon
+  UsersIcon,
+  XIcon
 } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -95,9 +100,148 @@ import z from 'zod';
 import { BibleBookList } from './BibleBookList';
 import { FiaBookList } from './FiaBookList';
 import { QuestListView } from './QuestListView';
+import { useHybridData } from './useHybridData';
+
+// Hook to determine if the invite banner should be shown for a project
+// Returns shouldShowInviteBanner=true if ALL of the following are true:
+// 1. Current user is the owner
+// 2. No invites have been sent for this project (invite count = 0)
+// 3. User is the only member (member count = 1)
+// Invite Members Banner Component
+function InviteMembersBanner({
+  show,
+  onDismiss,
+  onInvite
+}: {
+  show: boolean;
+  onDismiss: () => void;
+  onInvite: () => void;
+}) {
+  const { t } = useLocalization();
+
+  if (!show) return null;
+
+  return (
+    <Card className="border-2 border-primary bg-primary/5 shadow-md">
+      <CardHeader className="flex flex-row items-start justify-between gap-2 pb-2">
+        <View className="flex flex-1 flex-row items-center gap-2">
+          <Icon as={UsersIcon} className="text-primary" size={20} />
+          <CardTitle className="text-base">{t('inviteMembersTitle')}</CardTitle>
+        </View>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          onPress={onDismiss}
+        >
+          <Icon as={XIcon} size={16} className="text-muted-foreground" />
+        </Button>
+      </CardHeader>
+      <CardContent className="pt-0">
+        <Text className="mb-3 text-sm text-muted-foreground">
+          {t('inviteMembersDescription')}
+        </Text>
+        <Button
+          variant="default"
+          size="sm"
+          className="w-full flex-row items-center gap-2"
+          onPress={onInvite}
+        >
+          <Icon
+            as={UserPlusIcon}
+            size={16}
+            className="text-primary-foreground"
+          />
+          <Text className="text-primary-foreground">{t('inviteMembers')}</Text>
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+function useProjectHasNoInvites(projectId: string) {
+  // Check ownership
+  const { membership, isMembershipLoading } = useUserPermissions(
+    projectId,
+    'send_invite_section'
+  );
+  const isOwner = membership === 'owner';
+
+  // Query invite count for this project (offline only - PowerSync has this data)
+  const {
+    data: inviteData,
+    isLoading: isInviteLoading,
+    isError: isInviteError
+  } = useHybridData<{
+    count: number;
+  }>({
+    dataType: 'project-invite-count',
+    queryKeyParams: [projectId],
+
+    // PowerSync query - count all invites for this project
+    offlineQuery: toCompilableQuery(
+      system.db
+        .select({ count: count() })
+        .from(invite)
+        .where(eq(invite.project_id, projectId))
+    ),
+
+    enableCloudQuery: false
+  });
+
+  // Query member count for this project (offline only - PowerSync has this data)
+  const {
+    data: memberData,
+    isLoading: isMemberLoading,
+    isError: isMemberError
+  } = useHybridData<{
+    count: number;
+  }>({
+    dataType: 'project-member-count',
+    queryKeyParams: [projectId],
+
+    // PowerSync query - count active members
+    offlineQuery: toCompilableQuery(
+      system.db
+        .select({ count: count() })
+        .from(profile_project_link)
+        .where(
+          and(
+            eq(profile_project_link.project_id, projectId),
+            eq(profile_project_link.active, true)
+          )
+        )
+    ),
+
+    enableCloudQuery: false
+  });
+
+  const inviteCount = inviteData[0]?.count ?? 0;
+  const memberCount = memberData[0]?.count ?? 0;
+
+  // Solo owner = only 1 member and that member is the owner
+  const isSoloOwner = isOwner && memberCount === 1;
+
+  // Show banner if: solo owner and no invites sent
+  const shouldShowInviteBanner = isSoloOwner && inviteCount === 0;
+
+  return {
+    shouldShowInviteBanner,
+    isLoading: isMembershipLoading || isInviteLoading || isMemberLoading,
+    isError: isInviteError || isMemberError,
+    inviteCount,
+    memberCount,
+    isOwner,
+    isSoloOwner
+  };
+}
 
 export default function ProjectDirectoryView() {
   const { projectId, router, goToQuest } = useNavigationHelpers();
+  const expoRouter = useRouter();
+  const { openMembership } = useLocalSearchParams<{
+    openMembership?: string;
+  }>();
   const { currentUser, isAuthenticated } = useAuth();
   const { t } = useLocalization();
   const queryClient = useQueryClient();
@@ -143,6 +287,24 @@ export default function ProjectDirectoryView() {
 
   // Modal states
   const [showMembershipModal, setShowMembershipModal] = useState(false);
+  const [membershipModalInitialTab, setMembershipModalInitialTab] = useState<
+    'members' | 'invited' | 'requests'
+  >('members');
+
+  const openMembershipModal = React.useCallback(
+    (tab: 'members' | 'invited' | 'requests') => {
+      setMembershipModalInitialTab(tab);
+      setShowMembershipModal(true);
+    },
+    []
+  );
+
+  React.useEffect(() => {
+    if (openMembership === 'invited') {
+      openMembershipModal('invited');
+      expoRouter.setParams({ openMembership: undefined });
+    }
+  }, [openMembership, expoRouter, openMembershipModal]);
   const [showProjectDetails, setShowProjectDetails] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showReportModal, setShowReportModal] = React.useState(false);
@@ -388,6 +550,23 @@ export default function ProjectDirectoryView() {
   const _showHiddenContent = useLocalStore((state) => state.showHiddenContent);
   const enableFia = useLocalStore((state) => state.enableFia);
   const setEnableFia = useLocalStore((state) => state.setEnableFia);
+  const dismissedInviteBanners = useLocalStore(
+    (state) => state.dismissedInviteBanners
+  );
+  const dismissInviteBanner = useLocalStore(
+    (state) => state.dismissInviteBanner
+  );
+
+  // Check if banner should show: owner, no invites sent, only member
+  const { shouldShowInviteBanner, isLoading: isInviteCheckLoading } =
+    useProjectHasNoInvites(projectId || '');
+
+  // Check if banner is dismissed for this project
+  const isBannerDismissed = Boolean(dismissedInviteBanners[projectId || '']);
+
+  // Show invite banner if: conditions met, not dismissed, not loading
+  const showInviteBanner =
+    shouldShowInviteBanner && !isBannerDismissed && !isInviteCheckLoading;
 
   // Query existing books for Bible projects (after isMember is defined)
   const { books: existingBooks = [] } = useBibleBooks(
@@ -929,6 +1108,13 @@ export default function ProjectDirectoryView() {
     if (template === 'bible') {
       return (
         <View className="align-start flex-1">
+          <View className="m-4 mb-0">
+            <InviteMembersBanner
+              show={showInviteBanner}
+              onDismiss={() => dismissInviteBanner(projectId || '')}
+              onInvite={() => openMembershipModal('invited')}
+            />
+          </View>
           <View className="flex-col items-center justify-between gap-3 p-4">
             <View className="flex flex-row items-center gap-3">
               <View className="flex flex-row items-center gap-1">
@@ -987,6 +1173,13 @@ export default function ProjectDirectoryView() {
 
       return (
         <View className="align-start flex-1">
+          <View className="m-4 mb-0">
+            <InviteMembersBanner
+              show={showInviteBanner}
+              onDismiss={() => dismissInviteBanner(projectId || '')}
+              onInvite={() => openMembershipModal('invited')}
+            />
+          </View>
           <View className="flex-col items-center justify-between gap-3 p-4">
             <View className="flex flex-row items-center gap-3">
               <Icon as={BookOpenIcon} />
@@ -1086,6 +1279,13 @@ export default function ProjectDirectoryView() {
             }
             suffixStyling={false}
             hitSlop={12}
+          />
+
+          {/* Invite Members Banner for Solo Projects - below search bar */}
+          <InviteMembersBanner
+            show={showInviteBanner}
+            onDismiss={() => dismissInviteBanner(projectId || '')}
+            onInvite={() => openMembershipModal('invited')}
           />
         </View>
 
@@ -1238,7 +1438,7 @@ export default function ProjectDirectoryView() {
                     <SpeedDialItem
                       icon={UsersIcon}
                       variant="outline"
-                      onPress={() => setShowMembershipModal(true)}
+                      onPress={() => openMembershipModal('members')}
                     />
                   )}
               </>
@@ -1259,6 +1459,7 @@ export default function ProjectDirectoryView() {
         isVisible={showMembershipModal}
         onClose={() => setShowMembershipModal(false)}
         projectId={projectId || ''}
+        initialTab={membershipModalInitialTab}
       />
 
       {showProjectDetails && project && (

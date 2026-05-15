@@ -334,11 +334,10 @@ export const RecordingControls = React.memo(
                 <Icon as={Sparkles} size={32} className="text-primary" />
               </View>
               <Text className="text-center text-base font-semibold text-foreground">
-                {t('calibrateMicrophone') || 'Calibrate your microphone'}
+                {t('calibrateMicrophone')}
               </Text>
               <Text className="px-8 text-center text-sm text-muted-foreground">
-                {t('calibrateMicrophoneDescription') ||
-                  'Let us automatically adjust the sensitivity for your environment'}
+                {t('calibrateMicrophoneDescription')}
               </Text>
               <Button
                 variant="default"
@@ -346,7 +345,7 @@ export const RecordingControls = React.memo(
                 className="w-48"
               >
                 <Text className="text-base font-bold text-primary-foreground">
-                  {t('autoCalibrate') || 'Auto-Calibrate'}
+                  {t('autoCalibrate')}
                 </Text>
               </Button>
               <Button
@@ -355,7 +354,7 @@ export const RecordingControls = React.memo(
                 className="w-48"
               >
                 <Text className="text-sm text-muted-foreground">
-                  {t('skip') || 'Skip'}
+                  {t('skip')}
                 </Text>
               </Button>
             </View>

@@ -1,5 +1,6 @@
 // Minimal queue worker for local Supabase. Processes at most one queued job per request.
-import pg from 'npm:pg@8.11.3';
+import '@supabase/functions-js/edge-runtime.d.ts';
+import pg from 'pg';
 
 const dbUrl =
   Deno.env.get('SUPABASE_DB_URL') || Deno.env.get('PS_DATA_SOURCE_URI');

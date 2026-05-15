@@ -1,21 +1,44 @@
-import { render } from 'npm:@react-email/render';
-import { createClient } from 'npm:@supabase/supabase-js';
-import { Ratelimit } from 'npm:@upstash/ratelimit';
-import { Redis } from 'npm:@upstash/redis';
-import React from 'npm:react';
-import { Resend } from 'npm:resend';
-import { Webhook } from 'npm:standardwebhooks';
+import { render } from '@react-email/render';
+import '@supabase/functions-js/edge-runtime.d.ts';
+import { createClient } from '@supabase/supabase-js';
+import { Ratelimit } from '@upstash/ratelimit';
+import { Redis } from '@upstash/redis';
+import React from 'react';
+import { Resend } from 'resend';
+import { Webhook } from 'standardwebhooks';
 import { ConfirmEmail } from './_templates/confirm-email.tsx';
 import { InviteEmail } from './_templates/invite-email.tsx';
 import { ResetPassword } from './_templates/reset-password.tsx';
+import {
+  getMaxInviteOutboundSends,
+  inviteDeliverySuppressed,
+  inviteMaySendAnotherOutboundEmail
+} from './inviteBounceGuard.ts';
+
 const resend = new Resend(Deno.env.get('RESEND_API_KEY'));
-const rawHookSecret = Deno.env.get('SEND_EMAIL_HOOK_SECRET');
+const rawHookSecret = Deno.env.get('SEND_EMAIL_HOOK_SECRET')!;
+const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+const supabaseKey = Deno.env.get('SERVICE_ROLE_KEY')!;
+
 const hookSecret = rawHookSecret.startsWith('v1,whsec_')
   ? rawHookSecret.substring(9) // Remove the 'v1,' prefix
   : rawHookSecret;
-const supabaseUrl = Deno.env.get('SUPABASE_URL');
-const supabaseKey = Deno.env.get('SERVICE_ROLE_KEY');
+
 const supabase = createClient(supabaseUrl, supabaseKey);
+
+async function isInviteReceiverGloballySuppressed(
+  rawEmail: string | null | undefined
+): Promise<boolean> {
+  const normalized = rawEmail?.trim().toLowerCase();
+  if (!normalized) return false;
+  const { data } = await supabase
+    .from('invite_email_suppression')
+    .select('suppressed_at')
+    .eq('normalized_email', normalized)
+    .maybeSingle();
+  return !!data?.suppressed_at?.trim();
+}
+
 const signupEmailSubjects = {
   en: 'Confirm Your LangQuest Account',
   es: 'Confirma tu cuenta de LangQuest',
@@ -29,6 +52,7 @@ const signupEmailSubjects = {
   th: 'ยืนยันบัญชี LangQuest ของคุณ',
   'zh-CN': '确认您的 LangQuest 账户'
 };
+
 // Email subject translations
 const emailSubjects = {
   signup: signupEmailSubjects,
@@ -60,6 +84,7 @@ const emailSubjects = {
     'zh-CN': '您已被邀请加入 LangQuest 上的项目'
   }
 };
+
 const emailTypeEndpoint = {
   email_change: 'registration-confirmation',
   signup: 'registration-confirmation',
@@ -121,6 +146,60 @@ Deno.serve(async (req) => {
     if (parsedPayload.type === 'invite') {
       // Handle invite request
       const { record } = parsedPayload;
+      const { data: inviteRow } = await supabase
+        .from('invite')
+        .select('email_status, bounce_reason, count, delivery_suppressed_at')
+        .eq('id', record.id)
+        .single();
+
+      if (await isInviteReceiverGloballySuppressed(record.receiver_email)) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: 'invite_email_globally_suppressed'
+          }),
+          {
+            status: 422,
+            headers: { 'Content-Type': 'application/json' }
+          }
+        );
+      }
+
+      if (inviteDeliverySuppressed(inviteRow?.delivery_suppressed_at)) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: 'invite_delivery_suppressed'
+          }),
+          {
+            status: 422,
+            headers: { 'Content-Type': 'application/json' }
+          }
+        );
+      }
+
+      const maxOutbound = getMaxInviteOutboundSends();
+
+      if (
+        inviteRow?.email_status === 'bounced' &&
+        !inviteMaySendAnotherOutboundEmail(
+          inviteRow.count,
+          inviteRow.delivery_suppressed_at,
+          maxOutbound
+        )
+      ) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: 'invite_bounce_retry_exhausted'
+          }),
+          {
+            status: 422,
+            headers: { 'Content-Type': 'application/json' }
+          }
+        );
+      }
+
       // Check if email exists in profile table
       const { data: existingProfile } = await supabase
         .from('profile')
@@ -166,7 +245,11 @@ Deno.serve(async (req) => {
             .single();
           locale = language?.locale ?? 'en';
         }
-        const joinUrl = `${Deno.env.get('PLAY_STORE_URL')}`;
+        // Construct the invite URL that goes to the website notifications page
+        // The website will handle deep linking to the app or redirecting to stores
+        const siteUrl = Deno.env.get('AUTH_SITE_URL');
+        const joinUrl = `${siteUrl}/notifications`;
+
         const inviteComponent = React.createElement(InviteEmail, {
           projectName: project?.name ?? 'Unknown Project',
           inviterName: sender?.username ?? 'A LangQuest user',
@@ -178,7 +261,7 @@ Deno.serve(async (req) => {
           plainText: true
         });
         const subject = emailSubjects.invite[locale] ?? emailSubjects.invite.en;
-        const { error } = await resend.emails.send({
+        const { data: emailData, error } = await resend.emails.send({
           from: 'LangQuest <invitations@langquest.org>',
           to: [record.receiver_email],
           subject,
@@ -186,6 +269,21 @@ Deno.serve(async (req) => {
           text
         });
         if (error) throw error;
+
+        // Update invite with email tracking data
+        const { error: updateError } = await supabase
+          .from('invite')
+          .update({
+            resend_email_id: emailData?.id,
+            email_status: 'sent',
+            email_sent_at: new Date().toISOString()
+          })
+          .eq('id', record.id);
+
+        if (updateError) {
+          console.error('Failed to update invite email tracking:', updateError);
+          // Don't throw - email was sent successfully, just tracking failed
+        }
       }
       return new Response(
         JSON.stringify({

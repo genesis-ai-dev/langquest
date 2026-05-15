@@ -307,9 +307,7 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
     if (shouldShowCreate) {
       sorted.unshift({
         value: '__create_new__',
-        label:
-          t('createLanguage', { name: trimmedQuery }) ||
-          `Create "${trimmedQuery}"`,
+        label: t('createLanguage', { name: trimmedQuery }),
         displayLabel: trimmedQuery,
         isCreateOption: true
       });
@@ -477,7 +475,7 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
             <Input
               value={immediateSearchQuery}
               onChangeText={setSearchQuery}
-              placeholder={t('searchLanguages') || 'Search languages...'}
+              placeholder={t('searchLanguages')}
               prefix={SearchIcon}
               size="sm"
               className="border-0"
@@ -503,11 +501,10 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
             <View className="px-3 py-4">
               <Text className="text-center text-sm text-muted-foreground">
                 {isSearchLoading
-                  ? t('searching') || 'Searching...'
+                  ? t('searching')
                   : debouncedSearchQuery.length >= 2
-                    ? t('noLanguagesFound') || 'No languages found'
-                    : t('typeToSearch', { min: 2 }) ||
-                      'Type at least 2 characters to search'}
+                    ? t('noLanguagesFound')
+                    : t('typeToSearch', { min: 2 })}
               </Text>
             </View>
           )
@@ -534,8 +531,7 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
                 />
                 <View className="flex-1">
                   <Text className="text-sm font-medium text-primary">
-                    {t('createLanguage', { name: item.displayLabel }) ||
-                      `Create "${item.displayLabel}"`}
+                    {t('createLanguage', { name: item.displayLabel })}
                   </Text>
                   <Text className="text-xs text-muted-foreground">
                     Add this as a new language

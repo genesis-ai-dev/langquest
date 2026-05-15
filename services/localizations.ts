@@ -3959,6 +3959,34 @@ export const localizations = {
     thai: 'เชิญสมาชิก',
     mandarin: '邀请成员'
   },
+  inviteMembersTitle: {
+    english: 'Invite Members',
+    french: 'Inviter des membres',
+    spanish: 'Invitar Miembros',
+    brazilian_portuguese: 'Convidar Membros',
+    tok_pisin: 'Invitim ol Member',
+    indonesian: 'Undang Anggota',
+    nepali: 'सदस्यहरूलाई आमन्त्रित गर्नुहोस्',
+    hindi: 'सदस्यों को आमंत्रित करें',
+    burmese: 'အဖွဲ့ဝင်များကို ဖိတ်ခေါ်ပါ',
+    thai: 'เชิญสมาชิก',
+    mandarin: '邀请成员'
+  },
+  inviteMembersDescription: {
+    english: 'Invite others to collaborate on translation work.',
+    french: "Invitez d'autres à collaborer sur le travail de traduction.",
+    spanish: 'Invita a otros a colaborar en el trabajo de traducción.',
+    brazilian_portuguese:
+      'Convide outros para colaborar no trabalho de tradução.',
+    tok_pisin: 'Inivitim ol narapela long helpim wok bilong tanim tok.',
+    indonesian:
+      'Undang orang lain untuk berkolaborasi dalam pekerjaan penerjemahan.',
+    nepali: 'अनुवाद कार्यमा सहयोग गर्न अरूलाई आमन्त्रित गर्नुहोस्।',
+    hindi: 'अनुवाद कार्य पर सहयोग करने के लिए दूसरों को आमंत्रित करें।',
+    burmese: 'ဘာသာပြန်အလုပ်၌ပူးပေါင်းဆောင်ရွက်ဖိတ်ခေါ်ပါ။',
+    thai: 'เชิญผู้อื่นมาร่วมงานแปลด้วยกัน',
+    mandarin: '邀请其他人协作进行翻译工作。'
+  },
   inviteAsOwner: {
     english: 'Invite as owner',
     french: 'Inviter en tant que propriétaire',
@@ -4049,6 +4077,154 @@ export const localizations = {
     burmese: 'ဖိတ်ခေါ်မှုကို ရုပ်သိမ်းပါ',
     thai: 'ถอนคำเชิญ',
     mandarin: '撤回邀请'
+  },
+  emailBounced: {
+    english: 'Delivery failed',
+    french: 'Échec de livraison',
+    spanish: 'Entrega fallida',
+    brazilian_portuguese: 'Falha na entrega',
+    tok_pisin: 'Email i no kamap',
+    indonesian: 'Pengiriman gagal',
+    nepali: 'वितरण असफल',
+    hindi: 'वितरण विफल',
+    burmese: 'ပို့ဆောင်မှု မအောင်မြင်ပါ',
+    thai: 'ส่งไม่สำเร็จ',
+    mandarin: '投递失败'
+  },
+  inviteBounceBriefHint: {
+    english:
+      "We couldn't deliver the invite email. Check the address or invite someone using a different email.",
+    french:
+      "Nous n'avons pas pu livrer l'e-mail d'invitation. Vérifiez l'adresse ou invitez une personne avec une autre adresse e-mail.",
+    spanish:
+      'No pudimos entregar el correo de invitación. Comprueba la dirección o invita a alguien con otro correo.',
+    brazilian_portuguese:
+      'Não foi possível entregar o e-mail do convite. Verifique o endereço ou convide alguém usando outro e-mail.',
+    tok_pisin:
+      'Mipela no inap salim invite email. Lukim adres o salim long narapela email.',
+    indonesian:
+      'Kami tidak dapat mengirim email undangan. Periksa alamat atau undang dengan alamat email lain.',
+    nepali:
+      'हामीले आमन्त्रण इमेल वितरण गर्न सकेनौं। ठेगाना जाँच गर्नुहोस् वा फरक इमेल प्रयोग गरेर आमन्त्रण गर्नुहोस्।',
+    hindi:
+      'हम आमंत्रण ईमेल वितरित नहीं कर सके। पता जांचें या किसी दूसरे ईमेल से आमंत्रित करें।',
+    burmese:
+      'ဖိတ်ခေါ်အီးမေးလ်ကို ပို့၍မရပါ။ လိပ်စာကို စစ်ဆေးပါ သို့မဟုတ် အခြားအီးမေးလ်ဖြင့် ဖိတ်ခေါ်ပါ။',
+    thai: 'เราไม่สามารถส่งอีเมลเชิญได้ ตรวจสอบที่อยู่หรือเชิญด้วยอีเมลอื่น',
+    mandarin: '无法送达邀请邮件。请核对地址或使用其他邮箱发送邀请。'
+  },
+  inviteDeliveryFailedTitle: {
+    english: 'Invite could not be delivered',
+    french: "L'invitation n'a pas pu être livrée",
+    spanish: 'No se pudo entregar la invitación',
+    brazilian_portuguese: 'O convite não pôde ser entregue',
+    tok_pisin: 'Invite i no save kamap long em',
+    indonesian: 'Undangan tidak dapat dikirim',
+    nepali: 'आमन्त्रण वितरण हुन सकेन',
+    hindi: 'आमंत्रण वितरित नहीं किया जा सका',
+    burmese: 'ဖိတ်ခေါ်မှုကို ပို့၍မရပါ',
+    thai: 'ไม่สามารถส่งคำเชิญได้',
+    mandarin: '邀请无法送达'
+  },
+  inviteDeliveryFailedMessage: {
+    english:
+      'We could not deliver your invite to {email} for the project "{project}".',
+    french:
+      "Nous n'avons pas pu livrer votre invitation à {email} pour le projet « {project} ».",
+    spanish:
+      'No pudimos entregar tu invitación a {email} para el proyecto "{project}".',
+    brazilian_portuguese:
+      'Não foi possível entregar seu convite para {email} no projeto "{project}".',
+    tok_pisin:
+      'Mipela no inap salim invite long {email} long project "{project}".',
+    indonesian:
+      'Kami tidak dapat mengirim undangan Anda ke {email} untuk proyek "{project}".',
+    nepali:
+      'हामीले "{project}" प्रोजेक्टको लागि {email} मा तपाईंको आमन्त्रण वितरण गर्न सकेनौं।',
+    hindi:
+      'हम "{project}" परियोजना के लिए {email} पर आपका आमंत्रण वितरित नहीं कर सके।',
+    burmese:
+      '"{project}" စီမံကိန်းအတွက် သင့်ဖိတ်ခေါ်မှုကို {email} သို့ ပို့၍မရပါ။',
+    thai: 'เราไม่สามารถส่งคำเชิญของคุณไปที่ {email} สำหรับโครงการ "{project}" ได้',
+    mandarin: '我们无法将您对 {email} 的项目「{project}」的邀请送达。'
+  },
+  viewProjectInvites: {
+    english: 'View in project',
+    french: 'Voir dans le projet',
+    spanish: 'Ver en el proyecto',
+    brazilian_portuguese: 'Ver no projeto',
+    tok_pisin: 'Lukim long project',
+    indonesian: 'Lihat di proyek',
+    nepali: 'प्रोजेक्टमा हेर्नुहोस्',
+    hindi: 'परियोजना में देखें',
+    burmese: 'စီမံကိန်းတွင် ကြည့်ပါ',
+    thai: 'ดูในโครงการ',
+    mandarin: '在项目中查看'
+  },
+  dismissInviteDeliveryNotice: {
+    english: 'Dismiss',
+    french: 'Masquer',
+    spanish: 'Descartar',
+    brazilian_portuguese: 'Dispensar',
+    tok_pisin: 'Rausim',
+    indonesian: 'Tutup',
+    nepali: 'खारेज गर्नुहोस्',
+    hindi: 'खारिज करें',
+    burmese: 'ပယ်ဖျက်ပါ',
+    thai: 'ปิดการแจ้ง',
+    mandarin: '关闭提醒'
+  },
+  failedToDismissNotice: {
+    english: 'Could not dismiss this notice. Try again when you are online.',
+    french:
+      'Impossible de masquer cet avis. Réessayez lorsque vous êtes en ligne.',
+    spanish:
+      'No se pudo descartar este aviso. Inténtalo de nuevo cuando estés en línea.',
+    brazilian_portuguese:
+      'Não foi possível dispensar este aviso. Tente novamente quando estiver online.',
+    tok_pisin: 'Ino inap rausim notice. Traim gen taim yu stap online.',
+    indonesian:
+      'Tidak dapat menutup pemberitahuan ini. Coba lagi saat Anda daring.',
+    nepali: 'यो सूचना खारेज गर्न सकिएन। अनलाइन हुँदा फेरि प्रयास गर्नुहोस्।',
+    hindi: 'यह सूचना खारिज नहीं की जा सकी। ऑनलाइन होने पर पुनः प्रयास करें।',
+    burmese: 'ဤအသိပေးချက်ကို ပယ်ဖျက်၍မရပါ။ အွန်လိုင်းရှိစဉ် ထပ်ကြိုးစားပါ။',
+    thai: 'ไม่สามารถปิดการแจ้งนี้ได้ ลองอีกครั้งเมื่อคุณออนไลน์',
+    mandarin: '无法关闭此提醒。请在联网后重试。'
+  },
+  emailBlacklistedForProject: {
+    english:
+      'This email address can no longer receive invites for this project after repeated delivery failures.',
+    french:
+      'Cette adresse e-mail ne peut plus recevoir d’invitations pour ce projet après plusieurs échecs de livraison.',
+    spanish:
+      'Esta dirección de correo ya no puede recibir invitaciones para este proyecto tras varios fallos de entrega.',
+    brazilian_portuguese:
+      'Este e-mail não pode mais receber convites para este projeto após falhas repetidas de entrega.',
+    tok_pisin:
+      'Dispela email i no inap kisim invite long dispela project — planti taim email i no kamap.',
+    indonesian:
+      'Alamat email ini tidak lagi dapat menerima undangan untuk proyek ini setelah beberapa kegagalan pengiriman.',
+    nepali:
+      'पुन:पुन वितरण असफल भएपछि यो इमेलले यो प्रोजेक्टका लागि आमन्त्रण प्राप्त गर्न सक्दैन।',
+    hindi:
+      'बार-बार वितरण विफल होने के बाद यह ईमेल इस परियोजना के लिए आमंत्रण प्राप्त नहीं कर सकता।',
+    burmese:
+      'ပို့ဆောင်မှု မအောင်မြင်မှုများ ပြီးနောက် ဤအီးမေးလ်သည် ဤစီမံကိန်းအတွက် ဖိတ်ခေါ်မှုများ လက်ခံ၍မတော့ပါ။',
+    thai: 'ที่อยู่อีเมลนี้ไม่สามารถรับคำเชิญสำหรับโครงการนี้ได้อีกต่อไปหลังจากการส่งล้มเหลวซ้ำๆ',
+    mandarin: '该邮箱在本项目中多次投递失败后，将无法再接收邀请。'
+  },
+  deliveryBlocked: {
+    english: 'Blocked',
+    french: 'Bloqué',
+    spanish: 'Bloqueado',
+    brazilian_portuguese: 'Bloqueado',
+    tok_pisin: 'Pas',
+    indonesian: 'Diblokir',
+    nepali: 'रोकिएको',
+    hindi: 'अवरुद्ध',
+    burmese: 'ပိတ်ထားသည်',
+    thai: 'ถูกบล็อก',
+    mandarin: '已阻止'
   },
   you: {
     english: 'You',
@@ -4238,6 +4414,29 @@ export const localizations = {
     burmese: 'ဤအီးမေးလ်လိပ်စာသို့ ဖိတ်ခေါ်မှုကို ပို့ပြီးပါပြီ။',
     thai: 'ได้ส่งคำเชิญไปยังที่อยู่อีเมลนี้แล้ว',
     mandarin: '已向此电子邮件地址发送了邀请。'
+  },
+  cannotRetryHardBounceInvite: {
+    english:
+      'This address returned a permanent (hard) bounce. Remove the invite or use a different email; retrying is blocked to protect deliverability.',
+    french:
+      'Cette adresse a renvoyé un rejet permanent (hard bounce). Retirez l’invitation ou utilisez un autre e-mail ; un nouvel envoi est bloqué pour protéger la délivrabilité.',
+    spanish:
+      'Esta dirección devolvió un rechazo permanente (hard bounce). Retira la invitación o usa otro correo; no se permite reintentar para proteger la entregabilidad.',
+    brazilian_portuguese:
+      'Este endereço retornou um hard bounce permanente. Remova o convite ou use outro e-mail; novas tentativas são bloqueadas para proteger a entregabilidade.',
+    tok_pisin:
+      'Dispela email i hard bounce. Rausim invite o narapela email — mipela no inap salim gen long helpim email gut.',
+    indonesian:
+      'Alamat ini mengembalikan hard bounce permanen. Hapus undangan atau gunakan email lain; pengiriman ulang diblokir untuk melindungi reputasi pengiriman.',
+    nepali:
+      'यो ठेगानाले स्थायी (हार्ड) बाउन्स फर्कायो। आमन्त्रण हटाउनुहोस् वा अर्को इमेल प्रयोग गर्नुहोस्; पुन: पठाउन रोकिएको छ।',
+    hindi:
+      'इस पते पर स्थायी (हार्ड) बाउन्स आया। आमंत्रण हटाएं या दूसरा ईमेल उपयोग करें; डिलीवरेबिलिटी के लिए पुनः प्रयास अवरुद्ध है।',
+    burmese:
+      'ဤလိပ်စာသည် အပြီးအပိုင် (hard) bounce ပြန်လာသည်။ ဖိတ်ခေါ်မှုကို ဖျက်ပါ သို့မဟုတ် အခြားအီးမေးလ်သုံးပါ။ ပို့ဆောင်မှုအရည်အသွေးကို ကာကွယ်ရန် ပြန်မပို့နိုင်ပါ။',
+    thai: 'ที่อยู่นี้ถูกตีกลับแบบถาวร (hard bounce) ลบคำเชิญหรือใช้อีเมลอื่น การส่งซ้ำถูกบล็อกเพื่อความสามารถในการส่ง',
+    mandarin:
+      '该地址返回了永久性（硬）退信。请删除邀请或更换邮箱；为保护送达率，禁止重试。'
   },
   invitationSent: {
     english: 'Invitation sent successfully',
