@@ -32,12 +32,18 @@ import {
 import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
+import {
+  DEFAULT_INVITE_MAX_OUTBOUND_SENDS,
+  inviteBouncedOutboundRetryAllowed,
+  inviteDeliverySuppressed,
+  inviteMaySendAnotherOutboundEmail
+} from '@/utils/inviteBounceGuard';
 import { cn } from '@/utils/styleUtils';
 import { useHybridData } from '@/views/new/useHybridData';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { PortalHost } from '@rn-primitives/portal';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNotNull } from 'drizzle-orm';
 import {
   CircleCheckIcon,
   CircleXIcon,
@@ -48,16 +54,18 @@ import {
   Trash2Icon,
   UserIcon
 } from 'lucide-react-native';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Platform, Pressable, View } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 
-const MAX_INVITE_ATTEMPTS = 3;
+const MAX_INVITE_ATTEMPTS = DEFAULT_INVITE_MAX_OUTBOUND_SENDS;
 
 interface ProjectMembershipModalProps {
   isVisible: boolean;
   onClose: () => void;
   projectId: string;
+  /** When the modal opens, select this tab (e.g. from notifications after a delivery failure). */
+  initialTab?: 'members' | 'invited' | 'requests';
 }
 
 interface Member {
@@ -83,6 +91,8 @@ interface Invitation {
   email_delivered_at: string | null;
   email_bounced_at: string | null;
   bounce_reason: string | null;
+  bounce_notice_dismissed_at?: string | null;
+  delivery_suppressed_at?: string | null;
   count?: number;
 }
 
@@ -97,7 +107,8 @@ const { db } = system;
 export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
   isVisible,
   onClose,
-  projectId
+  projectId,
+  initialTab = 'members'
 }) => {
   const { t } = useLocalization();
   const { currentUser } = useAuth();
@@ -124,6 +135,11 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
   const [activeTab, setActiveTab] = useState<
     'members' | 'invited' | 'requests'
   >('members');
+  React.useEffect(() => {
+    if (isVisible) {
+      setActiveTab(initialTab);
+    }
+  }, [isVisible, initialTab]);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteAsOwner, setInviteAsOwner] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -294,6 +310,44 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
         role: inv.as_owner ? 'owner' : 'member'
       }));
   }, [invites]);
+
+  const [globalSuppressedEmails, setGlobalSuppressedEmails] = useState<
+    Set<string>
+  >(() => new Set());
+
+  useEffect(() => {
+    const keys = [
+      ...new Set(
+        invitations
+          .map((i) => i.email.trim().toLowerCase())
+          .filter((email) => email.length > 0)
+      )
+    ];
+    if (keys.length === 0) {
+      setGlobalSuppressedEmails(new Set());
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const { data, error } = await system.supabaseConnector.client
+        .from('invite_email_suppression')
+        .select('normalized_email')
+        .in('normalized_email', keys)
+        .not('suppressed_at', 'is', null);
+      if (cancelled) return;
+      if (error) {
+        console.error('invite_email_suppression:', error);
+        setGlobalSuppressedEmails(new Set());
+        return;
+      }
+      setGlobalSuppressedEmails(
+        new Set(data?.map((r) => r.normalized_email) ?? [])
+      );
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [invitations]);
 
   // Query for pending membership requests (owners only)
   const { data: requestsData = [] } = useHybridData({
@@ -513,6 +567,35 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
       const invitation = invitations.find((i) => i.id === inviteId);
       if (!invitation) return;
 
+      const normalized = invitation.email.trim().toLowerCase();
+      const { data: globalSupRow } =
+        await system.supabaseConnector.client
+          .from('invite_email_suppression')
+          .select('suppressed_at')
+          .eq('normalized_email', normalized)
+          .maybeSingle();
+
+      if (globalSupRow?.suppressed_at) {
+        RNAlert.alert(t('error'), t('emailBlacklistedForProject'));
+        return;
+      }
+
+      if (inviteDeliverySuppressed(invitation.delivery_suppressed_at)) {
+        RNAlert.alert(t('error'), t('emailBlacklistedForProject'));
+        return;
+      }
+
+      if (
+        !inviteMaySendAnotherOutboundEmail(
+          invitation.count,
+          invitation.delivery_suppressed_at,
+          false
+        )
+      ) {
+        RNAlert.alert(t('error'), t('maxInviteAttemptsReached'));
+        return;
+      }
+
       // Check if we can re-invite
       if ((invitation.count || 0) < MAX_INVITE_ATTEMPTS) {
         // Update existing invitation to pending and increment count
@@ -522,7 +605,14 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
             status: 'pending',
             count: (invitation.count || 0) + 1,
             last_updated: new Date().toISOString(),
-            sender_profile_id: currentUser.id // Update sender in case it's different
+            sender_profile_id: currentUser.id,
+            resend_email_id: null,
+            email_status: null,
+            email_sent_at: null,
+            email_delivered_at: null,
+            email_bounced_at: null,
+            bounce_reason: null,
+            bounce_notice_dismissed_at: null
           })
           .where(eq(invite_synced.id, inviteId));
 
@@ -676,10 +766,38 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
         return;
       }
 
+      const normalizedInput = inviteEmail.trim().toLowerCase();
+      const { data: globalSupOnSend } =
+        await system.supabaseConnector.client
+          .from('invite_email_suppression')
+          .select('suppressed_at')
+          .eq('normalized_email', normalizedInput)
+          .maybeSingle();
+
+      if (globalSupOnSend?.suppressed_at) {
+        RNAlert.alert(t('error'), t('emailBlacklistedForProject'));
+        setIsSubmitting(false);
+        return;
+      }
+
+      const suppressedForEmail = await db.query.invite.findFirst({
+        where: and(
+          eq(invite.email, inviteEmail.trim()),
+          eq(invite.project_id, projectId),
+          isNotNull(invite.delivery_suppressed_at)
+        )
+      });
+
+      if (suppressedForEmail) {
+        RNAlert.alert(t('error'), t('emailBlacklistedForProject'));
+        setIsSubmitting(false);
+        return;
+      }
+
       // Check for any existing invitation (including declined, withdrawn, expired)
       const existingInvites = await db.query.invite.findMany({
         where: and(
-          eq(invite.email, inviteEmail),
+          eq(invite.email, inviteEmail.trim()),
           eq(invite.project_id, projectId)
         ),
         with: {
@@ -711,6 +829,22 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
           ) ||
           (existingInvite.status === 'accepted' && hasInactiveLink) // Allow reinvitation if user was removed after accepting
         ) {
+          if (
+            existingInvite.email_status === 'bounced' &&
+            !inviteMaySendAnotherOutboundEmail(
+              existingInvite.count,
+              existingInvite.delivery_suppressed_at,
+              false
+            )
+          ) {
+            if (inviteDeliverySuppressed(existingInvite.delivery_suppressed_at)) {
+              RNAlert.alert(t('error'), t('emailBlacklistedForProject'));
+            } else {
+              RNAlert.alert(t('error'), t('maxInviteAttemptsReached'));
+            }
+            setIsSubmitting(false);
+            return;
+          }
           if ((existingInvite.count || 0) < MAX_INVITE_ATTEMPTS) {
             // Update existing invitation
             // Only increment count if previous invite was declined (user actively rejected)
@@ -727,7 +861,14 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                 as_owner: inviteAsOwner,
                 count: newCount,
                 last_updated: new Date().toISOString(),
-                sender_profile_id: currentUser.id // Update sender in case it's different
+                sender_profile_id: currentUser.id,
+                resend_email_id: null,
+                email_status: null,
+                email_sent_at: null,
+                email_delivered_at: null,
+                email_bounced_at: null,
+                bounce_reason: null,
+                bounce_notice_dismissed_at: null
               })
               .where(eq(invite_synced.id, existingInvite.id));
 
@@ -743,6 +884,23 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
           }
         } else {
           // Invitation is still pending or in another active state
+          if (
+            existingInvite.status === 'pending' &&
+            existingInvite.email_status === 'bounced' &&
+            !inviteMaySendAnotherOutboundEmail(
+              existingInvite.count,
+              existingInvite.delivery_suppressed_at,
+              false
+            )
+          ) {
+            if (inviteDeliverySuppressed(existingInvite.delivery_suppressed_at)) {
+              RNAlert.alert(t('error'), t('emailBlacklistedForProject'));
+            } else {
+              RNAlert.alert(t('error'), t('maxInviteAttemptsReached'));
+            }
+            setIsSubmitting(false);
+            return;
+          }
           RNAlert.alert(t('error'), t('invitationAlreadySent'));
           setIsSubmitting(false);
           return;
@@ -891,9 +1049,22 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
     };
 
     const isBounced = invitation.email_status === 'bounced';
+    const globallyBlocked = globalSuppressedEmails.has(
+      invitation.email.trim().toLowerCase()
+    );
+    const isSuppressed =
+      inviteDeliverySuppressed(invitation.delivery_suppressed_at) ||
+      globallyBlocked;
     const showResendButton =
       withdrawInvitePermissions.hasAccess &&
-      (invitation.status === 'expired' || isBounced);
+      !globallyBlocked &&
+      (invitation.status === 'expired' ||
+        (isBounced &&
+          inviteBouncedOutboundRetryAllowed(
+            invitation.count,
+            invitation.delivery_suppressed_at,
+            false
+          )));
     const showWithdrawButton =
       withdrawInvitePermissions.hasAccess &&
       invitation.status === 'pending' &&
@@ -930,10 +1101,15 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                   <Text variant="small">{t('emailBounced')}</Text>
                 </Badge>
               )}
+              {isSuppressed && (
+                <Badge variant="outline">
+                  <Text variant="small">{t('deliveryBlocked')}</Text>
+                </Badge>
+              )}
             </View>
-            {isBounced && invitation.bounce_reason && (
-              <Text variant="small" className="mt-1 text-destructive">
-                {invitation.bounce_reason}
+            {isBounced && (
+              <Text variant="small" className="mt-1 text-muted-foreground">
+                {t('inviteBounceBriefHint')}
               </Text>
             )}
           </View>

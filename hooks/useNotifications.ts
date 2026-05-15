@@ -9,7 +9,7 @@ import { system } from '@/db/powersync/system';
 import { useLocalStore } from '@/store/localStore';
 import { useHybridData } from '@/views/new/useHybridData';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { and, eq, inArray, or } from 'drizzle-orm';
+import { and, eq, inArray, isNull, or } from 'drizzle-orm';
 import React from 'react';
 
 export const useNotifications = () => {
@@ -49,6 +49,33 @@ export const useNotifications = () => {
       })
     ),
     enableOfflineQuery: !!(currentUser?.id || currentUser?.email)
+  });
+
+  const { data: sentInviteDeliveryFailures = [] } = useHybridData<
+    typeof invite.$inferSelect
+  >({
+    dataType: 'invite-sent-delivery-failures-count',
+    queryKeyParams: [currentUser?.id || ''],
+    enabled: !!currentUser?.id && isAuthenticated,
+
+    offlineQuery: toCompilableQuery(
+      system.db.query.invite.findMany({
+        where: and(
+          ...[
+            currentUser?.id &&
+              eq(invite.sender_profile_id, currentUser.id),
+            or(
+              eq(invite.status, 'pending'),
+              eq(invite.status, 'withdrawn')
+            ),
+            eq(invite.active, true),
+            inArray(invite.email_status, ['bounced', 'complained']),
+            isNull(invite.bounce_notice_dismissed_at)
+          ].filter(Boolean)
+        )
+      })
+    ),
+    enableOfflineQuery: !!currentUser?.id
   });
 
   // Get all projects where the user is an owner
@@ -189,11 +216,17 @@ export const useNotifications = () => {
   const inviteCount = inviteRequests.length;
   const requestCount = requestNotifications.length;
   const languoidLinkCount = languoidSuggestions.length;
+  const sentInviteDeliveryFailureCount = sentInviteDeliveryFailures.length;
 
   return {
     inviteCount,
     requestCount,
     languoidLinkCount,
-    totalCount: inviteCount + requestCount + languoidLinkCount
+    sentInviteDeliveryFailureCount,
+    totalCount:
+      inviteCount +
+      requestCount +
+      languoidLinkCount +
+      sentInviteDeliveryFailureCount
   };
 };

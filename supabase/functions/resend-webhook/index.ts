@@ -1,6 +1,7 @@
 import '@supabase/functions-js/edge-runtime.d.ts';
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
+import { getMaxInviteOutboundSends } from './inviteBounceGuard.ts';
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL');
 const supabaseKey = Deno.env.get('SERVICE_ROLE_KEY');
@@ -94,7 +95,7 @@ Deno.serve(async (req) => {
     // Find invite by resend_email_id
     const { data: invite, error: findError } = await supabase
       .from('invite')
-      .select('id, email_status')
+      .select('id, email_status, count, email')
       .eq('resend_email_id', emailId)
       .single();
 
@@ -123,15 +124,76 @@ Deno.serve(async (req) => {
         updateData = { email_status: 'delivered', email_delivered_at: now };
         break;
 
-      case 'email.bounced':
+      case 'email.bounced': {
+        const bounce = data.bounce;
+        const isPermanentHardBounce = bounce?.type === 'Permanent';
+        let exhaustedHardBounces = false;
+
+        if (isPermanentHardBounce) {
+          const normalizedEmail =
+            (invite as { email?: string }).email?.trim().toLowerCase() ?? '';
+          if (normalizedEmail) {
+            const maxSends = getMaxInviteOutboundSends();
+            const { data: supRow, error: supReadErr } = await supabase
+              .from('invite_email_suppression')
+              .select('permanent_bounce_count, suppressed_at')
+              .eq('normalized_email', normalizedEmail)
+              .maybeSingle();
+
+            if (supReadErr) {
+              console.error(
+                '[Resend Webhook] invite_email_suppression read:',
+                supReadErr
+              );
+            }
+
+            const prev = supRow?.permanent_bounce_count ?? 0;
+            const next = prev + 1;
+            const alreadySuppressed = !!supRow?.suppressed_at?.trim();
+            const suppressedAt = alreadySuppressed
+              ? supRow!.suppressed_at
+              : next >= maxSends
+                ? now
+                : null;
+
+            const { error: supUpsertErr } = await supabase
+              .from('invite_email_suppression')
+              .upsert(
+                {
+                  normalized_email: normalizedEmail,
+                  permanent_bounce_count: next,
+                  suppressed_at: suppressedAt,
+                  updated_at: now
+                },
+                { onConflict: 'normalized_email' }
+              );
+
+            if (supUpsertErr) {
+              console.error(
+                '[Resend Webhook] invite_email_suppression upsert:',
+                supUpsertErr
+              );
+            }
+
+            exhaustedHardBounces = next >= maxSends;
+          }
+        }
+
         updateData = {
           email_status: 'bounced',
           email_bounced_at: now,
-          bounce_reason: data.bounce
-            ? `${data.bounce.type}: ${data.bounce.message}`
-            : 'Unknown bounce reason'
+          bounce_reason: bounce
+            ? `${bounce.type}: ${bounce.message}`
+            : 'Unknown bounce reason',
+          ...(exhaustedHardBounces
+            ? {
+                status: 'withdrawn' as const,
+                delivery_suppressed_at: now
+              }
+            : {})
         };
         break;
+      }
 
       case 'email.complained':
         updateData = { email_status: 'complained' };

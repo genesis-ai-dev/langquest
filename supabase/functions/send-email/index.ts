@@ -9,6 +9,11 @@ import { Webhook } from 'standardwebhooks';
 import { ConfirmEmail } from './_templates/confirm-email.tsx';
 import { InviteEmail } from './_templates/invite-email.tsx';
 import { ResetPassword } from './_templates/reset-password.tsx';
+import {
+  getMaxInviteOutboundSends,
+  inviteDeliverySuppressed,
+  inviteMaySendAnotherOutboundEmail
+} from './inviteBounceGuard.ts';
 
 const resend = new Resend(Deno.env.get('RESEND_API_KEY'));
 const rawHookSecret = Deno.env.get('SEND_EMAIL_HOOK_SECRET')!;
@@ -20,6 +25,19 @@ const hookSecret = rawHookSecret.startsWith('v1,whsec_')
   : rawHookSecret;
 
 const supabase = createClient(supabaseUrl, supabaseKey);
+
+async function isInviteReceiverGloballySuppressed(
+  rawEmail: string | null | undefined
+): Promise<boolean> {
+  const normalized = rawEmail?.trim().toLowerCase();
+  if (!normalized) return false;
+  const { data } = await supabase
+    .from('invite_email_suppression')
+    .select('suppressed_at')
+    .eq('normalized_email', normalized)
+    .maybeSingle();
+  return !!data?.suppressed_at?.trim();
+}
 
 const signupEmailSubjects = {
   en: 'Confirm Your LangQuest Account',
@@ -128,6 +146,60 @@ Deno.serve(async (req) => {
     if (parsedPayload.type === 'invite') {
       // Handle invite request
       const { record } = parsedPayload;
+      const { data: inviteRow } = await supabase
+        .from('invite')
+        .select('email_status, bounce_reason, count, delivery_suppressed_at')
+        .eq('id', record.id)
+        .single();
+
+      if (await isInviteReceiverGloballySuppressed(record.receiver_email)) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: 'invite_email_globally_suppressed'
+          }),
+          {
+            status: 422,
+            headers: { 'Content-Type': 'application/json' }
+          }
+        );
+      }
+
+      if (inviteDeliverySuppressed(inviteRow?.delivery_suppressed_at)) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: 'invite_delivery_suppressed'
+          }),
+          {
+            status: 422,
+            headers: { 'Content-Type': 'application/json' }
+          }
+        );
+      }
+
+      const maxOutbound = getMaxInviteOutboundSends();
+
+      if (
+        inviteRow?.email_status === 'bounced' &&
+        !inviteMaySendAnotherOutboundEmail(
+          inviteRow.count,
+          inviteRow.delivery_suppressed_at,
+          maxOutbound
+        )
+      ) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: 'invite_bounce_retry_exhausted'
+          }),
+          {
+            status: 422,
+            headers: { 'Content-Type': 'application/json' }
+          }
+        );
+      }
+
       // Check if email exists in profile table
       const { data: existingProfile } = await supabase
         .from('profile')

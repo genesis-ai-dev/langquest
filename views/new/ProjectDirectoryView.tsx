@@ -70,7 +70,7 @@ import { getThemeColor, useThemeColor } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Stack } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import {
   BookOpenIcon,
   ChurchIcon,
@@ -238,6 +238,10 @@ function useProjectHasNoInvites(projectId: string) {
 
 export default function ProjectDirectoryView() {
   const { projectId, router, goToQuest } = useNavigationHelpers();
+  const expoRouter = useRouter();
+  const { openMembership } = useLocalSearchParams<{
+    openMembership?: string;
+  }>();
   const { currentUser, isAuthenticated } = useAuth();
   const { t } = useLocalization();
   const queryClient = useQueryClient();
@@ -283,6 +287,24 @@ export default function ProjectDirectoryView() {
 
   // Modal states
   const [showMembershipModal, setShowMembershipModal] = useState(false);
+  const [membershipModalInitialTab, setMembershipModalInitialTab] = useState<
+    'members' | 'invited' | 'requests'
+  >('members');
+
+  const openMembershipModal = React.useCallback(
+    (tab: 'members' | 'invited' | 'requests') => {
+      setMembershipModalInitialTab(tab);
+      setShowMembershipModal(true);
+    },
+    []
+  );
+
+  React.useEffect(() => {
+    if (openMembership === 'invited') {
+      openMembershipModal('invited');
+      expoRouter.setParams({ openMembership: undefined });
+    }
+  }, [openMembership, expoRouter, openMembershipModal]);
   const [showProjectDetails, setShowProjectDetails] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showReportModal, setShowReportModal] = React.useState(false);
@@ -1090,7 +1112,7 @@ export default function ProjectDirectoryView() {
             <InviteMembersBanner
               show={showInviteBanner}
               onDismiss={() => dismissInviteBanner(projectId || '')}
-              onInvite={() => setShowMembershipModal(true)}
+              onInvite={() => openMembershipModal('invited')}
             />
           </View>
           <View className="flex-col items-center justify-between gap-3 p-4">
@@ -1155,7 +1177,7 @@ export default function ProjectDirectoryView() {
             <InviteMembersBanner
               show={showInviteBanner}
               onDismiss={() => dismissInviteBanner(projectId || '')}
-              onInvite={() => setShowMembershipModal(true)}
+              onInvite={() => openMembershipModal('invited')}
             />
           </View>
           <View className="flex-col items-center justify-between gap-3 p-4">
@@ -1263,7 +1285,7 @@ export default function ProjectDirectoryView() {
           <InviteMembersBanner
             show={showInviteBanner}
             onDismiss={() => dismissInviteBanner(projectId || '')}
-            onInvite={() => setShowMembershipModal(true)}
+            onInvite={() => openMembershipModal('invited')}
           />
         </View>
 
@@ -1416,7 +1438,7 @@ export default function ProjectDirectoryView() {
                     <SpeedDialItem
                       icon={UsersIcon}
                       variant="outline"
-                      onPress={() => setShowMembershipModal(true)}
+                      onPress={() => openMembershipModal('members')}
                     />
                   )}
               </>
@@ -1437,6 +1459,7 @@ export default function ProjectDirectoryView() {
         isVisible={showMembershipModal}
         onClose={() => setShowMembershipModal(false)}
         projectId={projectId || ''}
+        initialTab={membershipModalInitialTab}
       />
 
       {showProjectDetails && project && (
