@@ -1,7 +1,8 @@
 import { system } from '@/db/powersync/system';
 import { resolveTable } from '@/utils/dbUtils';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { inArray } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
+import { audioSegmentService } from './audioSegmentService';
 
 const ASSET_GC_QUEUE_KEY = '@asset_gc_queue_v1';
 
@@ -9,7 +10,6 @@ export type AssetGcOperation = 'merge' | 'delete';
 
 type AssetGcQueue = Record<string, AssetGcOperation>;
 
-/* FUNCTION TO BE REMOVED */
 async function getAssetNameMap(
   ids: string[]
 ): Promise<Record<string, string | null>> {
@@ -26,6 +26,13 @@ async function getAssetNameMap(
     acc[asset.id] = asset.name;
     return acc;
   }, {});
+}
+
+function devLog(...args: unknown[]): void {
+  // eslint-disable-next-line no-undef
+  if (__DEV__) {
+    console.log(...args);
+  }
 }
 
 async function readQueue(): Promise<AssetGcQueue> {
@@ -87,6 +94,78 @@ export async function run(): Promise<
     name: nameMap[entry.id] ?? null
   }));
 
-  console.log('[AssetGC] Current queue entries:', entriesWithName);
+  devLog('[AssetGC] Current queue entries:', entriesWithName);
+
+  if (entries.length === 0) {
+    return [];
+  }
+
+  const assetLocal = resolveTable('asset', { localOverride: true });
+  const questAssetLinkLocal = resolveTable('quest_asset_link', {
+    localOverride: true
+  });
+  const processedIds = new Set<string>();
+
+  for (const entry of entries) {
+    try {
+      const [assetRecord] = await system.db
+        .select({
+          id: assetLocal.id,
+          project_id: assetLocal.project_id
+        })
+        .from(assetLocal)
+        .where(eq(assetLocal.id, entry.id))
+        .limit(1);
+
+      // If asset no longer exists, consider it already collected.
+      if (!assetRecord) {
+        devLog(`[AssetGC] Asset not found, removing from queue: ${entry.id}`);
+        processedIds.add(entry.id);
+        continue;
+      }
+
+      const hasProjectLink = !!assetRecord.project_id;
+      const [questLink] = await system.db
+        .select({ id: questAssetLinkLocal.id })
+        .from(questAssetLinkLocal)
+        .where(eq(questAssetLinkLocal.asset_id, entry.id))
+        .limit(1);
+      const hasQuestLink = !!questLink;
+
+      // Abort deletion if still connected to quest/project.
+      if (hasProjectLink || hasQuestLink) {
+        devLog(
+          `[AssetGC] Skipping connected asset ${entry.id} | hasProjectLink=${hasProjectLink} hasQuestLink=${hasQuestLink}`
+        );
+        continue;
+      }
+
+      if (entry.operation === 'delete') {
+        await audioSegmentService.deleteAudioSegment(entry.id);
+        devLog(`[AssetGC] Deleted asset + files: ${entry.id}`);
+      } else if (entry.operation === 'merge') {
+        await audioSegmentService.deleteAudioSegment(entry.id, {
+          preserveAudioFiles: true
+        });
+        devLog(`[AssetGC] Deleted merged asset records only: ${entry.id}`);
+      }
+
+      processedIds.add(entry.id);
+    } catch (error) {
+      devLog(`[AssetGC] Failed to process ${entry.id}:`, error);
+    }
+  }
+
+  if (processedIds.size > 0) {
+    const nextQueue: AssetGcQueue = { ...queue };
+    for (const id of processedIds) {
+      delete nextQueue[id];
+    }
+    await writeQueue(nextQueue);
+    devLog(
+      `[AssetGC] Removed ${processedIds.size} processed item(s) from queue`
+    );
+  }
+
   return entries;
 }
