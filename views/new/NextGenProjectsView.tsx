@@ -806,7 +806,7 @@ export default function NextGenProjectsView() {
                   ) : (
                     <>
                       <TabsTrigger value="my">
-                        <Text>{t('signIn') || 'Sign In'}</Text>
+                        <Text>{t('signIn')}</Text>
                       </TabsTrigger>
                       <TabsTrigger value="all">
                         <Text>{t('allProjects')}</Text>
@@ -823,8 +823,7 @@ export default function NextGenProjectsView() {
                     <Icon as={UserIcon} size={48} className="text-primary" />
                     <View className="flex flex-col items-center gap-2">
                       <Text variant="h4" className="text-center">
-                        {t('signInToSaveOrContribute') ||
-                          'Sign in to save or contribute to projects'}
+                        {t('signInToSaveOrContribute')}
                       </Text>
                     </View>
                     <Button
@@ -833,9 +832,7 @@ export default function NextGenProjectsView() {
                       onPress={() => router.push('/(auth)/sign-in')}
                       className="w-full"
                     >
-                      <Text className="font-semibold">
-                        {t('signIn') || 'Sign In'}
-                      </Text>
+                      <Text className="font-semibold">{t('signIn')}</Text>
                     </Button>
                     <Button
                       variant="outline"
@@ -843,14 +840,13 @@ export default function NextGenProjectsView() {
                       onPress={() => router.push('/(auth)/register')}
                       className="w-full"
                     >
-                      <Text>{t('createAccount') || 'Create Account'}</Text>
+                      <Text>{t('createAccount')}</Text>
                     </Button>
                   </View>
                   {/* Arrow and option to view all projects */}
                   <View className="flex flex-col items-center gap-2 border-t border-border pt-4">
                     <Text className="text-sm text-muted-foreground">
-                      {t('orBrowseAllProjects') ||
-                        'Or browse all public projects'}
+                      {t('orBrowseAllProjects')}
                     </Text>
                     <Button
                       variant="ghost"
@@ -858,7 +854,7 @@ export default function NextGenProjectsView() {
                       onPress={() => setActiveTab('all')}
                       className="flex-row items-center gap-2"
                     >
-                      <Text>{t('viewAllProjects') || 'View All Projects'}</Text>
+                      <Text>{t('viewAllProjects')}</Text>
                       <Icon as={ArrowRightIcon} size={16} />
                     </Button>
                   </View>

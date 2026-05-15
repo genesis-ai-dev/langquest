@@ -692,20 +692,13 @@ export default function NextGenAssetDetailView() {
   // Transcription handler for source audio
   const handleTranscribe = async (uri: string) => {
     if (!isAuthenticated) {
-      RNAlert.alert(
-        t('error'),
-        t('pleaseLogInToTranscribe') || 'Please log in to transcribe audio'
-      );
+      RNAlert.alert(t('error'), t('pleaseLogInToTranscribe'));
       return;
     }
 
     // Validate the audio URI exists
     if (!uri) {
-      RNAlert.alert(
-        t('error'),
-        t('audioNotAvailable') ||
-          'Audio not available. The file may not have been downloaded yet.'
-      );
+      RNAlert.alert(t('error'), t('audioNotAvailable'));
       return;
     }
 
@@ -716,11 +709,7 @@ export default function NextGenAssetDetailView() {
         const exists = await fileExists(uri);
         if (!exists) {
           console.log('[Transcription] Audio file not found at URI:', uri);
-          RNAlert.alert(
-            t('error'),
-            t('audioNotAvailable') ||
-              'Audio not available. The file may not have been downloaded yet.'
-          );
+          RNAlert.alert(t('error'), t('audioNotAvailable'));
           return;
         }
       } catch (error) {
@@ -793,7 +782,7 @@ export default function NextGenAssetDetailView() {
         error instanceof Error ? error.message : 'Unknown error';
       RNAlert.alert(
         t('error'),
-        `${t('transcriptionFailed') || 'Failed to transcribe audio.'}\n\n${errorMessage}`
+        `${t('transcriptionFailed')}\n\n${errorMessage}`
       );
     }
   };

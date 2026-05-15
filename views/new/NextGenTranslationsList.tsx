@@ -84,7 +84,7 @@ export default function NextGenTranslationsList({
   const { attachmentStates } = useAttachmentStates(audioIds);
 
   const getPreviewText = (fullText: string, maxLength = 50) => {
-    if (!fullText) return '(Empty translation)';
+    if (!fullText) return '';
     if (fullText.length <= maxLength) return fullText;
     return fullText.substring(0, maxLength).trim() + '...';
   };
