@@ -7,6 +7,7 @@ import { ProjectSettingsModal } from '@/components/ProjectSettingsModal';
 import { QuestDownloadDiscoveryDrawer } from '@/components/QuestDownloadDiscoveryDrawer';
 import { QuestOffloadVerificationDrawer } from '@/components/QuestOffloadVerificationDrawer';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Drawer,
   DrawerClose,
@@ -15,7 +16,6 @@ import {
   DrawerHeader,
   DrawerTitle
 } from '@/components/ui/drawer';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Form,
   FormControl,
@@ -43,9 +43,6 @@ import { system } from '@/db/powersync/system';
 import { useProjectById } from '@/hooks/db/useProjects';
 import type { Quest } from '@/hooks/db/useQuests';
 import { useHasUserReported } from '@/hooks/db/useReports';
-import { useHybridData } from './useHybridData';
-import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { and, count, eq } from 'drizzle-orm';
 import {
   useBibleBookCreation,
   useBibleBooks
@@ -69,7 +66,9 @@ import { offloadQuest } from '@/utils/questOffloadUtils';
 import { getThemeColor, useThemeColor } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { and, count, eq } from 'drizzle-orm';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import {
   BookOpenIcon,
@@ -101,6 +100,7 @@ import z from 'zod';
 import { BibleBookList } from './BibleBookList';
 import { FiaBookList } from './FiaBookList';
 import { QuestListView } from './QuestListView';
+import { useHybridData } from './useHybridData';
 
 // Hook to determine if the invite banner should be shown for a project
 // Returns shouldShowInviteBanner=true if ALL of the following are true:

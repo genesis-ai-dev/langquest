@@ -341,12 +341,8 @@ export default function NotificationsView() {
       system.db.query.invite.findMany({
         where: and(
           ...[
-            currentUser?.id &&
-              eq(invite.sender_profile_id, currentUser.id),
-            or(
-              eq(invite.status, 'pending'),
-              eq(invite.status, 'withdrawn')
-            ),
+            currentUser?.id && eq(invite.sender_profile_id, currentUser.id),
+            or(eq(invite.status, 'pending'), eq(invite.status, 'withdrawn')),
             eq(invite.active, true),
             inArray(invite.email_status, ['bounced', 'complained']),
             isNull(invite.bounce_notice_dismissed_at)
@@ -949,11 +945,7 @@ export default function NotificationsView() {
         <CardContent className="p-4">
           <View className="flex gap-3">
             <View className="flex-row items-center gap-2">
-              <Icon
-                as={AlertTriangle}
-                size={24}
-                className="text-destructive"
-              />
+              <Icon as={AlertTriangle} size={24} className="text-destructive" />
               <Text className="text-sm font-semibold text-foreground">
                 {t('inviteDeliveryFailedTitle')}
               </Text>

@@ -4110,10 +4110,8 @@ export const localizations = {
       'हम आमंत्रण ईमेल वितरित नहीं कर सके। पता जांचें या किसी दूसरे ईमेल से आमंत्रित करें।',
     burmese:
       'ဖိတ်ခေါ်အီးမေးလ်ကို ပို့၍မရပါ။ လိပ်စာကို စစ်ဆေးပါ သို့မဟုတ် အခြားအီးမေးလ်ဖြင့် ဖိတ်ခေါ်ပါ။',
-    thai:
-      'เราไม่สามารถส่งอีเมลเชิญได้ ตรวจสอบที่อยู่หรือเชิญด้วยอีเมลอื่น',
-    mandarin:
-      '无法送达邀请邮件。请核对地址或使用其他邮箱发送邀请。'
+    thai: 'เราไม่สามารถส่งอีเมลเชิญได้ ตรวจสอบที่อยู่หรือเชิญด้วยอีเมลอื่น',
+    mandarin: '无法送达邀请邮件。请核对地址或使用其他邮箱发送邀请。'
   },
   inviteDeliveryFailedTitle: {
     english: 'Invite could not be delivered',
@@ -4132,7 +4130,7 @@ export const localizations = {
     english:
       'We could not deliver your invite to {email} for the project "{project}".',
     french:
-      'Nous n\'avons pas pu livrer votre invitation à {email} pour le projet « {project} ».',
+      "Nous n'avons pas pu livrer votre invitation à {email} pour le projet « {project} ».",
     spanish:
       'No pudimos entregar tu invitación a {email} para el proyecto "{project}".',
     brazilian_portuguese:
@@ -4147,8 +4145,7 @@ export const localizations = {
       'हम "{project}" परियोजना के लिए {email} पर आपका आमंत्रण वितरित नहीं कर सके।',
     burmese:
       '"{project}" စီမံကိန်းအတွက် သင့်ဖိတ်ခေါ်မှုကို {email} သို့ ပို့၍မရပါ။',
-    thai:
-      'เราไม่สามารถส่งคำเชิญของคุณไปที่ {email} สำหรับโครงการ "{project}" ได้',
+    thai: 'เราไม่สามารถส่งคำเชิญของคุณไปที่ {email} สำหรับโครงการ "{project}" ได้',
     mandarin: '我们无法将您对 {email} 的项目「{project}」的邀请送达。'
   },
   viewProjectInvites: {
@@ -4179,8 +4176,10 @@ export const localizations = {
   },
   failedToDismissNotice: {
     english: 'Could not dismiss this notice. Try again when you are online.',
-    french: "Impossible de masquer cet avis. Réessayez lorsque vous êtes en ligne.",
-    spanish: 'No se pudo descartar este aviso. Inténtalo de nuevo cuando estés en línea.',
+    french:
+      'Impossible de masquer cet avis. Réessayez lorsque vous êtes en ligne.',
+    spanish:
+      'No se pudo descartar este aviso. Inténtalo de nuevo cuando estés en línea.',
     brazilian_portuguese:
       'Não foi possível dispensar este aviso. Tente novamente quando estiver online.',
     tok_pisin: 'Ino inap rausim notice. Traim gen taim yu stap online.',
@@ -4188,8 +4187,7 @@ export const localizations = {
       'Tidak dapat menutup pemberitahuan ini. Coba lagi saat Anda daring.',
     nepali: 'यो सूचना खारेज गर्न सकिएन। अनलाइन हुँदा फेरि प्रयास गर्नुहोस्।',
     hindi: 'यह सूचना खारिज नहीं की जा सकी। ऑनलाइन होने पर पुनः प्रयास करें।',
-    burmese:
-      'ဤအသိပေးချက်ကို ပယ်ဖျက်၍မရပါ။ အွန်လိုင်းရှိစဉ် ထပ်ကြိုးစားပါ။',
+    burmese: 'ဤအသိပေးချက်ကို ပယ်ဖျက်၍မရပါ။ အွန်လိုင်းရှိစဉ် ထပ်ကြိုးစားပါ။',
     thai: 'ไม่สามารถปิดการแจ้งนี้ได้ ลองอีกครั้งเมื่อคุณออนไลน์',
     mandarin: '无法关闭此提醒。请在联网后重试。'
   },
@@ -4212,10 +4210,8 @@ export const localizations = {
       'बार-बार वितरण विफल होने के बाद यह ईमेल इस परियोजना के लिए आमंत्रण प्राप्त नहीं कर सकता।',
     burmese:
       'ပို့ဆောင်မှု မအောင်မြင်မှုများ ပြီးနောက် ဤအီးမေးလ်သည် ဤစီမံကိန်းအတွက် ဖိတ်ခေါ်မှုများ လက်ခံ၍မတော့ပါ။',
-    thai:
-      'ที่อยู่อีเมลนี้ไม่สามารถรับคำเชิญสำหรับโครงการนี้ได้อีกต่อไปหลังจากการส่งล้มเหลวซ้ำๆ',
-    mandarin:
-      '该邮箱在本项目中多次投递失败后，将无法再接收邀请。'
+    thai: 'ที่อยู่อีเมลนี้ไม่สามารถรับคำเชิญสำหรับโครงการนี้ได้อีกต่อไปหลังจากการส่งล้มเหลวซ้ำๆ',
+    mandarin: '该邮箱在本项目中多次投递失败后，将无法再接收邀请。'
   },
   deliveryBlocked: {
     english: 'Blocked',
@@ -4438,8 +4434,7 @@ export const localizations = {
       'इस पते पर स्थायी (हार्ड) बाउन्स आया। आमंत्रण हटाएं या दूसरा ईमेल उपयोग करें; डिलीवरेबिलिटी के लिए पुनः प्रयास अवरुद्ध है।',
     burmese:
       'ဤလိပ်စာသည် အပြီးအပိုင် (hard) bounce ပြန်လာသည်။ ဖိတ်ခေါ်မှုကို ဖျက်ပါ သို့မဟုတ် အခြားအီးမေးလ်သုံးပါ။ ပို့ဆောင်မှုအရည်အသွေးကို ကာကွယ်ရန် ပြန်မပို့နိုင်ပါ။',
-    thai:
-      'ที่อยู่นี้ถูกตีกลับแบบถาวร (hard bounce) ลบคำเชิญหรือใช้อีเมลอื่น การส่งซ้ำถูกบล็อกเพื่อความสามารถในการส่ง',
+    thai: 'ที่อยู่นี้ถูกตีกลับแบบถาวร (hard bounce) ลบคำเชิญหรือใช้อีเมลอื่น การส่งซ้ำถูกบล็อกเพื่อความสามารถในการส่ง',
     mandarin:
       '该地址返回了永久性（硬）退信。请删除邀请或更换邮箱；为保护送达率，禁止重试。'
   },

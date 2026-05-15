@@ -568,12 +568,11 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
       if (!invitation) return;
 
       const normalized = invitation.email.trim().toLowerCase();
-      const { data: globalSupRow } =
-        await system.supabaseConnector.client
-          .from('invite_email_suppression')
-          .select('suppressed_at')
-          .eq('normalized_email', normalized)
-          .maybeSingle();
+      const { data: globalSupRow } = await system.supabaseConnector.client
+        .from('invite_email_suppression')
+        .select('suppressed_at')
+        .eq('normalized_email', normalized)
+        .maybeSingle();
 
       if (globalSupRow?.suppressed_at) {
         RNAlert.alert(t('error'), t('emailBlacklistedForProject'));
@@ -767,12 +766,11 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
       }
 
       const normalizedInput = inviteEmail.trim().toLowerCase();
-      const { data: globalSupOnSend } =
-        await system.supabaseConnector.client
-          .from('invite_email_suppression')
-          .select('suppressed_at')
-          .eq('normalized_email', normalizedInput)
-          .maybeSingle();
+      const { data: globalSupOnSend } = await system.supabaseConnector.client
+        .from('invite_email_suppression')
+        .select('suppressed_at')
+        .eq('normalized_email', normalizedInput)
+        .maybeSingle();
 
       if (globalSupOnSend?.suppressed_at) {
         RNAlert.alert(t('error'), t('emailBlacklistedForProject'));
@@ -837,7 +835,9 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
               false
             )
           ) {
-            if (inviteDeliverySuppressed(existingInvite.delivery_suppressed_at)) {
+            if (
+              inviteDeliverySuppressed(existingInvite.delivery_suppressed_at)
+            ) {
               RNAlert.alert(t('error'), t('emailBlacklistedForProject'));
             } else {
               RNAlert.alert(t('error'), t('maxInviteAttemptsReached'));
@@ -893,7 +893,9 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
               false
             )
           ) {
-            if (inviteDeliverySuppressed(existingInvite.delivery_suppressed_at)) {
+            if (
+              inviteDeliverySuppressed(existingInvite.delivery_suppressed_at)
+            ) {
               RNAlert.alert(t('error'), t('emailBlacklistedForProject'));
             } else {
               RNAlert.alert(t('error'), t('maxInviteAttemptsReached'));

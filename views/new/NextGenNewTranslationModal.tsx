@@ -557,12 +557,6 @@ export default function NextGenNewTranslationModal({
       onSuccess: () => {
         Keyboard.dismiss();
         form.reset(defaultValues);
-        RNAlert.alert(
-          t('success'),
-          contentType === 'transcription'
-            ? t('transcriptionSubmittedSuccessfully')
-            : t('translationSubmittedSuccessfully')
-        );
         onSuccess?.();
         onClose();
       },

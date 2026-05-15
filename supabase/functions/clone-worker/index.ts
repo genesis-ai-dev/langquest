@@ -1,5 +1,5 @@
 // Minimal queue worker for local Supabase. Processes at most one queued job per request.
-import "@supabase/functions-js/edge-runtime.d.ts";
+import '@supabase/functions-js/edge-runtime.d.ts';
 import pg from 'pg';
 
 const dbUrl =

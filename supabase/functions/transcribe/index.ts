@@ -1,4 +1,4 @@
-import "@supabase/functions-js/edge-runtime.d.ts";
+import '@supabase/functions-js/edge-runtime.d.ts';
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 

@@ -62,12 +62,8 @@ export const useNotifications = () => {
       system.db.query.invite.findMany({
         where: and(
           ...[
-            currentUser?.id &&
-              eq(invite.sender_profile_id, currentUser.id),
-            or(
-              eq(invite.status, 'pending'),
-              eq(invite.status, 'withdrawn')
-            ),
+            currentUser?.id && eq(invite.sender_profile_id, currentUser.id),
+            or(eq(invite.status, 'pending'), eq(invite.status, 'withdrawn')),
             eq(invite.active, true),
             inArray(invite.email_status, ['bounced', 'complained']),
             isNull(invite.bounce_notice_dismissed_at)
