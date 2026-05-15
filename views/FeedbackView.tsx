@@ -44,7 +44,6 @@ export default function FeedbackView({ onClose }: FeedbackViewProps) {
 
   // Form schema with validation
   const formSchema = z.object({
-    name: z.string().trim().optional(),
     title: z
       .string()
       .trim()
@@ -65,7 +64,6 @@ export default function FeedbackView({ onClose }: FeedbackViewProps) {
   type FormData = z.infer<typeof formSchema>;
 
   const defaultValues: FormData = {
-    name: '',
     title: '',
     request_type: 'general',
     description: ''
@@ -81,7 +79,6 @@ export default function FeedbackView({ onClose }: FeedbackViewProps) {
     mutationFn: async (data: FormData) =>
       await system.db.insert(feedback_synced).values({
         profile_id: currentUser!.id,
-        name: data.name || null,
         title: data.title,
         request_type: data.request_type,
         description: data.description,
@@ -127,26 +124,6 @@ export default function FeedbackView({ onClose }: FeedbackViewProps) {
         <Text className="text-2xl font-bold text-foreground">
           {t('submitFeedback')}
         </Text>
-
-        {/* Name Field (optional) */}
-        <FormField
-          control={form.control}
-          name="name"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>{t('feedbackNameLabel')}</FormLabel>
-              <FormControl>
-                <Input
-                  {...transformInputProps(field)}
-                  type="next"
-                  placeholder={t('feedbackNamePlaceholder')}
-                  placeholderTextColor={colors.textSecondary}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
 
         {/* Title Field (required) */}
         <FormField

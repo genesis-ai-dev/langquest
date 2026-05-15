@@ -21,7 +21,6 @@ import Airtable from 'airtable';
 interface FeedbackRecord {
   id: string;
   profile_id: string;
-  name: string | null;
   title: string;
   request_type: 'bug' | 'feature_request' | 'general' | 'other';
   description: string;
@@ -123,8 +122,7 @@ async function sendToAirtable(
     return;
   }
 
-  // Determine the display name: use provided name, fallback to username, then 'Anonymous'
-  const displayName = feedback.name || username || 'Anonymous';
+  const displayName = username || 'Anonymous';
 
   // Map feedback fields to Airtable columns
   const airtableFields: Record<string, unknown> = {
