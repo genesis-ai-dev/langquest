@@ -94,7 +94,7 @@ Deno.serve(async (req) => {
 
     // Find invite by resend_email_id
     const { data: invite, error: findError } = await supabase
-      .from('invite')
+      .from('invite') 
       .select('id, email_status, count, email')
       .eq('resend_email_id', emailId)
       .single();
@@ -127,7 +127,6 @@ Deno.serve(async (req) => {
       case 'email.bounced': {
         const bounce = data.bounce;
         const isPermanentHardBounce = bounce?.type === 'Permanent';
-        let exhaustedHardBounces = false;
 
         if (isPermanentHardBounce) {
           const normalizedEmail =
@@ -175,7 +174,9 @@ Deno.serve(async (req) => {
               );
             }
 
-            exhaustedHardBounces = next >= maxSends;
+            console.log(
+              `[Resend Webhook] Global suppression count for ${normalizedEmail}: ${next}/${maxSends}`
+            );
           }
         }
 
@@ -185,7 +186,9 @@ Deno.serve(async (req) => {
           bounce_reason: bounce
             ? `${bounce.type}: ${bounce.message}`
             : 'Unknown bounce reason',
-          ...(exhaustedHardBounces
+          // Hard bounces: withdraw immediately and suppress delivery
+          // Soft bounces: leave pending so the sender is aware but don't auto-withdraw
+          ...(isPermanentHardBounce
             ? {
                 status: 'withdrawn' as const,
                 delivery_suppressed_at: now

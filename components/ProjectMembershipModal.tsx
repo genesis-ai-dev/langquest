@@ -34,7 +34,6 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import {
   DEFAULT_INVITE_MAX_OUTBOUND_SENDS,
-  inviteBouncedOutboundRetryAllowed,
   inviteDeliverySuppressed,
   inviteMaySendAnotherOutboundEmail
 } from '@/utils/inviteBounceGuard';
@@ -1060,13 +1059,8 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
     const showResendButton =
       withdrawInvitePermissions.hasAccess &&
       !globallyBlocked &&
-      (invitation.status === 'expired' ||
-        (isBounced &&
-          inviteBouncedOutboundRetryAllowed(
-            invitation.count,
-            invitation.delivery_suppressed_at,
-            false
-          )));
+      !isBounced &&
+      invitation.status === 'expired';
     const showWithdrawButton =
       withdrawInvitePermissions.hasAccess &&
       invitation.status === 'pending' &&
