@@ -1554,14 +1554,16 @@ export default function NextGenAssetsView() {
       <View className="flex flex-row items-center justify-between">
         <View className="flex flex-row items-center gap-2">
           <Text className="text-xl font-semibold">{t('assets')}</Text>
-          <Button
-            variant="ghost"
-            size="icon"
-            disabled={!currentUndoOperation?.canUndo}
-            onPress={handleUndoAction}
-          >
-            <Icon as={Undo2} size={18} className="text-primary" />
-          </Button>
+          {!isPublished && (
+            <Button
+              variant="ghost"
+              size="icon"
+              disabled={!currentUndoOperation?.canUndo}
+              onPress={handleUndoAction}
+            >
+              <Icon as={Undo2} size={18} className="text-primary" />
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="icon"

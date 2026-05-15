@@ -3959,14 +3959,16 @@ export default function BibleAssetsView() {
           </View>
           <View className="flex-row items-center gap-1">
             {/* Action buttons close to title: Refresh, PlayAll, AddLabel */}
-            <Button
-              variant="ghost"
-              size="icon"
-              disabled={!currentUndoOperation?.canUndo}
-              onPress={handleUndoAction}
-            >
-              <Icon as={Undo2} size={18} className="text-primary" />
-            </Button>
+            {!isPublished && (
+              <Button
+                variant="ghost"
+                size="icon"
+                disabled={!currentUndoOperation?.canUndo}
+                onPress={handleUndoAction}
+              >
+                <Icon as={Undo2} size={18} className="text-primary" />
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="icon"
