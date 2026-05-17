@@ -60,15 +60,15 @@ if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
 }
 
 /**
- * Fetches the username from Supabase profile table using profile_id
+ * Fetches the username and email from Supabase profile table using profile_id
  * Returns null if not found or on error
  */
-async function getUsernameFromProfile(
+async function getUserInfoFromProfile(
   profileId: string
-): Promise<string | null> {
+): Promise<{ username: string | null; email: string | null } | null> {
   if (!supabase) {
     console.warn(
-      '[feedback-to-airtable] Supabase client not configured, skipping username lookup'
+      '[feedback-to-airtable] Supabase client not configured, skipping profile lookup'
     );
     return null;
   }
@@ -76,21 +76,21 @@ async function getUsernameFromProfile(
   try {
     const { data, error } = await supabase
       .from('profile')
-      .select('username')
+      .select('username, email')
       .eq('id', profileId)
       .single();
 
     if (error) {
       console.warn(
-        '[feedback-to-airtable] Error fetching username:',
+        '[feedback-to-airtable] Error fetching profile:',
         error.message
       );
       return null;
     }
 
-    return data?.username || null;
+    return { username: data?.username || null, email: data?.email || null };
   } catch (err) {
-    console.warn('[feedback-to-airtable] Exception fetching username:', err);
+    console.warn('[feedback-to-airtable] Exception fetching profile:', err);
     return null;
   }
 }
@@ -115,14 +115,18 @@ function formatRequestType(type: string): string {
  */
 async function sendToAirtable(
   feedback: FeedbackRecord,
-  username: string | null
+  userInfo: { username: string | null; email: string | null } | null
 ): Promise<void> {
   if (!airtableBase) {
     console.warn('[feedback-to-airtable] Airtable not configured - skipping');
     return;
   }
 
-  const displayName = username || 'Anonymous';
+  const { username, email } = userInfo ?? { username: null, email: null };
+  const displayName =
+    username && email
+      ? `${username} - ${email}`
+      : username || email || 'Anonymous';
 
   // Map feedback fields to Airtable columns
   const airtableFields: Record<string, unknown> = {
@@ -185,11 +189,11 @@ Deno.serve(async (req) => {
       return new Response('Ignored', { status: 200 });
     }
 
-    // Fetch username from profile (not stored in feedback table)
-    const username = await getUsernameFromProfile(body.record.profile_id);
+    // Fetch user info from profile (not stored in feedback table)
+    const userInfo = await getUserInfoFromProfile(body.record.profile_id);
 
     // Send to Airtable
-    await sendToAirtable(body.record, username);
+    await sendToAirtable(body.record, userInfo);
 
     return new Response(
       JSON.stringify({ success: true, message: 'Feedback sent to Airtable' }),
