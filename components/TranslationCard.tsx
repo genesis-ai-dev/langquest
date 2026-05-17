@@ -5,6 +5,7 @@ import { Text } from '@/components/ui/text';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import type { LayerStatus } from '@/database_services/types';
 import type { AssetWithVoteCount } from '@/hooks/db/useTranslations';
+import { useLocalization } from '@/hooks/useLocalization';
 import type { WithSource } from '@/utils/dbUtils';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import { cn } from '@/utils/styleUtils';
@@ -30,6 +31,7 @@ export const TranslationCard = ({
   onTranscribe,
   isTranscribing = false
 }: TranslationCardProps) => {
+  const { t } = useLocalization();
   const currentLayer = useStatusContext();
   const { allowEditing, invisible } = currentLayer.getStatusParams(
     LayerType.ASSET,
@@ -69,7 +71,7 @@ export const TranslationCard = ({
                 numberOfLines={2}
                 className="text-base leading-relaxed text-foreground"
               >
-                {previewText}
+                {previewText || t('noText')}
               </Text>
             )}
 

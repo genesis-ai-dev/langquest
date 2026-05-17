@@ -973,6 +973,19 @@ export const localizations = {
     thai: 'ป้อนการถอดความของคุณที่นี่',
     mandarin: '在此输入您的转录'
   },
+  noText: {
+    english: '(No text)',
+    french: '(Pas de texte)',
+    spanish: '(Sin texto)',
+    brazilian_portuguese: '(Sem texto)',
+    tok_pisin: '(Nogat text)',
+    indonesian: '(Tidak ada teks)',
+    nepali: '(पाठ छैन)',
+    hindi: '(कोई टेक्स्ट नहीं)',
+    burmese: '(စာသားမရှိပါ)',
+    thai: '(ไม่มีข้อความ)',
+    mandarin: '(无文本)'
+  },
   pleaseRecordAudio: {
     english: 'Please record audio',
     french: 'Veuillez enregistrer un audio',
