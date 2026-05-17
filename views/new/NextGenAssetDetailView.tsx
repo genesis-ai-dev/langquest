@@ -55,7 +55,13 @@ import {
   SettingsIcon,
   UserIcon
 } from 'lucide-react-native';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState
+} from 'react';
 import type { FlatList as FlatListType, ViewToken } from 'react-native';
 import { Dimensions, FlatList, Text, TextInput, View } from 'react-native';
 
@@ -265,7 +271,9 @@ export default function NextGenAssetDetailView() {
   const projectData = queriedProjectData;
 
   // Fetch quest data for "New" label highlighting (recording session tracking)
-  const { data: questDataArray } = useHybridData<typeof questTable.$inferSelect>({
+  const { data: questDataArray } = useHybridData<
+    typeof questTable.$inferSelect
+  >({
     dataType: 'quest-detail',
     queryKeyParams: [questId || ''],
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -351,8 +359,12 @@ export default function NextGenAssetDetailView() {
   const canTranslate = canTranslateFromPermissions || isLocalContent;
 
   // Highlight assets from the last recording session (only for unpublished content)
-  const assetMeta = activeAsset?.metadata as { recordingSessionId?: string } | null;
-  const questMeta = questData?.metadata as { lastRecordingSessionId?: string } | null;
+  const assetMeta = activeAsset?.metadata as {
+    recordingSessionId?: string;
+  } | null;
+  const questMeta = questData?.metadata as {
+    lastRecordingSessionId?: string;
+  } | null;
   const isHighlighted =
     isLocalContent &&
     !!assetMeta?.recordingSessionId &&
