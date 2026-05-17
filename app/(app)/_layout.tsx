@@ -21,7 +21,7 @@ import { useProfileByUserId } from '@/hooks/db/useProfiles';
 import { useLocalStore } from '@/store/localStore';
 import { Stack, usePathname } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { DEFAULT_STACK_OPTIONS } from '../_layout';
+import { DEFAULT_STACK_OPTIONS, FORM_SHEET_OPTIONS } from '../_layout';
 
 const SimpleOnboardingFlow = React.lazy(() =>
   import('@/views/new/SimpleOnboardingFlow').then((module) => ({
@@ -116,7 +116,9 @@ function AppContent() {
         />
       </View>
 
-      <Stack screenOptions={DEFAULT_STACK_OPTIONS} />
+      <Stack screenOptions={DEFAULT_STACK_OPTIONS}>
+        <Stack.Screen name="feedback" options={FORM_SHEET_OPTIONS} />
+      </Stack>
 
       <Suspense fallback={null}>
         <AppDrawer
