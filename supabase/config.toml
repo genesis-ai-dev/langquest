@@ -53,6 +53,7 @@ max_client_conn = 100
 # These secrets are used by handle_invite_trigger() to call the send-email edge function
 supabase_url = "env(EXPO_PUBLIC_SUPABASE_URL)"
 supabase_service_role_key = "env(SERVICE_ROLE_KEY)"
+feedback_function_secret = "env(FEEDBACK_FUNCTION_SECRET)"
 
 [db.migrations]
 # Specifies an ordered list of schema files that describe your database.
@@ -333,6 +334,10 @@ BIBLE_BRAIN_ACCESS_KEY = "env(BIBLE_BRAIN_ACCESS_KEY)"
 FIA_ACCESS_KEY = "env(FIA_ACCESS_KEY)"
 MODAL_ASR_ENDPOINT = "env(MODAL_ASR_ENDPOINT)"
 OPENROUTER_API_KEY = "env(OPENROUTER_API_KEY)"
+AIRTABLE_API_KEY = "env(AIRTABLE_API_KEY)"
+AIRTABLE_BASE_ID = "env(AIRTABLE_BASE_ID)"
+AIRTABLE_TABLE_NAME = "env(AIRTABLE_TABLE_NAME)"
+FEEDBACK_FUNCTION_SECRET = "env(FEEDBACK_FUNCTION_SECRET)"
 
 [analytics]
 enabled = true
@@ -417,3 +422,8 @@ enabled = true
 verify_jwt = true
 import_map = "./functions/transcribe/deno.json"
 entrypoint = "./functions/transcribe/index.ts"
+
+[functions.feedback-to-airtable]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/feedback-to-airtable/index.ts"

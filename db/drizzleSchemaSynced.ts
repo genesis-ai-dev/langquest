@@ -7,6 +7,7 @@ import {
   createAssetTagLinkTable,
   createBlockedContentTable,
   createBlockedUsersTable,
+  createFeedbackTable,
   createInviteTable,
   createLanguageTable,
   createLanguoidAliasTable,
@@ -58,7 +59,8 @@ export const userRelations = relations(profile_synced, ({ many, one }) => ({
   }),
   sent_invites: many(invite_synced, { relationName: 'invite_sender' }),
   received_invites: many(invite_synced, { relationName: 'invite_receiver' }),
-  sent_requests: many(request_synced, { relationName: 'request_sender' })
+  sent_requests: many(request_synced, { relationName: 'request_sender' }),
+  feedback: many(feedback_synced, { relationName: 'feedback' })
 }));
 
 export const language_synced = createLanguageTable('synced', {
@@ -461,6 +463,21 @@ export const project_language_link_syncedRelations = relations(
 export const reports_synced = createReportsTable('synced', {
   profile: profile_synced
 });
+
+export const feedback_synced = createFeedbackTable('synced', {
+  profile: profile_synced
+});
+
+export const feedback_syncedRelations = relations(
+  feedback_synced,
+  ({ one }) => ({
+    profile: one(profile_synced, {
+      fields: [feedback_synced.profile_id],
+      references: [profile_synced.id],
+      relationName: 'feedback'
+    })
+  })
+);
 
 export const blocked_users_synced = createBlockedUsersTable('synced', {
   profile: profile_synced

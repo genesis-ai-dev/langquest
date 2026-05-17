@@ -10,6 +10,7 @@ import {
   createAssetTagLinkTable,
   createBlockedContentTable,
   createBlockedUsersTable,
+  createFeedbackTable,
   createInviteTable,
   createLanguageTable,
   createLanguoidAliasTable,
@@ -63,7 +64,8 @@ export const user_localRelations = relations(
     }),
     sent_invites: many(invite_local, { relationName: 'invite_sender' }),
     received_invites: many(invite_local, { relationName: 'invite_receiver' }),
-    sent_requests: many(request_local, { relationName: 'request_sender' })
+    sent_requests: many(request_local, { relationName: 'request_sender' }),
+    feedback: many(feedback_local, { relationName: 'feedback' })
   })
 );
 
@@ -461,6 +463,18 @@ export const project_language_link_localRelations = relations(
 export const reports_local = createReportsTable('local', {
   profile: profile_local
 });
+
+export const feedback_local = createFeedbackTable('local', {
+  profile: profile_local
+});
+
+export const feedback_localRelations = relations(feedback_local, ({ one }) => ({
+  profile: one(profile_local, {
+    fields: [feedback_local.profile_id],
+    references: [profile_local.id],
+    relationName: 'feedback'
+  })
+}));
 
 export const blocked_users_local = createBlockedUsersTable('local', {
   profile: profile_local
