@@ -16,11 +16,7 @@ import { useAudio } from '@/contexts/AudioContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import type { asset } from '@/db/drizzleSchema';
-import {
-  asset_content_link,
-  project,
-  quest as questTable
-} from '@/db/drizzleSchema';
+import { project, quest as questTable } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useProjectById } from '@/hooks/db/useProjects';
 import { useDebouncedState } from '@/hooks/use-debounced-state';
@@ -47,13 +43,12 @@ import {
   CloudUpload,
   FlagIcon,
   InfoIcon,
-  ListVideo,
   LockIcon,
   MicIcon,
+  PlayIcon,
   RefreshCwIcon,
   SearchIcon,
   SettingsIcon,
-  SquareIcon,
   Undo2,
   UserPlusIcon
 } from 'lucide-react-native';
@@ -83,6 +78,7 @@ import { ModalDetails } from '@/components/ModalDetails';
 import { ReportModal } from '@/components/NewReportModal';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { QuestOffloadVerificationDrawer } from '@/components/QuestOffloadVerificationDrawer';
+import { RecordButton } from '@/components/RecordButton';
 import {
   Drawer,
   DrawerContent,
@@ -99,23 +95,21 @@ import {
   formatPericopeVerseLabel,
   type ChapterVerse
 } from '@/constants/bibleStructure';
+import { run as runAssetGarbageCollector } from '@/database_services/assetGarbageCollectorService';
 import type { AssetUpdatePayload } from '@/database_services/assetService';
 import {
   batchUpdateAssetMetadata,
-  getNextOrderIndex,
   renameAsset,
   softDeleteAssetsFromQuest,
-  softMergeAssetsInQuest,
-  updateContentLinkOrder
+  softMergeAssetsInQuest
 } from '@/database_services/assetService';
-import { run as runAssetGarbageCollector } from '@/database_services/assetGarbageCollectorService';
 import { undo as undoAssetOperation } from '@/database_services/assetUndoService';
+import { audioSegmentService } from '@/database_services/audioSegmentService';
+import { createQuestRecordingSession } from '@/database_services/questService';
 import type {
   AssetOperationDataItem,
   AssetOperationTypes
 } from '@/database_services/types';
-import { audioSegmentService } from '@/database_services/audioSegmentService';
-import { createQuestRecordingSession } from '@/database_services/questService';
 import type { FiaMetadata } from '@/db/drizzleSchemaColumns';
 import { AppConfig } from '@/db/supabase/AppConfig';
 import { useAssetsByQuest, useLocalAssetsByQuest } from '@/hooks/db/useAssets';
@@ -131,7 +125,7 @@ import { offloadQuest } from '@/utils/questOffloadUtils';
 import { getThemeColor } from '@/utils/styleUtils';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { asc, eq } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { ScrollView as GHScrollView } from 'react-native-gesture-handler';
 import type { ReorderableListReorderEvent } from 'react-native-reorderable-list';
 import ReorderableList, {
@@ -321,6 +315,7 @@ interface DraggableAssetItemProps {
   onRename?: (assetId: string, currentName: string | null) => void;
   onAddVersePress?: () => void;
   onQuickAddVersePress?: () => void;
+  onStartRecording?: () => void;
 }
 
 const DraggableAssetItem = React.memo(function DraggableAssetItem({
@@ -342,7 +337,8 @@ const DraggableAssetItem = React.memo(function DraggableAssetItem({
   onSelectForRecording,
   onRename,
   onAddVersePress,
-  onQuickAddVersePress
+  onQuickAddVersePress,
+  onStartRecording
 }: DraggableAssetItemProps) {
   const drag = useReorderableDrag();
 
@@ -385,9 +381,14 @@ const DraggableAssetItem = React.memo(function DraggableAssetItem({
         onRename={onRename}
         isHighlighted={isHighlighted && !isPublished}
       />
-      {!isPublished && !isSelectionMode && isAssetSelectedForRecording && (
-        <RecordingPlaceIndicator />
-      )}
+      {!isPublished &&
+        !isSelectionMode &&
+        isAssetSelectedForRecording &&
+        onStartRecording && (
+          <View className="py-2">
+            <RecordButton onPress={onStartRecording} />
+          </View>
+        )}
     </View>
   );
 });
@@ -1442,7 +1443,9 @@ export default function BibleAssetsView() {
 
                 const merged = await softMergeAssetsInQuest({
                   questId,
-                  assetsToMerge: selectedAssets.map((asset) => ({ id: asset.id })),
+                  assetsToMerge: selectedAssets.map((asset) => ({
+                    id: asset.id
+                  })),
                   fallbackProjectId: projectId ?? null,
                   fallbackCreatorId: currentUser?.id ?? null
                 });
@@ -1564,14 +1567,7 @@ export default function BibleAssetsView() {
       await queryClient.invalidateQueries({ queryKey: ['assets'] });
       await refetch();
     });
-  }, [
-    listUndoHistory,
-    projectId,
-    queryClient,
-    questId,
-    refetch,
-    undoHistory
-  ]);
+  }, [listUndoHistory, projectId, queryClient, questId, refetch, undoHistory]);
 
   const buildMoveHistoryEntries = React.useCallback(
     (updates: AssetUpdatePayload[]) => {
@@ -2785,6 +2781,10 @@ export default function BibleAssetsView() {
     });
   };
 
+  const handleStartRecordingRef = React.useRef<(() => void) | undefined>(
+    undefined
+  );
+
   // Render function for ReorderableList - uses the new draggable wrapper components
   const renderItem = React.useCallback(
     ({ item, index }: { item: ListItem; index: number }) => {
@@ -2881,6 +2881,11 @@ export default function BibleAssetsView() {
           onQuickAddVersePress={
             isAssetSelectedForRecording && hasAvailableVerses
               ? () => handleQuickAddVersePressRef.current?.(asset.id)
+              : undefined
+          }
+          onStartRecording={
+            isAssetSelectedForRecording
+              ? () => handleStartRecordingRef.current?.()
               : undefined
           }
         />
@@ -3474,6 +3479,10 @@ export default function BibleAssetsView() {
     stopPlayAll
   ]);
 
+  handleStartRecordingRef.current = () => {
+    void handleGoToRecording();
+  };
+
   // Cleanup effect: Stop audio when component unmounts
   React.useEffect(() => {
     return () => {
@@ -3787,7 +3796,13 @@ export default function BibleAssetsView() {
         }
       }
     },
-    [buildMoveHistoryEntries, getAssetMetadata, pushUndoHistory, queryClient, refetch]
+    [
+      buildMoveHistoryEntries,
+      getAssetMetadata,
+      pushUndoHistory,
+      queryClient,
+      refetch
+    ]
   );
 
   if (!questId) {
@@ -3818,7 +3833,8 @@ export default function BibleAssetsView() {
         <Stack.Screen options={{ title: selectedQuest.name }} />
       )}
       {isPlayAllPlayerActive && <KeepAwakeGuard />}
-      <View className="flex flex-row items-center justify-end">
+      <View className="flex flex-row items-center justify-between">
+        <Text className="text-base font-semibold">{t('assets')}</Text>
         <View className="flex flex-row items-center gap-2">
           <View className="flex flex-row items-center gap-2">
             {isPublished ? (
@@ -3827,7 +3843,7 @@ export default function BibleAssetsView() {
                 <>
                   <Button
                     variant="outline"
-                    className="h-10 px-4 py-0"
+                    className="h-10 border-border/50 px-4 py-0"
                     onPress={() => {
                       RNAlert.alert(t('questSyncedToCloud'));
                     }}
@@ -3939,118 +3955,103 @@ export default function BibleAssetsView() {
         </View>
       </View>
       <View className="flex w-full flex-row items-center justify-between">
-        {/* Left side: Quest name + action buttons */}
-        <View className="flex w-full flex-row items-center justify-between gap-2">
-          <View className="flex flex-col">
-            {selectedQuest?.name && (
-              <Text
-                className="text-base font-semibold"
-                numberOfLines={1}
-                ellipsizeMode="tail"
-              >
-                {selectedQuest.name.length > 25
-                  ? `${selectedQuest.name.slice(0, 25)}...`
-                  : selectedQuest.name}
-              </Text>
-            )}
-            <Text className="text-sm font-medium text-muted-foreground">
-              {t('assets')}
-            </Text>
-          </View>
-          <View className="flex-row items-center gap-1">
-            {/* Action buttons close to title: Refresh, PlayAll, AddLabel */}
-            {!isPublished && (
-              <Button
-                variant="ghost"
-                size="icon"
-                disabled={!currentUndoOperation?.canUndo}
-                onPress={handleUndoAction}
-              >
-                <Icon as={Undo2} size={18} className="text-primary" />
-              </Button>
-            )}
+        <View className="flex-row items-center gap-1">
+          {!isPublished && (
             <Button
               variant="ghost"
               size="icon"
-              disabled={isRefreshing || isPlayAllPlayerActive}
-              onPress={async () => {
-                setIsRefreshing(true);
-                console.log('🔄 Manually refreshing assets queries...');
-                await queryClient.invalidateQueries({
-                  queryKey: ['assets']
-                });
-                void refetch();
-                console.log('🔄 Assets queries invalidated');
-                // Stop animation after a brief delay
-                setTimeout(() => {
-                  setIsRefreshing(false);
-                }, 500);
-              }}
+              disabled={!currentUndoOperation?.canUndo}
+              onPress={handleUndoAction}
             >
-              <Animated.View style={spinStyle}>
-                <Icon as={RefreshCwIcon} size={18} className="text-primary" />
-              </Animated.View>
+              <Icon as={Undo2} size={18} className="text-primary" />
             </Button>
-            {assets.length > 0 && (
-              <Button
-                variant="ghost"
-                size="icon"
-                disabled={isIndividualPlayerActive && !isPlayAllPlayerActive}
-                onPress={() => {
-                  if (isPlayAllPlayerActive) {
-                    stopAndResetPlayAll();
-                    setShowPlayAllControls(false);
-                    return;
-                  }
-                  if (!isPlayAllRunning) {
-                    setShowPlayAllControls(true);
-                    void handlePlayAll(selectedForRecording);
-                  }
-                }}
-                className="h-10 w-10"
-              >
-                <Icon
-                  as={isPlayAllPlayerActive ? SquareIcon : ListVideo}
-                  size={20}
-                  className="text-primary"
-                />
-              </Button>
-            )}
-            {!isPublished && currentUser && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onPress={() => {
-                  setNewLabelSelectorState({
-                    isOpen: true
-                  });
-                }}
-                disabled={
-                  isPlayAllPlayerActive ||
-                  !isOnline ||
-                  verseCount === 0 ||
-                  getAvailableVerses().length === 0
+          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            disabled={isRefreshing || isPlayAllPlayerActive}
+            onPress={async () => {
+              setIsRefreshing(true);
+              console.log('🔄 Manually refreshing assets queries...');
+              await queryClient.invalidateQueries({
+                queryKey: ['assets']
+              });
+              void refetch();
+              console.log('🔄 Assets queries invalidated');
+              // Stop animation after a brief delay
+              setTimeout(() => {
+                setIsRefreshing(false);
+              }, 500);
+            }}
+          >
+            <Animated.View style={spinStyle}>
+              <Icon as={RefreshCwIcon} size={18} className="text-primary" />
+            </Animated.View>
+          </Button>
+          {!isPublished && currentUser && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onPress={() => {
+                setNewLabelSelectorState({
+                  isOpen: true
+                });
+              }}
+              disabled={
+                isPlayAllPlayerActive ||
+                !isOnline ||
+                verseCount === 0 ||
+                getAvailableVerses().length === 0
+              }
+            >
+              <Icon as={BookmarkPlusIcon} className="text-primary" />
+            </Button>
+          )}
+          {fiaPericopeId && (
+            <Button
+              variant="default"
+              size="icon"
+              disabled={isPlayAllPlayerActive}
+              onPress={() => setShowFiaTextDrawer(true)}
+              style={isPlayAllPlayerActive ? { opacity: 0.5 } : undefined}
+            >
+              <Icon
+                as={BookOpenIcon}
+                size={20}
+                className="text-primary-foreground"
+              />
+            </Button>
+          )}
+        </View>
+        <View className="flex-row items-center gap-1">
+          {assets.length > 0 && (
+            <Button
+              variant="default"
+              size="default"
+              disabled={isIndividualPlayerActive && !isPlayAllPlayerActive}
+              onPress={() => {
+                if (isPlayAllPlayerActive) {
+                  stopAndResetPlayAll();
+                  setShowPlayAllControls(false);
+                  return;
                 }
-              >
-                <Icon as={BookmarkPlusIcon} className="text-primary" />
-              </Button>
-            )}
-            {fiaPericopeId && (
-              <Button
-                variant="default"
-                size="icon"
-                disabled={isPlayAllPlayerActive}
-                onPress={() => setShowFiaTextDrawer(true)}
-                style={isPlayAllPlayerActive ? { opacity: 0.5 } : undefined}
-              >
-                <Icon
-                  as={BookOpenIcon}
-                  size={20}
-                  className="text-primary-foreground"
-                />
-              </Button>
-            )}
-          </View>
+                if (!isPlayAllRunning) {
+                  setShowPlayAllControls(true);
+                  void handlePlayAll(selectedForRecording);
+                }
+              }}
+              className="h-10 flex-row items-center rounded-lg bg-primary"
+            >
+              <Icon
+                as={PlayIcon}
+                size={16}
+                className="text-primary-foreground"
+              />
+              {/* <Text className="p-0 text-sm font-semibold text-primary-foreground">
+              </Text> */}
+              {/* <Text className="-p-safe-or-1 px-2">Play All</Text> */}
+            </Button>
+          )}
         </View>
       </View>
 

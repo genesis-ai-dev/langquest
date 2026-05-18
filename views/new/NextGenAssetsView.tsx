@@ -1620,7 +1620,7 @@ export default function NextGenAssetsView() {
               <>
                 <Button
                   variant="outline"
-                  className="h-10 px-4 py-0"
+                  className="h-10 border-border/50 px-4 py-0"
                   onPress={() => {
                     RNAlert.alert(t('questSyncedToCloud'));
                   }}
