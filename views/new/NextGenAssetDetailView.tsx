@@ -24,16 +24,15 @@ import {
 } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { AppConfig } from '@/db/supabase/AppConfig';
-import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useOrthographyExamples } from '@/hooks/useOrthographyExamples';
 import { useHasUserReported } from '@/hooks/useReports';
 import { useTranscription } from '@/hooks/useTranscription';
 import { useTranscriptionLocalization } from '@/hooks/useTranscriptionLocalization';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useLocalStore } from '@/store/localStore';
-import { Stack } from 'expo-router';
 import {
   fileExists,
   getLocalAttachmentUriWithOPFS,
@@ -43,6 +42,7 @@ import { cn } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { and, asc, eq, inArray } from 'drizzle-orm';
+import { Stack } from 'expo-router';
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -55,24 +55,18 @@ import {
   SettingsIcon,
   UserIcon
 } from 'lucide-react-native';
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState
-} from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import type { FlatList as FlatListType, ViewToken } from 'react-native';
 import { Dimensions, FlatList, Text, TextInput, View } from 'react-native';
+import { scheduleOnRN } from 'react-native-worklets';
+import NextGenNewTranslationModal from './NextGenNewTranslationModal';
+import NextGenTranslationsList from './NextGenTranslationsList';
+import { useHybridData } from './useHybridData';
 
 // Static viewability config for FlatList - defined outside component to avoid recreation
 const VIEWABILITY_CONFIG = {
   itemVisiblePercentThreshold: 50
 };
-import { scheduleOnRN } from 'react-native-worklets';
-import NextGenNewTranslationModal from './NextGenNewTranslationModal';
-import NextGenTranslationsList from './NextGenTranslationsList';
-import { useHybridData } from './useHybridData';
 
 const ASSET_VIEWER_PROPORTION = 0.35;
 
@@ -263,7 +257,8 @@ export default function NextGenAssetDetailView() {
       return data || [];
     },
     enableCloudQuery: !!projectId,
-    enableOfflineQuery: !!projectId && isAuthenticated
+    enableOfflineQuery:
+      !!projectId && isAuthenticated && system.isPowerSyncInitialized()
   });
 
   // Prefer passed data for instant rendering!
