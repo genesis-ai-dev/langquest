@@ -39,12 +39,10 @@ import {
   BookOpenIcon,
   BrushCleaning,
   CheckCheck,
-  ChevronRight,
   CloudUpload,
   FlagIcon,
   InfoIcon,
   LockIcon,
-  MicIcon,
   PlayIcon,
   RefreshCwIcon,
   SearchIcon,
@@ -57,6 +55,9 @@ import { ActivityIndicator, Pressable, View } from 'react-native';
 import Animated, {
   cancelAnimation,
   Easing,
+  FadeIn,
+  FadeOut,
+  LinearTransition,
   runOnJS,
   useAnimatedScrollHandler,
   useAnimatedStyle,
@@ -169,6 +170,7 @@ interface ListItemSeparator {
 }
 
 type ListItem = ListItemAsset | ListItemSeparator;
+const ENABLE_BIBLE_ASSET_LIST_TRANSITIONS = true;
 
 // Manual separator type used for verse grouping
 interface ManualSeparator {
@@ -236,14 +238,6 @@ function extractFiaMetadata(metadata: unknown): FiaMetadata | null {
   return null;
 }
 
-const RecordingPlaceIndicator = () => (
-  <View className="flex flex-row items-center justify-center gap-1 py-2">
-    {/* <Icon as={CassetteTapeIcon} size={16} className="text-destructive" /> */}
-    <View className="h-2 w-2 rounded-full bg-destructive" />
-    <Text className="text-xs text-destructive">REC</Text>
-  </View>
-);
-
 // ============================================================================
 // DRAGGABLE LIST ITEM WRAPPERS
 // These components call useReorderableDrag() and pass the drag function down
@@ -259,6 +253,7 @@ interface DraggableSeparatorProps {
   formatVerse?: (position: number) => string | null;
   onPress?: () => void;
   onSelectForRecording?: () => void;
+  onStartRecording?: () => void;
 }
 
 const DraggableSeparator = React.memo(function DraggableSeparator({
@@ -270,7 +265,8 @@ const DraggableSeparator = React.memo(function DraggableSeparator({
   bookChapterLabel,
   formatVerse,
   onPress,
-  onSelectForRecording
+  onSelectForRecording,
+  onStartRecording
 }: DraggableSeparatorProps) {
   const drag = useReorderableDrag();
 
@@ -288,9 +284,14 @@ const DraggableSeparator = React.memo(function DraggableSeparator({
         onDrag={!isPublished ? drag : undefined}
         isDragFixed={isDragFixed}
       />
-      {!isPublished && !isSelectionMode && isSeparatorSelected && (
-        <RecordingPlaceIndicator />
-      )}
+      {!isPublished &&
+        !isSelectionMode &&
+        isSeparatorSelected &&
+        onStartRecording && (
+          <View className="py-2">
+            <RecordButton onPress={onStartRecording} />
+          </View>
+        )}
     </View>
   );
 });
@@ -2794,35 +2795,59 @@ export default function BibleAssetsView() {
           selectedForRecording?.separatorKey === item.key;
 
         return (
-          <DraggableSeparator
-            item={item}
-            isPublished={isPublished}
-            isSelectionMode={isSelectionMode}
-            isSeparatorSelected={isSeparatorSelected}
-            isDragFixed={fixedItemsIndexesRef.current.includes(index)}
-            bookChapterLabel={bookChapterLabelRef.current}
-            formatVerse={formatVersePositionRef.current}
-            onPress={
-              !isPublished
-                ? () =>
-                    handleEditSeparatorRef.current?.(
-                      item.key,
-                      item.from,
-                      item.to
-                    )
+          <Animated.View
+            key={item.key}
+            entering={
+              ENABLE_BIBLE_ASSET_LIST_TRANSITIONS
+                ? FadeIn.duration(160)
                 : undefined
             }
-            onSelectForRecording={
-              !isPublished
-                ? () =>
-                    handleSelectSeparatorForRecording(
-                      item.key,
-                      item.from,
-                      item.to
-                    )
+            exiting={
+              ENABLE_BIBLE_ASSET_LIST_TRANSITIONS
+                ? FadeOut.duration(120)
                 : undefined
             }
-          />
+            layout={
+              ENABLE_BIBLE_ASSET_LIST_TRANSITIONS
+                ? LinearTransition.duration(160)
+                : undefined
+            }
+          >
+            <DraggableSeparator
+              item={item}
+              isPublished={isPublished}
+              isSelectionMode={isSelectionMode}
+              isSeparatorSelected={isSeparatorSelected}
+              isDragFixed={fixedItemsIndexesRef.current.includes(index)}
+              bookChapterLabel={bookChapterLabelRef.current}
+              formatVerse={formatVersePositionRef.current}
+              onPress={
+                !isPublished
+                  ? () =>
+                      handleEditSeparatorRef.current?.(
+                        item.key,
+                        item.from,
+                        item.to
+                      )
+                  : undefined
+              }
+              onSelectForRecording={
+                !isPublished
+                  ? () =>
+                      handleSelectSeparatorForRecording(
+                        item.key,
+                        item.from,
+                        item.to
+                      )
+                  : undefined
+              }
+              onStartRecording={
+                isSeparatorSelected
+                  ? () => handleStartRecordingRef.current?.()
+                  : undefined
+              }
+            />
+          </Animated.View>
         );
       }
 
@@ -2850,45 +2875,64 @@ export default function BibleAssetsView() {
         : false;
 
       return (
-        <DraggableAssetItem
-          asset={asset}
-          questId={questId || ''}
-          isPublished={isPublished}
-          isPlaying={isPlaying}
-          playDisabled={showPlayAllControls}
-          isHighlighted={
-            asset.metadata?.recordingSessionId ==
-            selectedQuest?.metadata?.lastRecordingSessionId
-          }
-          isSelected={isSelected}
-          isSelectionMode={!isPublished && isSelectionMode}
-          isAssetSelectedForRecording={isAssetSelectedForRecording}
-          hasAvailableVerses={hasAvailableVerses}
-          showDragHandle={!isPublished && !isSelectionMode}
-          isDragFixed={fixedItemsIndexesRef.current.includes(index)}
-          onPlay={stableOnPlay}
-          onToggleSelect={handleToggleSelect}
-          onEnterSelection={!isPublished ? enterSelection : undefined}
-          onSelectForRecording={
-            !isPublished ? handleSelectForRecording : undefined
-          }
-          onRename={!isPublished ? handleRenameAsset : undefined}
-          onAddVersePress={
-            isAssetSelectedForRecording && hasAvailableVerses
-              ? () => handleAddVersePressRef.current?.(asset.id)
+        <Animated.View
+          key={asset.id}
+          entering={
+            ENABLE_BIBLE_ASSET_LIST_TRANSITIONS
+              ? FadeIn.duration(160)
               : undefined
           }
-          onQuickAddVersePress={
-            isAssetSelectedForRecording && hasAvailableVerses
-              ? () => handleQuickAddVersePressRef.current?.(asset.id)
+          exiting={
+            ENABLE_BIBLE_ASSET_LIST_TRANSITIONS
+              ? FadeOut.duration(120)
               : undefined
           }
-          onStartRecording={
-            isAssetSelectedForRecording
-              ? () => handleStartRecordingRef.current?.()
+          layout={
+            ENABLE_BIBLE_ASSET_LIST_TRANSITIONS
+              ? LinearTransition.duration(160)
               : undefined
           }
-        />
+        >
+          <DraggableAssetItem
+            asset={asset}
+            questId={questId || ''}
+            isPublished={isPublished}
+            isPlaying={isPlaying}
+            playDisabled={showPlayAllControls}
+            isHighlighted={
+              asset.metadata?.recordingSessionId ==
+              selectedQuest?.metadata?.lastRecordingSessionId
+            }
+            isSelected={isSelected}
+            isSelectionMode={!isPublished && isSelectionMode}
+            isAssetSelectedForRecording={isAssetSelectedForRecording}
+            hasAvailableVerses={hasAvailableVerses}
+            showDragHandle={!isPublished && !isSelectionMode}
+            isDragFixed={fixedItemsIndexesRef.current.includes(index)}
+            onPlay={stableOnPlay}
+            onToggleSelect={handleToggleSelect}
+            onEnterSelection={!isPublished ? enterSelection : undefined}
+            onSelectForRecording={
+              !isPublished ? handleSelectForRecording : undefined
+            }
+            onRename={!isPublished ? handleRenameAsset : undefined}
+            onAddVersePress={
+              isAssetSelectedForRecording && hasAvailableVerses
+                ? () => handleAddVersePressRef.current?.(asset.id)
+                : undefined
+            }
+            onQuickAddVersePress={
+              isAssetSelectedForRecording && hasAvailableVerses
+                ? () => handleQuickAddVersePressRef.current?.(asset.id)
+                : undefined
+            }
+            onStartRecording={
+              isAssetSelectedForRecording
+                ? () => handleStartRecordingRef.current?.()
+                : undefined
+            }
+          />
+        </Animated.View>
       );
     },
     [
@@ -4195,7 +4239,11 @@ export default function BibleAssetsView() {
                 }}
               />
             </SpeedDialItems>
-            <SpeedDialTrigger className="-top-0.5 rounded-md text-destructive-foreground" />
+            <SpeedDialTrigger
+              className="-top-0.5 size-10 rounded-full text-destructive-foreground"
+              // openClassName="bg-secondary text-white"
+              // closedClassName="bg-secondary text-white"
+            />
           </SpeedDial>
         </View>
       )}
@@ -4224,35 +4272,20 @@ export default function BibleAssetsView() {
             />
           </View>
         ) : (
-          <View
-            style={{
-              paddingBottom: insets.bottom,
-              paddingRight: isSelectionMode ? 0 : 50 // Leave space for SpeedDial when not in selection mode
-            }}
-            className="px-2"
-          >
-            <Pressable
-              //variant="destructive"
-              // size="lg"
-              className="ml-14 w-full flex-row items-center justify-around gap-2 rounded-lg bg-primary p-2 px-2"
-              onPress={() => void handleGoToRecording()}
+          !selectedForRecording && (
+            <View
+              style={{
+                paddingBottom: insets.bottom + 15,
+                paddingRight: isSelectionMode ? 0 : 50 // Leave space for SpeedDial when not in selection mode
+              }}
+              className="px-2"
             >
-              <Icon as={MicIcon} size={24} className="text-secondary" />
-              <View className="ml-1 flex-col items-start justify-start gap-0">
-                <Text className="text-center text-base font-semibold text-secondary">
-                  {t('startRecordingSession')}
-                </Text>
-                <Text className="w-full text-left text-sm text-secondary">
-                  {selectedForRecording?.verseName
-                    ? `${formatVersePositionRef.current?.(selectedForRecording.metadata?.verse?.from ?? 0) ?? `${bookChapterLabelRef.current}:${selectedForRecording.verseName}`} ${selectedForRecording.name ? `- ${(t('after') + ' ' + selectedForRecording.name).slice(0, 20)}` : ''}`
-                    : selectedForRecording?.name
-                      ? `${(t('after') + ' ' + selectedForRecording.name).slice(0, 20)}`
-                      : `${t('noLabelSelected')}`}
-                </Text>
-              </View>
-              <Icon as={ChevronRight} size={24} className="text-secondary" />
-            </Pressable>
-          </View>
+              <RecordButton
+                onPress={() => void handleGoToRecording()}
+                className="ml-14"
+              />
+            </View>
+          )
         ))}
       {showPlayAllControls && (
         <AudioPlayerControls

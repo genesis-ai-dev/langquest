@@ -188,7 +188,9 @@ export function useBreadcrumbs(): Breadcrumb[] {
     }
 
     if (isOnRecording) {
-      crumbs.push({ label: t('recording') || 'Recording' });
+      crumbs.push({
+        label: `${t('recording') || 'Recording'}`
+      });
     }
 
     return crumbs;

@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unnecessary-condition */
-import { QuestSettingsModal } from '@/components/QuestSettingsModal';
 import { AudioPlayerControls } from '@/components/AudioPlayerControls';
+import { QuestSettingsModal } from '@/components/QuestSettingsModal';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
@@ -14,29 +14,25 @@ import { Text } from '@/components/ui/text';
 import { useAudio } from '@/contexts/AudioContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
-import { Stack } from 'expo-router';
 import type { asset } from '@/db/drizzleSchema';
-import {
-  asset_content_link,
-  project,
-  quest as questTable
-} from '@/db/drizzleSchema';
+import { project, quest as questTable } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import { useDebouncedState } from '@/hooks/use-debounced-state';
 import { useProjectById } from '@/hooks/db/useProjects';
-import { useNavigationHelpers } from '@/hooks/useNavigation';
+import { useDebouncedState } from '@/hooks/use-debounced-state';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useAudioPlaybackCheckpoint } from '@/hooks/useAudioPlaybackCheckpoint';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { usePlayAllAudioController } from '@/hooks/usePlayAllAudioController';
-import { useSingleAudioController } from '@/hooks/useSingleAudioController';
 import { useQuestDownloadStatusLive } from '@/hooks/useQuestDownloadStatusLive';
+import { useSingleAudioController } from '@/hooks/useSingleAudioController';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useLocalStore } from '@/store/localStore';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { LegendList } from '@legendapp/list';
 import { useKeepAwake } from 'expo-keep-awake';
+import { Stack } from 'expo-router';
 import {
   ArrowBigDownDashIcon,
   CheckCheck,
@@ -44,13 +40,12 @@ import {
   CloudUpload,
   FlagIcon,
   InfoIcon,
-  ListVideo,
   LockIcon,
   MicIcon,
+  PlayIcon,
   RefreshCwIcon,
   SearchIcon,
   SettingsIcon,
-  SquareIcon,
   ShieldOffIcon,
   Undo2,
   UserPlusIcon
@@ -60,6 +55,9 @@ import { ActivityIndicator, Pressable, View } from 'react-native';
 import Animated, {
   cancelAnimation,
   Easing,
+  FadeIn,
+  FadeOut,
+  LinearTransition,
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
@@ -75,19 +73,18 @@ import { ModalDetails } from '@/components/ModalDetails';
 import { ReportModal } from '@/components/NewReportModal';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { QuestOffloadVerificationDrawer } from '@/components/QuestOffloadVerificationDrawer';
+import { run as runAssetGarbageCollector } from '@/database_services/assetGarbageCollectorService';
 import {
   renameAsset,
   softDeleteAssetsFromQuest,
   softMergeAssetsInQuest
 } from '@/database_services/assetService';
-import { run as runAssetGarbageCollector } from '@/database_services/assetGarbageCollectorService';
 import { undo as undoAssetOperation } from '@/database_services/assetUndoService';
+import { createQuestRecordingSession } from '@/database_services/questService';
 import type {
   AssetOperationDataItem,
   AssetOperationTypes
 } from '@/database_services/types';
-import { audioSegmentService } from '@/database_services/audioSegmentService';
-import { createQuestRecordingSession } from '@/database_services/questService';
 import { AppConfig } from '@/db/supabase/AppConfig';
 import { useAssetsByQuest } from '@/hooks/db/useAssets';
 import { useBlockedAssetsCount } from '@/hooks/useBlockedCount';
@@ -101,7 +98,7 @@ import { offloadQuest } from '@/utils/questOffloadUtils';
 import { getThemeColor } from '@/utils/styleUtils';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { asc, eq } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { AssetCardItem } from './AssetCardItem';
 import { RecordSelectionControls } from './recording/components/RecordSelectionControls';
 import { RenameAssetDrawer } from './recording/components/RenameAssetDrawer';
@@ -113,6 +110,8 @@ type AssetQuestLink = Asset & {
   quest_visible: boolean;
   tag_ids?: string[] | undefined;
 };
+
+const ENABLE_ASSET_LIST_TRANSITIONS = true;
 
 const DEFAULT_RECORDING_INITIAL_ORDER_INDEX = 1000000;
 const PLAY_ALL_AUDIO_ID = 'play-all-assets';
@@ -570,7 +569,9 @@ export default function NextGenAssetsView() {
 
                 const merged = await softMergeAssetsInQuest({
                   questId,
-                  assetsToMerge: selectedAssets.map((asset) => ({ id: asset.id })),
+                  assetsToMerge: selectedAssets.map((asset) => ({
+                    id: asset.id
+                  })),
                   fallbackProjectId: projectId ?? null,
                   fallbackCreatorId: currentUser?.id ?? null
                 });
@@ -669,14 +670,7 @@ export default function NextGenAssetsView() {
       await queryClient.invalidateQueries({ queryKey: ['assets'] });
       await refetch();
     });
-  }, [
-    listUndoHistory,
-    projectId,
-    queryClient,
-    questId,
-    refetch,
-    undoHistory
-  ]);
+  }, [listUndoHistory, projectId, queryClient, questId, refetch, undoHistory]);
 
   const blockIndividualPlayRef = React.useRef(false);
   const stableOnPlay = React.useCallback((assetId: string) => {
@@ -712,7 +706,15 @@ export default function NextGenAssetsView() {
           selectedQuest?.metadata?.lastRecordingSessionId;
 
       return (
-        <>
+        <Animated.View
+          entering={ENABLE_ASSET_LIST_TRANSITIONS ? FadeIn.duration(160) : undefined}
+          exiting={ENABLE_ASSET_LIST_TRANSITIONS ? FadeOut.duration(120) : undefined}
+          layout={
+            ENABLE_ASSET_LIST_TRANSITIONS
+              ? LinearTransition.duration(160)
+              : undefined
+          }
+        >
           <AssetCardItem
             key={item.id}
             asset={item}
@@ -731,7 +733,7 @@ export default function NextGenAssetsView() {
             onSelectForRecording={handleSelectForRecording}
             onEnterSelection={!isPublished ? enterSelection : undefined}
           />
-        </>
+        </Animated.View>
       );
     },
     [
@@ -1493,7 +1495,8 @@ export default function NextGenAssetsView() {
 
     goToRecording({
       initialOrderIndex: initialOrderIndex,
-      recordingSession: recordingSessionId
+      recordingSession: recordingSessionId,
+      bookChapterLabelFull: selectedQuest?.name
     });
   }, [
     audioContext,
@@ -1501,6 +1504,7 @@ export default function NextGenAssetsView() {
     questId,
     projectId,
     assets,
+    selectedQuest?.name,
     selectedAssetForRecording,
     isPlayAllRunningRef,
     stopPlayAll
@@ -1546,53 +1550,181 @@ export default function NextGenAssetsView() {
   }
 
   return (
-    <View className="flex flex-1 flex-col gap-6 p-6 pt-0">
+    <View className="flex flex-1 flex-col gap-4 p-6 pt-0">
       {selectedQuest?.name && (
         <Stack.Screen options={{ title: selectedQuest.name }} />
       )}
       {isPlayAllPlayerActive && <KeepAwakeGuard />}
-      <View className="flex flex-row items-center justify-between">
-        <View className="flex flex-row items-center gap-2">
-          <Text className="text-xl font-semibold">{t('assets')}</Text>
-          {!isPublished && (
-            <Button
-              variant="ghost"
-              size="icon"
-              disabled={!currentUndoOperation?.canUndo}
-              onPress={handleUndoAction}
-            >
-              <Icon as={Undo2} size={18} className="text-primary" />
-            </Button>
-          )}
-          <Button
-            variant="ghost"
-            size="icon"
-            disabled={isRefreshing}
-            onPress={async () => {
-              setIsRefreshing(true);
-              console.log('🔄 Manually refreshing assets queries...');
-              await queryClient.invalidateQueries({
-                queryKey: ['assets']
-              });
-              void refetch();
-              console.log('🔄 Assets queries invalidated');
-              // Stop animation after a brief delay
-              const timeoutId = setTimeout(() => {
-                timeoutIdsRef.current.delete(timeoutId);
-                setIsRefreshing(false);
-              }, 500);
-              timeoutIdsRef.current.add(timeoutId);
-            }}
-          >
-            <Animated.View style={spinStyle}>
-              <Icon as={RefreshCwIcon} size={18} className="text-primary" />
-            </Animated.View>
-          </Button>
-          {assets.length > 0 && (
-            <>
+      <View className="flex flex-col gap-2">
+        <View className="flex flex-row items-center justify-between">
+          <Text className="text-base font-semibold">{t('assets')}</Text>
+          <View className="flex flex-row items-center gap-2">
+            {isPublished ? (
+              // Only show cloud-check icon if user is creator, member, or owner
+              canSeePublishedBadge ? (
+                <>
+                  <Button
+                    variant="outline"
+                    className="h-10 border-border/50 px-4 py-0"
+                    onPress={() => {
+                      RNAlert.alert(t('questSyncedToCloud'));
+                    }}
+                  >
+                    <View className="flex-row items-center gap-0.5">
+                      <Icon as={CloudUpload} size={18} />
+                      <Icon as={CheckCheck} size={14} />
+                    </View>
+                  </Button>
+                  {questId && projectId && (
+                    <ExportButton
+                      questId={questId}
+                      projectId={projectId}
+                      questName={selectedQuest?.name}
+                      disabled={isPublishing || !isOnline}
+                      membership={membership}
+                      passedQuestPublished={isPublished}
+                    />
+                  )}
+                </>
+              ) : (
+                // Show membership request button for non-members viewing published quest
+                isPrivateProject && (
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onPress={() => setShowPrivateAccessModal(true)}
+                  >
+                    <Icon as={UserPlusIcon} size={16} />
+                    <Icon as={LockIcon} size={16} />
+                  </Button>
+                )
+              )
+            ) : (
+              // Only show publish/record buttons for authenticated users
+              currentUser && (
+                <View className="flex flex-row items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    disabled={isPublishing || !isOnline || !isMember}
+                    onPress={() => {
+                      if (!isOnline) {
+                        RNAlert.alert(
+                          t('error'),
+                          t('cannotPublishWhileOffline')
+                        );
+                        return;
+                      }
+
+                      if (!isMember) {
+                        RNAlert.alert(t('error'), t('membersOnlyPublish'));
+                        return;
+                      }
+
+                      if (!questId) {
+                        console.error('No current quest id');
+                        return;
+                      }
+
+                      // Use quest name if available, otherwise generic message
+                      const questName = selectedQuest?.name || 'this chapter';
+
+                      RNAlert.alert(
+                        t('publishChapter'),
+                        t('publishChapterMessage').replace(
+                          '{questName}',
+                          questName
+                        ),
+                        [
+                          {
+                            text: t('cancel'),
+                            style: 'cancel'
+                          },
+                          {
+                            text: t('publish'),
+                            style: 'default',
+                            isPreferred: true,
+                            onPress: () => {
+                              publishQuest();
+                            }
+                          }
+                        ]
+                      );
+                    }}
+                  >
+                    {isPublishing ? (
+                      <ActivityIndicator
+                        size="small"
+                        color={getThemeColor('primary')}
+                      />
+                    ) : (
+                      <Icon as={CloudUpload} />
+                    )}
+                  </Button>
+                  {/* <Button
+                    variant="outline"
+                    size="icon"
+                    className="border-[1.5px] border-primary"
+                    onPress={() => void handleGoToRecording()}
+                  >
+                    <Icon as={PencilIcon} className="text-primary" />
+                  </Button> */}
+                  {questId && projectId && (
+                    <ExportButton
+                      questId={questId}
+                      projectId={projectId || ''}
+                      questName={selectedQuest?.name}
+                      disabled={isPublishing || !isOnline}
+                      membership={membership}
+                    />
+                  )}
+                </View>
+              )
+            )}
+          </View>
+        </View>
+        <View className="flex w-full flex-row items-center justify-between">
+          <View className="flex-row items-center gap-1">
+            {!isPublished && (
               <Button
                 variant="ghost"
                 size="icon"
+                disabled={!currentUndoOperation?.canUndo}
+                onPress={handleUndoAction}
+              >
+                <Icon as={Undo2} size={18} className="text-primary" />
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              disabled={isRefreshing}
+              onPress={async () => {
+                setIsRefreshing(true);
+                console.log('🔄 Manually refreshing assets queries...');
+                await queryClient.invalidateQueries({
+                  queryKey: ['assets']
+                });
+                void refetch();
+                console.log('🔄 Assets queries invalidated');
+                // Stop animation after a brief delay
+                const timeoutId = setTimeout(() => {
+                  timeoutIdsRef.current.delete(timeoutId);
+                  setIsRefreshing(false);
+                }, 500);
+                timeoutIdsRef.current.add(timeoutId);
+              }}
+            >
+              <Animated.View style={spinStyle}>
+                <Icon as={RefreshCwIcon} size={18} className="text-primary" />
+              </Animated.View>
+            </Button>
+          </View>
+          <View className="flex-row items-center gap-1">
+            {assets.length > 0 && (
+              <Button
+                variant="default"
+                size="default"
                 disabled={isIndividualPlayerActive && !isPlayAllPlayerActive}
                 onPress={() => {
                   if (isPlayAllPlayerActive) {
@@ -1602,137 +1734,16 @@ export default function NextGenAssetsView() {
                   }
                   void handlePlayAll();
                 }}
-                className="h-10 w-10"
+                className="h-10 flex-row items-center rounded-lg bg-primary"
               >
                 <Icon
-                  as={isPlayAllPlayerActive ? SquareIcon : ListVideo}
-                  size={20}
-                  className="text-primary"
+                  as={PlayIcon}
+                  size={16}
+                  className="text-primary-foreground"
                 />
               </Button>
-            </>
-          )}
-        </View>
-        <View className="flex flex-row items-center gap-2">
-          {isPublished ? (
-            // Only show cloud-check icon if user is creator, member, or owner
-            canSeePublishedBadge ? (
-              <>
-                <Button
-                  variant="outline"
-                  className="h-10 border-border/50 px-4 py-0"
-                  onPress={() => {
-                    RNAlert.alert(t('questSyncedToCloud'));
-                  }}
-                >
-                  <View className="flex-row items-center gap-0.5">
-                    <Icon as={CloudUpload} size={18} />
-                    <Icon as={CheckCheck} size={14} />
-                  </View>
-                </Button>
-                {questId && projectId && (
-                  <ExportButton
-                    questId={questId}
-                    projectId={projectId}
-                    questName={selectedQuest?.name}
-                    disabled={isPublishing || !isOnline}
-                    membership={membership}
-                    passedQuestPublished={isPublished}
-                  />
-                )}
-              </>
-            ) : (
-              // Show membership request button for non-members viewing published quest
-              isPrivateProject && (
-                <Button
-                  variant="default"
-                  size="sm"
-                  onPress={() => setShowPrivateAccessModal(true)}
-                >
-                  <Icon as={UserPlusIcon} size={16} />
-                  <Icon as={LockIcon} size={16} />
-                </Button>
-              )
-            )
-          ) : (
-            // Only show publish/record buttons for authenticated users
-            currentUser && (
-              <View className="flex flex-row items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  disabled={isPublishing || !isOnline || !isMember}
-                  onPress={() => {
-                    if (!isOnline) {
-                      RNAlert.alert(t('error'), t('cannotPublishWhileOffline'));
-                      return;
-                    }
-
-                    if (!isMember) {
-                      RNAlert.alert(t('error'), t('membersOnlyPublish'));
-                      return;
-                    }
-
-                    if (!questId) {
-                      console.error('No current quest id');
-                      return;
-                    }
-
-                    // Use quest name if available, otherwise generic message
-                    const questName = selectedQuest?.name || 'this chapter';
-
-                    RNAlert.alert(
-                      t('publishChapter'),
-                      t('publishChapterMessage').replace(
-                        '{questName}',
-                        questName
-                      ),
-                      [
-                        {
-                          text: t('cancel'),
-                          style: 'cancel'
-                        },
-                        {
-                          text: t('publish'),
-                          style: 'default',
-                          isPreferred: true,
-                          onPress: () => {
-                            publishQuest();
-                          }
-                        }
-                      ]
-                    );
-                  }}
-                >
-                  {isPublishing ? (
-                    <ActivityIndicator
-                      size="small"
-                      color={getThemeColor('primary')}
-                    />
-                  ) : (
-                    <Icon as={CloudUpload} />
-                  )}
-                </Button>
-                {/* <Button
-                  variant="outline"
-                  size="icon"
-                  className="border-[1.5px] border-primary"
-                  onPress={() => void handleGoToRecording()}
-                >
-                  <Icon as={PencilIcon} className="text-primary" />
-                </Button> */}
-                {questId && projectId && (
-                  <ExportButton
-                    questId={questId}
-                    projectId={projectId || ''}
-                    questName={selectedQuest?.name}
-                    disabled={isPublishing || !isOnline}
-                    membership={membership}
-                  />
-                )}
-              </View>
-            )
-          )}
+            )}
+          </View>
         </View>
       </View>
 

@@ -59,13 +59,17 @@ import {
   BookOpenIcon,
   ChevronLeft,
   Ellipsis,
-  ListVideo,
+  PlayIcon,
   Plus,
-  SquareIcon,
   Undo2
 } from 'lucide-react-native';
 import React, { useMemo } from 'react';
 import { InteractionManager, View } from 'react-native';
+import Animated, {
+  FadeIn,
+  FadeOut,
+  LinearTransition
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FullScreenVADOverlay } from './recording/components/FullScreenVADOverlay';
 import { RecordAssetCard } from './recording/components/RecordAssetCard';
@@ -99,6 +103,7 @@ function extractFiaMetadata(metadata: unknown): FiaMetadata | null {
 }
 
 const DEBUG_MODE = false;
+const ENABLE_RECORDING_LIST_TRANSITIONS = true;
 function debugLog(...args: unknown[]) {
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
   if (DEBUG_MODE) {
@@ -1870,7 +1875,7 @@ const RecordingView = () => {
         `🔍 handleRecordingComplete | assetToReplaceRef.current: ${assetToReplaceRef.current?.slice(0, 8) ?? 'null'}`
       );
       if (assetToReplaceRef.current) {
-      const assetIdToReplace = assetToReplaceRef.current;
+        const assetIdToReplace = assetToReplaceRef.current;
         const replacedItem = sessionItemsRef.current.find(
           (item) => isAsset(item) && item.id === assetIdToReplace
         );
@@ -3148,13 +3153,32 @@ const RecordingView = () => {
         const onPillPress = pillCallbacksMap.get(item.id)?.onPress;
 
         return (
-          <PillListRow
-            itemId={item.id}
-            text={pillText}
-            isHighlighted={isHighlighted}
-            showSkeleton={isHighlighted}
-            onPress={onPillPress}
-          />
+          <Animated.View
+            key={item.id}
+            entering={
+              ENABLE_RECORDING_LIST_TRANSITIONS
+                ? FadeIn.duration(160)
+                : undefined
+            }
+            exiting={
+              ENABLE_RECORDING_LIST_TRANSITIONS
+                ? FadeOut.duration(120)
+                : undefined
+            }
+            layout={
+              ENABLE_RECORDING_LIST_TRANSITIONS
+                ? LinearTransition.duration(160)
+                : undefined
+            }
+          >
+            <PillListRow
+              itemId={item.id}
+              text={pillText}
+              isHighlighted={isHighlighted}
+              showSkeleton={isHighlighted}
+              onPress={onPillPress}
+            />
+          </Animated.View>
         );
       }
 
@@ -3168,35 +3192,71 @@ const RecordingView = () => {
       // Fallback if callbacks not found (shouldn't happen, but defensive)
       if (!callbacks) {
         console.warn(`Missing callbacks for asset ${item.id}`);
-        return <View key={item.id} style={{ height: ROW_HEIGHT }} />;
+        return (
+          <Animated.View
+            key={item.id}
+            entering={
+              ENABLE_RECORDING_LIST_TRANSITIONS
+                ? FadeIn.duration(160)
+                : undefined
+            }
+            exiting={
+              ENABLE_RECORDING_LIST_TRANSITIONS
+                ? FadeOut.duration(120)
+                : undefined
+            }
+            layout={
+              ENABLE_RECORDING_LIST_TRANSITIONS
+                ? LinearTransition.duration(160)
+                : undefined
+            }
+          >
+            <View style={{ height: ROW_HEIGHT }} />
+          </Animated.View>
+        );
       }
 
       return (
-        <AssetListRow
-          asset={item}
-          index={index}
-          isSelected={isInBatchSelection}
-          isHighlighted={isHighlighted}
-          isSelectionMode={isSelectionMode}
-          isPlaying={isThisAssetPlaying}
-          playDisabled={
-            isPlayAllPlayerActive ||
-            isRecording ||
-            isVADRecording ||
-            isVADActive
+        <Animated.View
+          key={item.id}
+          entering={
+            ENABLE_RECORDING_LIST_TRANSITIONS ? FadeIn.duration(160) : undefined
           }
-          hideButtons={isRecording || isVADRecording || isVADActive}
-          duration={duration}
-          canMergeDown={canMergeDown}
-          showSkeleton={isHighlighted && !isReplacing}
-          onPress={callbacks.onPress}
-          onLongPress={callbacks.onLongPress}
-          onPlay={callbacks.onPlay}
-          onDelete={stableHandleDeleteLocalAsset}
-          onMerge={stableHandleMergeDownLocal}
-          onRename={stableHandleRenameAsset}
-          onActionTypeChange={stableHandleActionTypeChange}
-        />
+          exiting={
+            ENABLE_RECORDING_LIST_TRANSITIONS ? FadeOut.duration(120) : undefined
+          }
+          layout={
+            ENABLE_RECORDING_LIST_TRANSITIONS
+              ? LinearTransition.duration(160)
+              : undefined
+          }
+        >
+          <AssetListRow
+            asset={item}
+            index={index}
+            isSelected={isInBatchSelection}
+            isHighlighted={isHighlighted}
+            isSelectionMode={isSelectionMode}
+            isPlaying={isThisAssetPlaying}
+            playDisabled={
+              isPlayAllPlayerActive ||
+              isRecording ||
+              isVADRecording ||
+              isVADActive
+            }
+            hideButtons={isRecording || isVADRecording || isVADActive}
+            duration={duration}
+            canMergeDown={canMergeDown}
+            showSkeleton={isHighlighted && !isReplacing}
+            onPress={callbacks.onPress}
+            onLongPress={callbacks.onLongPress}
+            onPlay={callbacks.onPlay}
+            onDelete={stableHandleDeleteLocalAsset}
+            onMerge={stableHandleMergeDownLocal}
+            onRename={stableHandleRenameAsset}
+            onActionTypeChange={stableHandleActionTypeChange}
+          />
+        </Animated.View>
       );
     },
     [
@@ -3548,31 +3608,52 @@ const RecordingView = () => {
         />
       )}
 
+      <View className="flex-row items-center justify-between px-4 py-4">
+        <Text
+          className="flex-1 text-sm font-semibold text-foreground"
+          numberOfLines={1}
+          ellipsizeMode="tail"
+        >
+          {bookChapterLabelFull || bookChapterLabel}
+        </Text>
+        <Text className="text-sm font-medium text-muted-foreground">
+          {assets.length} {t('assets').toLowerCase()}
+        </Text>
+      </View>
+
       {/* Header */}
-      <View className="flex-row items-center px-4 pb-2">
-        <View className="flex-1 flex-col">
-          <Text className="text-base font-semibold text-foreground">
-            {(bookChapterLabelFull || bookChapterLabel).length > 25
-              ? `${(bookChapterLabelFull || bookChapterLabel).slice(0, 25)}...`
-              : bookChapterLabelFull || bookChapterLabel}
-          </Text>
-          <Text className="text-sm font-medium text-muted-foreground">
-            {assets.length} {t('assets').toLowerCase()}
-          </Text>
-        </View>
-        <View className="ml-2 flex-row items-center justify-end gap-3">
+      <View className="relative flex-row items-center px-4 pb-2">
+        <View className="z-10 flex-row items-center gap-2">
           <Button
             variant="ghost"
             size="icon"
             disabled={!currentUndoOperation?.canUndo}
             onPress={handleUndoAction}
           >
+            {/* <Icon as={Undo2} size={20} className="text-primary" /> */}
             <Icon as={Undo2} size={20} className="text-primary" />
           </Button>
+          {fiaPericopeId && (
+            <Button
+              variant="default"
+              size="icon"
+              disabled={isPlayAllPlayerActive}
+              onPress={() => setShowFiaTextDrawer(true)}
+              style={isPlayAllPlayerActive ? { opacity: 0.5 } : undefined}
+            >
+              <Icon
+                as={BookOpenIcon}
+                size={20}
+                className="text-primary-foreground"
+              />
+            </Button>
+          )}
+        </View>
+        <View className="ml-auto flex-row items-center justify-end gap-3">
           {assets.length > 0 && (
             <Button
-              variant="ghost"
-              size="icon"
+              variant="default"
+              size="default"
               disabled={
                 isRecording ||
                 isVADRecording ||
@@ -3587,26 +3668,11 @@ const RecordingView = () => {
                 }
                 void handlePlayAll();
               }}
-              className="h-10 w-10"
+              className="h-10 flex-row items-center rounded-lg bg-primary"
             >
               <Icon
-                as={isPlayAllPlayerActive ? SquareIcon : ListVideo}
-                size={20}
-                className="text-primary"
-              />
-            </Button>
-          )}
-          {fiaPericopeId && (
-            <Button
-              variant="default"
-              size="icon"
-              disabled={isPlayAllPlayerActive}
-              onPress={() => setShowFiaTextDrawer(true)}
-              style={isPlayAllPlayerActive ? { opacity: 0.5 } : undefined}
-            >
-              <Icon
-                as={BookOpenIcon}
-                size={20}
+                as={PlayIcon}
+                size={16}
                 className="text-primary-foreground"
               />
             </Button>
