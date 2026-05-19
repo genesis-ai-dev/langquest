@@ -941,7 +941,6 @@ export function createInviteTable<
       email_bounced_at: text(), // ISO timestamp
       bounce_reason: text(),
       bounce_notice_dismissed_at: text(), // ISO timestamp — sender dismissed delivery notice
-      delivery_suppressed_at: text(), // ISO timestamp — no more outbound emails for this email+project
       ...extraColumns
     },
     (table) => [

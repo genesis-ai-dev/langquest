@@ -6,12 +6,12 @@ import { Redis } from '@upstash/redis';
 import React from 'react';
 import { Resend } from 'resend';
 import { Webhook } from 'standardwebhooks';
+import { isEmailAddressSuppressed } from '../shared/emailSuppression.ts';
 import { ConfirmEmail } from './_templates/confirm-email.tsx';
 import { InviteEmail } from './_templates/invite-email.tsx';
 import { ResetPassword } from './_templates/reset-password.tsx';
 import {
-  getMaxInviteOutboundSends,
-  inviteDeliverySuppressed,
+  getMaxInviteResendAttempts,
   inviteMaySendAnotherOutboundEmail
 } from './inviteBounceGuard.ts';
 
@@ -25,19 +25,6 @@ const hookSecret = rawHookSecret.startsWith('v1,whsec_')
   : rawHookSecret;
 
 const supabase = createClient(supabaseUrl, supabaseKey);
-
-async function isInviteReceiverGloballySuppressed(
-  rawEmail: string | null | undefined
-): Promise<boolean> {
-  const normalized = rawEmail?.trim().toLowerCase();
-  if (!normalized) return false;
-  const { data } = await supabase
-    .from('invite_email_suppression')
-    .select('suppressed_at')
-    .eq('normalized_email', normalized)
-    .maybeSingle();
-  return !!data?.suppressed_at?.trim();
-}
 
 const signupEmailSubjects = {
   en: 'Confirm Your LangQuest Account',
@@ -148,15 +135,15 @@ Deno.serve(async (req) => {
       const { record } = parsedPayload;
       const { data: inviteRow } = await supabase
         .from('invite')
-        .select('email_status, bounce_reason, count, delivery_suppressed_at')
+        .select('email_status, bounce_reason, count')
         .eq('id', record.id)
         .single();
 
-      if (await isInviteReceiverGloballySuppressed(record.receiver_email)) {
+      if (await isEmailAddressSuppressed(supabase, record.receiver_email)) {
         return new Response(
           JSON.stringify({
             success: false,
-            error: 'invite_email_globally_suppressed'
+            error: 'email_globally_suppressed'
           }),
           {
             status: 422,
@@ -165,27 +152,14 @@ Deno.serve(async (req) => {
         );
       }
 
-      if (inviteDeliverySuppressed(inviteRow?.delivery_suppressed_at)) {
-        return new Response(
-          JSON.stringify({
-            success: false,
-            error: 'invite_delivery_suppressed'
-          }),
-          {
-            status: 422,
-            headers: { 'Content-Type': 'application/json' }
-          }
-        );
-      }
-
-      const maxOutbound = getMaxInviteOutboundSends();
+      const maxResendAttempts = getMaxInviteResendAttempts();
 
       if (
         inviteRow?.email_status === 'bounced' &&
         !inviteMaySendAnotherOutboundEmail(
           inviteRow.count,
-          inviteRow.delivery_suppressed_at,
-          maxOutbound
+          false,
+          maxResendAttempts
         )
       ) {
         return new Response(
@@ -376,6 +350,22 @@ Deno.serve(async (req) => {
         throw new Error('Unsupported email action type');
     }
     const sendEmail = user.new_email ?? user.email;
+
+    if (await isEmailAddressSuppressed(supabase, sendEmail)) {
+      return new Response(
+        JSON.stringify({
+          error: {
+            http_code: 422,
+            message: 'email_globally_suppressed'
+          }
+        }),
+        {
+          status: 422,
+          headers: { 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
     const { error } = await resend.emails.send({
       from: 'LangQuest <account-security@langquest.org>',
       to: [sendEmail],

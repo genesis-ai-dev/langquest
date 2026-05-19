@@ -1,33 +1,22 @@
 /**
  * Server-side invite delivery guards. Must stay aligned with `utils/inviteBounceGuard.ts` defaults.
  *
- * Set `INVITE_MAX_OUTBOUND_SENDS` in Supabase Edge secrets (integer, >= 1). Defaults to 3.
+ * Set `INVITE_MAX_RESEND_ATTEMPTS` in Supabase Edge secrets (integer, >= 1). Defaults to 3.
+ * Falls back to legacy `INVITE_MAX_OUTBOUND_SENDS` if unset.
  */
-export function getMaxInviteOutboundSends(): number {
-  const raw = Deno.env.get('INVITE_MAX_OUTBOUND_SENDS');
+export function getMaxInviteResendAttempts(): number {
+  const raw =
+    Deno.env.get('INVITE_MAX_RESEND_ATTEMPTS') ??
+    Deno.env.get('INVITE_MAX_OUTBOUND_SENDS');
   const n = raw ? Number.parseInt(raw, 10) : 3;
   return Number.isFinite(n) && n >= 1 ? n : 3;
 }
 
-export function inviteDeliverySuppressed(
-  deliverySuppressedAt: string | null | undefined
-): boolean {
-  return !!deliverySuppressedAt?.trim();
-}
-
-export function isTransientBounceReason(
-  bounceReason: string | null | undefined
-): boolean {
-  const r = bounceReason?.trim();
-  if (!r) return false;
-  return /^transient\s*:/i.test(r) || /soft bounce/i.test(r);
-}
-
 export function inviteMaySendAnotherOutboundEmail(
   count: number | null | undefined,
-  deliverySuppressedAt: string | null | undefined,
+  emailGloballySuppressed: boolean,
   maxSends: number
 ): boolean {
-  if (inviteDeliverySuppressed(deliverySuppressedAt)) return false;
+  if (emailGloballySuppressed) return false;
   return (count ?? 0) < maxSends;
 }

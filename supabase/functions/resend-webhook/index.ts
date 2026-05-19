@@ -1,7 +1,12 @@
 import '@supabase/functions-js/edge-runtime.d.ts';
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
-import { getMaxInviteOutboundSends } from './inviteBounceGuard.ts';
+import {
+  applyComplaintSuppression,
+  applyHardBounceSuppression,
+  applyTransientBounceSuppression,
+  recipientFromResendTo
+} from '../shared/emailSuppression.ts';
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL');
 const supabaseKey = Deno.env.get('SERVICE_ROLE_KEY');
@@ -36,7 +41,6 @@ interface ResendWebhookPayload {
 }
 
 Deno.serve(async (req) => {
-  // Only accept POST requests
   if (req.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), {
       status: 405,
@@ -49,7 +53,6 @@ Deno.serve(async (req) => {
 
     let event: ResendWebhookPayload;
 
-    // https://resend.com/docs/webhooks/verify-webhooks-requests — raw body + Svix headers
     if (resendWebhookSecret) {
       const resendApiKey = Deno.env.get('RESEND_API_KEY');
       if (!resendApiKey) {
@@ -87,22 +90,45 @@ Deno.serve(async (req) => {
     } else {
       event = JSON.parse(payload) as ResendWebhookPayload;
     }
+
     const { type, data } = event;
     const emailId = data.email_id;
+    const now = new Date().toISOString();
+    const recipient =
+      recipientFromResendTo(data.to) ??
+      null;
 
     console.log(`[Resend Webhook] Received ${type} for email ${emailId}`);
 
-    // Find invite by resend_email_id
-    const { data: invite, error: findError } = await supabase
+    if (type === 'email.bounced' && recipient) {
+      const bounce = data.bounce;
+      const isPermanent = bounce?.type === 'Permanent';
+
+      if (isPermanent) {
+        await applyHardBounceSuppression(supabase, recipient, emailId, now);
+      } else if (bounce?.type === 'Transient') {
+        await applyTransientBounceSuppression(
+          supabase,
+          recipient,
+          emailId,
+          now
+        );
+      }
+    }
+
+    if (type === 'email.complained' && recipient) {
+      await applyComplaintSuppression(supabase, recipient, emailId, now);
+    }
+
+    const { data: invite } = await supabase
       .from('invite')
       .select('id, email_status, count, email')
       .eq('resend_email_id', emailId)
-      .single();
+      .maybeSingle();
 
-    if (findError || !invite) {
-      // Email might not be an invite (could be auth email), just acknowledge
+    if (!invite) {
       console.log(
-        `[Resend Webhook] No invite found for email ${emailId}, acknowledging`
+        `[Resend Webhook] No invite for email ${emailId}; suppression handled if applicable`
       );
       return new Response(JSON.stringify({ success: true }), {
         status: 200,
@@ -110,13 +136,10 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Prepare update based on event type
     let updateData: Record<string, unknown> = {};
-    const now = new Date().toISOString();
 
     switch (type) {
       case 'email.sent':
-        // Already set when we sent, but confirm it
         updateData = { email_status: 'sent', email_sent_at: now };
         break;
 
@@ -126,72 +149,16 @@ Deno.serve(async (req) => {
 
       case 'email.bounced': {
         const bounce = data.bounce;
-        const isPermanentHardBounce = bounce?.type === 'Permanent';
-
-        if (isPermanentHardBounce) {
-          const normalizedEmail =
-            (invite as { email?: string }).email?.trim().toLowerCase() ?? '';
-          if (normalizedEmail) {
-            const maxSends = getMaxInviteOutboundSends();
-            const { data: supRow, error: supReadErr } = await supabase
-              .from('invite_email_suppression')
-              .select('permanent_bounce_count, suppressed_at')
-              .eq('normalized_email', normalizedEmail)
-              .maybeSingle();
-
-            if (supReadErr) {
-              console.error(
-                '[Resend Webhook] invite_email_suppression read:',
-                supReadErr
-              );
-            }
-
-            const prev = supRow?.permanent_bounce_count ?? 0;
-            const next = prev + 1;
-            const alreadySuppressed = !!supRow?.suppressed_at?.trim();
-            const suppressedAt = alreadySuppressed
-              ? supRow!.suppressed_at
-              : next >= maxSends
-                ? now
-                : null;
-
-            const { error: supUpsertErr } = await supabase
-              .from('invite_email_suppression')
-              .upsert(
-                {
-                  normalized_email: normalizedEmail,
-                  permanent_bounce_count: next,
-                  suppressed_at: suppressedAt,
-                  updated_at: now
-                },
-                { onConflict: 'normalized_email' }
-              );
-
-            if (supUpsertErr) {
-              console.error(
-                '[Resend Webhook] invite_email_suppression upsert:',
-                supUpsertErr
-              );
-            }
-
-            console.log(
-              `[Resend Webhook] Global suppression count for ${normalizedEmail}: ${next}/${maxSends}`
-            );
-          }
-        }
-
+        const isPermanent = bounce?.type === 'Permanent';
         updateData = {
           email_status: 'bounced',
           email_bounced_at: now,
           bounce_reason: bounce
             ? `${bounce.type}: ${bounce.message}`
             : 'Unknown bounce reason',
-          // Hard bounces: withdraw immediately and suppress delivery
-          // Soft bounces: leave pending so the sender is aware but don't auto-withdraw
-          ...(isPermanentHardBounce
+          ...(isPermanent
             ? {
-                status: 'withdrawn' as const,
-                delivery_suppressed_at: now
+                status: 'withdrawn' as const
               }
             : {})
         };
@@ -210,7 +177,6 @@ Deno.serve(async (req) => {
         });
     }
 
-    // Update the invite
     const { error: updateError } = await supabase
       .from('invite')
       .update(updateData)

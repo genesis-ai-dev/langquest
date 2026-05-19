@@ -33,8 +33,8 @@ import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import {
-  DEFAULT_INVITE_MAX_OUTBOUND_SENDS,
-  inviteDeliverySuppressed,
+  DEFAULT_INVITE_MAX_RESEND_ATTEMPTS,
+  isEmailSuppressionActive,
   inviteMaySendAnotherOutboundEmail
 } from '@/utils/inviteBounceGuard';
 import { cn } from '@/utils/styleUtils';
@@ -42,7 +42,7 @@ import { useHybridData } from '@/views/new/useHybridData';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { PortalHost } from '@rn-primitives/portal';
-import { and, eq, isNotNull } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import {
   CircleCheckIcon,
   CircleXIcon,
@@ -57,7 +57,7 @@ import React, { useEffect, useState } from 'react';
 import { Platform, Pressable, View } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 
-const MAX_INVITE_ATTEMPTS = DEFAULT_INVITE_MAX_OUTBOUND_SENDS;
+const MAX_INVITE_ATTEMPTS = DEFAULT_INVITE_MAX_RESEND_ATTEMPTS;
 
 interface ProjectMembershipModalProps {
   isVisible: boolean;
@@ -91,7 +91,6 @@ interface Invitation {
   email_bounced_at: string | null;
   bounce_reason: string | null;
   bounce_notice_dismissed_at?: string | null;
-  delivery_suppressed_at?: string | null;
   count?: number;
 }
 
@@ -315,6 +314,11 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
   >(() => new Set());
 
   useEffect(() => {
+    if (!sendInvitePermissions.hasAccess && !withdrawInvitePermissions.hasAccess) {
+      setGlobalSuppressedEmails(new Set());
+      return;
+    }
+
     const keys = [
       ...new Set(
         invitations
@@ -329,24 +333,29 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
     let cancelled = false;
     void (async () => {
       const { data, error } = await system.supabaseConnector.client
-        .from('invite_email_suppression')
-        .select('normalized_email')
-        .in('normalized_email', keys)
-        .not('suppressed_at', 'is', null);
+        .from('email_suppression')
+        .select(
+          'normalized_email, suppressed_at, soft_suppressed_at, expires_at, deactivated_at'
+        )
+        .in('normalized_email', keys);
       if (cancelled) return;
       if (error) {
-        console.error('invite_email_suppression:', error);
+        console.error('email_suppression:', error);
         setGlobalSuppressedEmails(new Set());
         return;
       }
       setGlobalSuppressedEmails(
-        new Set(data?.map((r) => r.normalized_email) ?? [])
+        new Set(
+          (data ?? [])
+            .filter((row) => isEmailSuppressionActive(row))
+            .map((r) => r.normalized_email)
+        )
       );
     })();
     return () => {
       cancelled = true;
     };
-  }, [invitations]);
+  }, [invitations, sendInvitePermissions.hasAccess, withdrawInvitePermissions.hasAccess]);
 
   // Query for pending membership requests (owners only)
   const { data: requestsData = [] } = useHybridData({
@@ -568,27 +577,20 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
 
       const normalized = invitation.email.trim().toLowerCase();
       const { data: globalSupRow } = await system.supabaseConnector.client
-        .from('invite_email_suppression')
-        .select('suppressed_at')
+        .from('email_suppression')
+        .select(
+          'suppressed_at, soft_suppressed_at, expires_at, deactivated_at'
+        )
         .eq('normalized_email', normalized)
         .maybeSingle();
 
-      if (globalSupRow?.suppressed_at) {
-        RNAlert.alert(t('error'), t('emailBlacklistedForProject'));
-        return;
-      }
-
-      if (inviteDeliverySuppressed(invitation.delivery_suppressed_at)) {
+      if (isEmailSuppressionActive(globalSupRow)) {
         RNAlert.alert(t('error'), t('emailBlacklistedForProject'));
         return;
       }
 
       if (
-        !inviteMaySendAnotherOutboundEmail(
-          invitation.count,
-          invitation.delivery_suppressed_at,
-          false
-        )
+        !inviteMaySendAnotherOutboundEmail(invitation.count, false)
       ) {
         RNAlert.alert(t('error'), t('maxInviteAttemptsReached'));
         return;
@@ -766,26 +768,14 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
 
       const normalizedInput = inviteEmail.trim().toLowerCase();
       const { data: globalSupOnSend } = await system.supabaseConnector.client
-        .from('invite_email_suppression')
-        .select('suppressed_at')
+        .from('email_suppression')
+        .select(
+          'suppressed_at, soft_suppressed_at, expires_at, deactivated_at'
+        )
         .eq('normalized_email', normalizedInput)
         .maybeSingle();
 
-      if (globalSupOnSend?.suppressed_at) {
-        RNAlert.alert(t('error'), t('emailBlacklistedForProject'));
-        setIsSubmitting(false);
-        return;
-      }
-
-      const suppressedForEmail = await db.query.invite.findFirst({
-        where: and(
-          eq(invite.email, inviteEmail.trim()),
-          eq(invite.project_id, projectId),
-          isNotNull(invite.delivery_suppressed_at)
-        )
-      });
-
-      if (suppressedForEmail) {
+      if (isEmailSuppressionActive(globalSupOnSend)) {
         RNAlert.alert(t('error'), t('emailBlacklistedForProject'));
         setIsSubmitting(false);
         return;
@@ -828,19 +818,9 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
         ) {
           if (
             existingInvite.email_status === 'bounced' &&
-            !inviteMaySendAnotherOutboundEmail(
-              existingInvite.count,
-              existingInvite.delivery_suppressed_at,
-              false
-            )
+            !inviteMaySendAnotherOutboundEmail(existingInvite.count, false)
           ) {
-            if (
-              inviteDeliverySuppressed(existingInvite.delivery_suppressed_at)
-            ) {
-              RNAlert.alert(t('error'), t('emailBlacklistedForProject'));
-            } else {
-              RNAlert.alert(t('error'), t('maxInviteAttemptsReached'));
-            }
+            RNAlert.alert(t('error'), t('maxInviteAttemptsReached'));
             setIsSubmitting(false);
             return;
           }
@@ -886,19 +866,9 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
           if (
             existingInvite.status === 'pending' &&
             existingInvite.email_status === 'bounced' &&
-            !inviteMaySendAnotherOutboundEmail(
-              existingInvite.count,
-              existingInvite.delivery_suppressed_at,
-              false
-            )
+            !inviteMaySendAnotherOutboundEmail(existingInvite.count, false)
           ) {
-            if (
-              inviteDeliverySuppressed(existingInvite.delivery_suppressed_at)
-            ) {
-              RNAlert.alert(t('error'), t('emailBlacklistedForProject'));
-            } else {
-              RNAlert.alert(t('error'), t('maxInviteAttemptsReached'));
-            }
+            RNAlert.alert(t('error'), t('maxInviteAttemptsReached'));
             setIsSubmitting(false);
             return;
           }
@@ -1053,9 +1023,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
     const globallyBlocked = globalSuppressedEmails.has(
       invitation.email.trim().toLowerCase()
     );
-    const isSuppressed =
-      inviteDeliverySuppressed(invitation.delivery_suppressed_at) ||
-      globallyBlocked;
+    const isSuppressed = globallyBlocked;
     const showResendButton =
       withdrawInvitePermissions.hasAccess &&
       !globallyBlocked &&
