@@ -1,0 +1,14 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "langquest-resend-webhook-router",
+	"main": "src/index.ts",
+	"compatibility_date": "2026-05-19",
+	"compatibility_flags": ["nodejs_compat"],
+	"account_id": "6a80496d1e59948a9cbaa3c643ba81d7",
+	"observability": {
+		"enabled": true,
+	},
+	"vars": {
+		"SUPABASE_WEBHOOK_TARGETS": "[\"https://yjgdgsycxmlvaiuynlbv.supabase.co/functions/v1/resend-webhook\",\"https://unsxkmlcyxgtgmtzfonb.supabase.co/functions/v1/resend-webhook\"]",
+	},
+}

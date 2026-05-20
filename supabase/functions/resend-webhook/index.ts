@@ -94,9 +94,7 @@ Deno.serve(async (req) => {
     const { type, data } = event;
     const emailId = data.email_id;
     const now = new Date().toISOString();
-    const recipient =
-      recipientFromResendTo(data.to) ??
-      null;
+    const recipient = recipientFromResendTo(data.to) ?? null;
 
     console.log(`[Resend Webhook] Received ${type} for email ${emailId}`);
 

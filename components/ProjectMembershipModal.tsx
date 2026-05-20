@@ -314,7 +314,10 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
   >(() => new Set());
 
   useEffect(() => {
-    if (!sendInvitePermissions.hasAccess && !withdrawInvitePermissions.hasAccess) {
+    if (
+      !sendInvitePermissions.hasAccess &&
+      !withdrawInvitePermissions.hasAccess
+    ) {
       setGlobalSuppressedEmails(new Set());
       return;
     }
@@ -355,7 +358,11 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [invitations, sendInvitePermissions.hasAccess, withdrawInvitePermissions.hasAccess]);
+  }, [
+    invitations,
+    sendInvitePermissions.hasAccess,
+    withdrawInvitePermissions.hasAccess
+  ]);
 
   // Query for pending membership requests (owners only)
   const { data: requestsData = [] } = useHybridData({
@@ -578,9 +585,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
       const normalized = invitation.email.trim().toLowerCase();
       const { data: globalSupRow } = await system.supabaseConnector.client
         .from('email_suppression')
-        .select(
-          'suppressed_at, soft_suppressed_at, expires_at, deactivated_at'
-        )
+        .select('suppressed_at, soft_suppressed_at, expires_at, deactivated_at')
         .eq('normalized_email', normalized)
         .maybeSingle();
 
@@ -589,9 +594,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
         return;
       }
 
-      if (
-        !inviteMaySendAnotherOutboundEmail(invitation.count, false)
-      ) {
+      if (!inviteMaySendAnotherOutboundEmail(invitation.count, false)) {
         RNAlert.alert(t('error'), t('maxInviteAttemptsReached'));
         return;
       }
@@ -769,9 +772,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
       const normalizedInput = inviteEmail.trim().toLowerCase();
       const { data: globalSupOnSend } = await system.supabaseConnector.client
         .from('email_suppression')
-        .select(
-          'suppressed_at, soft_suppressed_at, expires_at, deactivated_at'
-        )
+        .select('suppressed_at, soft_suppressed_at, expires_at, deactivated_at')
         .eq('normalized_email', normalizedInput)
         .maybeSingle();
 
