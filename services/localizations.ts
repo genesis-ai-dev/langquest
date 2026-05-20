@@ -3959,6 +3959,19 @@ export const localizations = {
     thai: 'ดูคำเชิญ',
     mandarin: '查看邀请'
   },
+  invite: {
+    english: 'Invite',
+    french: 'Inviter',
+    spanish: 'Invitar',
+    brazilian_portuguese: 'Convidar',
+    tok_pisin: 'Invit',
+    indonesian: 'Undang',
+    nepali: 'आमन्त्रण',
+    hindi: 'आमंत्रित',
+    burmese: 'ဖိတ်ခေါ်',
+    thai: 'เชิญ',
+    mandarin: '邀请'
+  },
   inviteMembers: {
     english: 'Invite Members',
     french: 'Inviter des membres',
@@ -4106,25 +4119,25 @@ export const localizations = {
   },
   inviteEmailNotFound: {
     english:
-      "This email address doesn't exist. Check the spelling or use a different email.",
+      "Their mail server reported this address doesn't exist. Try a different email.",
     french:
-      "Cette adresse e-mail n'existe pas. Vérifiez l'orthographe ou utilisez une autre adresse.",
+      "Le serveur de messagerie du destinataire a indiqué que cette adresse n'existe pas. Essayez une autre adresse e-mail.",
     spanish:
-      'Esta dirección de correo no existe. Comprueba la ortografía o usa otro correo.',
+      'El servidor de correo del destinatario informó que esta dirección no existe. Prueba con otro correo.',
     brazilian_portuguese:
-      'Este endereço de e-mail não existe. Verifique a grafia ou use outro e-mail.',
+      'O servidor de e-mail do destinatário informou que este endereço não existe. Tente outro e-mail.',
     tok_pisin:
-      'Dispela email adres i no stap. Lukim spelling o narapela email.',
+      'Email server bilong ol i tok dispela adres i no stap. Narapela email tasol.',
     indonesian:
-      'Alamat email ini tidak ada. Periksa ejaan atau gunakan alamat email lain.',
+      'Server email penerima melaporkan alamat ini tidak ada. Coba alamat email lain.',
     nepali:
-      'यो इमेल ठेगाना अवस्थित छैन। हिज्जे जाँच गर्नुहोस् वा फरक इमेल प्रयोग गर्नुहोस्।',
+      'प्राप्तकर्ताको मेल सर्भरले यो ठेगाना अवस्थित नभएको जानकारी दियो। फरक इमेल प्रयोग गर्नुहोस्।',
     hindi:
-      'यह ईमेल पता मौजूद नहीं है। वर्तनी जांचें या दूसरा ईमेल उपयोग करें।',
+      'प्राप्तकर्ता के मेल सर्वर ने बताया कि यह पता मौजूद नहीं है। दूसरा ईमेल आज़माएँ।',
     burmese:
-      'ဤအီးမေးလ်လိပ်စာ မရှိပါ။ စာလုံးပေါင်း စစ်ဆေးပါ သို့မဟုတ် အခြားအီးမေးလ်သုံးပါ။',
-    thai: 'ที่อยู่อีเมลนี้ไม่มีอยู่ ตรวจสอบการสะกดหรือใช้อีเมลอื่น',
-    mandarin: '该邮箱地址不存在。请检查拼写或使用其他邮箱。'
+      'လက်ခံသူ၏ မေးလ်ဆာဗာက ဤလိပ်စာ မရှိကြောင်း အကြောင်းပြန်ခဲ့သည်။ အခြားအီးမေးလ်သုံးပါ။',
+    thai: 'เซิร์ฟเวอร์อีเมลของผู้รับแจ้งว่าไม่มีที่อยู่นี้ ลองใช้อีเมลอื่น',
+    mandarin: '对方邮件服务器反馈该地址不存在。请换用其他邮箱。'
   },
   inviteDeliveryFailed: {
     english:

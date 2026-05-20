@@ -7,7 +7,6 @@ import { ProjectSettingsModal } from '@/components/ProjectSettingsModal';
 import { QuestDownloadDiscoveryDrawer } from '@/components/QuestDownloadDiscoveryDrawer';
 import { QuestOffloadVerificationDrawer } from '@/components/QuestOffloadVerificationDrawer';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Drawer,
   DrawerClose,
@@ -63,7 +62,7 @@ import { useLocalStore } from '@/store/localStore';
 import { bulkDownloadQuest } from '@/utils/bulkDownload';
 import { resolveTable } from '@/utils/dbUtils';
 import { offloadQuest } from '@/utils/questOffloadUtils';
-import { getThemeColor, useThemeColor } from '@/utils/styleUtils';
+import { cn, getThemeColor, useThemeColor } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
@@ -122,40 +121,37 @@ function InviteMembersBanner({
   if (!show) return null;
 
   return (
-    <Card className="border-2 border-primary bg-primary/5 shadow-md">
-      <CardHeader className="flex flex-row items-start justify-between gap-2 pb-2">
-        <View className="flex flex-1 flex-row items-center gap-2">
-          <Icon as={UsersIcon} className="text-primary" size={20} />
-          <CardTitle className="text-base">{t('inviteMembersTitle')}</CardTitle>
+    <View className="flex-row items-center justify-between gap-2 rounded-md border border-border bg-card p-3">
+      <View className="min-w-0 flex-1 flex-row items-center gap-2">
+        <Icon as={UsersIcon} className="text-primary" size={20} />
+        <View className="min-w-0 flex-1">
+          <Text className="text-sm font-medium leading-tight">
+            {t('inviteMembersTitle')}
+          </Text>
+          <Text
+            className="text-xs leading-snug text-muted-foreground"
+            numberOfLines={2}
+          >
+            {t('inviteMembersDescription')}
+          </Text>
         </View>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8"
-          onPress={onDismiss}
-        >
-          <Icon as={XIcon} size={16} className="text-muted-foreground" />
-        </Button>
-      </CardHeader>
-      <CardContent className="pt-0">
-        <Text className="mb-3 text-sm text-muted-foreground">
-          {t('inviteMembersDescription')}
-        </Text>
+      </View>
+      <View className="flex-row items-center gap-1">
         <Button
           variant="default"
           size="sm"
-          className="w-full flex-row items-center gap-2"
+          className={cn('h-7 gap-1 px-3')}
           onPress={onInvite}
         >
-          <Icon
-            as={UserPlusIcon}
-            size={16}
-            className="text-primary-foreground"
-          />
-          <Text className="text-primary-foreground">{t('inviteMembers')}</Text>
+          <Text className="text-xs font-medium text-primary-foreground">
+            {t('invite')}
+          </Text>
         </Button>
-      </CardContent>
-    </Card>
+        <Button variant="ghost" size="icon-sm" onPress={onDismiss}>
+          <Icon as={XIcon} size={16} className="text-muted-foreground" />
+        </Button>
+      </View>
+    </View>
   );
 }
 
