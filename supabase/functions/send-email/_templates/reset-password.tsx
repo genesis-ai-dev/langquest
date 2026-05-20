@@ -9,7 +9,6 @@ import {
   Tailwind,
   Text
 } from '@react-email/components';
-import React from 'react';
 
 interface ResetPasswordProps {
   confirmation_url: string;
