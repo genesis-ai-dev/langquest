@@ -19,6 +19,8 @@ import uuid from 'react-native-uuid';
 import {
   contentTypeOptions,
   emailStatusOptions,
+  inviteBounceReasonOptions,
+  inviteBounceTypeOptions,
   matchedOnOptions,
   membershipOptions,
   reasonOptions,
@@ -940,7 +942,8 @@ export function createInviteTable<
       email_sent_at: text(), // ISO timestamp
       email_delivered_at: text(), // ISO timestamp
       email_bounced_at: text(), // ISO timestamp
-      bounce_reason: text(),
+      bounce_type: text({ enum: inviteBounceTypeOptions }),
+      bounce_reason: text({ enum: inviteBounceReasonOptions }),
       bounce_notice_dismissed_at: text(), // ISO timestamp — sender dismissed delivery notice
       ...extraColumns
     },

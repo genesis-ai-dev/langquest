@@ -10,12 +10,21 @@ export const DEFAULT_INVITE_MAX_RESEND_ATTEMPTS = 3;
 export const DEFAULT_INVITE_MAX_OUTBOUND_SENDS =
   DEFAULT_INVITE_MAX_RESEND_ATTEMPTS;
 
-export function isTransientBounceReason(
-  bounceReason: string | null | undefined
+export function isTransientBounce(
+  bounceType: string | null | undefined,
+  bounceReason?: string | null | undefined
 ): boolean {
+  if (bounceType?.trim().toLowerCase() === 'transient') return true;
   const r = bounceReason?.trim();
   if (!r) return false;
   return /^transient\s*:/i.test(r) || /soft bounce/i.test(r);
+}
+
+/** @deprecated Use isTransientBounce */
+export function isTransientBounceReason(
+  bounceReason: string | null | undefined
+): boolean {
+  return isTransientBounce(null, bounceReason);
 }
 
 export interface EmailSuppressionSnapshot {

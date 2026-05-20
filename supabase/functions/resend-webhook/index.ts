@@ -2,6 +2,10 @@ import '@supabase/functions-js/edge-runtime.d.ts';
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
 import {
+  resolveInviteBounceReason,
+  resolveInviteBounceType
+} from '../shared/inviteBounceReason.ts';
+import {
   applyComplaintSuppression,
   applyHardBounceSuppression,
   applyTransientBounceSuppression,
@@ -151,9 +155,8 @@ Deno.serve(async (req) => {
         updateData = {
           email_status: 'bounced',
           email_bounced_at: now,
-          bounce_reason: bounce
-            ? `${bounce.type}: ${bounce.message}`
-            : 'Unknown bounce reason',
+          bounce_type: bounce ? resolveInviteBounceType(bounce) : 'permanent',
+          bounce_reason: bounce ? resolveInviteBounceReason(bounce) : 'general',
           ...(isPermanent
             ? {
                 status: 'withdrawn' as const

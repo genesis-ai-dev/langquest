@@ -44,3 +44,14 @@ export const emailStatusOptions = [
   'bounced',
   'complained'
 ] as const;
+
+/** Resend bounce severity (stored on invite.bounce_type when email_status = bounced). */
+export const inviteBounceTypeOptions = ['permanent', 'transient'] as const;
+
+/** Classified invite delivery failure (stored on invite.bounce_reason). */
+export const inviteBounceReasonOptions = [
+  'user_not_found',
+  'mailbox_full',
+  'rejected',
+  'general'
+] as const;

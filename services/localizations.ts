@@ -4104,6 +4104,50 @@ export const localizations = {
     thai: 'ส่งไม่สำเร็จ',
     mandarin: '投递失败'
   },
+  inviteCannotSendDeliveryFailed: {
+    english:
+      "We couldn't deliver an invite to this address. Please use a different email.",
+    french:
+      "Nous n'avons pas pu envoyer d'invitation à cette adresse. Utilisez une autre adresse e-mail.",
+    spanish:
+      'No pudimos enviar una invitación a esta dirección. Usa otro correo.',
+    brazilian_portuguese:
+      'Não foi possível enviar um convite para este endereço. Use outro e-mail.',
+    tok_pisin:
+      'Mipela no inap salim invite long dispela email. Narapela email tasol.',
+    indonesian:
+      'Kami tidak dapat mengirim undangan ke alamat ini. Gunakan alamat email lain.',
+    nepali:
+      'हामीले यो ठेगानामा आमन्त्रण पठाउन सकेनौं। कृपया फरक इमेल प्रयोग गर्नुहोस्।',
+    hindi:
+      'हम इस पते पर आमंत्रण नहीं भेज सके। कृपया दूसरा ईमेल उपयोग करें।',
+    burmese:
+      'ဤလိပ်စာသို့ ဖိတ်ခေါ်မှု ပို့၍မရပါ။ အခြားအီးမေးလ်ကို သုံးပါ။',
+    thai: 'เราไม่สามารถส่งคำเชิญไปที่อยู่นี้ได้ กรุณาใช้อีเมลอื่น',
+    mandarin: '无法向该地址发送邀请。请使用其他邮箱。'
+  },
+  inviteEmailNotFound: {
+    english:
+      "This email address doesn't exist. Check the spelling or use a different email.",
+    french:
+      "Cette adresse e-mail n'existe pas. Vérifiez l'orthographe ou utilisez une autre adresse.",
+    spanish:
+      'Esta dirección de correo no existe. Comprueba la ortografía o usa otro correo.',
+    brazilian_portuguese:
+      'Este endereço de e-mail não existe. Verifique a grafia ou use outro e-mail.',
+    tok_pisin:
+      'Dispela email adres i no stap. Lukim spelling o narapela email.',
+    indonesian:
+      'Alamat email ini tidak ada. Periksa ejaan atau gunakan alamat email lain.',
+    nepali:
+      'यो इमेल ठेगाना अवस्थित छैन। हिज्जे जाँच गर्नुहोस् वा फरक इमेल प्रयोग गर्नुहोस्।',
+    hindi:
+      'यह ईमेल पता मौजूद नहीं है। वर्तनी जांचें या दूसरा ईमेल उपयोग करें।',
+    burmese:
+      'ဤအီးမေးလ်လိပ်စာ မရှိပါ။ စာလုံးပေါင်း စစ်ဆေးပါ သို့မဟုတ် အခြားအီးမေးလ်သုံးပါ။',
+    thai: 'ที่อยู่อีเมลนี้ไม่มีอยู่ ตรวจสอบการสะกดหรือใช้อีเมลอื่น',
+    mandarin: '该邮箱地址不存在。请检查拼写或使用其他邮箱。'
+  },
   inviteBounceBriefHint: {
     english:
       "We couldn't deliver the invite email. Check the address or invite someone using a different email.",
@@ -4206,25 +4250,25 @@ export const localizations = {
   },
   emailBlacklistedForProject: {
     english:
-      'This email address can no longer receive invites for this project after repeated delivery failures.',
+      'This email can no longer receive invites after delivery problems. Use a different email address.',
     french:
-      'Cette adresse e-mail ne peut plus recevoir d’invitations pour ce projet après plusieurs échecs de livraison.',
+      'Cette adresse ne peut plus recevoir d’invitations après des problèmes de livraison. Utilisez une autre adresse e-mail.',
     spanish:
-      'Esta dirección de correo ya no puede recibir invitaciones para este proyecto tras varios fallos de entrega.',
+      'Este correo ya no puede recibir invitaciones tras problemas de entrega. Usa otra dirección de correo.',
     brazilian_portuguese:
-      'Este e-mail não pode mais receber convites para este projeto após falhas repetidas de entrega.',
+      'Este e-mail não pode mais receber convites após problemas de entrega. Use outro endereço de e-mail.',
     tok_pisin:
-      'Dispela email i no inap kisim invite long dispela project — planti taim email i no kamap.',
+      'Dispela email i no inap kisim invite. Narapela email adres tasol.',
     indonesian:
-      'Alamat email ini tidak lagi dapat menerima undangan untuk proyek ini setelah beberapa kegagalan pengiriman.',
+      'Email ini tidak lagi dapat menerima undangan setelah masalah pengiriman. Gunakan alamat email lain.',
     nepali:
-      'पुन:पुन वितरण असफल भएपछि यो इमेलले यो प्रोजेक्टका लागि आमन्त्रण प्राप्त गर्न सक्दैन।',
+      'वितरण समस्यापछि यो इमेलले आमन्त्रण प्राप्त गर्न सक्दैन। फरक इमेल प्रयोग गर्नुहोस्।',
     hindi:
-      'बार-बार वितरण विफल होने के बाद यह ईमेल इस परियोजना के लिए आमंत्रण प्राप्त नहीं कर सकता।',
+      'वितरण समस्याओं के बाद यह ईमेल आमंत्रण प्राप्त नहीं कर सकता। दूसरा ईमेल पता उपयोग करें।',
     burmese:
-      'ပို့ဆောင်မှု မအောင်မြင်မှုများ ပြီးနောက် ဤအီးမေးလ်သည် ဤစီမံကိန်းအတွက် ဖိတ်ခေါ်မှုများ လက်ခံ၍မတော့ပါ။',
-    thai: 'ที่อยู่อีเมลนี้ไม่สามารถรับคำเชิญสำหรับโครงการนี้ได้อีกต่อไปหลังจากการส่งล้มเหลวซ้ำๆ',
-    mandarin: '该邮箱在本项目中多次投递失败后，将无法再接收邀请。'
+      'ပို့ဆောင်မှု ပြဿနာများကြောင့် ဤအီးမေးလ်သည် ဖိတ်ခေါ်မှုများ လက်ခံ၍မတော့ပါ။ အခြားအီးမေးလ်သုံးပါ။',
+    thai: 'อีเมลนี้ไม่สามารถรับคำเชิญได้อีกหลังมีปัญหาการส่ง กรุณาใช้อีเมลอื่น',
+    mandarin: '该邮箱因投递问题无法再接收邀请。请使用其他邮箱地址。'
   },
   deliveryBlocked: {
     english: 'Blocked',

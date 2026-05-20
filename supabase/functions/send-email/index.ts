@@ -135,7 +135,7 @@ Deno.serve(async (req) => {
       const { record } = parsedPayload;
       const { data: inviteRow } = await supabase
         .from('invite')
-        .select('email_status, bounce_reason, count')
+        .select('email_status, count')
         .eq('id', record.id)
         .single();
 

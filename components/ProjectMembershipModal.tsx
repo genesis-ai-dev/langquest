@@ -37,6 +37,11 @@ import {
   isEmailSuppressionActive,
   inviteMaySendAnotherOutboundEmail
 } from '@/utils/inviteBounceGuard';
+import {
+  getInviteBounceReason,
+  getInviteSendBlockedMessageKey,
+  inviteBounceBlocksRetry
+} from '@/utils/inviteBounceReason';
 import { cn } from '@/utils/styleUtils';
 import { useHybridData } from '@/views/new/useHybridData';
 import RNAlert from '@blazejkustra/react-native-alert';
@@ -89,6 +94,7 @@ interface Invitation {
   email_sent_at: string | null;
   email_delivered_at: string | null;
   email_bounced_at: string | null;
+  bounce_type: string | null;
   bounce_reason: string | null;
   bounce_notice_dismissed_at?: string | null;
   count?: number;
@@ -590,7 +596,36 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
         .maybeSingle();
 
       if (isEmailSuppressionActive(globalSupRow)) {
-        RNAlert.alert(t('error'), t('emailBlacklistedForProject'));
+        RNAlert.alert(
+          t('error'),
+          t(
+            getInviteSendBlockedMessageKey({
+              bounceType: invitation.bounce_type,
+              bounceReason: invitation.bounce_reason,
+              globallySuppressed: true
+            })
+          )
+        );
+        return;
+      }
+
+      if (
+        inviteBounceBlocksRetry(
+          invitation.email_status,
+          invitation.bounce_type,
+          invitation.bounce_reason
+        )
+      ) {
+        RNAlert.alert(
+          t('error'),
+          t(
+            getInviteSendBlockedMessageKey({
+              emailStatus: invitation.email_status,
+              bounceType: invitation.bounce_type,
+              bounceReason: invitation.bounce_reason
+            })
+          )
+        );
         return;
       }
 
@@ -614,6 +649,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
             email_sent_at: null,
             email_delivered_at: null,
             email_bounced_at: null,
+            bounce_type: null,
             bounce_reason: null,
             bounce_notice_dismissed_at: null
           })
@@ -770,17 +806,6 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
       }
 
       const normalizedInput = inviteEmail.trim().toLowerCase();
-      const { data: globalSupOnSend } = await system.supabaseConnector.client
-        .from('email_suppression')
-        .select('suppressed_at, soft_suppressed_at, expires_at, deactivated_at')
-        .eq('normalized_email', normalizedInput)
-        .maybeSingle();
-
-      if (isEmailSuppressionActive(globalSupOnSend)) {
-        RNAlert.alert(t('error'), t('emailBlacklistedForProject'));
-        setIsSubmitting(false);
-        return;
-      }
 
       // Check for any existing invitation (including declined, withdrawn, expired)
       const existingInvites = await db.query.invite.findMany({
@@ -793,6 +818,27 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
         }
       });
       const existingInvite = existingInvites[0];
+
+      const { data: globalSupOnSend } = await system.supabaseConnector.client
+        .from('email_suppression')
+        .select('suppressed_at, soft_suppressed_at, expires_at, deactivated_at')
+        .eq('normalized_email', normalizedInput)
+        .maybeSingle();
+
+      if (isEmailSuppressionActive(globalSupOnSend)) {
+        RNAlert.alert(
+          t('error'),
+          t(
+            getInviteSendBlockedMessageKey({
+              bounceType: existingInvite?.bounce_type,
+              bounceReason: existingInvite?.bounce_reason,
+              globallySuppressed: true
+            })
+          )
+        );
+        setIsSubmitting(false);
+        return;
+      }
 
       if (existingInvite) {
         // Check if the invitee has an inactive profile_project_link_synced
@@ -818,9 +864,26 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
           (existingInvite.status === 'accepted' && hasInactiveLink) // Allow reinvitation if user was removed after accepting
         ) {
           if (
-            existingInvite.email_status === 'bounced' &&
-            !inviteMaySendAnotherOutboundEmail(existingInvite.count, false)
+            inviteBounceBlocksRetry(
+              existingInvite.email_status,
+              existingInvite.bounce_type,
+              existingInvite.bounce_reason
+            )
           ) {
+            RNAlert.alert(
+              t('error'),
+              t(
+                getInviteSendBlockedMessageKey({
+                  emailStatus: existingInvite.email_status,
+                  bounceType: existingInvite.bounce_type,
+                  bounceReason: existingInvite.bounce_reason
+                })
+              )
+            );
+            setIsSubmitting(false);
+            return;
+          }
+          if (!inviteMaySendAnotherOutboundEmail(existingInvite.count, false)) {
             RNAlert.alert(t('error'), t('maxInviteAttemptsReached'));
             setIsSubmitting(false);
             return;
@@ -847,6 +910,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                 email_sent_at: null,
                 email_delivered_at: null,
                 email_bounced_at: null,
+                bounce_type: null,
                 bounce_reason: null,
                 bounce_notice_dismissed_at: null
               })
@@ -866,7 +930,27 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
           // Invitation is still pending or in another active state
           if (
             existingInvite.status === 'pending' &&
-            existingInvite.email_status === 'bounced' &&
+            inviteBounceBlocksRetry(
+              existingInvite.email_status,
+              existingInvite.bounce_type,
+              existingInvite.bounce_reason
+            )
+          ) {
+            RNAlert.alert(
+              t('error'),
+              t(
+                getInviteSendBlockedMessageKey({
+                  emailStatus: existingInvite.email_status,
+                  bounceType: existingInvite.bounce_type,
+                  bounceReason: existingInvite.bounce_reason
+                })
+              )
+            );
+            setIsSubmitting(false);
+            return;
+          }
+          if (
+            existingInvite.status === 'pending' &&
             !inviteMaySendAnotherOutboundEmail(existingInvite.count, false)
           ) {
             RNAlert.alert(t('error'), t('maxInviteAttemptsReached'));
@@ -1021,10 +1105,11 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
     };
 
     const isBounced = invitation.email_status === 'bounced';
+    const bounceReason = getInviteBounceReason(invitation.bounce_reason);
     const globallyBlocked = globalSuppressedEmails.has(
       invitation.email.trim().toLowerCase()
     );
-    const isSuppressed = globallyBlocked;
+    const isSuppressed = globallyBlocked && !isBounced;
     const showResendButton =
       withdrawInvitePermissions.hasAccess &&
       !globallyBlocked &&
@@ -1055,26 +1140,25 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                 <Icon as={CrownIcon} size={16} className="text-primary" />
               )}
             </View>
-            <View className="mt-1 flex-row flex-wrap items-center gap-1">
-              <Badge variant={getStatusVariant(invitation.status)}>
-                <Text variant="small">
-                  {getStatusDisplay(invitation.status)}
-                </Text>
-              </Badge>
-              {isBounced && (
-                <Badge variant="destructive">
-                  <Text variant="small">{t('emailBounced')}</Text>
+            {!isBounced && (
+              <View className="mt-1 flex-row flex-wrap items-center gap-1">
+                <Badge variant={getStatusVariant(invitation.status)}>
+                  <Text variant="small">
+                    {getStatusDisplay(invitation.status)}
+                  </Text>
                 </Badge>
-              )}
-              {isSuppressed && (
-                <Badge variant="outline">
-                  <Text variant="small">{t('deliveryBlocked')}</Text>
-                </Badge>
-              )}
-            </View>
+                {isSuppressed && (
+                  <Badge variant="outline">
+                    <Text variant="small">{t('deliveryBlocked')}</Text>
+                  </Badge>
+                )}
+              </View>
+            )}
             {isBounced && (
               <Text variant="small" className="mt-1 text-muted-foreground">
-                {t('inviteBounceBriefHint')}
+                {bounceReason === 'user_not_found'
+                  ? t('inviteEmailNotFound')
+                  : t('inviteBounceBriefHint')}
               </Text>
             )}
           </View>
