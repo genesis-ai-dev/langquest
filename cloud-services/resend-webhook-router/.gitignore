@@ -163,6 +163,7 @@ dist
 .wrangler/
 
 
-# dotenvx: commit encrypted .env; never commit private keys
+# dotenvx: commit encrypted .env.txt; never commit private keys
 .env.keys
 .env.local
+.env

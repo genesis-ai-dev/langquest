@@ -12,5 +12,5 @@
 		"resolveJsonModule": true,
 		"noEmit": true
 	},
-	"include": ["src/**/*", "worker-configuration.d.ts"]
+	"include": ["src/**/*", "worker-configuration.d.ts", "src/env.d.ts"]
 }

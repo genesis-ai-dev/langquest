@@ -1,5 +1,12 @@
-import '@dotenvx/dotenvx/config';
+import dotenvx from '@dotenvx/dotenvx';
 import { Webhook } from 'svix';
+
+import envSrc from '../.env.txt';
+
+const config = dotenvx.config({
+	envs: [{ type: 'env', value: envSrc, privateKeyName: 'DOTENV_PRIVATE_KEY' }],
+});
+const envx = config.parsed;
 
 export interface Env {
 	/** JSON array of Supabase edge function URLs */
@@ -25,13 +32,11 @@ function parseTargets(raw: string): string[] {
 	});
 }
 
-function verifySvixSignature(rawBody: string, request: Request): { ok: true } | { ok: false; status: number; error: string } {
-	const secret = process.env.RESEND_WEBHOOK_SECRET;
-	if (!secret) {
-		console.error('[resend-webhook-router] RESEND_WEBHOOK_SECRET is not set');
-		return { ok: false, status: 500, error: 'Server misconfiguration' };
-	}
-
+function verifySvixSignature(
+	rawBody: string,
+	request: Request,
+	secret: string,
+): { ok: true } | { ok: false; status: number; error: string } {
 	const svixId = request.headers.get('svix-id');
 	const svixTimestamp = request.headers.get('svix-timestamp');
 	const svixSignature = request.headers.get('svix-signature');
@@ -80,6 +85,12 @@ export default {
 			return Response.json({ error: 'Method not allowed' }, { status: 405 });
 		}
 
+		const webhookSecret = envx?.RESEND_WEBHOOK_SECRET;
+		if (!webhookSecret) {
+			console.error('[resend-webhook-router] RESEND_WEBHOOK_SECRET is not set');
+			return Response.json({ error: 'Server misconfiguration' }, { status: 500 });
+		}
+
 		let targets: string[];
 		try {
 			targets = parseTargets(env.SUPABASE_WEBHOOK_TARGETS);
@@ -89,7 +100,7 @@ export default {
 		}
 
 		const body = await request.text();
-		const verification = verifySvixSignature(body, request);
+		const verification = verifySvixSignature(body, request, webhookSecret);
 		if (!verification.ok) {
 			return Response.json({ error: verification.error }, { status: verification.status });
 		}

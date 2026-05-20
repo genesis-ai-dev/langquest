@@ -1,6 +1,6 @@
 # Resend webhook router (Cloudflare Worker)
 
-Verifies Resend/Svix signatures, then forwards webhooks to both LangQuest Supabase `resend-webhook` functions. Setup follows [dotenvx with Cloudflare Workers](https://dotenvx.com/docs/platforms/cloudflare).
+Verifies Resend/Svix signatures, then forwards webhooks to both LangQuest Supabase `resend-webhook` functions. Secrets follow [Encrypt secrets in Cloudflare Workers](https://dotenvx.com/docs/secrets-in-cloudflare-workers).
 
 ## Initial setup
 
@@ -9,21 +9,26 @@ cd cloud-services/resend-webhook-router
 npm install
 ```
 
-The Worker entrypoint loads dotenvx at startup:
+The Worker bundles encrypted `.env.txt` and decrypts at startup:
 
 ```ts
-import '@dotenvx/dotenvx/config';
-// process.env.RESEND_WEBHOOK_SECRET
+import envSrc from '../.env.txt';
+import dotenvx from '@dotenvx/dotenvx';
+
+const config = dotenvx.config({
+  envs: [{ type: 'env', value: envSrc, privateKeyName: 'DOTENV_PRIVATE_KEY' }],
+});
+const envx = config.parsed;
+// envx.RESEND_WEBHOOK_SECRET
 ```
 
 ## Environment files
 
 | File | Committed? | Purpose |
 |------|------------|---------|
-| `.env` | Yes (encrypted) | `RESEND_WEBHOOK_SECRET` |
+| `.env.txt` | Yes (encrypted) | `RESEND_WEBHOOK_SECRET` (bundled in the Worker) |
 | `.env.keys` | **Never** | Private decryption key |
-| `.env.example` | Yes | Template for new setups |
-| `.dev.vars` | No | Optional local `wrangler dev` override |
+| `.env.txt.example` | Yes | Template for new setups |
 
 `RESEND_WEBHOOK_SECRET` must match `supabase/.env` and the Resend dashboard signing secret.
 
@@ -33,9 +38,9 @@ import '@dotenvx/dotenvx/config';
 # From repo root, read shared secret:
 npx dotenvx get RESEND_WEBHOOK_SECRET -f supabase/.env
 
-# Set on worker .env (creates/updates encryption):
+# Set on worker .env.txt (creates/updates encryption):
 cd cloud-services/resend-webhook-router
-npx dotenvx set RESEND_WEBHOOK_SECRET "whsec_..." -f .env
+npx dotenvx set RESEND_WEBHOOK_SECRET "whsec_..." -f .env.txt
 npm run encrypt
 ```
 
@@ -45,9 +50,7 @@ npm run encrypt
 npm run dev
 ```
 
-Uses `dotenvx run -- wrangler dev` so `.env.keys` decrypts `.env` locally. POST to `http://localhost:8787` with Svix headers.
-
-Alternatively, copy `.dev.vars.example` → `.dev.vars` and set `DOTENV_PRIVATE_KEY` from `.env.keys`, then run `npx wrangler dev`.
+Runs `wrangler dev` with `DOTENV_PRIVATE_KEY` from `.env.keys` via `dotenvx keypair`. POST to `http://localhost:8787` with Svix headers.
 
 ## Deploy
 
@@ -58,7 +61,7 @@ npx wrangler secret put DOTENV_PRIVATE_KEY
 # Paste DOTENV_PRIVATE_KEY from .env.keys (not committed)
 ```
 
-2. Deploy (encrypted `.env` is bundled; Worker decrypts at runtime):
+2. Deploy (encrypted `.env.txt` is bundled; Worker decrypts at runtime):
 
 ```bash
 npm run deploy
@@ -78,7 +81,3 @@ npm run deploy
 |-------|------|
 | **Worker** | Svix verify before forward |
 | **Each Supabase `resend-webhook`** | Still verifies (URLs are public) |
-
-## Cloudflare dashboard
-
-When creating the Worker in the dashboard, choose **Build System v3** if prompted (see dotenvx Cloudflare guide).

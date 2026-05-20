@@ -6,7 +6,19 @@
 	"compatibility_flags": ["nodejs_compat"],
 	"account_id": "6a80496d1e59948a9cbaa3c643ba81d7",
 	"observability": {
-		"enabled": true,
+		"enabled": false,
+		"head_sampling_rate": 1,
+		"logs": {
+			"enabled": true,
+			"head_sampling_rate": 1,
+			"persist": true,
+			"invocation_logs": true,
+		},
+		"traces": {
+			"enabled": false,
+			"persist": true,
+			"head_sampling_rate": 1,
+		},
 	},
 	"vars": {
 		"SUPABASE_WEBHOOK_TARGETS": "[\"https://yjgdgsycxmlvaiuynlbv.supabase.co/functions/v1/resend-webhook\",\"https://unsxkmlcyxgtgmtzfonb.supabase.co/functions/v1/resend-webhook\"]",
