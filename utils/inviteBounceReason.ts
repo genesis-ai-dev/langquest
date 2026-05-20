@@ -127,7 +127,7 @@ export function inviteBounceBlocksRetry(
 
 export type InviteSendBlockedMessageKey =
   | 'inviteEmailNotFound'
-  | 'inviteCannotSendDeliveryFailed'
+  | 'inviteDeliveryFailed'
   | 'maxInviteAttemptsReached'
   | 'emailBlacklistedForProject';
 
@@ -148,7 +148,7 @@ export function getInviteSendBlockedMessageKey(params: {
   if (params.emailStatus === 'bounced') {
     return category === 'user_not_found'
       ? 'inviteEmailNotFound'
-      : 'inviteCannotSendDeliveryFailed';
+      : 'inviteDeliveryFailed';
   }
 
   return 'maxInviteAttemptsReached';

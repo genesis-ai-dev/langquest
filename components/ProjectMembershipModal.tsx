@@ -1158,7 +1158,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
               <Text variant="small" className="mt-1 text-muted-foreground">
                 {bounceReason === 'user_not_found'
                   ? t('inviteEmailNotFound')
-                  : t('inviteBounceBriefHint')}
+                  : t('inviteDeliveryFailed')}
               </Text>
             )}
           </View>

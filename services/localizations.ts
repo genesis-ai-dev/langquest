@@ -4104,28 +4104,6 @@ export const localizations = {
     thai: 'ส่งไม่สำเร็จ',
     mandarin: '投递失败'
   },
-  inviteCannotSendDeliveryFailed: {
-    english:
-      "We couldn't deliver an invite to this address. Please use a different email.",
-    french:
-      "Nous n'avons pas pu envoyer d'invitation à cette adresse. Utilisez une autre adresse e-mail.",
-    spanish:
-      'No pudimos enviar una invitación a esta dirección. Usa otro correo.',
-    brazilian_portuguese:
-      'Não foi possível enviar um convite para este endereço. Use outro e-mail.',
-    tok_pisin:
-      'Mipela no inap salim invite long dispela email. Narapela email tasol.',
-    indonesian:
-      'Kami tidak dapat mengirim undangan ke alamat ini. Gunakan alamat email lain.',
-    nepali:
-      'हामीले यो ठेगानामा आमन्त्रण पठाउन सकेनौं। कृपया फरक इमेल प्रयोग गर्नुहोस्।',
-    hindi:
-      'हम इस पते पर आमंत्रण नहीं भेज सके। कृपया दूसरा ईमेल उपयोग करें।',
-    burmese:
-      'ဤလိပ်စာသို့ ဖိတ်ခေါ်မှု ပို့၍မရပါ။ အခြားအီးမေးလ်ကို သုံးပါ။',
-    thai: 'เราไม่สามารถส่งคำเชิญไปที่อยู่นี้ได้ กรุณาใช้อีเมลอื่น',
-    mandarin: '无法向该地址发送邀请。请使用其他邮箱。'
-  },
   inviteEmailNotFound: {
     english:
       "This email address doesn't exist. Check the spelling or use a different email.",
@@ -4148,27 +4126,27 @@ export const localizations = {
     thai: 'ที่อยู่อีเมลนี้ไม่มีอยู่ ตรวจสอบการสะกดหรือใช้อีเมลอื่น',
     mandarin: '该邮箱地址不存在。请检查拼写或使用其他邮箱。'
   },
-  inviteBounceBriefHint: {
+  inviteDeliveryFailed: {
     english:
-      "We couldn't deliver the invite email. Check the address or invite someone using a different email.",
+      "We couldn't deliver an invite to this address. Please use a different email.",
     french:
-      "Nous n'avons pas pu livrer l'e-mail d'invitation. Vérifiez l'adresse ou invitez une personne avec une autre adresse e-mail.",
+      "Nous n'avons pas pu envoyer d'invitation à cette adresse. Utilisez une autre adresse e-mail.",
     spanish:
-      'No pudimos entregar el correo de invitación. Comprueba la dirección o invita a alguien con otro correo.',
+      'No pudimos enviar una invitación a esta dirección. Usa otro correo.',
     brazilian_portuguese:
-      'Não foi possível entregar o e-mail do convite. Verifique o endereço ou convide alguém usando outro e-mail.',
+      'Não foi possível enviar um convite para este endereço. Use outro e-mail.',
     tok_pisin:
-      'Mipela no inap salim invite email. Lukim adres o salim long narapela email.',
+      'Mipela no inap salim invite long dispela email. Narapela email tasol.',
     indonesian:
-      'Kami tidak dapat mengirim email undangan. Periksa alamat atau undang dengan alamat email lain.',
+      'Kami tidak dapat mengirim undangan ke alamat ini. Gunakan alamat email lain.',
     nepali:
-      'हामीले आमन्त्रण इमेल वितरण गर्न सकेनौं। ठेगाना जाँच गर्नुहोस् वा फरक इमेल प्रयोग गरेर आमन्त्रण गर्नुहोस्।',
+      'हामीले यो ठेगानामा आमन्त्रण पठाउन सकेनौं। कृपया फरक इमेल प्रयोग गर्नुहोस्।',
     hindi:
-      'हम आमंत्रण ईमेल वितरित नहीं कर सके। पता जांचें या किसी दूसरे ईमेल से आमंत्रित करें।',
+      'हम इस पते पर आमंत्रण नहीं भेज सके। कृपया दूसरा ईमेल उपयोग करें।',
     burmese:
-      'ဖိတ်ခေါ်အီးမေးလ်ကို ပို့၍မရပါ။ လိပ်စာကို စစ်ဆေးပါ သို့မဟုတ် အခြားအီးမေးလ်ဖြင့် ဖိတ်ခေါ်ပါ။',
-    thai: 'เราไม่สามารถส่งอีเมลเชิญได้ ตรวจสอบที่อยู่หรือเชิญด้วยอีเมลอื่น',
-    mandarin: '无法送达邀请邮件。请核对地址或使用其他邮箱发送邀请。'
+      'ဤလိပ်စာသို့ ဖိတ်ခေါ်မှု ပို့၍မရပါ။ အခြားအီးမေးလ်ကို သုံးပါ။',
+    thai: 'เราไม่สามารถส่งคำเชิญไปที่อยู่นี้ได้ กรุณาใช้อีเมลอื่น',
+    mandarin: '无法向该地址发送邀请。请使用其他邮箱。'
   },
   inviteDeliveryFailedTitle: {
     english: 'Invite could not be delivered',
