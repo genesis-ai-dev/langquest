@@ -9,6 +9,7 @@ import {
   Tailwind,
   Text
 } from '@react-email/components';
+import React from 'react';
 
 interface ConfirmEmailProps {
   confirmation_url: string;
