@@ -24,6 +24,7 @@ interface FeedbackRecord {
   title: string;
   request_type: 'bug' | 'feature_request' | 'general' | 'other';
   description: string;
+  organization_name: string | null;
   app_version: string | null;
   created_at: string;
 }
@@ -123,10 +124,6 @@ async function sendToAirtable(
   }
 
   const { username, email } = userInfo ?? { username: null, email: null };
-  const displayName =
-    username && email
-      ? `${username} - ${email}`
-      : username || email || 'Anonymous';
 
   // Map feedback fields to Airtable columns
   const airtableFields: Record<string, unknown> = {
@@ -136,9 +133,17 @@ async function sendToAirtable(
     Description: feedback.description,
     'Request Type': formatRequestType(feedback.request_type),
 
-    'Your Name': displayName,
+    'Your Name': username || 'Anonymous',
     'App Version': feedback.app_version || 'unknown'
   };
+
+  if (email) {
+    airtableFields.Email = email;
+  }
+
+  if (feedback.organization_name) {
+    airtableFields['Organization Name'] = feedback.organization_name;
+  }
 
   // Add Partner link if configured (Airtable linked record field)
   if (AIRTABLE_PARTNER_RECORD_ID) {
@@ -244,7 +249,9 @@ Deno.serve(async (req) => {
  *    - Request Type (Single select with: 🐞 Bug, ✨ Feature, 💬 General, 📝 Other)
  *
  * 5. Columns you may need to ADD (optional, but recommended):
- *    - Name (Single line text) - shows who submitted
+ *    - Your Name (Single line text) - username from profile
+ *    - Email (Email) - email from profile
+ *    - Organization Name (Single line text) - optional, from feedback form
  *    - App Version (Single line text) - helps track issues
  *    - Partners (Linked record) - set AIRTABLE_PARTNER_RECORD_ID to auto-link
  *

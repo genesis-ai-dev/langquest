@@ -557,6 +557,7 @@ export function createFeedbackTable<
         .notNull()
         .references(() => profile.id),
       name: text(),
+      organization_name: text(),
       title: text().notNull(),
       request_type: text({ enum: requestTypeOptions }).notNull(),
       description: text().notNull(),

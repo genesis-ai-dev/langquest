@@ -12944,6 +12944,32 @@ export const localizations = {
     thai: 'ใส่ชื่อของคุณ',
     mandarin: '输入您的姓名'
   },
+  feedbackOrganizationNameLabel: {
+    english: 'Organization Name (optional)',
+    french: "Nom de l'organisation (facultatif)",
+    spanish: 'Nombre de la organización (opcional)',
+    brazilian_portuguese: 'Nome da organização (opcional)',
+    tok_pisin: 'Nem bilong organisen (opsenel)',
+    indonesian: 'Nama organisasi (opsional)',
+    nepali: 'संस्थाको नाम (वैकल्पिक)',
+    hindi: 'संगठन का नाम (वैकल्पिक)',
+    burmese: 'အဖွဲ့အစည်းအမည် (ချန်လှပ်နိုင်)',
+    thai: 'ชื่อองค์กร (ไม่บังคับ)',
+    mandarin: '组织名称（可选）'
+  },
+  feedbackOrganizationNamePlaceholder: {
+    english: 'Enter your organization name',
+    french: "Entrez le nom de votre organisation",
+    spanish: 'Ingrese el nombre de su organización',
+    brazilian_portuguese: 'Digite o nome da sua organização',
+    tok_pisin: 'Putim nem bilong organisen bilong yu',
+    indonesian: 'Masukkan nama organisasi Anda',
+    nepali: 'तपाईंको संस्थाको नाम प्रविष्ट गर्नुहोस्',
+    hindi: 'अपने संगठन का नाम दर्ज करें',
+    burmese: 'သင့်အဖွဲ့အစည်းအမည် ထည့်ပါ',
+    thai: 'ใส่ชื่อองค์กรของคุณ',
+    mandarin: '输入您的组织名称'
+  },
   feedbackTitleLabel: {
     english: 'Title',
     french: 'Titre',
