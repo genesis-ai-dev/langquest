@@ -3929,6 +3929,7 @@ export default function BibleAssetsView() {
                     variant="outline"
                     size="icon"
                     disabled={isPublishing || !isOnline || !isMember}
+                    className="text-xs"
                     onPress={() => {
                       if (!isOnline) {
                         RNAlert.alert(
@@ -3980,7 +3981,9 @@ export default function BibleAssetsView() {
                         color={getThemeColor('primary')}
                       />
                     ) : (
-                      <Icon as={CloudUpload} />
+                      <>
+                        <Icon as={CloudUpload} />
+                      </>
                     )}
                   </Button>
                   {questId && projectId && (
@@ -4058,6 +4061,7 @@ export default function BibleAssetsView() {
               disabled={isPlayAllPlayerActive}
               onPress={() => setShowFiaTextDrawer(true)}
               style={isPlayAllPlayerActive ? { opacity: 0.5 } : undefined}
+              className="size-10 rounded-full bg-primary"
             >
               <Icon
                 as={BookOpenIcon}
@@ -4084,7 +4088,7 @@ export default function BibleAssetsView() {
                   void handlePlayAll(selectedForRecording);
                 }
               }}
-              className="h-10 flex-row items-center rounded-lg bg-primary"
+              className="h-10 w-10 flex-row items-center rounded-full bg-primary"
             >
               <Icon
                 as={PlayIcon}
@@ -4185,24 +4189,26 @@ export default function BibleAssetsView() {
       {!isSelectionMode && (
         <View
           style={{
-            bottom: insets.bottom + 24,
+            bottom: insets.bottom + 32,
             ...(isPublished ? { right: 24 } : { left: 24 })
           }}
           className="absolute z-50"
         >
           <SpeedDial>
-            <SpeedDialItems>
+            <SpeedDialItems className="rounded-full">
               {/* For anonymous users, only show info button */}
               {currentUser ? (
                 <>
                   {allowSettings && isOwner ? (
                     <SpeedDialItem
+                      className="rounded-full"
                       icon={SettingsIcon}
                       variant="outline"
                       onPress={() => setShowSettingsModal(true)}
                     />
                   ) : !hasReported ? (
                     <SpeedDialItem
+                      className="rounded-full"
                       icon={FlagIcon}
                       variant="outline"
                       onPress={() => setShowReportModal(true)}
@@ -4212,6 +4218,7 @@ export default function BibleAssetsView() {
               ) : null}
               {!isPublished && currentUser && (
                 <SpeedDialItem
+                  className="rounded-full"
                   icon={BrushCleaning}
                   variant="outline"
                   onPress={() => setShowDeleteAllDrawer(true)}
@@ -4220,6 +4227,7 @@ export default function BibleAssetsView() {
               {/* Info button always visible */}
               <SpeedDialItem
                 icon={InfoIcon}
+                className="rounded-full"
                 variant="outline"
                 onPress={() => {
                   console.log('📋 [Info] Opening details modal', {
@@ -4275,7 +4283,7 @@ export default function BibleAssetsView() {
           !selectedForRecording && (
             <View
               style={{
-                paddingBottom: insets.bottom + 15,
+                paddingBottom: insets.bottom + 6,
                 paddingRight: isSelectionMode ? 0 : 50 // Leave space for SpeedDial when not in selection mode
               }}
               className="px-2"
@@ -4283,6 +4291,7 @@ export default function BibleAssetsView() {
               <RecordButton
                 onPress={() => void handleGoToRecording()}
                 className="ml-14"
+                size="large"
               />
             </View>
           )

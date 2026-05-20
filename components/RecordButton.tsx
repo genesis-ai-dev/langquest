@@ -1,3 +1,4 @@
+import { useLocalization } from '@/hooks/useLocalization';
 import { cn } from '@/utils/styleUtils';
 import { ChevronRight } from 'lucide-react-native';
 import React from 'react';
@@ -9,20 +10,24 @@ interface RecordButtonProps {
   onPress: () => void;
   disabled?: boolean;
   className?: string;
+  size?: 'small' | 'large';
 }
 
 export function RecordButton({
   onPress,
   disabled = false,
-  className
+  className,
+  size = 'small'
 }: RecordButtonProps) {
+  const { t } = useLocalization();
   return (
     <Pressable
       onPress={onPress}
       disabled={disabled}
       accessibilityRole="button"
       className={cn(
-        'flex-row items-center gap-4 self-center rounded-full bg-primary px-3 py-1.5 active:opacity-90',
+        'flex-row items-center justify-between gap-4 self-center rounded-full bg-primary px-3 py-1.5 active:opacity-90',
+        size === 'large' && 'h-12 w-72 px-4 py-2',
         disabled && 'opacity-50',
         className
       )}
@@ -32,8 +37,10 @@ export function RecordButton({
       </View>
 
       <View className="items-center justify-center">
-        <Text className="text-center text-xs font-semibold text-secondary">
-          START RECORDING
+        <Text className="text-center text-xs font-semibold uppercase text-secondary">
+          {size === 'small'
+            ? t('onboardingStartRecording')
+            : t('startRecordingSession')}
         </Text>
       </View>
 
