@@ -245,6 +245,7 @@ export function createProjectTable<
       target_language_id: text(), // Nullable - new projects use languoid_id via project_language_link instead
       creator_id: text().references(() => profile.id),
       priority: int().notNull().default(0),
+      uploaded_at: text(), // Nullable - set by server trigger when content is uploaded
       ...extraColumns
     },
     (table) => [
@@ -430,6 +431,7 @@ export function createQuestTable<
         .references(() => project.id),
       parent_id: text().references((): AnySQLiteColumn => table.id),
       creator_id: text().references(() => profile.id),
+      uploaded_at: text(), // Nullable - set by server trigger when content is uploaded
       ...extraColumns
     },
     (table) => {
@@ -476,6 +478,7 @@ export function createVoteTable<
       creator_id: text()
         .notNull()
         .references(() => profile.id),
+      uploaded_at: text(), // Nullable - set by server trigger when content is uploaded
       ...extraColumns
     },
     (table) => {
@@ -855,6 +858,7 @@ export function createQuestAssetLinkTable<
       asset_id: text()
         .notNull()
         .references(() => asset.id),
+      uploaded_at: text(), // Nullable - set by server trigger when content is uploaded
       ...extraColumns
     },
     (table) => [
