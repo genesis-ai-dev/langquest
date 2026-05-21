@@ -31,6 +31,7 @@ import {
 } from '@/db/drizzleSchemaSynced';
 import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useLocalStore } from '@/store/localStore';
 import {
@@ -48,6 +49,7 @@ import { useHybridData } from '@/views/new/useHybridData';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { PortalHost } from '@rn-primitives/portal';
+import { useQueryClient } from '@tanstack/react-query';
 import { and, eq } from 'drizzle-orm';
 import {
   CircleCheckIcon,
@@ -127,6 +129,8 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
 }) => {
   const { t } = useLocalization();
   const { currentUser } = useAuth();
+  const isOnline = useNetworkStatus();
+  const queryClient = useQueryClient();
 
   // Get comprehensive user permissions for this project
   const managePermissions = useUserPermissions(projectId, 'manage');
@@ -722,6 +726,49 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
     }
   };
 
+  const handleDismissInvitedFromList = async (invitation: Invitation) => {
+    dismissInvitedRow(projectId, invitation.id);
+
+    const isDeliveryFailure =
+      invitation.email_status === 'bounced' ||
+      invitation.email_status === 'complained';
+    const isSender = currentUser?.id === invitation.sender_profile_id;
+
+    if (!isDeliveryFailure || !isSender) return;
+
+    if (!isOnline) {
+      RNAlert.alert(t('error'), t('mustBeOnlineToAcceptInvite'));
+      return;
+    }
+
+    try {
+      await db
+        .update(invite_synced)
+        .set({
+          bounce_notice_dismissed_at: new Date().toISOString(),
+          last_updated: new Date().toISOString()
+        })
+        .where(eq(invite_synced.id, invitation.id));
+
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ['invite-sent-delivery-failures'],
+          exact: false
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ['invite-sent-delivery-failures-count'],
+          exact: false
+        })
+      ]);
+    } catch (error) {
+      console.error(
+        '[ProjectMembershipModal] Dismiss delivery notice failed:',
+        error
+      );
+      RNAlert.alert(t('error'), t('failedToDismissNotice'));
+    }
+  };
+
   const handleApproveRequest = (
     requestId: string,
     senderId: string,
@@ -1240,7 +1287,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
             <Button
               variant="outline"
               size="icon-sm"
-              onPress={() => dismissInvitedRow(projectId, invitation.id)}
+              onPress={() => void handleDismissInvitedFromList(invitation)}
               accessibilityLabel={t('dismissInviteDeliveryNotice')}
             >
               <Icon
