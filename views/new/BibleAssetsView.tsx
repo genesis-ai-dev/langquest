@@ -44,6 +44,7 @@ import {
   InfoIcon,
   LockIcon,
   PlayIcon,
+  Redo2,
   RefreshCwIcon,
   SearchIcon,
   SettingsIcon,
@@ -104,7 +105,10 @@ import {
   softDeleteAssetsFromQuest,
   softMergeAssetsInQuest
 } from '@/database_services/assetService';
-import { undo as undoAssetOperation } from '@/database_services/assetUndoService';
+import {
+  redo as redoAssetOperation,
+  undo as undoAssetOperation
+} from '@/database_services/assetUndoService';
 import { audioSegmentService } from '@/database_services/audioSegmentService';
 import { createQuestRecordingSession } from '@/database_services/questService';
 import type {
@@ -553,13 +557,16 @@ export default function BibleAssetsView() {
   const {
     push: pushUndoHistory,
     undo: undoHistory,
-    list: listUndoHistory,
-    length: undoLength
+    redo: redoHistory,
+    peekUndo: peekUndoHistory,
+    peekRedo: peekRedoHistory,
+    canUndo: hasUndoHistory,
+    canRedo: hasRedoHistory
   } = useUndoHistory<AssetOperationDataItem[], AssetOperationDataItem[]>();
-  const currentUndoOperation = React.useMemo(() => {
-    const history = listUndoHistory();
-    return history[history.length - 1] as AssetOperationTypes | undefined;
-  }, [listUndoHistory, undoLength]);
+  const currentUndoOperation =
+    peekUndoHistory() as AssetOperationTypes | undefined;
+  const currentRedoOperation =
+    peekRedoHistory() as AssetOperationTypes | undefined;
   const insets = useSafeAreaInsets();
 
   React.useEffect(() => {
@@ -1545,13 +1552,7 @@ export default function BibleAssetsView() {
   );
 
   const handleUndoAction = React.useCallback(() => {
-    const history = listUndoHistory();
-    history.forEach((item, index) => console.log(index, item));
-
-    const lastOperation = history[history.length - 1] as
-      | AssetOperationTypes
-      | undefined;
-    if (!lastOperation?.canUndo) return;
+    if (!currentUndoOperation?.canUndo) return;
 
     if (!projectId || !questId) {
       console.warn('[Undo] Missing projectId or questId, cannot execute undo');
@@ -1568,7 +1569,41 @@ export default function BibleAssetsView() {
       await queryClient.invalidateQueries({ queryKey: ['assets'] });
       await refetch();
     });
-  }, [listUndoHistory, projectId, queryClient, questId, refetch, undoHistory]);
+  }, [
+    currentUndoOperation,
+    projectId,
+    queryClient,
+    questId,
+    refetch,
+    undoHistory
+  ]);
+
+  const handleRedoAction = React.useCallback(() => {
+    if (!currentRedoOperation?.canUndo) return;
+
+    if (!projectId || !questId) {
+      console.warn('[Redo] Missing projectId or questId, cannot execute redo');
+      return;
+    }
+
+    void redoHistory(async (entry) => {
+      const operation = {
+        ...(entry as AssetOperationTypes),
+        domain: 'asset'
+      } as AssetOperationTypes;
+
+      await redoAssetOperation(projectId, questId, operation);
+      await queryClient.invalidateQueries({ queryKey: ['assets'] });
+      await refetch();
+    });
+  }, [
+    currentRedoOperation,
+    projectId,
+    queryClient,
+    questId,
+    redoHistory,
+    refetch
+  ]);
 
   const buildMoveHistoryEntries = React.useCallback(
     (updates: AssetUpdatePayload[]) => {
@@ -4001,16 +4036,22 @@ export default function BibleAssetsView() {
           </View>
         </View>
       </View>
-      <View className="flex w-full flex-row items-center justify-between">
-        <View className="flex-row items-center gap-1">
-          {!isPublished && (
+      <View className="flex w-full flex-row items-center">
+        <View className="flex-1 flex-row items-center gap-1">
+          {fiaPericopeId && (
             <Button
-              variant="ghost"
+              variant="default"
               size="icon"
-              disabled={!currentUndoOperation?.canUndo}
-              onPress={handleUndoAction}
+              disabled={isPlayAllPlayerActive}
+              onPress={() => setShowFiaTextDrawer(true)}
+              style={isPlayAllPlayerActive ? { opacity: 0.5 } : undefined}
+              className="size-10 rounded-full bg-primary"
             >
-              <Icon as={Undo2} size={18} className="text-primary" />
+              <Icon
+                as={BookOpenIcon}
+                size={20}
+                className="text-primary-foreground"
+              />
             </Button>
           )}
           <Button
@@ -4054,24 +4095,30 @@ export default function BibleAssetsView() {
               <Icon as={BookmarkPlusIcon} className="text-primary" />
             </Button>
           )}
-          {fiaPericopeId && (
-            <Button
-              variant="default"
-              size="icon"
-              disabled={isPlayAllPlayerActive}
-              onPress={() => setShowFiaTextDrawer(true)}
-              style={isPlayAllPlayerActive ? { opacity: 0.5 } : undefined}
-              className="size-10 rounded-full bg-primary"
-            >
-              <Icon
-                as={BookOpenIcon}
-                size={20}
-                className="text-primary-foreground"
-              />
-            </Button>
-          )}
         </View>
         <View className="flex-row items-center gap-1">
+          {!isPublished && (
+            <>
+              <Button
+                variant="ghost"
+                size="icon"
+                disabled={!hasUndoHistory || !currentUndoOperation?.canUndo}
+                onPress={handleUndoAction}
+              >
+                <Icon as={Undo2} size={18} className="text-primary" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                disabled={!hasRedoHistory || !currentRedoOperation?.canUndo}
+                onPress={handleRedoAction}
+              >
+                <Icon as={Redo2} size={18} className="text-primary" />
+              </Button>
+            </>
+          )}
+        </View>
+        <View className="flex-1 flex-row items-center justify-end gap-1">
           {assets.length > 0 && (
             <Button
               variant="default"

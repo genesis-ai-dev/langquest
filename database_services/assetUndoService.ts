@@ -3,9 +3,12 @@ import { resolveTable } from '@/utils/dbUtils';
 import { and, eq, inArray } from 'drizzle-orm';
 import uuid from 'react-native-uuid';
 import type { AssetOperationTypes } from './types';
-import { dequeue as dequeueAssetGc } from './assetGarbageCollectorService';
+import {
+  dequeue as dequeueAssetGc,
+  enqueue as enqueueAssetGc,
+  type AssetGcOperation
+} from './assetGarbageCollectorService';
 import { batchUpdateAssetMetadata, renameAsset } from './assetService';
-import { audioSegmentService } from './audioSegmentService';
 
 async function restoreAssetsToQuest(
   projectId: string,
@@ -61,19 +64,43 @@ async function restoreAssetsToQuest(
   });
 }
 
-async function deleteAssetsPhysically(
+async function detachAssetsFromQuest(
+  questId: string,
   assetIds: string[],
-  options?: { preserveAudioFiles?: boolean }
+  gcOperation: AssetGcOperation
 ): Promise<void> {
   if (assetIds.length === 0) return;
-  for (const id of Array.from(new Set(assetIds))) {
-    await audioSegmentService.deleteAudioSegment(id, options);
-  }
+  const uniqueAssetIds = Array.from(new Set(assetIds));
+  const assetLocal = resolveTable('asset', { localOverride: true });
+  const questAssetLinkLocal = resolveTable('quest_asset_link', {
+    localOverride: true
+  });
+
+  await system.db.transaction(async (tx) => {
+    await tx
+      .update(assetLocal)
+      .set({ project_id: null })
+      .where(inArray(assetLocal.id, uniqueAssetIds));
+
+    await tx
+      .delete(questAssetLinkLocal)
+      .where(
+        and(
+          eq(questAssetLinkLocal.quest_id, questId),
+          inArray(questAssetLinkLocal.asset_id, uniqueAssetIds)
+        )
+      );
+  });
+
+  await enqueueAssetGc(uniqueAssetIds, gcOperation);
 }
 
-async function undoCreate(operation: AssetOperationTypes): Promise<void> {
+async function undoCreate(
+  questId: string,
+  operation: AssetOperationTypes
+): Promise<void> {
   const newIds = operation.newData.map((item) => item.id);
-  await deleteAssetsPhysically(newIds);
+  await detachAssetsFromQuest(questId, newIds, 'delete');
 }
 
 async function undoRename(operation: AssetOperationTypes): Promise<void> {
@@ -94,8 +121,8 @@ async function undoDelete(
 }
 
 async function undoMerge(
-  projectId: string,
   questId: string,
+  projectId: string,
   operation: AssetOperationTypes
 ): Promise<void> {
   const previousIds = operation.previousData.map((item) => item.id);
@@ -103,13 +130,13 @@ async function undoMerge(
 
   await restoreAssetsToQuest(projectId, questId, previousIds);
   await dequeueAssetGc(previousIds);
-  // IMPORTANT: keep audio files, since previous records still use them.
-  await deleteAssetsPhysically(newIds, { preserveAudioFiles: true });
+  // New merged records are only detached and queued for GC, enabling redo.
+  await detachAssetsFromQuest(questId, newIds, 'merge');
 }
 
 async function undoReplace(
-  projectId: string,
   questId: string,
+  projectId: string,
   operation: AssetOperationTypes
 ): Promise<void> {
   const previousIds = operation.previousData.map((item) => item.id);
@@ -117,14 +144,76 @@ async function undoReplace(
 
   await restoreAssetsToQuest(projectId, questId, previousIds);
   await dequeueAssetGc(previousIds);
-  await deleteAssetsPhysically(newIds);
+  await detachAssetsFromQuest(questId, newIds, 'delete');
 }
 
 async function undoMove(operation: AssetOperationTypes): Promise<void> {
   const updates = operation.previousData.map((item) => ({
     assetId: item.id,
     metadata: item.metadata ?? null,
-    order_index: item.order_index ?? item.orderIndex ?? undefined
+    order_index: item.order_index ?? undefined
+  }));
+
+  if (updates.length === 0) return;
+  await batchUpdateAssetMetadata(updates);
+}
+
+async function redoCreate(
+  projectId: string,
+  questId: string,
+  operation: AssetOperationTypes
+): Promise<void> {
+  const newIds = operation.newData.map((item) => item.id);
+  await restoreAssetsToQuest(projectId, questId, newIds);
+  await dequeueAssetGc(newIds);
+}
+
+async function redoRename(operation: AssetOperationTypes): Promise<void> {
+  for (const next of operation.newData) {
+    if (!next.name) continue;
+    await renameAsset(next.id, next.name);
+  }
+}
+
+async function redoDelete(
+  questId: string,
+  operation: AssetOperationTypes
+): Promise<void> {
+  const previousIds = operation.previousData.map((item) => item.id);
+  await detachAssetsFromQuest(questId, previousIds, 'delete');
+}
+
+async function redoMerge(
+  projectId: string,
+  questId: string,
+  operation: AssetOperationTypes
+): Promise<void> {
+  const previousIds = operation.previousData.map((item) => item.id);
+  const newIds = operation.newData.map((item) => item.id);
+
+  await detachAssetsFromQuest(questId, previousIds, 'merge');
+  await restoreAssetsToQuest(projectId, questId, newIds);
+  await dequeueAssetGc(newIds);
+}
+
+async function redoReplace(
+  projectId: string,
+  questId: string,
+  operation: AssetOperationTypes
+): Promise<void> {
+  const previousIds = operation.previousData.map((item) => item.id);
+  const newIds = operation.newData.map((item) => item.id);
+
+  await detachAssetsFromQuest(questId, previousIds, 'delete');
+  await restoreAssetsToQuest(projectId, questId, newIds);
+  await dequeueAssetGc(newIds);
+}
+
+async function redoMove(operation: AssetOperationTypes): Promise<void> {
+  const updates = operation.newData.map((item) => ({
+    assetId: item.id,
+    metadata: item.metadata ?? null,
+    order_index: item.order_index ?? undefined
   }));
 
   if (updates.length === 0) return;
@@ -150,7 +239,7 @@ export async function undo(
 
   switch (operation.action) {
     case 'create':
-      await undoCreate(operation);
+      await undoCreate(questId, operation);
       return;
     case 'rename':
       await undoRename(operation);
@@ -159,15 +248,56 @@ export async function undo(
       await undoDelete(projectId, questId, operation);
       return;
     case 'merge':
-      await undoMerge(projectId, questId, operation);
+      await undoMerge(questId, projectId, operation);
       return;
     case 'replace':
-      await undoReplace(projectId, questId, operation);
+      await undoReplace(questId, projectId, operation);
       return;
     case 'move':
       await undoMove(operation);
       return;
     default:
       throw new Error(`Unsupported asset undo action: ${operation.action}`);
+  }
+}
+
+/**
+ * Re-apply a previously undone asset operation.
+ * Uses the same recorded payload and context IDs from undo history.
+ */
+export async function redo(
+  projectId: string,
+  questId: string,
+  operation: AssetOperationTypes
+): Promise<void> {
+  if (!projectId || !questId) {
+    throw new Error('redo requires both projectId and questId');
+  }
+
+  if (operation.domain !== 'asset') {
+    throw new Error(`Unsupported redo domain: ${operation.domain}`);
+  }
+
+  switch (operation.action) {
+    case 'create':
+      await redoCreate(projectId, questId, operation);
+      return;
+    case 'rename':
+      await redoRename(operation);
+      return;
+    case 'delete':
+      await redoDelete(questId, operation);
+      return;
+    case 'merge':
+      await redoMerge(projectId, questId, operation);
+      return;
+    case 'replace':
+      await redoReplace(projectId, questId, operation);
+      return;
+    case 'move':
+      await redoMove(operation);
+      return;
+    default:
+      throw new Error(`Unsupported asset redo action: ${operation.action}`);
   }
 }

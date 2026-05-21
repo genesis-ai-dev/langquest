@@ -43,6 +43,7 @@ import {
   LockIcon,
   MicIcon,
   PlayIcon,
+  Redo2,
   RefreshCwIcon,
   SearchIcon,
   SettingsIcon,
@@ -79,7 +80,10 @@ import {
   softDeleteAssetsFromQuest,
   softMergeAssetsInQuest
 } from '@/database_services/assetService';
-import { undo as undoAssetOperation } from '@/database_services/assetUndoService';
+import {
+  redo as redoAssetOperation,
+  undo as undoAssetOperation
+} from '@/database_services/assetUndoService';
 import { createQuestRecordingSession } from '@/database_services/questService';
 import type {
   AssetOperationDataItem,
@@ -129,13 +133,16 @@ export default function NextGenAssetsView() {
   const {
     push: pushUndoHistory,
     undo: undoHistory,
-    list: listUndoHistory,
-    length: undoLength
+    redo: redoHistory,
+    peekUndo: peekUndoHistory,
+    peekRedo: peekRedoHistory,
+    canUndo: hasUndoHistory,
+    canRedo: hasRedoHistory
   } = useUndoHistory<AssetOperationDataItem[], AssetOperationDataItem[]>();
-  const currentUndoOperation = React.useMemo(() => {
-    const history = listUndoHistory();
-    return history[history.length - 1] as AssetOperationTypes | undefined;
-  }, [listUndoHistory, undoLength]);
+  const currentUndoOperation =
+    peekUndoHistory() as AssetOperationTypes | undefined;
+  const currentRedoOperation =
+    peekRedoHistory() as AssetOperationTypes | undefined;
   const insets = useSafeAreaInsets();
 
   // Selection mode for batch operations and playAll start point
@@ -647,13 +654,7 @@ export default function NextGenAssetsView() {
   );
 
   const handleUndoAction = React.useCallback(() => {
-    const history = listUndoHistory();
-    history.forEach((item, index) => console.log(index, item));
-
-    const lastOperation = history[history.length - 1] as
-      | AssetOperationTypes
-      | undefined;
-    if (!lastOperation?.canUndo) return;
+    if (!currentUndoOperation?.canUndo) return;
 
     if (!projectId || !questId) {
       console.warn('[Undo] Missing projectId or questId, cannot execute undo');
@@ -670,7 +671,41 @@ export default function NextGenAssetsView() {
       await queryClient.invalidateQueries({ queryKey: ['assets'] });
       await refetch();
     });
-  }, [listUndoHistory, projectId, queryClient, questId, refetch, undoHistory]);
+  }, [
+    currentUndoOperation,
+    projectId,
+    queryClient,
+    questId,
+    refetch,
+    undoHistory
+  ]);
+
+  const handleRedoAction = React.useCallback(() => {
+    if (!currentRedoOperation?.canUndo) return;
+
+    if (!projectId || !questId) {
+      console.warn('[Redo] Missing projectId or questId, cannot execute redo');
+      return;
+    }
+
+    void redoHistory(async (entry) => {
+      const operation = {
+        ...(entry as AssetOperationTypes),
+        domain: 'asset'
+      } as AssetOperationTypes;
+
+      await redoAssetOperation(projectId, questId, operation);
+      await queryClient.invalidateQueries({ queryKey: ['assets'] });
+      await refetch();
+    });
+  }, [
+    currentRedoOperation,
+    projectId,
+    queryClient,
+    questId,
+    redoHistory,
+    refetch
+  ]);
 
   const blockIndividualPlayRef = React.useRef(false);
   const stableOnPlay = React.useCallback((assetId: string) => {
@@ -1683,18 +1718,8 @@ export default function NextGenAssetsView() {
             )}
           </View>
         </View>
-        <View className="flex w-full flex-row items-center justify-between">
-          <View className="flex-row items-center gap-1">
-            {!isPublished && (
-              <Button
-                variant="ghost"
-                size="icon"
-                disabled={!currentUndoOperation?.canUndo}
-                onPress={handleUndoAction}
-              >
-                <Icon as={Undo2} size={18} className="text-primary" />
-              </Button>
-            )}
+        <View className="flex w-full flex-row items-center">
+          <View className="flex-1 flex-row items-center gap-1">
             <Button
               variant="ghost"
               size="icon"
@@ -1720,7 +1745,32 @@ export default function NextGenAssetsView() {
               </Animated.View>
             </Button>
           </View>
-          <View className="flex-row items-center gap-1">
+          <View
+            pointerEvents="box-none"
+            className="absolute inset-x-0 flex-row items-center justify-center"
+          >
+            {!isPublished && (
+              <View className="flex-row items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  disabled={!hasUndoHistory || !currentUndoOperation?.canUndo}
+                  onPress={handleUndoAction}
+                >
+                  <Icon as={Undo2} size={18} className="text-primary" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  disabled={!hasRedoHistory || !currentRedoOperation?.canUndo}
+                  onPress={handleRedoAction}
+                >
+                  <Icon as={Redo2} size={18} className="text-primary" />
+                </Button>
+              </View>
+            )}
+          </View>
+          <View className="flex-1 flex-row items-center justify-end gap-1">
             {assets.length > 0 && (
               <Button
                 variant="default"
@@ -1734,7 +1784,7 @@ export default function NextGenAssetsView() {
                   }
                   void handlePlayAll();
                 }}
-                className="h-10 flex-row items-center rounded-lg bg-primary"
+                className="h-10 w-10 flex-row items-center rounded-full bg-primary"
               >
                 <Icon
                   as={PlayIcon}

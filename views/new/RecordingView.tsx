@@ -21,7 +21,10 @@ import {
   softDeleteAssetsFromQuest,
   softMergeAssetsInQuest
 } from '@/database_services/assetService';
-import { undo as undoAssetOperation } from '@/database_services/assetUndoService';
+import {
+  redo as redoAssetOperation,
+  undo as undoAssetOperation
+} from '@/database_services/assetUndoService';
 import type {
   AssetOperationDataItem,
   AssetOperationTypes
@@ -61,6 +64,7 @@ import {
   Ellipsis,
   PlayIcon,
   Plus,
+  Redo2,
   Undo2
 } from 'lucide-react-native';
 import React, { useMemo } from 'react';
@@ -648,15 +652,16 @@ const RecordingView = () => {
   const {
     push: pushUndoHistory,
     undo: undoHistory,
-    list: listUndoHistory,
-    length: undoLength
+    redo: redoHistory,
+    peekUndo: peekUndoHistory,
+    peekRedo: peekRedoHistory,
+    canUndo: hasUndoHistory,
+    canRedo: hasRedoHistory
   } = useUndoHistory<AssetOperationDataItem[], AssetOperationDataItem[]>();
-  const currentUndoOperation = React.useMemo(() => {
-    const history = listUndoHistory();
-    return history.length > 0
-      ? (history[history.length - 1] as AssetOperationTypes)
-      : null;
-  }, [listUndoHistory, undoLength]);
+  const currentUndoOperation =
+    (peekUndoHistory() as AssetOperationTypes | undefined) ?? null;
+  const currentRedoOperation =
+    (peekRedoHistory() as AssetOperationTypes | undefined) ?? null;
 
   // SESSION-ONLY ITEMS: Assets and verse pills created during this recording session
   // When user exits and returns, the list starts with just the initial verse pill
@@ -3530,14 +3535,105 @@ const RecordingView = () => {
     [assetDurations, assetSegmentCounts]
   );
 
-  const handleUndoAction = React.useCallback(() => {
-    const history = listUndoHistory();
-    history.forEach((item, index) => console.log(index, item));
+  const updateSessionItemsAfterRedo = React.useCallback(
+    async (operation: AssetOperationTypes) => {
+      if (operation.action === 'rename') {
+        const newNameMap = new Map(
+          operation.newData.map((item) => [item.id, item.name ?? null])
+        );
 
-    const lastOperation = history[history.length - 1] as
-      | AssetOperationTypes
-      | undefined;
-    if (!lastOperation?.canUndo) return;
+        setSessionItems((prev) =>
+          prev.map((item) =>
+            isAsset(item) && newNameMap.has(item.id)
+              ? {
+                  ...item,
+                  name: newNameMap.get(item.id) ?? item.name
+                }
+              : item
+          )
+        );
+        return;
+      }
+
+      if (
+        operation.action === 'delete' ||
+        operation.action === 'merge' ||
+        operation.action === 'replace' ||
+        operation.action === 'create'
+      ) {
+        const idsToRemove = new Set(operation.previousData.map((item) => item.id));
+        const idsToRestore = Array.from(
+          new Set(operation.newData.map((item) => item.id))
+        );
+
+        const assetLocal = resolveTable('asset', { localOverride: true });
+        const restoredAssetsRaw =
+          idsToRestore.length > 0
+            ? await system.db
+                .select()
+                .from(assetLocal)
+                .where(inArray(assetLocal.id, idsToRestore))
+            : [];
+
+        const restoredAssets: UIAsset[] = restoredAssetsRaw.map((asset, index) => {
+          let verse: { from: number; to: number } | null = null;
+          try {
+            const parsed =
+              typeof asset.metadata === 'string'
+                ? (JSON.parse(asset.metadata) as {
+                    verse?: { from: number; to: number };
+                  })
+                : null;
+            if (parsed?.verse?.from && parsed.verse.to) {
+              verse = { from: parsed.verse.from, to: parsed.verse.to };
+            }
+          } catch {
+            verse = null;
+          }
+
+          return {
+            type: 'asset',
+            id: asset.id,
+            name: asset.name ?? 'Unnamed',
+            created_at: asset.created_at ?? new Date().toISOString(),
+            order_index:
+              typeof asset.order_index === 'number' ? asset.order_index : index,
+            source: 'local',
+            segmentCount: assetSegmentCounts.get(asset.id) ?? 1,
+            duration: assetDurations.get(asset.id),
+            verse
+          };
+        });
+
+        setSessionItems((prev) => {
+          const withoutPreviousData = prev.filter(
+            (item) => !idsToRemove.has(item.id)
+          );
+          const existingIds = new Set(withoutPreviousData.map((item) => item.id));
+          const restoredToAdd = restoredAssets.filter(
+            (item) => !existingIds.has(item.id)
+          );
+          const next = [...withoutPreviousData, ...restoredToAdd];
+
+          return next.sort((a, b) => {
+            if (a.order_index === b.order_index) {
+              if (isPill(a) && isAsset(b)) return -1;
+              if (isAsset(a) && isPill(b)) return 1;
+              if (isAsset(a) && isAsset(b)) {
+                return a.created_at.localeCompare(b.created_at);
+              }
+              return 0;
+            }
+            return a.order_index > b.order_index ? 1 : -1;
+          });
+        });
+      }
+    },
+    [assetDurations, assetSegmentCounts]
+  );
+
+  const handleUndoAction = React.useCallback(() => {
+    if (!currentUndoOperation?.canUndo) return;
 
     if (!projectId || !questId) {
       console.warn('[Undo] Missing projectId or questId, cannot execute undo');
@@ -3571,12 +3667,55 @@ const RecordingView = () => {
       console.error('[Undo] Failed to preserve scroll position:', error);
     });
   }, [
-    listUndoHistory,
+    currentUndoOperation,
     projectId,
     queryClient,
     questId,
     undoHistory,
     updateSessionItemsAfterUndo
+  ]);
+
+  const handleRedoAction = React.useCallback(() => {
+    if (!currentRedoOperation?.canUndo) return;
+
+    if (!projectId || !questId) {
+      console.warn('[Redo] Missing projectId or questId, cannot execute redo');
+      return;
+    }
+
+    const preservedScrollOffset = listRef.current?.getScrollOffset() ?? 0;
+    pendingUndoScrollOffsetRef.current = preservedScrollOffset;
+
+    void redoHistory(async (entry) => {
+      const operation = {
+        ...(entry as AssetOperationTypes),
+        domain: 'asset'
+      } as AssetOperationTypes;
+      await redoAssetOperation(projectId, questId, operation);
+      await updateSessionItemsAfterRedo(operation);
+      await queryClient.invalidateQueries({
+        queryKey: ['assets', 'by-quest', questId],
+        exact: false
+      });
+      InteractionManager.runAfterInteractions(() => {
+        requestAnimationFrame(() => {
+          const restoreOffset =
+            pendingUndoScrollOffsetRef.current ?? preservedScrollOffset;
+          listRef.current?.scrollToOffset(restoreOffset, false);
+          pendingUndoScrollOffsetRef.current = null;
+        });
+      });
+    }).catch((error) => {
+      pendingUndoScrollOffsetRef.current = null;
+      console.error('[Redo] Failed to preserve scroll position:', error);
+    });
+  }, [
+    currentRedoOperation,
+    projectId,
+    queryClient,
+    questId,
+    redoHistory,
+    updateSessionItemsAfterRedo
   ]);
 
   React.useEffect(() => {
@@ -3622,17 +3761,8 @@ const RecordingView = () => {
       </View>
 
       {/* Header */}
-      <View className="relative flex-row items-center px-4 pb-2">
-        <View className="z-10 flex-row items-center gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            disabled={!currentUndoOperation?.canUndo}
-            onPress={handleUndoAction}
-          >
-            {/* <Icon as={Undo2} size={20} className="text-primary" /> */}
-            <Icon as={Undo2} size={20} className="text-primary" />
-          </Button>
+      <View className="flex-row items-center px-4 pb-2">
+        <View className="flex-1 flex-row items-center gap-2">
           {fiaPericopeId && (
             <Button
               variant="default"
@@ -3640,6 +3770,7 @@ const RecordingView = () => {
               disabled={isPlayAllPlayerActive}
               onPress={() => setShowFiaTextDrawer(true)}
               style={isPlayAllPlayerActive ? { opacity: 0.5 } : undefined}
+              className="size-10 rounded-full bg-primary"
             >
               <Icon
                 as={BookOpenIcon}
@@ -3649,7 +3780,38 @@ const RecordingView = () => {
             </Button>
           )}
         </View>
-        <View className="ml-auto flex-row items-center justify-end gap-3">
+        <View className="flex-1 flex-row items-center justify-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+                disabled={
+                  isVADActive ||
+                  isRecording ||
+                  isVADRecording ||
+                  !hasUndoHistory ||
+                  !currentUndoOperation?.canUndo
+                }
+              onPress={handleUndoAction}
+            >
+              {/* <Icon as={Undo2} size={20} className="text-primary" /> */}
+              <Icon as={Undo2} size={20} className="text-primary" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+                disabled={
+                  isVADActive ||
+                  isRecording ||
+                  isVADRecording ||
+                  !hasRedoHistory ||
+                  !currentRedoOperation?.canUndo
+                }
+              onPress={handleRedoAction}
+            >
+              <Icon as={Redo2} size={20} className="text-primary" />
+            </Button>
+        </View>
+        <View className="flex-1 flex-row items-center justify-end gap-3">
           {assets.length > 0 && (
             <Button
               variant="default"
@@ -3668,7 +3830,7 @@ const RecordingView = () => {
                 }
                 void handlePlayAll();
               }}
-              className="h-10 flex-row items-center rounded-lg bg-primary"
+              className="h-10 w-10 flex-row items-center rounded-full bg-primary"
             >
               <Icon
                 as={PlayIcon}
