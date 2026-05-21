@@ -32,6 +32,7 @@ import {
 import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
+import { useLocalStore } from '@/store/localStore';
 import {
   DEFAULT_INVITE_MAX_RESEND_ATTEMPTS,
   isEmailSuppressionActive,
@@ -56,13 +57,22 @@ import {
   LogOutIcon,
   RefreshCcwIcon,
   Trash2Icon,
-  UserIcon
+  UserIcon,
+  XIcon
 } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { Platform, Pressable, View } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 
 const MAX_INVITE_ATTEMPTS = DEFAULT_INVITE_MAX_RESEND_ATTEMPTS;
+
+const INVITE_LIST_DISMISSABLE_STATUSES = [
+  'withdrawn',
+  'declined',
+  'expired'
+] as const;
+
+const EMPTY_DISMISSED_INVITE_IDS: string[] = [];
 
 interface ProjectMembershipModalProps {
   isVisible: boolean;
@@ -86,6 +96,7 @@ interface Invitation {
   name: string;
   role: 'owner' | 'member';
   status: string;
+  sender_profile_id: string;
   created_at: string;
   last_updated: string;
   receiver_profile_id: string | null;
@@ -314,6 +325,51 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
         role: inv.as_owner ? 'owner' : 'member'
       }));
   }, [invites]);
+
+  const dismissedInvitedRowIds = useLocalStore(
+    (state) =>
+      state.dismissedInvitedRows[projectId] ?? EMPTY_DISMISSED_INVITE_IDS
+  );
+  const dismissInvitedRow = useLocalStore((state) => state.dismissInvitedRow);
+
+  const visibleInvitations = React.useMemo(() => {
+    if (dismissedInvitedRowIds.length === 0) return invitations;
+    const hidden = new Set(dismissedInvitedRowIds);
+    return invitations.filter((inv) => !hidden.has(inv.id));
+  }, [invitations, dismissedInvitedRowIds]);
+
+  const senderProfileIds = React.useMemo(() => {
+    return [
+      ...new Set(
+        invitations
+          .map((inv) => inv.sender_profile_id)
+          .filter((id): id is string => Boolean(id))
+      )
+    ];
+  }, [invitations]);
+
+  const enableSenderProfileQuery = senderProfileIds.length > 0;
+
+  const { data: senderProfiles } = useHybridData<typeof profile.$inferSelect>({
+    dataType: 'invite-sender-profiles',
+    queryKeyParams: [...senderProfileIds],
+
+    offlineQuery: toCompilableQuery(
+      db.query.profile.findMany({
+        where: (profile, { inArray }) =>
+          inArray(profile.id, senderProfileIds)
+      })
+    ),
+    enableOfflineQuery: enableSenderProfileQuery
+  });
+
+  const senderProfileMap = React.useMemo(() => {
+    const map: Record<string, typeof profile.$inferSelect> = {};
+    senderProfiles.forEach((p) => {
+      map[p.id] = p;
+    });
+    return map;
+  }, [senderProfiles]);
 
   const [globalSuppressedEmails, setGlobalSuppressedEmails] = useState<
     Set<string>
@@ -1119,6 +1175,16 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
       withdrawInvitePermissions.hasAccess &&
       invitation.status === 'pending' &&
       !isBounced;
+    const showDismissFromListButton = INVITE_LIST_DISMISSABLE_STATUSES.includes(
+      invitation.status as (typeof INVITE_LIST_DISMISSABLE_STATUSES)[number]
+    );
+    const senderProfile = senderProfileMap[invitation.sender_profile_id];
+    const senderDisplayName =
+      senderProfile?.username || senderProfile?.email || t('unknown');
+    const showInvitedBy =
+      sendInvitePermissions.hasAccess &&
+      currentUser?.id &&
+      invitation.sender_profile_id !== currentUser.id;
 
     return (
       <View
@@ -1140,31 +1206,50 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                 <Icon as={CrownIcon} size={16} className="text-primary" />
               )}
             </View>
-            {!isBounced && (
-              <View className="mt-1 flex-row flex-wrap items-center gap-1">
+            <View className="mt-1 flex-col gap-2">
+              {showInvitedBy && (
+                <Text variant="small" className="text-muted-foreground">
+                  {t('invitedBy', { name: senderDisplayName })}
+                </Text>
+              )}
+              <View className="flex-row flex-wrap items-center gap-1">
                 <Badge variant={getStatusVariant(invitation.status)}>
                   <Text variant="small">
                     {getStatusDisplay(invitation.status)}
                   </Text>
                 </Badge>
-                {isSuppressed && (
+                {isSuppressed && !isBounced && (
                   <Badge variant="outline">
                     <Text variant="small">{t('deliveryBlocked')}</Text>
                   </Badge>
                 )}
               </View>
-            )}
-            {isBounced && (
-              <Text variant="small" className="mt-1 text-muted-foreground">
-                {bounceReason === 'user_not_found'
-                  ? t('inviteEmailNotFound')
-                  : t('inviteDeliveryFailed')}
-              </Text>
-            )}
+              {isBounced && (
+                <Text variant="small" className="text-muted-foreground">
+                  {bounceReason === 'user_not_found'
+                    ? t('inviteEmailNotFound')
+                    : t('inviteDeliveryFailed')}
+                </Text>
+              )}
+            </View>
           </View>
         </View>
 
         <View className="flex-row gap-1">
+          {showDismissFromListButton && (
+            <Button
+              variant="outline"
+              size="icon-sm"
+              onPress={() => dismissInvitedRow(projectId, invitation.id)}
+              accessibilityLabel={t('dismissInviteDeliveryNotice')}
+            >
+              <Icon
+                as={XIcon}
+                size={20}
+                className="text-muted-foreground"
+              />
+            </Button>
+          )}
           {showResendButton && (
             <Button
               variant="outline"
@@ -1306,7 +1391,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                       numberOfLines={1}
                       className="truncate"
                     >
-                      {t('invited')} ({invitations.length})
+                      {t('invited')} ({visibleInvitations.length})
                     </Text>
                   </TabsTrigger>
                   {sendInvitePermissions.hasAccess && (
@@ -1342,8 +1427,8 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                     style={{ maxHeight: 180 }}
                     contentContainerStyle={{ paddingBottom: 16 }}
                   >
-                    {invitations.length > 0 ? (
-                      invitations.map((invitation) =>
+                    {visibleInvitations.length > 0 ? (
+                      visibleInvitations.map((invitation) =>
                         renderInvitation(invitation)
                       )
                     ) : (

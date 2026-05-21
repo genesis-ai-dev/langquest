@@ -4538,6 +4538,19 @@ export const localizations = {
     thai: 'ถอนแล้ว',
     mandarin: '已撤回'
   },
+  invitedBy: {
+    english: 'Invited by {name}',
+    french: 'Invité par {name}',
+    spanish: 'Invitado por {name}',
+    brazilian_portuguese: 'Convidado por {name}',
+    tok_pisin: '{name} i salim invite',
+    indonesian: 'Diundang oleh {name}',
+    nepali: '{name} ले आमन्त्रण गर्नुभयो',
+    hindi: '{name} ने आमंत्रित किया',
+    burmese: '{name} က ဖိတ်ခေါ်ခဲ့သည်',
+    thai: 'เชิญโดย {name}',
+    mandarin: '由 {name} 邀请'
+  },
   sending: {
     english: 'Sending...',
     french: 'Envoi...',
