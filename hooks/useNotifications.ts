@@ -211,7 +211,10 @@ export const useNotifications = () => {
 
   const inviteCount = inviteRequests.length;
   const requestCount = requestNotifications.length;
-  const languoidLinkCount = languoidSuggestions.length;
+  // Ignore cached query data when the feature flag is off (matches NotificationsView)
+  const languoidLinkCount = enableLanguoidLinkSuggestions
+    ? languoidSuggestions.length
+    : 0;
   const sentInviteDeliveryFailureCount = sentInviteDeliveryFailures.length;
 
   return {
