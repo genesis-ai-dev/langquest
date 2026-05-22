@@ -77,7 +77,7 @@ export const TranslationCard = ({
 
             {/* Audio Player */}
             {hasAudio && (
-              <View className="rounded-md border border-border bg-muted/30 p-3">
+              <View className="w-full rounded-md border border-border bg-muted/30 p-3">
                 <AudioPlayer
                   audioSegments={audioSegments}
                   useCarousel={false}
