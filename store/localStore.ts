@@ -313,6 +313,10 @@ export interface LocalState {
   dismissedInviteBanners: Record<string, number>;
   dismissInviteBanner: (projectId: string) => void;
   resetInviteBannerDismissal: (projectId: string) => void;
+
+  /** Per-project invite rows hidden from the membership modal Invited list (local only). */
+  dismissedInvitedRows: Record<string, string[]>;
+  dismissInvitedRow: (projectId: string, inviteId: string) => void;
 }
 
 export const useLocalStore = create<LocalState>()(
@@ -727,6 +731,19 @@ export const useLocalStore = create<LocalState>()(
           const next = { ...state.dismissedInviteBanners };
           delete next[projectId];
           return { dismissedInviteBanners: next };
+        }),
+
+      dismissedInvitedRows: {},
+      dismissInvitedRow: (projectId, inviteId) =>
+        set((state) => {
+          const existing = state.dismissedInvitedRows[projectId] ?? [];
+          if (existing.includes(inviteId)) return state;
+          return {
+            dismissedInvitedRows: {
+              ...state.dismissedInvitedRows,
+              [projectId]: [...existing, inviteId]
+            }
+          };
         })
     }),
     {

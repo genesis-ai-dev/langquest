@@ -15,7 +15,6 @@ import {
   DrawerHeader,
   DrawerTitle
 } from '@/components/ui/drawer';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Form,
   FormControl,
@@ -43,9 +42,6 @@ import { system } from '@/db/powersync/system';
 import { useProjectById } from '@/hooks/db/useProjects';
 import type { Quest } from '@/hooks/db/useQuests';
 import { useHasUserReported } from '@/hooks/db/useReports';
-import { useHybridData } from './useHybridData';
-import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { and, count, eq } from 'drizzle-orm';
 import {
   useBibleBookCreation,
   useBibleBooks
@@ -66,11 +62,13 @@ import { useLocalStore } from '@/store/localStore';
 import { bulkDownloadQuest } from '@/utils/bulkDownload';
 import { resolveTable } from '@/utils/dbUtils';
 import { offloadQuest } from '@/utils/questOffloadUtils';
-import { getThemeColor, useThemeColor } from '@/utils/styleUtils';
+import { cn, getThemeColor, useThemeColor } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Stack } from 'expo-router';
+import { and, count, eq } from 'drizzle-orm';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import {
   BookOpenIcon,
   ChurchIcon,
@@ -101,6 +99,7 @@ import z from 'zod';
 import { BibleBookList } from './BibleBookList';
 import { FiaBookList } from './FiaBookList';
 import { QuestListView } from './QuestListView';
+import { useHybridData } from './useHybridData';
 
 // Hook to determine if the invite banner should be shown for a project
 // Returns shouldShowInviteBanner=true if ALL of the following are true:
@@ -122,40 +121,37 @@ function InviteMembersBanner({
   if (!show) return null;
 
   return (
-    <Card className="border-2 border-primary bg-primary/5 shadow-md">
-      <CardHeader className="flex flex-row items-start justify-between gap-2 pb-2">
-        <View className="flex flex-1 flex-row items-center gap-2">
-          <Icon as={UsersIcon} className="text-primary" size={20} />
-          <CardTitle className="text-base">{t('inviteMembersTitle')}</CardTitle>
+    <View className="flex-row items-center justify-between gap-2 rounded-md border border-border bg-card p-3">
+      <View className="min-w-0 flex-1 flex-row items-center gap-2">
+        <Icon as={UsersIcon} className="text-primary" size={20} />
+        <View className="min-w-0 flex-1">
+          <Text className="text-sm font-medium leading-tight">
+            {t('inviteMembersTitle')}
+          </Text>
+          <Text
+            className="text-xs leading-snug text-muted-foreground"
+            numberOfLines={2}
+          >
+            {t('inviteMembersDescription')}
+          </Text>
         </View>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8"
-          onPress={onDismiss}
-        >
-          <Icon as={XIcon} size={16} className="text-muted-foreground" />
-        </Button>
-      </CardHeader>
-      <CardContent className="pt-0">
-        <Text className="mb-3 text-sm text-muted-foreground">
-          {t('inviteMembersDescription')}
-        </Text>
+      </View>
+      <View className="flex-row items-center gap-1">
         <Button
           variant="default"
           size="sm"
-          className="w-full flex-row items-center gap-2"
+          className={cn('h-7 gap-1 px-3')}
           onPress={onInvite}
         >
-          <Icon
-            as={UserPlusIcon}
-            size={16}
-            className="text-primary-foreground"
-          />
-          <Text className="text-primary-foreground">{t('inviteMembers')}</Text>
+          <Text className="text-xs font-medium text-primary-foreground">
+            {t('invite')}
+          </Text>
         </Button>
-      </CardContent>
-    </Card>
+        <Button variant="ghost" size="icon-sm" onPress={onDismiss}>
+          <Icon as={XIcon} size={16} className="text-muted-foreground" />
+        </Button>
+      </View>
+    </View>
   );
 }
 
@@ -238,6 +234,10 @@ function useProjectHasNoInvites(projectId: string) {
 
 export default function ProjectDirectoryView() {
   const { projectId, router, goToQuest } = useNavigationHelpers();
+  const expoRouter = useRouter();
+  const { openMembership } = useLocalSearchParams<{
+    openMembership?: string;
+  }>();
   const { currentUser, isAuthenticated } = useAuth();
   const { t } = useLocalization();
   const queryClient = useQueryClient();
@@ -283,6 +283,24 @@ export default function ProjectDirectoryView() {
 
   // Modal states
   const [showMembershipModal, setShowMembershipModal] = useState(false);
+  const [membershipModalInitialTab, setMembershipModalInitialTab] = useState<
+    'members' | 'invited' | 'requests'
+  >('members');
+
+  const openMembershipModal = React.useCallback(
+    (tab: 'members' | 'invited' | 'requests') => {
+      setMembershipModalInitialTab(tab);
+      setShowMembershipModal(true);
+    },
+    []
+  );
+
+  React.useEffect(() => {
+    if (openMembership === 'invited') {
+      openMembershipModal('invited');
+      expoRouter.setParams({ openMembership: undefined });
+    }
+  }, [openMembership, expoRouter, openMembershipModal]);
   const [showProjectDetails, setShowProjectDetails] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showReportModal, setShowReportModal] = React.useState(false);
@@ -1090,7 +1108,7 @@ export default function ProjectDirectoryView() {
             <InviteMembersBanner
               show={showInviteBanner}
               onDismiss={() => dismissInviteBanner(projectId || '')}
-              onInvite={() => setShowMembershipModal(true)}
+              onInvite={() => openMembershipModal('invited')}
             />
           </View>
           <View className="flex-col items-center justify-between gap-3 p-4">
@@ -1155,7 +1173,7 @@ export default function ProjectDirectoryView() {
             <InviteMembersBanner
               show={showInviteBanner}
               onDismiss={() => dismissInviteBanner(projectId || '')}
-              onInvite={() => setShowMembershipModal(true)}
+              onInvite={() => openMembershipModal('invited')}
             />
           </View>
           <View className="flex-col items-center justify-between gap-3 p-4">
@@ -1263,7 +1281,7 @@ export default function ProjectDirectoryView() {
           <InviteMembersBanner
             show={showInviteBanner}
             onDismiss={() => dismissInviteBanner(projectId || '')}
-            onInvite={() => setShowMembershipModal(true)}
+            onInvite={() => openMembershipModal('invited')}
           />
         </View>
 
@@ -1416,7 +1434,7 @@ export default function ProjectDirectoryView() {
                     <SpeedDialItem
                       icon={UsersIcon}
                       variant="outline"
-                      onPress={() => setShowMembershipModal(true)}
+                      onPress={() => openMembershipModal('members')}
                     />
                   )}
               </>
@@ -1437,6 +1455,7 @@ export default function ProjectDirectoryView() {
         isVisible={showMembershipModal}
         onClose={() => setShowMembershipModal(false)}
         projectId={projectId || ''}
+        initialTab={membershipModalInitialTab}
       />
 
       {showProjectDetails && project && (

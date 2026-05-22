@@ -30,6 +30,7 @@ import {
   createRegionPropertyTable,
   createRegionSourceTable,
   createRegionTable,
+  createFeedbackTable,
   createReportsTable,
   createRequestTable,
   createSubscriptionTable,
@@ -59,7 +60,8 @@ export const userRelations = relations(profile, ({ many, one }) => ({
   }),
   sent_invites: many(invite, { relationName: 'invite_sender' }),
   received_invites: many(invite, { relationName: 'invite_receiver' }),
-  sent_requests: many(request, { relationName: 'request_sender' })
+  sent_requests: many(request, { relationName: 'request_sender' }),
+  feedback: many(feedback, { relationName: 'feedback' })
 }));
 
 export const language = createLanguageTable('merged', { profile });
@@ -411,6 +413,16 @@ export const project_language_linkRelations = relations(
 );
 
 export const reports = createReportsTable('merged', { profile });
+
+export const feedback = createFeedbackTable('merged', { profile });
+
+export const feedbackRelations = relations(feedback, ({ one }) => ({
+  profile: one(profile, {
+    fields: [feedback.profile_id],
+    references: [profile.id],
+    relationName: 'feedback'
+  })
+}));
 
 export const blocked_users = createBlockedUsersTable('merged', { profile });
 

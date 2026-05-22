@@ -220,9 +220,7 @@ export const ModalDetails: React.FC<ModalDetailsProps> = ({
                   size={20}
                 />
                 <Text className="flex-1">
-                  {isDownloaded
-                    ? t('downloaded') || 'Downloaded'
-                    : t('notDownloaded') || 'Not Downloaded'}
+                  {isDownloaded ? t('downloaded') : t('notDownloaded')}
                 </Text>
               </View>
 
@@ -231,7 +229,7 @@ export const ModalDetails: React.FC<ModalDetailsProps> = ({
                   <Icon as={DatabaseIcon} size={20} />
                   <View className="flex-1 flex-row items-baseline gap-2">
                     <Text className="text-sm text-muted-foreground">
-                      {t('storageUsed') || 'Storage Used'}:
+                      {t('storageUsed')}:
                     </Text>
                     <Text className="font-semibold">
                       {formatStorageSize(estimatedStorageBytes)}
@@ -247,11 +245,10 @@ export const ModalDetails: React.FC<ModalDetailsProps> = ({
                 content.source !== 'local' && (
                   <View className="mt-4 rounded-lg border border-destructive/20 bg-destructive/5 p-4">
                     <Text className="mb-2 text-sm font-semibold text-destructive">
-                      {t('freeUpSpace') || 'Free Up Space'}
+                      {t('freeUpSpace')}
                     </Text>
                     <Text className="mb-3 text-sm text-muted-foreground">
-                      {t('offloadQuestDescription') ||
-                        'Remove this quest and its assets from your device. Your work will remain safely in the cloud and can be re-downloaded anytime.'}
+                      {t('offloadQuestDescription')}
                       {estimatedStorageBytes > 0 && (
                         <Text className="font-semibold">
                           {' '}
@@ -267,9 +264,7 @@ export const ModalDetails: React.FC<ModalDetailsProps> = ({
                       }}
                     >
                       <Icon as={CloudOffIcon} className="text-white" />
-                      <Text className="text-white">
-                        {t('offloadQuest') || 'Offload from Device'}
-                      </Text>
+                      <Text className="text-white">{t('offloadQuest')}</Text>
                     </Button>
                   </View>
                 )}

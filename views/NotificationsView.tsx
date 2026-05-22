@@ -42,7 +42,8 @@ import { useHybridData } from '@/views/new/useHybridData';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useQueryClient } from '@tanstack/react-query';
-import { and, eq, inArray, or } from 'drizzle-orm';
+import { and, eq, inArray, isNull, or } from 'drizzle-orm';
+import { useRouter } from 'expo-router';
 import {
   AlertTriangle,
   BellIcon,
@@ -267,9 +268,12 @@ function LanguoidLinkSuggestionGroup({
 export default function NotificationsView() {
   const { t } = useLocalization();
   const { currentUser } = useAuth();
+  const router = useRouter();
   const queryClient = useQueryClient();
   const isOnline = useNetworkStatus();
   const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
+  const [processingDeliveryDismissIds, setProcessingDeliveryDismissIds] =
+    useState<Set<string>>(new Set());
   const [processingLanguoidIds, setProcessingLanguoidIds] = useState<
     Set<string>
   >(new Set());
@@ -327,6 +331,28 @@ export default function NotificationsView() {
     enableOfflineQuery: !!(currentUser?.id || currentUser?.email)
   });
 
+  // Pending invites you sent whose email bounced or was complained about (notify inviter)
+  const { data: sentInviteDeliveryIssues = [] } = useHybridData<
+    typeof invite.$inferSelect
+  >({
+    dataType: 'invite-sent-delivery-failures',
+    queryKeyParams: [currentUser?.id || ''],
+    offlineQuery: toCompilableQuery(
+      system.db.query.invite.findMany({
+        where: and(
+          ...[
+            currentUser?.id && eq(invite.sender_profile_id, currentUser.id),
+            or(eq(invite.status, 'pending'), eq(invite.status, 'withdrawn')),
+            eq(invite.active, true),
+            inArray(invite.email_status, ['bounced', 'complained']),
+            isNull(invite.bounce_notice_dismissed_at)
+          ].filter(Boolean)
+        )
+      })
+    ),
+    enableOfflineQuery: !!currentUser?.id
+  });
+
   // Get pending requests for owner projects - without project relation
   const { data: requestData = [] } = useHybridData({
     dataType: 'request-notifications',
@@ -349,10 +375,11 @@ export default function NotificationsView() {
   const projectIds = React.useMemo(() => {
     const ids = [
       ...inviteData.map((invite) => invite.project_id),
-      ...filteredRequestData.map((request) => request.project_id)
+      ...filteredRequestData.map((request) => request.project_id),
+      ...sentInviteDeliveryIssues.map((row) => row.project_id)
     ];
     return [...new Set(ids)]; // Remove duplicates
-  }, [inviteData, filteredRequestData]);
+  }, [inviteData, filteredRequestData, sentInviteDeliveryIssues]);
 
   // Query for projects separately
   const { data: projects } = useHybridData({
@@ -865,6 +892,103 @@ export default function NotificationsView() {
     }
   };
 
+  const dismissInviteDeliveryNotice = async (
+    inviteId: string
+  ): Promise<boolean> => {
+    if (processingDeliveryDismissIds.has(inviteId)) return false;
+    if (!isOnline) {
+      RNAlert.alert(t('error'), t('mustBeOnlineToAcceptInvite'));
+      return false;
+    }
+
+    setProcessingDeliveryDismissIds((prev) => new Set(prev).add(inviteId));
+    try {
+      await system.db
+        .update(invite_synced)
+        .set({
+          bounce_notice_dismissed_at: new Date().toISOString(),
+          last_updated: new Date().toISOString()
+        })
+        .where(eq(invite_synced.id, inviteId));
+
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ['invite-sent-delivery-failures'],
+          exact: false
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ['invite-sent-delivery-failures-count'],
+          exact: false
+        })
+      ]);
+      return true;
+    } catch (error) {
+      console.error(
+        '[NotificationsView] Dismiss delivery notice failed:',
+        error
+      );
+      RNAlert.alert(t('error'), t('failedToDismissNotice'));
+      return false;
+    } finally {
+      setProcessingDeliveryDismissIds((prev) => {
+        const next = new Set(prev);
+        next.delete(inviteId);
+        return next;
+      });
+    }
+  };
+
+  const renderSentInviteDeliveryIssue = (row: typeof invite.$inferSelect) => {
+    const projectData = projectMap[row.project_id];
+    return (
+      <Card key={`sent-delivery-${row.id}`}>
+        <CardContent className="p-4">
+          <View className="flex gap-3">
+            <View className="flex-row items-center gap-2">
+              <Icon as={AlertTriangle} size={24} className="text-destructive" />
+              <Text className="text-sm font-semibold text-foreground">
+                {t('inviteDeliveryFailedTitle')}
+              </Text>
+            </View>
+            <Text className="text-sm leading-5 text-foreground" ph-no-capture>
+              {t('inviteDeliveryFailedMessage', {
+                email: row.email,
+                project: projectData?.name || t('unknownProject')
+              })}
+            </Text>
+            <Text className="text-xs text-muted-foreground">
+              {new Date(row.created_at).toLocaleDateString()}
+            </Text>
+            <View className="flex-row flex-wrap gap-2">
+              <Button
+                className="min-w-[140px] flex-1"
+                loading={processingDeliveryDismissIds.has(row.id)}
+                onPress={async () => {
+                  const ok = await dismissInviteDeliveryNotice(row.id);
+                  if (ok) {
+                    router.push(
+                      `/(app)/project/${row.project_id}?openMembership=invited`
+                    );
+                  }
+                }}
+              >
+                <Text>{t('viewProjectInvites')}</Text>
+              </Button>
+              <Button
+                variant="secondary"
+                className="min-w-[120px] flex-1"
+                loading={processingDeliveryDismissIds.has(row.id)}
+                onPress={() => void dismissInviteDeliveryNotice(row.id)}
+              >
+                <Text>{t('dismissInviteDeliveryNotice')}</Text>
+              </Button>
+            </View>
+          </View>
+        </CardContent>
+      </Card>
+    );
+  };
+
   const renderNotificationItem = (item: NotificationItem) => {
     const isProcessing = processingIds.has(item.id);
     const roleText = item.as_owner ? t('ownerRole') : t('memberRole');
@@ -1051,6 +1175,14 @@ export default function NotificationsView() {
       // Invalidate all notification-related queries
       await Promise.all([
         queryClient.invalidateQueries({
+          queryKey: ['invite-sent-delivery-failures-count'],
+          exact: false
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ['invite-sent-delivery-failures'],
+          exact: false
+        }),
+        queryClient.invalidateQueries({
           queryKey: ['invite-notifications'],
           exact: false
         }),
@@ -1089,6 +1221,7 @@ export default function NotificationsView() {
   // Check if there are any notifications (including languoid suggestions when online and feature flag enabled)
   const hasAnyNotifications =
     allNotifications.length > 0 ||
+    sentInviteDeliveryIssues.length > 0 ||
     (enableLanguoidLinkSuggestions && isOnline && uniqueLanguoidCount > 0);
 
   return (
@@ -1131,6 +1264,11 @@ export default function NotificationsView() {
             </View>
           ) : (
             <View className="flex-col gap-4 pb-4">
+              {sentInviteDeliveryIssues.length > 0 && (
+                <View className="flex-col gap-4">
+                  {sentInviteDeliveryIssues.map(renderSentInviteDeliveryIssue)}
+                </View>
+              )}
               {/* Languoid link suggestions section - only show when online and feature flag enabled */}
               {enableLanguoidLinkSuggestions &&
                 isOnline &&

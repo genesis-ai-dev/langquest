@@ -1,5 +1,5 @@
 /**
- * Asset service - Database operations for assets
+ * Asset service - Database operations for assets.
  */
 
 import { system } from '@/db/powersync/system';
