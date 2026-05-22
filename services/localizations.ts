@@ -4154,10 +4154,8 @@ export const localizations = {
       'Kami tidak dapat mengirim undangan ke alamat ini. Gunakan alamat email lain.',
     nepali:
       'हामीले यो ठेगानामा आमन्त्रण पठाउन सकेनौं। कृपया फरक इमेल प्रयोग गर्नुहोस्।',
-    hindi:
-      'हम इस पते पर आमंत्रण नहीं भेज सके। कृपया दूसरा ईमेल उपयोग करें।',
-    burmese:
-      'ဤလိပ်စာသို့ ဖိတ်ခေါ်မှု ပို့၍မရပါ။ အခြားအီးမေးလ်ကို သုံးပါ။',
+    hindi: 'हम इस पते पर आमंत्रण नहीं भेज सके। कृपया दूसरा ईमेल उपयोग करें।',
+    burmese: 'ဤလိပ်စာသို့ ဖိတ်ခေါ်မှု ပို့၍မရပါ။ အခြားအီးမေးလ်ကို သုံးပါ။',
     thai: 'เราไม่สามารถส่งคำเชิญไปที่อยู่นี้ได้ กรุณาใช้อีเมลอื่น',
     mandarin: '无法向该地址发送邀请。请使用其他邮箱。'
   },
@@ -13007,7 +13005,7 @@ export const localizations = {
   },
   feedbackOrganizationNamePlaceholder: {
     english: 'Enter your organization name',
-    french: "Entrez le nom de votre organisation",
+    french: 'Entrez le nom de votre organisation',
     spanish: 'Ingrese el nombre de su organización',
     brazilian_portuguese: 'Digite o nome da sua organização',
     tok_pisin: 'Putim nem bilong organisen bilong yu',

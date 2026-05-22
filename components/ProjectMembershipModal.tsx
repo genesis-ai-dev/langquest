@@ -360,8 +360,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
 
     offlineQuery: toCompilableQuery(
       db.query.profile.findMany({
-        where: (profile, { inArray }) =>
-          inArray(profile.id, senderProfileIds)
+        where: (profile, { inArray }) => inArray(profile.id, senderProfileIds)
       })
     ),
     enableOfflineQuery: enableSenderProfileQuery
@@ -1290,11 +1289,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
               onPress={() => void handleDismissInvitedFromList(invitation)}
               accessibilityLabel={t('dismissInviteDeliveryNotice')}
             >
-              <Icon
-                as={XIcon}
-                size={20}
-                className="text-muted-foreground"
-              />
+              <Icon as={XIcon} size={20} className="text-muted-foreground" />
             </Button>
           )}
           {showResendButton && (
