@@ -8,14 +8,14 @@
 		"dev": "wrangler dev --var $(dotenvx keypair -f .env.txt --format=colon)",
 		"deploy": "wrangler deploy",
 		"encrypt": "dotenvx encrypt -f .env.txt",
-		"cf-typegen": "wrangler types"
+		"cf-typegen": "wrangler types",
+		"typecheck": "wrangler types --check && tsc --noEmit"
 	},
 	"dependencies": {
 		"@dotenvx/dotenvx": "^1.59.1",
 		"svix": "^1.82.0"
 	},
 	"devDependencies": {
-		"@cloudflare/workers-types": "^4.20251127.0",
 		"typescript": "^5.5.2",
 		"wrangler": "^4.93.0"
 	}
