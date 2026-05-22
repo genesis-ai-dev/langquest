@@ -85,6 +85,7 @@ adb logcat --pid=$(adb shell pidof -s com.etengenesis.langquest)
 
 - Download [Docker Desktop](https://www.docker.com/get-started) (docker compose version 4.24.0 or greater required)
 - Install [psql](https://www.tigerdata.com/blog/how-to-install-psql-on-mac-ubuntu-debian-windows)
+- Install [Deno](https://docs.deno.com/runtime/getting_started/installation/) for Supabase Edge Functions local development and editor IntelliSense
 
 ### Running Local Services
 
@@ -241,7 +242,7 @@ Deep links (password reset, email confirmation) require both the local Supabase 
 #### How it works
 
 1. The app triggers an auth action (e.g., password reset)
-2. Local Supabase sends an email with a link pointing to `SUPABASE_AUTH_SITE_URL` (the website)
+2. Local Supabase sends an email with a link pointing to `AUTH_SITE_URL` (the website)
 3. The website processes the link and redirects back to the app via the scheme set in the `NEXT_PUBLIC_APP_SCHEME` environment variable
 4. The app handles the deep link and completes the auth flow
 

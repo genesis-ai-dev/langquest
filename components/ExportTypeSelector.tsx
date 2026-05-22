@@ -48,10 +48,10 @@ export function ExportTypeSelector({
     // Extract optional chaining before try/catch for React Compiler optimization
     const shareUrl = exportData?.share_url;
     // Extract logical expressions before try/catch for React Compiler optimization
-    const successTitle = t('success') || 'Success';
-    const linkCopiedMessage = t('linkCopied') || 'Link copied to clipboard!';
-    const errorTitle = t('error') || 'Error';
-    const exportFailedMessage = t('exportFailed') || 'Failed to copy link';
+    const successTitle = t('success');
+    const linkCopiedMessage = t('linkCopied');
+    const errorTitle = t('error');
+    const exportFailedMessage = t('exportFailed');
     try {
       // If we already have an export with a share_url, use it
       if (shareUrl) {
@@ -91,10 +91,7 @@ export function ExportTypeSelector({
             }
           },
           onError: (error) => {
-            const errorMessage =
-              error.message ||
-              exportFailedMessage ||
-              'Failed to create export link';
+            const errorMessage = error.message || exportFailedMessage;
             RNAlert.alert(errorTitle, errorMessage);
             setIsCopyingLink(false);
           }
@@ -117,18 +114,13 @@ export function ExportTypeSelector({
     ) {
       Clipboard.setStringAsync(exportData.share_url)
         .then(() => {
-          RNAlert.alert(
-            t('success') || 'Success',
-            t('linkCopied') || 'Link copied to clipboard!'
-          );
+          RNAlert.alert(t('success'), t('linkCopied'));
           setIsCopyingLink(false);
         })
         .catch((error) => {
           RNAlert.alert(
-            t('error') || 'Error',
-            error instanceof Error
-              ? error.message
-              : t('exportFailed') || 'Failed to copy link'
+            t('error'),
+            error instanceof Error ? error.message : t('exportFailed')
           );
           setIsCopyingLink(false);
         });
@@ -139,9 +131,7 @@ export function ExportTypeSelector({
     <Drawer open={visible} onOpenChange={onClose} snapPoints={[300]}>
       <DrawerContent className="bg-background">
         <DrawerHeader className="flex-row items-center justify-between">
-          <DrawerTitle>
-            {t('selectExportType') || 'Select Export Type'}
-          </DrawerTitle>
+          <DrawerTitle>{t('selectExportType')}</DrawerTitle>
         </DrawerHeader>
 
         <View className="flex-col gap-3">
@@ -152,12 +142,9 @@ export function ExportTypeSelector({
           >
             <Icon as={Share2Icon} size={20} />
             <View className="min-w-0 flex-1 flex-shrink flex-col gap-1">
-              <Text className="font-semibold">
-                {t('shareLocally') || 'Share Locally'}
-              </Text>
+              <Text className="font-semibold">{t('shareLocally')}</Text>
               <Text className="flex-shrink text-sm text-muted-foreground">
-                {t('shareLocallyDescription') ||
-                  'Create a local audio file to save or share'}
+                {t('shareLocallyDescription')}
               </Text>
             </View>
           </Button>
@@ -172,19 +159,15 @@ export function ExportTypeSelector({
               >
                 <Icon as={CopyIcon} size={20} />
                 <View className="min-w-0 flex-1 flex-shrink flex-col gap-1">
-                  <Text className="font-semibold">
-                    {t('copyFeedbackLink') || 'Copy Feedback Link'}
-                  </Text>
+                  <Text className="font-semibold">{t('copyFeedbackLink')}</Text>
                   <Text className="flex-shrink text-sm text-muted-foreground">
-                    {t('copyFeedbackLinkDescription') ||
-                      'Copy a link to share for feedback'}
+                    {t('copyFeedbackLinkDescription')}
                   </Text>
                 </View>
               </Button>
               <View className="rounded-lg bg-muted/50 p-3">
                 <Text className="text-xs text-muted-foreground">
-                  {t('feedbackLinkNote') ||
-                    'Note: We plan to implement a link to the LangQuest website where exports can be viewed and commented on in the future.'}
+                  {t('feedbackLinkNote')}
                 </Text>
               </View>
             </>
@@ -199,11 +182,10 @@ export function ExportTypeSelector({
               <Icon as={GlobeIcon} size={20} />
               <View className="min-w-0 flex-1 flex-shrink flex-col gap-1">
                 <Text className="font-semibold">
-                  {t('exportForDistribution') || 'Export for Distribution'}
+                  {t('exportForDistribution')}
                 </Text>
                 <Text className="flex-shrink text-sm text-muted-foreground">
-                  {t('exportForDistributionDescription') ||
-                    'Export to EveryLanguage dashboards for wider distribution'}
+                  {t('exportForDistributionDescription')}
                 </Text>
               </View>
             </Button>

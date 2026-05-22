@@ -53,6 +53,7 @@ max_client_conn = 100
 # These secrets are used by handle_invite_trigger() to call the send-email edge function
 supabase_url = "env(EXPO_PUBLIC_SUPABASE_URL)"
 supabase_service_role_key = "env(SERVICE_ROLE_KEY)"
+feedback_function_secret = "env(FEEDBACK_FUNCTION_SECRET)"
 
 [db.migrations]
 # Specifies an ordered list of schema files that describe your database.
@@ -123,7 +124,7 @@ additional_redirect_urls = ["langquest://**", "https://langquest.org/reset-passw
 enabled = true
 # The base URL of your website. Used as an allow-list for redirects and for constructing URLs used
 # in emails.
-site_url = "env(SUPABASE_AUTH_SITE_URL)"
+site_url = "env(AUTH_SITE_URL)"
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
 additional_redirect_urls = ["langquest://**", "langquest-preview://**", "langquest-dev://**", "https://langquest.org/**", "https://preview.langquest.org/**"]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
@@ -324,6 +325,7 @@ inspector_port = 8083
 [edge_runtime.secrets]
 SEND_EMAIL_HOOK_SECRET = "env(SEND_EMAIL_HOOK_SECRET)"
 RESEND_API_KEY = "env(RESEND_API_KEY)"
+RESEND_WEBHOOK_SECRET = "env(RESEND_WEBHOOK_SECRET)"
 SERVICE_ROLE_KEY = "env(SERVICE_ROLE_KEY)"
 UPSTASH_REDIS_REST_URL = "env(UPSTASH_REDIS_REST_URL)"
 UPSTASH_REDIS_REST_TOKEN = "env(UPSTASH_REDIS_REST_TOKEN)"
@@ -332,6 +334,10 @@ BIBLE_BRAIN_ACCESS_KEY = "env(BIBLE_BRAIN_ACCESS_KEY)"
 FIA_ACCESS_KEY = "env(FIA_ACCESS_KEY)"
 MODAL_ASR_ENDPOINT = "env(MODAL_ASR_ENDPOINT)"
 OPENROUTER_API_KEY = "env(OPENROUTER_API_KEY)"
+AIRTABLE_API_KEY = "env(AIRTABLE_API_KEY)"
+AIRTABLE_BASE_ID = "env(AIRTABLE_BASE_ID)"
+AIRTABLE_TABLE_NAME = "env(AIRTABLE_TABLE_NAME)"
+FEEDBACK_FUNCTION_SECRET = "env(FEEDBACK_FUNCTION_SECRET)"
 
 [analytics]
 enabled = true
@@ -355,11 +361,19 @@ s3_secret_key = "env(S3_SECRET_KEY)"
 [functions.send-email]
 enabled = true
 verify_jwt = false
+import_map = "./functions/send-email/deno.json"
 entrypoint = "./functions/send-email/index.ts"
+
+[functions.resend-webhook]
+enabled = true
+verify_jwt = false
+import_map = "./functions/resend-webhook/deno.json"
+entrypoint = "./functions/resend-webhook/index.ts"
 
 [functions.clone-worker]
 enabled = true
 verify_jwt = false
+import_map = "./functions/clone-worker/deno.json"
 entrypoint = "./functions/clone-worker/index.ts"
 
 [functions.sqltr]
@@ -376,29 +390,40 @@ entrypoint = "./functions/sqltr/index.ts"
 [functions.bible-brain-content]
 enabled = true
 verify_jwt = true
+import_map = "./functions/bible-brain-content/deno.json"
 entrypoint = "./functions/bible-brain-content/index.ts"
 
 [functions.fia-pericopes]
 enabled = true
 verify_jwt = true
+import_map = "./functions/fia-pericopes/deno.json"
 entrypoint = "./functions/fia-pericopes/index.ts"
 
 [functions.fia-pericope-steps]
 enabled = true
 verify_jwt = true
+import_map = "./functions/fia-pericope-steps/deno.json"
 entrypoint = "./functions/fia-pericope-steps/index.ts"
 
 [functions.fia-pericope-text]
 enabled = true
 verify_jwt = true
+import_map = "./functions/fia-pericope-text/deno.json"
 entrypoint = "./functions/fia-pericope-text/index.ts"
 
 [functions.predict-translation]
 enabled = true
 verify_jwt = true
+import_map = "./functions/predict-translation/deno.json"
 entrypoint = "./functions/predict-translation/index.ts"
 
 [functions.transcribe]
 enabled = true
 verify_jwt = true
+import_map = "./functions/transcribe/deno.json"
 entrypoint = "./functions/transcribe/index.ts"
+
+[functions.feedback-to-airtable]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/feedback-to-airtable/index.ts"

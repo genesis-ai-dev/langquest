@@ -562,9 +562,7 @@ function VADSettingsDrawerInternal({
         // Wait a bit for energy detection to stabilize
         await new Promise((resolve) => setTimeout(resolve, 200));
       } catch {
-        setCalibrationError(
-          t('vadCalibrationFailed') || 'Failed to start microphone'
-        );
+        setCalibrationError(t('vadCalibrationFailed'));
         return;
       }
     }
@@ -602,10 +600,7 @@ function VADSettingsDrawerInternal({
 
       const samples = calibrationSamplesRef.current;
       if (samples.length === 0) {
-        setCalibrationError(
-          t('vadCalibrationFailed') ||
-            'Calibration failed. Please try again in a quieter environment.'
-        );
+        setCalibrationError(t('vadCalibrationFailed'));
         setIsCalibrating(false);
         setCalibrationProgress(0);
         return;
@@ -623,10 +618,7 @@ function VADSettingsDrawerInternal({
 
       // Check for reasonable noise level (only check if too quiet - allow loud environments)
       if (normalizedAverage < 0.0001) {
-        setCalibrationError(
-          t('vadCalibrationFailed') ||
-            'Calibration failed. Please ensure there is some background noise.'
-        );
+        setCalibrationError(t('vadCalibrationFailed'));
         setIsCalibrating(false);
         setCalibrationProgress(0);
         return;
@@ -1252,7 +1244,7 @@ function VADSettingsDrawerInternal({
                           color={primaryForegroundColor}
                         />
                         <Text className="text-primary-foreground">
-                          {t('vadCalibrating') || 'Calibrating...'}{' '}
+                          {t('vadCalibrating')}{' '}
                           {Math.round(calibrationProgress)}%
                         </Text>
                       </View>
@@ -1264,7 +1256,7 @@ function VADSettingsDrawerInternal({
                           className="text-primary-foreground"
                         />
                         <Text className="text-primary-foreground">
-                          {t('vadAutoCalibrate') || 'Auto-Calibrate'}
+                          {t('vadAutoCalibrate')}
                         </Text>
                       </View>
                     )}

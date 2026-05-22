@@ -1,6 +1,6 @@
 /* Enqueue projects for dashboard refresh */
-import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
-import { createClient } from 'npm:@supabase/supabase-js@2';
+import '@supabase/functions-js/edge-runtime.d.ts';
+import { createClient } from '@supabase/supabase-js';
 
 type JsonRecord = Record<string, unknown>;
 

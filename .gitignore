@@ -73,3 +73,7 @@ testing/client-migrations/*.md
 .env.keys
 supabase/.env.local
 supabase/functions/.env
+
+# Cloudflare Workers
+cloud-services/**/.wrangler
+cloud-services/**/.env.keys

@@ -3,8 +3,8 @@
 // This enables autocomplete, go to definition, etc.
 
 // Setup type definitions for built-in Supabase Runtime APIs
-import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
-import { processSql, renderHttp } from 'npm:@supabase/sql-to-rest';
+import '@supabase/functions-js/edge-runtime.d.ts';
+import { processSql, renderHttp } from '@supabase/sql-to-rest';
 
 Deno.serve(async (req) => {
   const url = new URL(req.url);
