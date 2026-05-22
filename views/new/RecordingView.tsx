@@ -11,6 +11,7 @@ import { VersePill } from '@/components/VersePill';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
+import { MAX_ASSETS_WITHOUT_CONFIRMATION } from '@/constants/assetOperations';
 import { formatPericopeVerseLabel } from '@/constants/bibleStructure';
 import { useAudio } from '@/contexts/AudioContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -449,6 +450,13 @@ const RecordingView = () => {
   const vadCounterRef = React.useRef<number | null>(null);
   const dbWriteQueueRef = React.useRef<Promise<void>>(Promise.resolve());
 
+  // Tracks the last order_index successfully committed inside the serial write queue.
+  // Updated synchronously after each save so the next queued item reads the correct
+  // value without relying on React state (which is async and can be stale).
+  // Reset to null whenever the insertion position changes so the first save of a new
+  // position recalculates from the live list state via getInsertionContext.
+  const lastCommittedOrderIndexRef = React.useRef<number | null>(null);
+
   // Track pending asset names to prevent duplicates when recording multiple assets quickly
   const pendingAssetNamesRef = React.useRef<Set<string>>(new Set());
 
@@ -653,6 +661,7 @@ const RecordingView = () => {
     push: pushUndoHistory,
     undo: undoHistory,
     redo: redoHistory,
+    clear: clearUndoHistory,
     peekUndo: peekUndoHistory,
     peekRedo: peekRedoHistory,
     canUndo: hasUndoHistory,
@@ -1703,6 +1712,9 @@ const RecordingView = () => {
   const insertionIndexRef = React.useRef(insertionIndex);
   React.useEffect(() => {
     insertionIndexRef.current = insertionIndex;
+    // Position changed: the committed counter is no longer valid for the new
+    // insertion point, so reset it so the next save recalculates from context.
+    lastCommittedOrderIndexRef.current = null;
   }, [insertionIndex]);
 
   // Refs for values read inside card callbacks (prevents callback recreation on every click)
@@ -1770,6 +1782,8 @@ const RecordingView = () => {
     } else if (!isVADActive) {
       vadCounterRef.current = null;
       vadInsertionIndexRef.current = null;
+      // Reset so the next VAD session recalculates from the live list state.
+      lastCommittedOrderIndexRef.current = null;
       debugLog(
         '[INSERTION INDEX REF 000X VAD]>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>',
         vadInsertionIndexRef.current,
@@ -1872,6 +1886,7 @@ const RecordingView = () => {
 
   const handleRecordingComplete = React.useCallback(
     async (uri: string, recordingDuration: number, _waveformData: number[]) => {
+      const runRecordingComplete = async () => {
       let replacePreviousData: AssetOperationDataItem[] = [];
       let didReplaceDeleteSucceed = false;
 
@@ -1920,11 +1935,15 @@ const RecordingView = () => {
         }
       }
 
-      // Recalculate order_index based on current list state
-      // This ensures each consecutive recording gets a unique incremented order_index
-      const currentContext = getInsertionContext(insertionIndexRef.current);
-      const targetOrder = currentContext.orderIndex;
-      const verseToUse = currentContext.verse;
+      // Determine order_index for this recording.
+      // If a previous save already ran inside this queue, use lastCommittedOrderIndexRef + 1
+      // so we never read stale React state. On the first save (or after a position reset),
+      // fall back to getInsertionContext which reads the live session list.
+      const targetOrder =
+        lastCommittedOrderIndexRef.current !== null
+          ? lastCommittedOrderIndexRef.current + 1
+          : getInsertionContext(insertionIndexRef.current).orderIndex;
+      const verseToUse = currentRecordingVerseRef.current ?? getInsertionContext(insertionIndexRef.current).verse;
 
       // Update refs for next recording in same session
       currentRecordingOrderRef.current = targetOrder;
@@ -1972,106 +1991,97 @@ const RecordingView = () => {
 
         const localUri = saveResult.uri;
 
-        // Queue DB write (serialized to prevent race conditions)
-        dbWriteQueueRef.current = dbWriteQueueRef.current
-          .then(async () => {
-            if (!targetLanguoidId) {
-              throw new Error('Target languoid not found for project');
-            }
-            // Use the verse that was captured when recording started
-            // This ensures we use the correct verse for middle-of-list recordings
-            const verseToUse = currentRecordingVerseRef.current;
-            const metadataToSave = {
-              ...(verseToUse ? { verse: verseToUse } : {}),
-              ...(recordingSessionId
-                ? { recordingSessionId: recordingSessionId }
-                : {})
-            };
+        if (!targetLanguoidId) {
+          throw new Error('Target languoid not found for project');
+        }
+        // Use the verse that was captured when recording started
+        // This ensures we use the correct verse for middle-of-list recordings
+        const verseToUse = currentRecordingVerseRef.current;
+        const metadataToSave = {
+          ...(verseToUse ? { verse: verseToUse } : {}),
+          ...(recordingSessionId
+            ? { recordingSessionId: recordingSessionId }
+            : {})
+        };
 
-            const newAssetId = await saveRecording({
-              questId: questId,
-              projectId: projectId,
-              targetLanguoidId: targetLanguoidId,
-              userId: currentUser.id,
-              orderIndex: targetOrder,
-              audioUri: localUri,
-              assetName: assetName, // Pass the reserved name
-              metadata:
-                Object.keys(metadataToSave).length > 0 ? metadataToSave : null
-            });
+        const newAssetId = await saveRecording({
+          questId: questId,
+          projectId: projectId,
+          targetLanguoidId: targetLanguoidId,
+          userId: currentUser.id,
+          orderIndex: targetOrder,
+          audioUri: localUri,
+          assetName: assetName, // Pass the reserved name
+          metadata: Object.keys(metadataToSave).length > 0 ? metadataToSave : null
+        });
 
-            // Log the saved asset details
-            console.log(
-              `📼 Asset saved | name: "${assetName}" | order_index: ${targetOrder} | verse: ${verseToUse ? `${verseToUse.from}-${verseToUse.to}` : 'null'}`
-            );
+        // Log the saved asset details
+        console.log(
+          `📼 Asset saved | name: "${assetName}" | order_index: ${targetOrder} | verse: ${verseToUse ? `${verseToUse.from}-${verseToUse.to}` : 'null'}`
+        );
 
-            // Add to session assets list (UI only - not loaded from DB)
-            addSessionAsset({
-              id: newAssetId,
-              name: assetName,
-              order_index: targetOrder,
-              verse: verseToUse,
-              duration: recordingDuration > 0 ? recordingDuration : undefined
-            });
-            if (didReplaceDeleteSucceed && replacePreviousData.length > 0) {
-              pushUndoHistory({
-                domain: 'asset',
-                action: 'replace',
-                previousData: replacePreviousData,
-                newData: [{ id: newAssetId }],
-                canUndo: true
-              });
-            } else {
-              pushUndoHistory({
-                domain: 'asset',
-                action: 'create',
-                previousData: [],
-                newData: [{ id: newAssetId }],
-                canUndo: true
-              });
-            }
-
-            // Pre-populate metadata Maps so the lazy loading effect
-            // skips this asset entirely (avoids expensive Audio.Sound.createAsync)
-            loadedAssetIdsRef.current.add(newAssetId);
-            setAssetSegmentCounts((prev) => {
-              const next = new Map(prev);
-              next.set(newAssetId, 1);
-              return next;
-            });
-            if (recordingDuration > 0) {
-              setAssetDurations((prev) => {
-                const next = new Map(prev);
-                next.set(newAssetId, recordingDuration);
-                return next;
-              });
-            }
-
-            // Track which verse was recorded (for order_index normalization on return)
-            // If no verse is assigned, use 999 (UNASSIGNED_VERSE_BASE)
-            const verseToTrack = verseToUse?.from ?? 999;
-            recordedVersesRef.current.add(verseToTrack);
-            debugLog(
-              `📋 Tracked verse ${verseToTrack} for normalization (total: ${recordedVersesRef.current.size})`
-            );
-
-            // Save the updated name counter to AsyncStorage
-            await saveNameCounter(nameCounterRef.current);
-
-            // Release the reserved name after successful save
-            pendingAssetNamesRef.current.delete(assetName);
-            debugLog(
-              `✅ Released name: ${assetName} (pending: ${pendingAssetNamesRef.current.size})`
-            );
-          })
-          .catch((err) => {
-            console.error('❌ DB write failed:', err);
-            // Release the reserved name on error
-            pendingAssetNamesRef.current.delete(assetName);
-            throw err;
+        // Add to session assets list (UI only - not loaded from DB)
+        addSessionAsset({
+          id: newAssetId,
+          name: assetName,
+          order_index: targetOrder,
+          verse: verseToUse,
+          duration: recordingDuration > 0 ? recordingDuration : undefined
+        });
+        if (didReplaceDeleteSucceed && replacePreviousData.length > 0) {
+          pushUndoHistory({
+            domain: 'asset',
+            action: 'replace',
+            previousData: replacePreviousData,
+            newData: [{ id: newAssetId }],
+            canUndo: true
           });
+        } else {
+          pushUndoHistory({
+            domain: 'asset',
+            action: 'create',
+            previousData: [],
+            newData: [{ id: newAssetId }],
+            canUndo: true
+          });
+        }
 
-        await dbWriteQueueRef.current;
+        // Pre-populate metadata Maps so the lazy loading effect
+        // skips this asset entirely (avoids expensive Audio.Sound.createAsync)
+        loadedAssetIdsRef.current.add(newAssetId);
+        setAssetSegmentCounts((prev) => {
+          const next = new Map(prev);
+          next.set(newAssetId, 1);
+          return next;
+        });
+        if (recordingDuration > 0) {
+          setAssetDurations((prev) => {
+            const next = new Map(prev);
+            next.set(newAssetId, recordingDuration);
+            return next;
+          });
+        }
+
+        // Track which verse was recorded (for order_index normalization on return)
+        // If no verse is assigned, use 999 (UNASSIGNED_VERSE_BASE)
+        const verseToTrack = verseToUse?.from ?? 999;
+        recordedVersesRef.current.add(verseToTrack);
+        debugLog(
+          `📋 Tracked verse ${verseToTrack} for normalization (total: ${recordedVersesRef.current.size})`
+        );
+
+        // Save the updated name counter to AsyncStorage
+        await saveNameCounter(nameCounterRef.current);
+
+        // Release the reserved name after successful save
+        pendingAssetNamesRef.current.delete(assetName);
+        debugLog(
+          `✅ Released name: ${assetName} (pending: ${pendingAssetNamesRef.current.size})`
+        );
+
+        // Record the committed order_index so the next queued save can derive the
+        // correct next value without reading potentially stale React state.
+        lastCommittedOrderIndexRef.current = targetOrder;
 
         // Invalidate queries to sync order_index after insertions in the middle
         // This is needed because recordingService shifts order_index values
@@ -2086,6 +2096,15 @@ const RecordingView = () => {
         console.error('❌ Failed to save recording:', error);
         setIsRecording(false);
       }
+      };
+
+      // Serialize full recording completion flow to avoid order_index race conditions.
+      const queuedOperation = dbWriteQueueRef.current.then(
+        runRecordingComplete,
+        runRecordingComplete
+      );
+      dbWriteQueueRef.current = queuedOperation.catch(() => undefined);
+      await queuedOperation;
     },
     [
       projectId,
@@ -2636,109 +2655,123 @@ const RecordingView = () => {
       (a) => selectedAssetIds.has(a.id) && a.source !== 'cloud'
     );
     if (selectedOrdered.length < 2) return;
+    const shouldRequireConfirmation =
+      selectedOrdered.length > MAX_ASSETS_WITHOUT_CONFIRMATION;
+
+    const runBatchMerge = async (allowUndo: boolean) => {
+      try {
+        if (!questId) return;
+        if (!allowUndo) {
+          clearUndoHistory();
+        }
+
+        const mergeResult = await softMergeAssetsInQuest({
+          questId,
+          assetsToMerge: selectedOrdered.map((asset) => ({
+            id: asset.id
+          })),
+          fallbackProjectId: projectId,
+          fallbackCreatorId: currentUser?.id ?? null
+        });
+        if (!mergeResult) return;
+
+        const mergedSourceIds = new Set(selectedOrdered.map((a) => a.id));
+        setSessionItems((prev) => {
+          const withoutSources = prev.filter(
+            (item) => !mergedSourceIds.has(item.id)
+          );
+          const firstSelected = selectedOrdered[0]!;
+          const newMergedAsset: UIAsset = {
+            type: 'asset',
+            id: mergeResult.newAssetId,
+            name: mergeResult.newAssetName,
+            created_at: new Date().toISOString(),
+            order_index:
+              typeof mergeResult.orderIndex === 'number'
+                ? mergeResult.orderIndex
+                : firstSelected.order_index,
+            source: 'local',
+            segmentCount: 1,
+            verse: firstSelected.verse ?? null
+          };
+
+          return [...withoutSources, newMergedAsset].sort((a, b) => {
+            if (a.order_index === b.order_index) {
+              if (isPill(a) && isAsset(b)) return -1;
+              if (isAsset(a) && isPill(b)) return 1;
+              if (isAsset(a) && isAsset(b)) {
+                return a.created_at.localeCompare(b.created_at);
+              }
+              return 0;
+            }
+            return a.order_index > b.order_index ? 1 : -1;
+          });
+        });
+
+        if (allowUndo) {
+          pushUndoHistory({
+            domain: 'asset',
+            action: 'merge',
+            previousData: selectedOrdered.map((asset) => ({
+              id: asset.id
+            })),
+            newData: [{ id: mergeResult.newAssetId }],
+            canUndo: true
+          });
+        }
+
+        // Force re-load of segment count for the merged target asset
+        debugLog(
+          `🔄 Forcing segment count reload for merged asset: ${mergeResult.newAssetId}`
+        );
+        loadedAssetIdsRef.current.delete(mergeResult.newAssetId);
+        setAssetSegmentCounts((prev) => {
+          const next = new Map(prev);
+          selectedOrdered.forEach((asset) => next.delete(asset.id));
+          next.delete(mergeResult.newAssetId);
+          return next;
+        });
+        setAssetDurations((prev) => {
+          const next = new Map(prev);
+          selectedOrdered.forEach((asset) => next.delete(asset.id));
+          next.delete(mergeResult.newAssetId);
+          return next;
+        });
+
+        cancelSelection();
+        await queryClient.invalidateQueries({
+          queryKey: ['assets', 'by-quest', questId],
+          exact: false
+        });
+
+        debugLog('✅ Batch merge completed');
+      } catch (e) {
+        console.error('Failed to batch merge local assets', e);
+        RNAlert.alert('Error', 'Failed to merge assets. Please try again.');
+      }
+    };
+
+    if (!shouldRequireConfirmation) {
+      void runBatchMerge(true);
+      return;
+    }
 
     RNAlert.alert(
-      'Merge Assets',
-      `Are you sure you want to merge ${selectedOrdered.length} assets? The audio segments will be combined into the first selected asset, and the others will be deleted.`,
+      t('mergeAssets'),
+      t('mergeAssetsConfirmation').replace(
+        '{count}',
+        String(selectedOrdered.length)
+      ),
       [
         {
-          text: 'Cancel',
+          text: t('cancel'),
           style: 'cancel'
         },
         {
-          text: 'Merge',
+          text: t('merge'),
           style: 'destructive',
           onPress: () => {
-            void (async () => {
-              try {
-                if (!questId) return;
-                const mergeResult = await softMergeAssetsInQuest({
-                  questId,
-                  assetsToMerge: selectedOrdered.map((asset) => ({
-                    id: asset.id
-                  })),
-                  fallbackProjectId: projectId,
-                  fallbackCreatorId: currentUser?.id ?? null
-                });
-                if (!mergeResult) return;
-
-                const mergedSourceIds = new Set(
-                  selectedOrdered.map((a) => a.id)
-                );
-                setSessionItems((prev) => {
-                  const withoutSources = prev.filter(
-                    (item) => !mergedSourceIds.has(item.id)
-                  );
-                  const firstSelected = selectedOrdered[0]!;
-                  const newMergedAsset: UIAsset = {
-                    type: 'asset',
-                    id: mergeResult.newAssetId,
-                    name: mergeResult.newAssetName,
-                    created_at: new Date().toISOString(),
-                    order_index:
-                      typeof mergeResult.orderIndex === 'number'
-                        ? mergeResult.orderIndex
-                        : firstSelected.order_index,
-                    source: 'local',
-                    segmentCount: 1,
-                    verse: firstSelected.verse ?? null
-                  };
-
-                  return [...withoutSources, newMergedAsset].sort((a, b) => {
-                    if (a.order_index === b.order_index) {
-                      if (isPill(a) && isAsset(b)) return -1;
-                      if (isAsset(a) && isPill(b)) return 1;
-                      if (isAsset(a) && isAsset(b)) {
-                        return a.created_at.localeCompare(b.created_at);
-                      }
-                      return 0;
-                    }
-                    return a.order_index > b.order_index ? 1 : -1;
-                  });
-                });
-                pushUndoHistory({
-                  domain: 'asset',
-                  action: 'merge',
-                  previousData: selectedOrdered.map((asset) => ({
-                    id: asset.id
-                  })),
-                  newData: [{ id: mergeResult.newAssetId }],
-                  canUndo: true
-                });
-
-                // Force re-load of segment count for the merged target asset
-                debugLog(
-                  `🔄 Forcing segment count reload for merged asset: ${mergeResult.newAssetId}`
-                );
-                loadedAssetIdsRef.current.delete(mergeResult.newAssetId);
-                setAssetSegmentCounts((prev) => {
-                  const next = new Map(prev);
-                  selectedOrdered.forEach((asset) => next.delete(asset.id));
-                  next.delete(mergeResult.newAssetId);
-                  return next;
-                });
-                setAssetDurations((prev) => {
-                  const next = new Map(prev);
-                  selectedOrdered.forEach((asset) => next.delete(asset.id));
-                  next.delete(mergeResult.newAssetId);
-                  return next;
-                });
-
-                cancelSelection();
-                await queryClient.invalidateQueries({
-                  queryKey: ['assets', 'by-quest', questId],
-                  exact: false
-                });
-
-                debugLog('✅ Batch merge completed');
-              } catch (e) {
-                console.error('Failed to batch merge local assets', e);
-                RNAlert.alert(
-                  'Error',
-                  'Failed to merge assets. Please try again.'
-                );
-              }
-            })();
+            void runBatchMerge(false);
           }
         }
       ]
@@ -2747,11 +2780,13 @@ const RecordingView = () => {
     assets,
     selectedAssetIds,
     cancelSelection,
+    clearUndoHistory,
     currentUser?.id,
     projectId,
     pushUndoHistory,
     queryClient,
-    questId
+    questId,
+    t
   ]);
 
   const handleBatchDeleteSelected = React.useCallback(() => {
@@ -2759,59 +2794,71 @@ const RecordingView = () => {
       (a) => selectedAssetIds.has(a.id) && a.source !== 'cloud'
     );
     if (selectedOrdered.length < 1) return;
+    const shouldRequireConfirmation =
+      selectedOrdered.length > MAX_ASSETS_WITHOUT_CONFIRMATION;
+
+    const runBatchDelete = async (allowUndo: boolean) => {
+      try {
+        if (!questId) return;
+        if (!allowUndo) {
+          clearUndoHistory();
+        }
+
+        await softDeleteAssetsFromQuest(
+          questId,
+          selectedOrdered.map((asset) => asset.id)
+        );
+
+        // Remove deleted assets from session list
+        const deletedIds = new Set(selectedOrdered.map((a) => a.id));
+        setSessionItems((prev) => prev.filter((a) => !deletedIds.has(a.id)));
+
+        if (allowUndo) {
+          pushUndoHistory({
+            domain: 'asset',
+            action: 'delete',
+            previousData: selectedOrdered.map((asset) => ({
+              id: asset.id
+            })),
+            newData: [],
+            canUndo: true
+          });
+        }
+
+        cancelSelection();
+        await queryClient.invalidateQueries({
+          queryKey: ['assets', 'by-quest', questId],
+          exact: false
+        });
+
+        debugLog(`✅ Batch delete completed: ${selectedOrdered.length} assets`);
+      } catch (e) {
+        console.error('Failed to batch delete local assets', e);
+        RNAlert.alert('Error', 'Failed to delete assets. Please try again.');
+      }
+    };
+
+    if (!shouldRequireConfirmation) {
+      void runBatchDelete(true);
+      return;
+    }
 
     RNAlert.alert(
-      'Delete Assets',
-      `Are you sure you want to delete ${selectedOrdered.length} asset${selectedOrdered.length > 1 ? 's' : ''}? This action cannot be undone.`,
+      t('deleteAssets'),
+      t('deleteAssetsConfirmation').replace(
+        '{count}',
+        String(selectedOrdered.length)
+      ),
       [
         {
-          text: 'Cancel',
+          text: t('cancel'),
           style: 'cancel'
         },
         {
-          text: 'Delete',
+          text: t('delete'),
           style: 'destructive',
           onPress: () => {
-            void (async () => {
-              try {
-                if (!questId) return;
-                await softDeleteAssetsFromQuest(
-                  questId,
-                  selectedOrdered.map((asset) => asset.id)
-                );
-
-                // Remove deleted assets from session list
-                const deletedIds = new Set(selectedOrdered.map((a) => a.id));
-                setSessionItems((prev) =>
-                  prev.filter((a) => !deletedIds.has(a.id))
-                );
-                pushUndoHistory({
-                  domain: 'asset',
-                  action: 'delete',
-                  previousData: selectedOrdered.map((asset) => ({
-                    id: asset.id
-                  })),
-                  newData: [],
-                  canUndo: true
-                });
-
-                cancelSelection();
-                await queryClient.invalidateQueries({
-                  queryKey: ['assets', 'by-quest', questId],
-                  exact: false
-                });
-
-                debugLog(
-                  `✅ Batch delete completed: ${selectedOrdered.length} assets`
-                );
-              } catch (e) {
-                console.error('Failed to batch delete local assets', e);
-                RNAlert.alert(
-                  'Error',
-                  'Failed to delete assets. Please try again.'
-                );
-              }
-            })();
+            void runBatchDelete(false);
           }
         }
       ]
@@ -2820,9 +2867,11 @@ const RecordingView = () => {
     assets,
     selectedAssetIds,
     cancelSelection,
+    clearUndoHistory,
     pushUndoHistory,
     queryClient,
-    questId
+    questId,
+    t
   ]);
 
   // ============================================================================

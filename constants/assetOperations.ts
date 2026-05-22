@@ -1,0 +1,1 @@
+export const MAX_ASSETS_WITHOUT_CONFIRMATION = 30;

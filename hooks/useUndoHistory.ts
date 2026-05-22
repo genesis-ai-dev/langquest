@@ -130,11 +130,19 @@ export function useUndoHistory<
     [history.entries, history.pointer]
   );
 
+  const clear = useCallback(() => {
+    setHistory({
+      entries: [],
+      pointer: -1
+    });
+  }, []);
+
   return {
     push,
     length,
     undo,
     redo,
+    clear,
     list,
     peekUndo,
     peekRedo,

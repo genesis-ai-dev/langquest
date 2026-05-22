@@ -2580,26 +2580,27 @@ export const localizations = {
   },
   mergeAssetsConfirmation: {
     english:
-      'Are you sure you want to merge {count} assets? The audio segments will be combined into the first selected asset, and the others will be deleted.',
+      'Are you sure you want to merge {count} assets? The audio segments will be combined into the first selected asset, and the others will be deleted. This action cannot be undone.',
     french:
-      'Êtes-vous sûr de vouloir fusionner {count} éléments ? Les segments audio seront combinés dans le premier élément sélectionné et les autres seront supprimés.',
+      'Êtes-vous sûr de vouloir fusionner {count} éléments ? Les segments audio seront combinés dans le premier élément sélectionné et les autres seront supprimés. Cette action ne peut pas être annulée.',
     spanish:
-      '¿Estás seguro de que deseas combinar {count} recursos? Los segmentos de audio se combinarán en el primer recurso seleccionado y los demás se eliminarán.',
+      '¿Estás seguro de que deseas combinar {count} recursos? Los segmentos de audio se combinarán en el primer recurso seleccionado y los demás se eliminarán. Esta acción no se puede deshacer.',
     brazilian_portuguese:
-      'Tem certeza de que deseja mesclar {count} recursos? Os segmentos de áudio serão combinados no primeiro recurso selecionado e os outros serão excluídos.',
+      'Tem certeza de que deseja mesclar {count} recursos? Os segmentos de áudio serão combinados no primeiro recurso selecionado e os outros serão excluídos. Esta ação não pode ser desfeita.',
     tok_pisin:
-      'Yu sua long joinim {count} asset? Ol audio segment bai joinim wantaim first asset yu makim, na ol narapela bai raus.',
+      'Yu sua long joinim {count} asset? Ol audio segment bai joinim wantaim first asset yu makim, na ol narapela bai raus. Dispela action i no inap senisim bek.',
     indonesian:
-      'Apakah Anda yakin ingin menggabungkan {count} aset? Segmen audio akan digabungkan ke aset pertama yang dipilih, dan yang lainnya akan dihapus.',
+      'Apakah Anda yakin ingin menggabungkan {count} aset? Segmen audio akan digabungkan ke aset pertama yang dipilih, dan yang lainnya akan dihapus. Tindakan ini tidak dapat dibatalkan.',
     nepali:
-      'के तपाईं निश्चित हुनुहुन्छ कि तपाईं {count} एसेटहरू मर्ज गर्न चाहनुहुन्छ? अडियो खण्डहरू पहिलो चयन गरिएको एसेटमा संयोजन हुनेछन्, र अरूहरू मेटिनेछन्।',
+      'के तपाईं निश्चित हुनुहुन्छ कि तपाईं {count} एसेटहरू मर्ज गर्न चाहनुहुन्छ? अडियो खण्डहरू पहिलो चयन गरिएको एसेटमा संयोजन हुनेछन्, र अरूहरू मेटिनेछन्। यो कार्य पूर्ववत गर्न सकिँदैन।',
     hindi:
-      'क्या आप वाकई {count} एसेट मर्ज करना चाहते हैं? ऑडियो सेगमेंट पहले चयनित एसेट में संयोजित हो जाएंगे, और अन्य हटा दिए जाएंगे।',
+      'क्या आप वाकई {count} एसेट मर्ज करना चाहते हैं? ऑडियो सेगमेंट पहले चयनित एसेट में संयोजित हो जाएंगे, और अन्य हटा दिए जाएंगे। यह कार्रवाई पूर्ववत नहीं की जा सकती।',
     burmese:
-      'သင်သည် {count} ပိုင်ဆိုင်မှုများကို ပေါင်းစပ်ရန် သေချာပါသလား? အသံအပိုင်းများကို ပထမဆုံး ရွေးချယ်ထားသော ပိုင်ဆိုင်မှုသို့ ပေါင်းစပ်ပါမည်၊ အခြားများကို ဖျက်ပါမည်။',
-    thai: 'คุณแน่ใจหรือไม่ว่าต้องการรวมสินทรัพย์ {count} รายการ? ส่วนเสียงจะถูกรวมเข้ากับสินทรัพย์แรกที่เลือก และรายการอื่นๆ จะถูกลบ',
+      'သင်သည် {count} ပိုင်ဆိုင်မှုများကို ပေါင်းစပ်ရန် သေချာပါသလား? အသံအပိုင်းများကို ပထမဆုံး ရွေးချယ်ထားသော ပိုင်ဆိုင်မှုသို့ ပေါင်းစပ်ပါမည်၊ အခြားများကို ဖျက်ပါမည်။ ဤလုပ်ဆောင်ချက်ကို ပြန်လည်ပြုပြင်မရပါ။',
+    thai:
+      'คุณแน่ใจหรือไม่ว่าต้องการรวมสินทรัพย์ {count} รายการ? ส่วนเสียงจะถูกรวมเข้ากับสินทรัพย์แรกที่เลือก และรายการอื่นๆ จะถูกลบ การดำเนินการนี้ไม่สามารถยกเลิกได้',
     mandarin:
-      '您确定要合并 {count} 个资产吗？音频片段将合并到第一个选定的资产中，其他资产将被删除。'
+      '您确定要合并 {count} 个资产吗？音频片段将合并到第一个选定的资产中，其他资产将被删除。此操作无法撤消。'
   },
   merge: {
     english: 'Merge',

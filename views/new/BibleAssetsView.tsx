@@ -91,6 +91,7 @@ import {
 import { VerseAssigner } from '@/components/VerseAssigner';
 import { VerseRangeSelector } from '@/components/VerseRangeSelector';
 import { VerseSeparator } from '@/components/VerseSeparator';
+import { MAX_ASSETS_WITHOUT_CONFIRMATION } from '@/constants/assetOperations';
 import {
   BIBLE_BOOKS,
   buildPericopeSequence,
@@ -558,6 +559,7 @@ export default function BibleAssetsView() {
     push: pushUndoHistory,
     undo: undoHistory,
     redo: redoHistory,
+    clear: clearUndoHistory,
     peekUndo: peekUndoHistory,
     peekRedo: peekRedoHistory,
     canUndo: hasUndoHistory,
@@ -1353,55 +1355,68 @@ export default function BibleAssetsView() {
 
     if (selectedAssets.length < 1) return;
 
+    const shouldRequireConfirmation =
+      selectedAssets.length > MAX_ASSETS_WITHOUT_CONFIRMATION;
+
+    const runBatchDelete = async (allowUndo: boolean) => {
+      try {
+        if (!questId) return;
+        if (!allowUndo) {
+          clearUndoHistory();
+        }
+
+        const previousData = selectedAssets.map((asset) => ({
+          id: asset.id,
+          name: asset.name ?? null,
+          orderIndex: asset.order_index
+        }));
+        const selectedIds = selectedAssets.map((asset) => asset.id);
+
+        await softDeleteAssetsFromQuest(questId, selectedIds);
+        if (allowUndo) {
+          pushUndoHistory({
+            domain: 'asset',
+            action: 'delete',
+            previousData,
+            newData: [],
+            canUndo: true
+          });
+        }
+
+        cancelSelection();
+        setSelectedForRecording(null);
+        void queryClient.invalidateQueries({ queryKey: ['assets'] });
+        void refetch();
+
+        console.log(`✅ Batch delete completed: ${selectedAssets.length} assets`);
+      } catch (e) {
+        console.error('Failed to batch delete assets', e);
+        RNAlert.alert(t('error'), 'Failed to delete assets. Please try again.');
+      }
+    };
+
+    if (!shouldRequireConfirmation) {
+      void runBatchDelete(true);
+      return;
+    }
+
     RNAlert.alert(
-      'Delete Assets',
-      `Are you sure you want to delete ${selectedAssets.length} asset${selectedAssets.length > 1 ? 's' : ''}? This action cannot be undone.`,
+      t('deleteAssets'),
+      t('deleteAssetsConfirmation').replace(
+        '{count}',
+        String(selectedAssets.length)
+      ),
       [
         {
           text: t('cancel'),
           style: 'cancel'
         },
         {
-          text: 'Delete',
+          text: t('delete'),
           style: 'destructive',
           isPreferred: true,
           onPress: () => {
-            void (async () => {
-              try {
-                if (!questId) return;
-
-                const previousData = selectedAssets.map((asset) => ({
-                  id: asset.id,
-                  name: asset.name ?? null,
-                  orderIndex: asset.order_index
-                }));
-                const selectedIds = selectedAssets.map((asset) => asset.id);
-
-                await softDeleteAssetsFromQuest(questId, selectedIds);
-                pushUndoHistory({
-                  domain: 'asset',
-                  action: 'delete',
-                  previousData,
-                  newData: [],
-                  canUndo: true
-                });
-
-                cancelSelection();
-                setSelectedForRecording(null);
-                void queryClient.invalidateQueries({ queryKey: ['assets'] });
-                void refetch();
-
-                console.log(
-                  `✅ Batch delete completed: ${selectedAssets.length} assets`
-                );
-              } catch (e) {
-                console.error('Failed to batch delete assets', e);
-                RNAlert.alert(
-                  t('error'),
-                  'Failed to delete assets. Please try again.'
-                );
-              }
-            })();
+            void runBatchDelete(false);
           }
         }
       ]
@@ -1409,6 +1424,7 @@ export default function BibleAssetsView() {
   }, [
     assets,
     cancelSelection,
+    clearUndoHistory,
     pushUndoHistory,
     queryClient,
     questId,
@@ -1426,70 +1442,85 @@ export default function BibleAssetsView() {
 
     if (selectedAssets.length < 2) return;
 
+    const shouldRequireConfirmation =
+      selectedAssets.length > MAX_ASSETS_WITHOUT_CONFIRMATION;
+
+    const runBatchMerge = async (allowUndo: boolean) => {
+      try {
+        if (!questId) return;
+        if (!allowUndo) {
+          clearUndoHistory();
+        }
+
+        const previousData = selectedAssets.map((asset) => ({
+          id: asset.id,
+          name: asset.name ?? null,
+          orderIndex: asset.order_index
+        }));
+
+        const merged = await softMergeAssetsInQuest({
+          questId,
+          assetsToMerge: selectedAssets.map((asset) => ({
+            id: asset.id
+          })),
+          fallbackProjectId: projectId ?? null,
+          fallbackCreatorId: currentUser?.id ?? null
+        });
+
+        if (!merged) return;
+
+        if (allowUndo) {
+          pushUndoHistory({
+            domain: 'asset',
+            action: 'merge',
+            previousData,
+            newData: [
+              {
+                id: merged.newAssetId,
+                name: merged.newAssetName,
+                order_index: merged.orderIndex
+              }
+            ],
+            canUndo: true
+          });
+        }
+
+        cancelSelection();
+        setSelectedForRecording(null);
+        void queryClient.invalidateQueries({ queryKey: ['assets'] });
+        void refetch();
+
+        console.log(
+          `✅ Batch merge completed: ${selectedAssets.length} assets merged into ${merged.newAssetId.slice(0, 8)}`
+        );
+      } catch (e) {
+        console.error('Failed to batch merge assets', e);
+        RNAlert.alert(t('error'), 'Failed to merge assets. Please try again.');
+      }
+    };
+
+    if (!shouldRequireConfirmation) {
+      void runBatchMerge(true);
+      return;
+    }
+
     RNAlert.alert(
-      'Merge Assets',
-      `Are you sure you want to merge ${selectedAssets.length} assets? The audio segments will be combined into the first selected asset, and the others will be deleted.`,
+      t('mergeAssets'),
+      t('mergeAssetsConfirmation').replace(
+        '{count}',
+        String(selectedAssets.length)
+      ),
       [
         {
           text: t('cancel'),
           style: 'cancel'
         },
         {
-          text: 'Merge',
+          text: t('merge'),
           style: 'destructive',
           isPreferred: true,
           onPress: () => {
-            void (async () => {
-              try {
-                if (!questId) return;
-
-                const previousData = selectedAssets.map((asset) => ({
-                  id: asset.id,
-                  name: asset.name ?? null,
-                  orderIndex: asset.order_index
-                }));
-
-                const merged = await softMergeAssetsInQuest({
-                  questId,
-                  assetsToMerge: selectedAssets.map((asset) => ({
-                    id: asset.id
-                  })),
-                  fallbackProjectId: projectId ?? null,
-                  fallbackCreatorId: currentUser?.id ?? null
-                });
-
-                if (!merged) return;
-
-                pushUndoHistory({
-                  domain: 'asset',
-                  action: 'merge',
-                  previousData,
-                  newData: [
-                    {
-                      id: merged.newAssetId,
-                      name: merged.newAssetName,
-                      order_index: merged.orderIndex
-                    }
-                  ],
-                  canUndo: true
-                });
-
-                cancelSelection();
-                setSelectedForRecording(null);
-                void queryClient.invalidateQueries({ queryKey: ['assets'] });
-                void refetch();
-
-                console.log(
-                  `✅ Batch merge completed: ${selectedAssets.length} assets merged into ${merged.newAssetId.slice(0, 8)}`
-                );
-              } catch (e) {
-                console.error('Failed to batch merge assets', e);
-                RNAlert.alert(
-                  t('error'),
-                  'Failed to merge assets. Please try again.'
-                );
-              }
-            })();
+            void runBatchMerge(false);
           }
         }
       ]
@@ -1499,6 +1530,7 @@ export default function BibleAssetsView() {
     selectedAssetIds,
     currentUser,
     cancelSelection,
+    clearUndoHistory,
     projectId,
     pushUndoHistory,
     queryClient,
