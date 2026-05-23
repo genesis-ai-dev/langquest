@@ -11,7 +11,10 @@ import { VersePill } from '@/components/VersePill';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
-import { MAX_ASSETS_WITHOUT_CONFIRMATION } from '@/constants/assetOperations';
+import {
+  getAssetOperationMessage,
+  MAX_ASSETS_WITHOUT_CONFIRMATION
+} from '@/constants/assetOperations';
 import { formatPericopeVerseLabel } from '@/constants/bibleStructure';
 import { useAudio } from '@/contexts/AudioContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -76,6 +79,7 @@ import Animated, {
   LinearTransition
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { toast } from 'sonner-native';
 import { FullScreenVADOverlay } from './recording/components/FullScreenVADOverlay';
 import { RecordAssetCard } from './recording/components/RecordAssetCard';
 import { RecordAssetCardSkeleton } from './recording/components/RecordAssetCardSkeleton';
@@ -3698,6 +3702,10 @@ const RecordingView = () => {
         domain: 'asset'
       } as AssetOperationTypes;
       await undoAssetOperation(projectId, questId, operation);
+      const message = getAssetOperationMessage(operation, 'undo');
+      toast.info(t('undo'), {
+        description: t(message.key).replace('{count}', String(message.count))
+      });
       await updateSessionItemsAfterUndo(operation);
       await queryClient.invalidateQueries({
         queryKey: ['assets', 'by-quest', questId],
@@ -3720,6 +3728,7 @@ const RecordingView = () => {
     projectId,
     queryClient,
     questId,
+    t,
     undoHistory,
     updateSessionItemsAfterUndo
   ]);
@@ -3741,6 +3750,10 @@ const RecordingView = () => {
         domain: 'asset'
       } as AssetOperationTypes;
       await redoAssetOperation(projectId, questId, operation);
+      const message = getAssetOperationMessage(operation, 'redo');
+      toast.info(t('redo'), {
+        description: t(message.key).replace('{count}', String(message.count))
+      });
       await updateSessionItemsAfterRedo(operation);
       await queryClient.invalidateQueries({
         queryKey: ['assets', 'by-quest', questId],
@@ -3764,6 +3777,7 @@ const RecordingView = () => {
     queryClient,
     questId,
     redoHistory,
+    t,
     updateSessionItemsAfterRedo
   ]);
 

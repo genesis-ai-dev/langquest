@@ -11,7 +11,10 @@ import {
   SpeedDialTrigger
 } from '@/components/ui/speed-dial';
 import { Text } from '@/components/ui/text';
-import { MAX_ASSETS_WITHOUT_CONFIRMATION } from '@/constants/assetOperations';
+import {
+  getAssetOperationMessage,
+  MAX_ASSETS_WITHOUT_CONFIRMATION
+} from '@/constants/assetOperations';
 import { useAudio } from '@/contexts/AudioContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
@@ -66,6 +69,7 @@ import Animated, {
   withTiming
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { toast } from 'sonner-native';
 import type { HybridDataSource } from './useHybridData';
 import { useHybridData } from './useHybridData';
 
@@ -701,6 +705,10 @@ export default function NextGenAssetsView() {
 
       await undoAssetOperation(projectId, questId, operation);
       await queryClient.invalidateQueries({ queryKey: ['assets'] });
+      const message = getAssetOperationMessage(operation, 'undo');
+      toast.info(t('undo'), {
+        description: t(message.key).replace('{count}', String(message.count))
+      });
       await refetch();
     });
   }, [
@@ -709,6 +717,7 @@ export default function NextGenAssetsView() {
     queryClient,
     questId,
     refetch,
+    t,
     undoHistory
   ]);
 
@@ -728,6 +737,10 @@ export default function NextGenAssetsView() {
 
       await redoAssetOperation(projectId, questId, operation);
       await queryClient.invalidateQueries({ queryKey: ['assets'] });
+      const message = getAssetOperationMessage(operation, 'redo');
+      toast.info(t('redo'), {
+        description: t(message.key).replace('{count}', String(message.count))
+      });
       await refetch();
     });
   }, [
@@ -736,7 +749,8 @@ export default function NextGenAssetsView() {
     queryClient,
     questId,
     redoHistory,
-    refetch
+    refetch,
+    t
   ]);
 
   const blockIndividualPlayRef = React.useRef(false);

@@ -48,6 +48,7 @@ import {
   configureReanimatedLogger,
   ReanimatedLogLevel
 } from 'react-native-reanimated';
+import { Toaster } from 'sonner-native';
 
 configureReanimatedLogger({
   level: ReanimatedLogLevel.warn,
@@ -233,6 +234,20 @@ export default function RootLayout() {
                           </ThemeProvider>
                         </BottomSheetModalProvider>
                       </KeyboardProvider>
+                      <Toaster
+                        position="bottom-center"
+                        offset={50}
+                        theme={scheme} // ou "system"
+                        toastOptions={{
+                          style: {
+                            backgroundColor:
+                              NAV_THEME[scheme].colors.background,
+                            borderWidth: 1,
+                            borderColor: NAV_THEME[scheme].colors.border,
+                            borderRadius: 10
+                          }
+                        }}
+                      />
                     </GestureHandlerRootView>
                   </SafeAreaProvider>
                 </AudioProvider>

@@ -91,7 +91,10 @@ import {
 import { VerseAssigner } from '@/components/VerseAssigner';
 import { VerseRangeSelector } from '@/components/VerseRangeSelector';
 import { VerseSeparator } from '@/components/VerseSeparator';
-import { MAX_ASSETS_WITHOUT_CONFIRMATION } from '@/constants/assetOperations';
+import {
+  getAssetOperationMessage,
+  MAX_ASSETS_WITHOUT_CONFIRMATION
+} from '@/constants/assetOperations';
 import {
   BIBLE_BOOKS,
   buildPericopeSequence,
@@ -138,6 +141,7 @@ import ReorderableList, {
   reorderItems,
   useReorderableDrag
 } from 'react-native-reorderable-list';
+import { toast } from 'sonner-native';
 import { AssetCardItem } from './AssetCardItem';
 import { RecordSelectionControls } from './recording/components/RecordSelectionControls';
 import { RenameAssetDrawer } from './recording/components/RenameAssetDrawer';
@@ -565,10 +569,12 @@ export default function BibleAssetsView() {
     canUndo: hasUndoHistory,
     canRedo: hasRedoHistory
   } = useUndoHistory<AssetOperationDataItem[], AssetOperationDataItem[]>();
-  const currentUndoOperation =
-    peekUndoHistory() as AssetOperationTypes | undefined;
-  const currentRedoOperation =
-    peekRedoHistory() as AssetOperationTypes | undefined;
+  const currentUndoOperation = peekUndoHistory() as
+    | AssetOperationTypes
+    | undefined;
+  const currentRedoOperation = peekRedoHistory() as
+    | AssetOperationTypes
+    | undefined;
   const insets = useSafeAreaInsets();
 
   React.useEffect(() => {
@@ -1388,7 +1394,9 @@ export default function BibleAssetsView() {
         void queryClient.invalidateQueries({ queryKey: ['assets'] });
         void refetch();
 
-        console.log(`✅ Batch delete completed: ${selectedAssets.length} assets`);
+        console.log(
+          `✅ Batch delete completed: ${selectedAssets.length} assets`
+        );
       } catch (e) {
         console.error('Failed to batch delete assets', e);
         RNAlert.alert(t('error'), 'Failed to delete assets. Please try again.');
@@ -1599,6 +1607,12 @@ export default function BibleAssetsView() {
 
       await undoAssetOperation(projectId, questId, operation);
       await queryClient.invalidateQueries({ queryKey: ['assets'] });
+
+      const message = getAssetOperationMessage(operation, 'undo');
+      toast.info(t('undo'), {
+        description: t(message.key).replace('{count}', String(message.count))
+      });
+
       await refetch();
     });
   }, [
@@ -1626,6 +1640,12 @@ export default function BibleAssetsView() {
 
       await redoAssetOperation(projectId, questId, operation);
       await queryClient.invalidateQueries({ queryKey: ['assets'] });
+
+      const message = getAssetOperationMessage(operation, 'redo');
+      toast.info(t('redo'), {
+        description: t(message.key).replace('{count}', String(message.count))
+      });
+
       await refetch();
     });
   }, [
