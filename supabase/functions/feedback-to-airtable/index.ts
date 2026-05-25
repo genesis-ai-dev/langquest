@@ -213,7 +213,7 @@ async function sendToAirtable(
     Description: feedback.description,
     'Request Type': formatRequestType(feedback.request_type),
 
-    Email: email,
+    email: email,
     'Organization Name': feedback.organization_name,
     'Your Name': username || 'Anonymous',
     'App Version': feedback.app_version
@@ -325,7 +325,7 @@ Deno.serve(async (req) => {
  *
  * 5. Columns you may need to ADD (optional, but recommended):
  *    - Your Name (Single line text) - username from profile
- *    - Email (Email) - email from profile
+ *    - email (lowercase) - email from profile
  *    - Organization Name (Single line text) - optional, from feedback form
  *    - App Version (Single line text) - helps track issues
  *
