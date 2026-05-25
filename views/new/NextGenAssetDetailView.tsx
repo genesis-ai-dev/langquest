@@ -13,6 +13,7 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { useAuth } from '@/contexts/AuthContext';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import { updateContentLinkOrder } from '@/database_services/assetService';
+import { getEffectiveLastRecordingSessionId } from '@/database_services/questService';
 import type { LayerStatus } from '@/database_services/types';
 import {
   asset,
@@ -40,6 +41,7 @@ import {
 } from '@/utils/fileUtils';
 import { cn } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
+import { useFocusEffect } from '@react-navigation/native';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { and, asc, eq, inArray } from 'drizzle-orm';
 import { Stack } from 'expo-router';
@@ -266,7 +268,7 @@ export default function NextGenAssetDetailView() {
   const projectData = queriedProjectData;
 
   // Fetch quest data for "New" label highlighting (recording session tracking)
-  const { data: questDataArray } = useHybridData<
+  const { data: questDataArray, refetch: refetchQuest } = useHybridData<
     typeof questTable.$inferSelect
   >({
     dataType: 'quest-detail',
@@ -292,6 +294,25 @@ export default function NextGenAssetDetailView() {
     enableOfflineQuery: !!questId && isAuthenticated
   });
   const questData = questDataArray?.[0];
+
+  const activeRecordingSessionId = useLocalStore(
+    (state) => state.currentRecordingData?.recordingSession
+  );
+
+  const lastRecordingSessionId = React.useMemo(
+    () =>
+      getEffectiveLastRecordingSessionId(
+        questData?.metadata,
+        activeRecordingSessionId
+      ),
+    [questData?.metadata, activeRecordingSessionId]
+  );
+
+  useFocusEffect(
+    React.useCallback(() => {
+      void refetchQuest();
+    }, [refetchQuest])
+  );
 
   // Get target languoid_id from project_language_link
   const { data: targetLanguoidLink = [] } = useHybridData<{
@@ -357,13 +378,10 @@ export default function NextGenAssetDetailView() {
   const assetMeta = activeAsset?.metadata as {
     recordingSessionId?: string;
   } | null;
-  const questMeta = questData?.metadata as {
-    lastRecordingSessionId?: string;
-  } | null;
   const isHighlighted =
     isLocalContent &&
     !!assetMeta?.recordingSessionId &&
-    assetMeta.recordingSessionId === questMeta?.lastRecordingSessionId;
+    assetMeta.recordingSessionId === lastRecordingSessionId;
 
   // Track previous asset ID to detect when asset changes
   const prevAssetIdRef = React.useRef<string | null>(null);

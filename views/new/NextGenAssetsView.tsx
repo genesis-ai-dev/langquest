@@ -80,7 +80,10 @@ import {
   updateContentLinkOrder
 } from '@/database_services/assetService';
 import { audioSegmentService } from '@/database_services/audioSegmentService';
-import { createQuestRecordingSession } from '@/database_services/questService';
+import {
+  createQuestRecordingSession,
+  getEffectiveLastRecordingSessionId
+} from '@/database_services/questService';
 import { AppConfig } from '@/db/supabase/AppConfig';
 import { useAssetsByQuest } from '@/hooks/db/useAssets';
 import { useBlockedAssetsCount } from '@/hooks/useBlockedCount';
@@ -92,6 +95,7 @@ import { publishQuest as publishQuestUtils } from '@/utils/publishQuest';
 import { offloadQuest } from '@/utils/questOffloadUtils';
 import { getThemeColor } from '@/utils/styleUtils';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
+import { useFocusEffect } from '@react-navigation/native';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { asc, eq } from 'drizzle-orm';
 import { AssetCardItem } from './AssetCardItem';
@@ -274,6 +278,25 @@ export default function NextGenAssetsView() {
       ? queriedQuestData[0]
       : undefined;
   }, [queriedQuestData]);
+
+  const activeRecordingSessionId = useLocalStore(
+    (state) => state.currentRecordingData?.recordingSession
+  );
+
+  const lastRecordingSessionId = React.useMemo(
+    () =>
+      getEffectiveLastRecordingSessionId(
+        selectedQuest?.metadata,
+        activeRecordingSessionId
+      ),
+    [selectedQuest?.metadata, activeRecordingSessionId]
+  );
+
+  useFocusEffect(
+    React.useCallback(() => {
+      void refetchQuest();
+    }, [refetchQuest])
+  );
 
   // Check if quest is published (source is 'synced') - computed early for use in callbacks
   const isPublished = selectedQuest?.source === 'synced';
@@ -646,8 +669,7 @@ export default function NextGenAssetsView() {
       const assetMeta = item.metadata as { recordingSessionId?: string } | null;
       const isHighlighted =
         !!assetMeta?.recordingSessionId &&
-        assetMeta.recordingSessionId ===
-          selectedQuest?.metadata?.lastRecordingSessionId;
+        assetMeta.recordingSessionId === lastRecordingSessionId;
 
       return (
         <>
@@ -686,7 +708,7 @@ export default function NextGenAssetsView() {
       handleToggleSelect,
       handleSelectForRecording,
       enterSelection,
-      selectedQuest?.metadata?.lastRecordingSessionId
+      lastRecordingSessionId
     ]
   );
 
@@ -1413,6 +1435,7 @@ export default function NextGenAssetsView() {
 
     // Create recording session and navigate to RecordingView
     const recordingSessionId = await createQuestRecordingSession(questId);
+    void refetchQuest();
     const lastOrderIndex = assets.reduce<number | null>((maxOrder, asset) => {
       if (typeof asset.order_index !== 'number') {
         return maxOrder;
@@ -1441,7 +1464,8 @@ export default function NextGenAssetsView() {
     assets,
     selectedAssetForRecording,
     isPlayAllRunningRef,
-    stopPlayAll
+    stopPlayAll,
+    refetchQuest
   ]);
 
   // Cleanup effect: Clear all refs and stop audio when component unmounts
