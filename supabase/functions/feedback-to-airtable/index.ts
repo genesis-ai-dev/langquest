@@ -40,7 +40,6 @@ interface WebhookPayload {
 const AIRTABLE_API_KEY = Deno.env.get('AIRTABLE_API_KEY');
 const AIRTABLE_BASE_ID = Deno.env.get('AIRTABLE_BASE_ID');
 const AIRTABLE_TABLE_NAME = Deno.env.get('AIRTABLE_TABLE_NAME');
-const AIRTABLE_PARTNER_RECORD_ID = Deno.env.get('AIRTABLE_PARTNER_RECORD_ID');
 const FUNCTION_SECRET = Deno.env.get('FEEDBACK_FUNCTION_SECRET');
 
 // Supabase configuration (for looking up usernames)
@@ -110,6 +109,87 @@ function formatRequestType(type: string): string {
   return typeMap[type] || type;
 }
 
+interface AirtableFieldSchema {
+  id: string;
+  name: string;
+  type?: string;
+}
+
+/**
+ * Fetches table schema from Airtable Metadata API and logs all field names.
+ * Requires PAT scope: schema.bases:read
+ */
+async function logAirtableTableFields(
+  fieldsToSubmit: Record<string, unknown>
+): Promise<void> {
+  if (!AIRTABLE_API_KEY || !AIRTABLE_BASE_ID || !AIRTABLE_TABLE_NAME) {
+    console.warn(
+      '[feedback-to-airtable] Cannot fetch schema — missing API key, base ID, or table name'
+    );
+    return;
+  }
+
+  const url = `https://api.airtable.com/v0/meta/bases/${AIRTABLE_BASE_ID}/tables`;
+
+  try {
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${AIRTABLE_API_KEY}` }
+    });
+
+    if (!res.ok) {
+      const body = await res.text();
+      console.error(
+        `[feedback-to-airtable] Schema fetch failed (${res.status}):`,
+        body
+      );
+      return;
+    }
+
+    const data = (await res.json()) as {
+      tables?: Array<{ name: string; fields?: AirtableFieldSchema[] }>;
+    };
+
+    const table = data.tables?.find((t) => t.name === AIRTABLE_TABLE_NAME);
+    if (!table) {
+      console.error(
+        `[feedback-to-airtable] Table "${AIRTABLE_TABLE_NAME}" not found. Available tables:`,
+        data.tables?.map((t) => t.name) ?? []
+      );
+      return;
+    }
+
+    const airtableFieldNames = (table.fields ?? []).map((f) => f.name);
+    const submitKeys = Object.keys(fieldsToSubmit);
+
+    console.log(
+      `[feedback-to-airtable] Airtable table "${AIRTABLE_TABLE_NAME}" fields:`,
+      JSON.stringify(
+        (table.fields ?? []).map((f) => ({ name: f.name, type: f.type })),
+        null,
+        2
+      )
+    );
+    console.log(
+      '[feedback-to-airtable] Field names only:',
+      airtableFieldNames
+    );
+    console.log(
+      '[feedback-to-airtable] Fields we are submitting:',
+      submitKeys
+    );
+
+    const unknown = submitKeys.filter((k) => !airtableFieldNames.includes(k));
+    if (unknown.length > 0) {
+      console.warn(
+        '[feedback-to-airtable] Unknown field names (not in Airtable):',
+        unknown
+      );
+    }
+  } catch (err) {
+    console.error('[feedback-to-airtable] Schema fetch exception:', err);
+  }
+}
+
 /**
  * Sends feedback data to Airtable using the Airtable.js SDK
  * Modify this function to match your Airtable schema
@@ -133,27 +213,23 @@ async function sendToAirtable(
     Description: feedback.description,
     'Request Type': formatRequestType(feedback.request_type),
 
+    Email: email,
+    'Organization Name': feedback.organization_name,
     'Your Name': username || 'Anonymous',
-    'App Version': feedback.app_version || 'unknown'
+    'App Version': feedback.app_version
   };
 
-  if (email) {
-    airtableFields.Email = email;
-  }
+  const validFields = Object.fromEntries(
+    Object.entries(airtableFields).filter(([_, value]) => Boolean(value))
+  );
 
-  if (feedback.organization_name) {
-    airtableFields['Organization Name'] = feedback.organization_name;
-  }
-
-  // Add Partner link if configured (Airtable linked record field)
-  if (AIRTABLE_PARTNER_RECORD_ID) {
-    airtableFields.Partners = [AIRTABLE_PARTNER_RECORD_ID];
-  }
+  await logAirtableTableFields(validFields);
 
   try {
-    // Airtable.js SDK expects fields directly, not wrapped in { fields: ... }
-    const record =
-      await airtableBase(AIRTABLE_TABLE_NAME).create(airtableFields);
+    // typecast lets Airtable coerce values (e.g. strings → single-select options)
+    const record = await airtableBase(AIRTABLE_TABLE_NAME).create(validFields, {
+      typecast: true
+    });
     console.log(
       '[feedback-to-airtable] Successfully sent to Airtable:',
       record.getId()
@@ -229,10 +305,9 @@ Deno.serve(async (req) => {
  *    supabase functions deploy feedback-to-airtable
  *
  * 2. Set environment variables in Supabase Dashboard:
- *    - AIRTABLE_API_KEY: Your Airtable Personal Access Token
+ *    - AIRTABLE_API_KEY: Your Airtable Personal Access Token (needs data.records:write and schema.bases:read for field debug logs)
  *    - AIRTABLE_BASE_ID: Your Airtable base ID (starts with 'app')
  *    - AIRTABLE_TABLE_NAME: Name of the table (e.g., 'Feedback')
- *    - AIRTABLE_PARTNER_RECORD_ID: (Optional) Record ID for the Partner linked field
  *    - FEEDBACK_FUNCTION_SECRET: Random secret for webhook verification
  *
  * 3. Set up Database Webhook in Supabase:
@@ -253,7 +328,6 @@ Deno.serve(async (req) => {
  *    - Email (Email) - email from profile
  *    - Organization Name (Single line text) - optional, from feedback form
  *    - App Version (Single line text) - helps track issues
- *    - Partners (Linked record) - set AIRTABLE_PARTNER_RECORD_ID to auto-link
  *
  *    If you don't want to add these columns, remove them from the airtableFields object.
  */
