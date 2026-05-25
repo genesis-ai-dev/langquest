@@ -12964,32 +12964,6 @@ export const localizations = {
     thai: 'รายละเอียดต้องมีไม่เกิน 2000 ตัวอักษร',
     mandarin: '描述必须在2000个字符以内'
   },
-  feedbackNameLabel: {
-    english: 'Your Name (optional)',
-    french: 'Votre nom (facultatif)',
-    spanish: 'Su nombre (opcional)',
-    brazilian_portuguese: 'Seu nome (opcional)',
-    tok_pisin: 'Nem bilong yu (opsenel)',
-    indonesian: 'Nama Anda (opsional)',
-    nepali: 'तपाईंको नाम (वैकल्पिक)',
-    hindi: 'आपका नाम (वैकल्पिक)',
-    burmese: 'သင့်နာမည် (ချန်လှပ်နိုင်)',
-    thai: 'ชื่อของคุณ (ไม่บังคับ)',
-    mandarin: '您的姓名（可选）'
-  },
-  feedbackNamePlaceholder: {
-    english: 'Enter your name',
-    french: 'Entrez votre nom',
-    spanish: 'Ingrese su nombre',
-    brazilian_portuguese: 'Digite seu nome',
-    tok_pisin: 'Putim nem bilong yu',
-    indonesian: 'Masukkan nama Anda',
-    nepali: 'तपाईंको नाम प्रविष्ट गर्नुहोस्',
-    hindi: 'अपना नाम दर्ज करें',
-    burmese: 'သင့်နာမည်ထည့်ပါ',
-    thai: 'ใส่ชื่อของคุณ',
-    mandarin: '输入您的姓名'
-  },
   feedbackOrganizationNameLabel: {
     english: 'Organization Name (optional)',
     french: "Nom de l'organisation (facultatif)",
