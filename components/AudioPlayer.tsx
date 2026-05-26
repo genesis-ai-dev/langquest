@@ -4,8 +4,9 @@ import { Slider } from '@/components/ui/slider';
 import { useAudio } from '@/contexts/AudioContext';
 import { useLocalization } from '@/hooks/useLocalization';
 import { colors, fontSizes, spacing } from '@/styles/theme';
-import { Play, Pause, FileText } from 'lucide-react-native';
+import { cn } from '@/utils/styleUtils';
 import { setAudioModeAsync } from 'expo-audio';
+import { FileText, Pause, Play } from 'lucide-react-native';
 import React, { useEffect } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import Carousel from './Carousel';
@@ -85,13 +86,17 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
         <View style={styles.controlsRow}>
           <Button
             variant="plain"
-            style={[styles.audioPlayButton, mini && styles.miniAudioPlayButton]}
+            // style={[styles.audioPlayButton, mini && styles.miniAudioPlayButton]}
+            className={cn(
+              'size-12 rounded-full bg-primary/70',
+              mini && 'size-10'
+            )}
             onPress={() => handlePlayPause(item.uri, item.id)}
           >
             <Icon
               as={isThisAudioPlaying ? Pause : Play}
-              size={mini ? 24 : 48}
-              className="text-foreground"
+              size={mini ? 24 : 32}
+              className="text-primary-foreground"
             />
           </Button>
           {onTranscribe && (
@@ -112,14 +117,18 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
               ) : (
                 <Icon
                   as={FileText}
-                  size={mini ? 18 : 28}
+                  size={mini ? 18 : 24}
                   className="text-background"
                 />
               )}
             </Button>
           )}
         </View>
-        {!mini && <Text style={styles.audioFileName}>{item.title}</Text>}
+        {!mini && (
+          <Text className="text-sm text-muted-foreground">
+            {item.title || t('recording')}
+          </Text>
+        )}
         <View
           style={[
             styles.audioProgressContainer,
@@ -133,7 +142,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
             onValueChange={(value) => handleSliderChange(value)}
           />
           <View style={styles.audioTimeContainer}>
-            <Text style={styles.audioTimeText}>
+            <Text className="text-xs text-muted-foreground">
               {formatTime(isThisAudioPlaying ? position : 0)}
             </Text>
             {isThisAudioPlaying && (

@@ -51,8 +51,8 @@ export default function SettingsView() {
   const enableTranscription = useLocalStore(
     (state) => state.enableTranscription
   );
-  const enableLanguoidLinkSuggestions = useLocalStore(
-    (state) => state.enableLanguoidLinkSuggestions
+  const enableProjectLanguageSuggestions = useLocalStore(
+    (state) => state.enableProjectLanguageSuggestions
   );
   const enableMerge = useLocalStore((state) => state.enableMerge);
   const enableFia = useLocalStore((state) => state.enableFia);
@@ -78,8 +78,8 @@ export default function SettingsView() {
   const setEnableTranscription = useLocalStore(
     (state) => state.setEnableTranscription
   );
-  const setEnableLanguoidLinkSuggestions = useLocalStore(
-    (state) => state.setEnableLanguoidLinkSuggestions
+  const setEnableProjectLanguageSuggestions = useLocalStore(
+    (state) => state.setEnableProjectLanguageSuggestions
   );
   const setEnableMerge = useLocalStore((state) => state.setEnableMerge);
   const setEnableFia = useLocalStore((state) => state.setEnableFia);
@@ -130,8 +130,8 @@ export default function SettingsView() {
     setEnableTranscription(value);
   };
 
-  const handleLanguoidLinkSuggestionsToggle = (value: boolean) => {
-    setEnableLanguoidLinkSuggestions(value);
+  const handleProjectLanguageSuggestionsToggle = (value: boolean) => {
+    setEnableProjectLanguageSuggestions(value);
   };
 
   const handleMergeToggle = (value: boolean) => {
@@ -306,13 +306,15 @@ export default function SettingsView() {
           onPress: () => handleTranscriptionToggle(!enableTranscription)
         },
         {
-          id: 'languoidLinkSuggestions',
-          title: t('enableLanguoidLinkSuggestions'),
-          description: t('enableLanguoidLinkSuggestionsDescription'),
+          id: 'projectLanguageSuggestions',
+          title: t('enableProjectLanguageSuggestions'),
+          description: t('enableProjectLanguageSuggestionsDescription'),
           type: 'toggle',
-          value: enableLanguoidLinkSuggestions,
+          value: enableProjectLanguageSuggestions,
           onPress: () =>
-            handleLanguoidLinkSuggestionsToggle(!enableLanguoidLinkSuggestions),
+            handleProjectLanguageSuggestionsToggle(
+              !enableProjectLanguageSuggestions
+            ),
           disabled: !isOnline
         },
         {

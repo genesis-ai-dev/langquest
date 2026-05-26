@@ -16,14 +16,13 @@ import type { asset_content_link } from '@/db/drizzleSchema';
 import { asset } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useProjectById } from '@/hooks/db/useProjects';
-import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useHasUserReported } from '@/hooks/useReports';
 import { useTranscription } from '@/hooks/useTranscription';
 import { resolveTable } from '@/utils/dbUtils';
-import { useRouter } from 'expo-router';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import { fileExists, getLocalUri } from '@/utils/fileUtils';
 import { cn, getThemeColor } from '@/utils/styleUtils';
@@ -31,6 +30,7 @@ import RNAlert from '@blazejkustra/react-native-alert';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { eq } from 'drizzle-orm';
+import { useRouter } from 'expo-router';
 import {
   FlagIcon,
   LockIcon,
@@ -394,13 +394,6 @@ export default function NextGenTranslationModal({
         });
       },
       onSuccess: () => {
-        const isTranscription = asset?.content_type === 'transcription';
-        RNAlert.alert(
-          t('success'),
-          isTranscription
-            ? t('transcriptionSubmittedSuccessfully')
-            : t('translationSubmittedSuccessfully')
-        );
         setIsEditing(false);
         onVoteSuccess?.(); // Refresh the list
         onOpenChange(false);
@@ -447,31 +440,20 @@ export default function NextGenTranslationModal({
 
   const handleTranscribe = async (uri: string) => {
     if (!isAuthenticated) {
-      RNAlert.alert(
-        t('error'),
-        t('pleaseLogInToTranscribe') || 'Please log in to transcribe audio'
-      );
+      RNAlert.alert(t('error'), t('pleaseLogInToTranscribe'));
       return;
     }
 
     // Validate the audio file exists before attempting transcription
     if (!uri) {
-      RNAlert.alert(
-        t('error'),
-        t('audioNotAvailable') ||
-          'Audio not available. The file may not have been downloaded yet.'
-      );
+      RNAlert.alert(t('error'), t('audioNotAvailable'));
       return;
     }
 
     const exists = await fileExists(uri);
     if (!exists) {
       console.log('[Transcription] Audio file not found at URI:', uri);
-      RNAlert.alert(
-        t('error'),
-        t('audioNotAvailable') ||
-          'Audio not available. The file may not have been downloaded yet.'
-      );
+      RNAlert.alert(t('error'), t('audioNotAvailable'));
       return;
     }
 
@@ -489,7 +471,7 @@ export default function NextGenTranslationModal({
         error instanceof Error ? error.message : 'Unknown error';
       RNAlert.alert(
         t('error'),
-        `${t('transcriptionFailed') || 'Failed to transcribe audio.'}\n\n${errorMessage}`
+        `${t('transcriptionFailed')}\n\n${errorMessage}`
       );
     }
   };
@@ -666,7 +648,7 @@ export default function NextGenTranslationModal({
                             }}
                             className="mt-4"
                           >
-                            <Text>{t('signIn') || 'Sign In'}</Text>
+                            <Text>{t('signIn')}</Text>
                           </Button>
                         </Alert>
                       ) : (

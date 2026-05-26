@@ -13,26 +13,27 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { useAuth } from '@/contexts/AuthContext';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import { updateContentLinkOrder } from '@/database_services/assetService';
+import { getEffectiveLastRecordingSessionId } from '@/database_services/questService';
 import type { LayerStatus } from '@/database_services/types';
 import {
   asset,
   asset_content_link,
   languoid as languoidTable,
   project,
-  project_language_link
+  project_language_link,
+  quest as questTable
 } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { AppConfig } from '@/db/supabase/AppConfig';
-import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useOrthographyExamples } from '@/hooks/useOrthographyExamples';
 import { useHasUserReported } from '@/hooks/useReports';
 import { useTranscription } from '@/hooks/useTranscription';
 import { useTranscriptionLocalization } from '@/hooks/useTranscriptionLocalization';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useLocalStore } from '@/store/localStore';
-import { Stack } from 'expo-router';
 import {
   fileExists,
   getLocalAttachmentUriWithOPFS,
@@ -40,8 +41,10 @@ import {
 } from '@/utils/fileUtils';
 import { cn } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
+import { useFocusEffect } from '@react-navigation/native';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { and, asc, eq, inArray } from 'drizzle-orm';
+import { Stack } from 'expo-router';
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -54,13 +57,18 @@ import {
   SettingsIcon,
   UserIcon
 } from 'lucide-react-native';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import type { FlatList as FlatListType, ViewToken } from 'react-native';
 import { Dimensions, FlatList, Text, TextInput, View } from 'react-native';
 import { scheduleOnRN } from 'react-native-worklets';
 import NextGenNewTranslationModal from './NextGenNewTranslationModal';
 import NextGenTranslationsList from './NextGenTranslationsList';
 import { useHybridData } from './useHybridData';
+
+// Static viewability config for FlatList - defined outside component to avoid recreation
+const VIEWABILITY_CONFIG = {
+  itemVisiblePercentThreshold: 50
+};
 
 const ASSET_VIEWER_PROPORTION = 0.35;
 
@@ -228,45 +236,17 @@ export default function NextGenAssetDetailView() {
 
   // Use passed project data if available (instant!), otherwise query using hybrid data
   // This supports both authenticated (offline) and anonymous (cloud-only) users
-  // Use a factory function that only creates the query when needed
-  const getProjectOfflineQuery = React.useCallback(() => {
-    if (!isAuthenticated) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return
-      return 'SELECT * FROM project WHERE 1=0' as any;
-    }
-    try {
-      if (!system.isPowerSyncInitialized()) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return
-        return 'SELECT * FROM project WHERE 1=0' as any;
-      }
-      return toCompilableQuery(
-        system.db.query.project.findFirst({
-          where: projectId ? eq(project.id, projectId) : undefined
-        })
-      );
-    } catch (error) {
-      console.warn(
-        'Failed to create project offline query, using placeholder:',
-        error
-      );
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return
-      return 'SELECT * FROM project WHERE 1=0' as any;
-    }
-  }, [projectId, isAuthenticated]);
-
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-  const projectOfflineQuery = React.useMemo(
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    () => getProjectOfflineQuery(),
-    [getProjectOfflineQuery]
-  );
-
   const { data: queriedProjectDataArray } = useHybridData<
     typeof project.$inferSelect
   >({
     dataType: 'project-detail',
     queryKeyParams: [projectId || ''],
-    offlineQuery: projectOfflineQuery,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    offlineQuery: toCompilableQuery(
+      system.db.query.project.findFirst({
+        where: eq(project.id, projectId!)
+      })
+    ) as any,
     cloudQueryFn: async () => {
       if (!projectId) return [];
       const { data, error } = await system.supabaseConnector.client
@@ -279,12 +259,60 @@ export default function NextGenAssetDetailView() {
       return data || [];
     },
     enableCloudQuery: !!projectId,
-    enableOfflineQuery: !!projectId
+    enableOfflineQuery:
+      !!projectId && isAuthenticated && system.isPowerSyncInitialized()
   });
 
   // Prefer passed data for instant rendering!
   const queriedProjectData = queriedProjectDataArray?.[0];
   const projectData = queriedProjectData;
+
+  // Fetch quest data for "New" label highlighting (recording session tracking)
+  const { data: questDataArray, refetch: refetchQuest } = useHybridData<
+    typeof questTable.$inferSelect
+  >({
+    dataType: 'quest-detail',
+    queryKeyParams: [questId || ''],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    offlineQuery: toCompilableQuery(
+      system.db.query.quest.findFirst({
+        where: eq(questTable.id, questId!)
+      })
+    ) as any,
+    cloudQueryFn: async () => {
+      if (!questId) return [];
+      const { data, error } = await system.supabaseConnector.client
+        .from('quest')
+        .select('*')
+        .eq('id', questId)
+        .limit(1)
+        .overrideTypes<(typeof questTable.$inferSelect)[]>();
+      if (error) throw error;
+      return data || [];
+    },
+    enableCloudQuery: !!questId,
+    enableOfflineQuery: !!questId && isAuthenticated
+  });
+  const questData = questDataArray?.[0];
+
+  const activeRecordingSessionId = useLocalStore(
+    (state) => state.currentRecordingData?.recordingSession
+  );
+
+  const lastRecordingSessionId = React.useMemo(
+    () =>
+      getEffectiveLastRecordingSessionId(
+        questData?.metadata,
+        activeRecordingSessionId
+      ),
+    [questData?.metadata, activeRecordingSessionId]
+  );
+
+  useFocusEffect(
+    React.useCallback(() => {
+      void refetchQuest();
+    }, [refetchQuest])
+  );
 
   // Get target languoid_id from project_language_link
   const { data: targetLanguoidLink = [] } = useHybridData<{
@@ -345,6 +373,15 @@ export default function NextGenAssetDetailView() {
   // internal query for creator_id hasn't resolved yet (race condition on first mount).
   const isLocalContent = activeAsset?.source === 'local';
   const canTranslate = canTranslateFromPermissions || isLocalContent;
+
+  // Highlight assets from the last recording session (only for unpublished content)
+  const assetMeta = activeAsset?.metadata as {
+    recordingSessionId?: string;
+  } | null;
+  const isHighlighted =
+    isLocalContent &&
+    !!assetMeta?.recordingSessionId &&
+    assetMeta.recordingSessionId === lastRecordingSessionId;
 
   // Track previous asset ID to detect when asset changes
   const prevAssetIdRef = React.useRef<string | null>(null);
@@ -608,20 +645,17 @@ export default function NextGenAssetDetailView() {
   const contentFlatListRef =
     useRef<FlatListType<typeof asset_content_link.$inferSelect>>(null);
 
-  // Viewability config for FlatList - must be before any early returns
-  const viewabilityConfig = useRef({
-    itemVisiblePercentThreshold: 50
-  }).current;
-
   // Handle viewable items change (when user swipes) - must be before any early returns
-  const onViewableItemsChanged = useRef(
+  // Using useCallback instead of useRef().current for React Compiler optimization
+  const onViewableItemsChanged = useCallback(
     ({ viewableItems }: { viewableItems: ViewToken[] }) => {
       const firstItem = viewableItems[0];
       if (firstItem?.index != null) {
         setCurrentContentIndex(firstItem.index);
       }
-    }
-  ).current;
+    },
+    [] // setCurrentContentIndex is stable from useState
+  );
 
   // Screen dimensions for layout calculations
   const screenHeight = Dimensions.get('window').height;
@@ -692,20 +726,13 @@ export default function NextGenAssetDetailView() {
   // Transcription handler for source audio
   const handleTranscribe = async (uri: string) => {
     if (!isAuthenticated) {
-      RNAlert.alert(
-        t('error'),
-        t('pleaseLogInToTranscribe') || 'Please log in to transcribe audio'
-      );
+      RNAlert.alert(t('error'), t('pleaseLogInToTranscribe'));
       return;
     }
 
     // Validate the audio URI exists
     if (!uri) {
-      RNAlert.alert(
-        t('error'),
-        t('audioNotAvailable') ||
-          'Audio not available. The file may not have been downloaded yet.'
-      );
+      RNAlert.alert(t('error'), t('audioNotAvailable'));
       return;
     }
 
@@ -716,11 +743,7 @@ export default function NextGenAssetDetailView() {
         const exists = await fileExists(uri);
         if (!exists) {
           console.log('[Transcription] Audio file not found at URI:', uri);
-          RNAlert.alert(
-            t('error'),
-            t('audioNotAvailable') ||
-              'Audio not available. The file may not have been downloaded yet.'
-          );
+          RNAlert.alert(t('error'), t('audioNotAvailable'));
           return;
         }
       } catch (error) {
@@ -730,6 +753,14 @@ export default function NextGenAssetDetailView() {
     }
 
     console.log('[Transcription] Starting transcription for URI:', uri);
+
+    // Pre-compute values outside the try block for React Compiler optimization
+    const shouldLocalize =
+      orthographyExamples.length > 0 && currentContentLanguageId;
+    const languoid = shouldLocalize
+      ? languoidById.get(currentContentLanguageId)
+      : undefined;
+    const languageName = languoid?.name || 'the target language';
 
     try {
       // Step 1: Get phonetic transcription from ASR
@@ -744,11 +775,7 @@ export default function NextGenAssetDetailView() {
       // Step 2: Localize the phonetic transcription if we have examples
       let finalText = result.text;
 
-      if (orthographyExamples.length > 0 && currentContentLanguageId) {
-        // Get language name for the prompt
-        const languoid = languoidById.get(currentContentLanguageId);
-        const languageName = languoid?.name || 'the target language';
-
+      if (shouldLocalize) {
         console.log(
           '[Transcription] Localizing with',
           orthographyExamples.length,
@@ -793,7 +820,7 @@ export default function NextGenAssetDetailView() {
         error instanceof Error ? error.message : 'Unknown error';
       RNAlert.alert(
         t('error'),
-        `${t('transcriptionFailed') || 'Failed to transcribe audio.'}\n\n${errorMessage}`
+        `${t('transcriptionFailed')}\n\n${errorMessage}`
       );
     }
   };
@@ -822,9 +849,19 @@ export default function NextGenAssetDetailView() {
       {/* Header */}
       <View className="flex-row items-center justify-between gap-1">
         <View className="flex-1 flex-row items-center gap-4">
-          <Text className="flex-1 text-xl font-bold text-foreground">
-            {activeAsset.name}
-          </Text>
+          <View className="flex-1 flex-row items-center gap-2">
+            <Text className="text-xl font-bold text-foreground">
+              {activeAsset.name}
+            </Text>
+            {/* New badge for recently recorded assets */}
+            {isHighlighted && (
+              <View className="rounded-lg bg-primary/50 px-2">
+                <Text className="text-[10px] font-semibold text-white">
+                  NEW
+                </Text>
+              </View>
+            )}
+          </View>
           {Boolean(projectData?.private) && (
             <View className="flex-row items-center gap-1">
               <Icon as={LockIcon} className="text-muted-foreground" />
@@ -909,7 +946,7 @@ export default function NextGenAssetDetailView() {
                   showsHorizontalScrollIndicator={false}
                   keyExtractor={(item) => item.id}
                   onViewableItemsChanged={onViewableItemsChanged}
-                  viewabilityConfig={viewabilityConfig}
+                  viewabilityConfig={VIEWABILITY_CONFIG}
                   snapToInterval={contentWidth}
                   decelerationRate="fast"
                   getItemLayout={(_, index) => ({

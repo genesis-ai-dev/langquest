@@ -1,0 +1,22 @@
+{
+	"name": "resend-webhook-router",
+	"version": "1.0.0",
+	"private": true,
+	"description": "Forwards Resend webhooks to dev and production Supabase resend-webhook functions",
+	"type": "module",
+	"scripts": {
+		"dev": "wrangler dev --var $(dotenvx keypair -f .env.txt --format=colon)",
+		"deploy": "wrangler deploy",
+		"encrypt": "dotenvx encrypt -f .env.txt",
+		"cf-typegen": "wrangler types",
+		"typecheck": "wrangler types --check && tsc --noEmit"
+	},
+	"dependencies": {
+		"@dotenvx/dotenvx": "^1.59.1",
+		"svix": "^1.82.0"
+	},
+	"devDependencies": {
+		"typescript": "^5.5.2",
+		"wrangler": "^4.93.0"
+	}
+}

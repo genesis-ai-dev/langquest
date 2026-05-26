@@ -50,7 +50,7 @@ export async function updateQuestMetadata(
   }
 }
 
-function parseQuestMetadata(rawMetadata: unknown): QuestMetadata {
+export function parseQuestMetadata(rawMetadata: unknown): QuestMetadata {
   if (!rawMetadata) return {};
   if (typeof rawMetadata === 'string') {
     try {
@@ -63,6 +63,18 @@ function parseQuestMetadata(rawMetadata: unknown): QuestMetadata {
     }
   }
   return typeof rawMetadata === 'object' ? (rawMetadata as QuestMetadata) : {};
+}
+
+/**
+ * Resolves the session id used to highlight assets recorded in the latest session.
+ * Prefers the in-memory recording session while the quest query may still be stale.
+ */
+export function getEffectiveLastRecordingSessionId(
+  questMetadata: unknown,
+  activeRecordingSessionId?: string
+): string | undefined {
+  const parsed = parseQuestMetadata(questMetadata);
+  return activeRecordingSessionId ?? parsed.lastRecordingSessionId;
 }
 
 export async function createQuestRecordingSession(

@@ -236,7 +236,7 @@
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "@types/react": "~19.2.2",
-    "jest-snapshot-prettier": "npm:prettier@^3.6.2",
+    "jest-snapshot-prettier": "npm:prettier@^3.8.1",
     "minimatch": "^9.0.7",
     "esbuild": "^0.25.0",
     "sharp-cli": {

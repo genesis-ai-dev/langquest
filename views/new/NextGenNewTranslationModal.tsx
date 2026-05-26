@@ -295,21 +295,14 @@ export default function NextGenNewTranslationModal({
   // Handle AI transcription from source audio
   const handleAiTranscription = async () => {
     if (!isAuthenticated) {
-      RNAlert.alert(
-        t('error'),
-        t('pleaseLogInToTranscribe') || 'Please log in to transcribe audio'
-      );
+      RNAlert.alert(t('error'), t('pleaseLogInToTranscribe'));
       return;
     }
 
     // Use pre-resolved audio URIs from parent
     const audioUri = resolvedAudioUris[0];
     if (!audioUri) {
-      RNAlert.alert(
-        t('error'),
-        t('audioNotAvailable') ||
-          'Audio not available. The file may not have been downloaded yet.'
-      );
+      RNAlert.alert(t('error'), t('audioNotAvailable'));
       return;
     }
 
@@ -371,7 +364,7 @@ export default function NextGenNewTranslationModal({
         error instanceof Error ? error.message : 'Unknown error';
       RNAlert.alert(
         t('error'),
-        `${t('transcriptionFailed') || 'Failed to transcribe audio.'}\n\n${errorMessage}`
+        `${t('transcriptionFailed')}\n\n${errorMessage}`
       );
     }
   };
@@ -564,12 +557,6 @@ export default function NextGenNewTranslationModal({
       onSuccess: () => {
         Keyboard.dismiss();
         form.reset(defaultValues);
-        RNAlert.alert(
-          t('success'),
-          contentType === 'transcription'
-            ? t('transcriptionSubmittedSuccessfully')
-            : t('translationSubmittedSuccessfully')
-        );
         onSuccess?.();
         onClose();
       },

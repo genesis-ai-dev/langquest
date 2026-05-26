@@ -12,7 +12,6 @@ import { SUPPORTED_LANGUAGE_NAMES } from '@/services/localizations';
 import { useLocalStore } from '@/store/localStore';
 import { supabaseAnon } from '@/utils/supabaseAnon';
 import { PortalHost } from '@rn-primitives/portal';
-import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { LanguagesIcon } from 'lucide-react-native';
 import React, { useEffect, useMemo, useState } from 'react';
@@ -189,13 +188,8 @@ interface TermsGateViewProps {
 /**
  * Pre-auth terms gate rendered outside the navigation stack.
  * Uses only the Supabase anon key for language data — no PowerSync, no Auth.
- * Hides the splash screen on mount.
  */
 export function TermsGateView({ systemBarsStyle }: TermsGateViewProps) {
-  useEffect(() => {
-    void SplashScreen.hideAsync();
-  }, []);
-
   return (
     <SafeAreaProvider>
       <GestureHandlerRootView style={{ flex: 1 }}>

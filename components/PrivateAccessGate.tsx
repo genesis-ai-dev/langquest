@@ -430,7 +430,7 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
                 </Text>
               </View>
               <Button onPress={handleLoginRequest} className="mb-2">
-                <Text>{t('signIn') || 'Sign In'}</Text>
+                <Text>{t('signIn')}</Text>
               </Button>
             </>
           ) : (
@@ -442,7 +442,7 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
                 {t('privateProjectNotLoggedInInline')}
               </Text>
               <Button onPress={handleLoginRequest} className="mt-4">
-                <Text>{t('signIn') || 'Sign In'}</Text>
+                <Text>{t('signIn')}</Text>
               </Button>
             </>
           )}
