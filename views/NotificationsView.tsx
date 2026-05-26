@@ -272,16 +272,18 @@ function LanguoidLinkSuggestionGroup({
   );
 }
 
+type ProjectLanguageSuggestionAction = 'accept' | 'dismiss';
+
 interface ProjectLanguageSuggestionItemProps {
   suggestion: ProjectLanguageSuggestionWithDetails;
-  isProcessing: boolean;
+  processingAction: ProjectLanguageSuggestionAction | null;
   onAccept: (suggestion: ProjectLanguageSuggestionWithDetails) => void;
   onDismiss: (suggestion: ProjectLanguageSuggestionWithDetails) => void;
 }
 
 function ProjectLanguageSuggestionItem({
   suggestion,
-  isProcessing,
+  processingAction,
   onAccept,
   onDismiss
 }: ProjectLanguageSuggestionItemProps) {
@@ -311,7 +313,11 @@ function ProjectLanguageSuggestionItem({
           </View>
 
           <View className="flex gap-2">
-            <Button onPress={() => onAccept(suggestion)} loading={isProcessing}>
+            <Button
+              onPress={() => onAccept(suggestion)}
+              loading={processingAction === 'accept'}
+              disabled={processingAction !== null}
+            >
               <Text className="text-sm">
                 {t('projectLanguageSuggestionSwitchTo', {
                   language: suggestedName
@@ -321,7 +327,8 @@ function ProjectLanguageSuggestionItem({
             <Button
               variant="ghost"
               onPress={() => onDismiss(suggestion)}
-              loading={isProcessing}
+              loading={processingAction === 'dismiss'}
+              disabled={processingAction !== null}
             >
               <Text className="text-sm">
                 {t('projectLanguageSuggestionKeepCurrent')}
@@ -362,8 +369,8 @@ export default function NotificationsView() {
     useProjectLanguageSuggestions();
   const acceptProjectLanguage = useAcceptProjectLanguageSuggestion();
   const dismissProjectLanguage = useDismissProjectLanguageSuggestion();
-  const [processingProjectLanguageIds, setProcessingProjectLanguageIds] =
-    useState<Set<string>>(new Set());
+  const [processingProjectLanguageActions, setProcessingProjectLanguageActions] =
+    useState<Map<string, ProjectLanguageSuggestionAction>>(new Map());
 
   // All operations on invites, requests, and notifications go through synced tables
   // PowerSync will automatically sync changes to Supabase and back down
@@ -1245,41 +1252,51 @@ export default function NotificationsView() {
     return t('partialMatch');
   };
 
+  const setProjectLanguageProcessing = (
+    suggestionId: string,
+    action: ProjectLanguageSuggestionAction | null
+  ) => {
+    setProcessingProjectLanguageActions((prev) => {
+      const next = new Map(prev);
+      if (action === null) {
+        next.delete(suggestionId);
+      } else {
+        next.set(suggestionId, action);
+      }
+      return next;
+    });
+  };
+
   const handleAcceptProjectLanguageSuggestion = async (
     suggestion: ProjectLanguageSuggestionWithDetails
   ) => {
-    if (processingProjectLanguageIds.has(suggestion.id)) return;
+    if (processingProjectLanguageActions.has(suggestion.id)) return;
     if (!isOnline) {
       RNAlert.alert(t('error'), t('mustBeOnlineToAcceptInvite'));
       return;
     }
 
-    setProcessingProjectLanguageIds((prev) => new Set(prev).add(suggestion.id));
+    setProjectLanguageProcessing(suggestion.id, 'accept');
     try {
       await acceptProjectLanguage.mutateAsync(suggestion.id);
-      RNAlert.alert(t('success'), t('projectLanguageSuggestionAcceptSuccess'));
     } catch (error) {
       console.error('Error accepting project language suggestion:', error);
       RNAlert.alert(t('error'), t('projectLanguageSuggestionAcceptError'));
     } finally {
-      setProcessingProjectLanguageIds((prev) => {
-        const next = new Set(prev);
-        next.delete(suggestion.id);
-        return next;
-      });
+      setProjectLanguageProcessing(suggestion.id, null);
     }
   };
 
   const handleDismissProjectLanguageSuggestion = async (
     suggestion: ProjectLanguageSuggestionWithDetails
   ) => {
-    if (processingProjectLanguageIds.has(suggestion.id)) return;
+    if (processingProjectLanguageActions.has(suggestion.id)) return;
     if (!isOnline) {
       RNAlert.alert(t('error'), t('mustBeOnlineToAcceptInvite'));
       return;
     }
 
-    setProcessingProjectLanguageIds((prev) => new Set(prev).add(suggestion.id));
+    setProjectLanguageProcessing(suggestion.id, 'dismiss');
     try {
       await dismissProjectLanguage.mutateAsync(suggestion.id);
       RNAlert.alert(t('success'), t('projectLanguageSuggestionDismissSuccess'));
@@ -1287,11 +1304,7 @@ export default function NotificationsView() {
       console.error('Error dismissing project language suggestion:', error);
       RNAlert.alert(t('error'), t('projectLanguageSuggestionAcceptError'));
     } finally {
-      setProcessingProjectLanguageIds((prev) => {
-        const next = new Set(prev);
-        next.delete(suggestion.id);
-        return next;
-      });
+      setProjectLanguageProcessing(suggestion.id, null);
     }
   };
 
@@ -1436,9 +1449,10 @@ export default function NotificationsView() {
                     <ProjectLanguageSuggestionItem
                       key={suggestion.id}
                       suggestion={suggestion}
-                      isProcessing={processingProjectLanguageIds.has(
-                        suggestion.id
-                      )}
+                      processingAction={
+                        processingProjectLanguageActions.get(suggestion.id) ??
+                        null
+                      }
                       onAccept={handleAcceptProjectLanguageSuggestion}
                       onDismiss={handleDismissProjectLanguageSuggestion}
                     />
