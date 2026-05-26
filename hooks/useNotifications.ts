@@ -81,6 +81,7 @@ export const useNotifications = () => {
     dataType: 'owner-projects-count',
     queryKeyParams: [userId],
     enabled: shouldQueryOwnerProjects && !!userId, // Only query if user ID exists and user is authenticated
+    getItemId: (item) => item.project_id,
 
     // PowerSync query using Drizzle - only create if we have a valid user ID
     offlineQuery: toCompilableQuery(

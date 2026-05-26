@@ -48,6 +48,7 @@ export function useProjectLanguoidSuggestions() {
     dataType: 'project-languoid-suggestion-owner-projects',
     queryKeyParams: [userId],
     enabled: !!userId,
+    getItemId: (item) => item.project_id,
     offlineQuery: toCompilableQuery(
       db
         .select({ project_id: profile_project_link.project_id })
