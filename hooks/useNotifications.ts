@@ -3,6 +3,7 @@ import {
   invite,
   languoid_link_suggestion,
   profile_project_link,
+  project_language_suggestion,
   request
 } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
@@ -209,23 +210,67 @@ export const useNotifications = () => {
     }
   });
 
+  // Project language suggestions (Event 1): pending suggestions for projects
+  // this user owns. RLS guarantees only owners see rows, but we additionally
+  // gate on the local owner-projects list so the count never includes stale
+  // synced data after a membership change.
+  const { data: projectLanguageSuggestions = [] } = useHybridData<{
+    id: string;
+  }>({
+    dataType: 'project-language-suggestions-count',
+    queryKeyParams: [requestQueryKey],
+    enabled: ownerProjectIds.length > 0 && shouldQueryOwnerProjects,
+    offlineQuery:
+      ownerProjectIds.length > 0
+        ? toCompilableQuery(
+            system.db
+              .select({ id: project_language_suggestion.id })
+              .from(project_language_suggestion)
+              .where(
+                and(
+                  inArray(
+                    project_language_suggestion.project_id,
+                    ownerProjectIds
+                  ),
+                  eq(project_language_suggestion.status, 'pending'),
+                  eq(project_language_suggestion.active, true)
+                )
+              )
+          )
+        : 'SELECT id FROM project_language_suggestion WHERE 1=0',
+    cloudQueryFn: async () => {
+      if (ownerProjectIds.length === 0) return [];
+      const { data, error } = await system.supabaseConnector.client
+        .from('project_language_suggestion')
+        .select('id')
+        .in('project_id', ownerProjectIds)
+        .eq('status', 'pending')
+        .eq('active', true);
+      if (error) throw error;
+      return data as { id: string }[];
+    }
+  });
+
   const inviteCount = inviteRequests.length;
   const requestCount = requestNotifications.length;
   // Ignore cached query data when the feature flag is off (matches NotificationsView)
   const languoidLinkCount = enableLanguoidLinkSuggestions
     ? languoidSuggestions.length
     : 0;
+  const projectLanguageSuggestionCount = projectLanguageSuggestions.length;
   const sentInviteDeliveryFailureCount = sentInviteDeliveryFailures.length;
 
   return {
     inviteCount,
     requestCount,
     languoidLinkCount,
+    projectLanguageSuggestionCount,
     sentInviteDeliveryFailureCount,
     totalCount:
       inviteCount +
       requestCount +
       languoidLinkCount +
+      projectLanguageSuggestionCount +
       sentInviteDeliveryFailureCount
   };
 };

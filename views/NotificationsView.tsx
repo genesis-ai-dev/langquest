@@ -35,6 +35,12 @@ import {
   useLanguoidLinkSuggestions
 } from '@/hooks/db/useLanguoidLinkSuggestions';
 import { useUserMemberships } from '@/hooks/db/useProfiles';
+import type { ProjectLanguageSuggestionWithDetails } from '@/hooks/db/useProjectLanguageSuggestions';
+import {
+  useAcceptProjectLanguageSuggestion,
+  useDismissProjectLanguageSuggestion,
+  useProjectLanguageSuggestions
+} from '@/hooks/db/useProjectLanguageSuggestions';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useLocalStore } from '@/store/localStore';
@@ -48,6 +54,7 @@ import {
   AlertTriangle,
   BellIcon,
   CheckIcon,
+  LanguagesIcon,
   LinkIcon,
   MailIcon,
   UserPlusIcon,
@@ -265,6 +272,68 @@ function LanguoidLinkSuggestionGroup({
   );
 }
 
+interface ProjectLanguageSuggestionItemProps {
+  suggestion: ProjectLanguageSuggestionWithDetails;
+  isProcessing: boolean;
+  onAccept: (suggestion: ProjectLanguageSuggestionWithDetails) => void;
+  onDismiss: (suggestion: ProjectLanguageSuggestionWithDetails) => void;
+}
+
+function ProjectLanguageSuggestionItem({
+  suggestion,
+  isProcessing,
+  onAccept,
+  onDismiss
+}: ProjectLanguageSuggestionItemProps) {
+  const { t } = useLocalization();
+  const projectName = suggestion.project_name ?? t('unknownProject');
+  const currentName = suggestion.current_languoid_name ?? '?';
+  const suggestedName = suggestion.suggested_languoid_name ?? '?';
+
+  return (
+    <Card>
+      <CardContent className="p-4">
+        <View className="flex gap-3">
+          <View className="flex-col gap-1">
+            <View className="flex flex-row items-center gap-2">
+              <Icon as={LanguagesIcon} size={20} className="text-primary" />
+              <Text className="font-semibold text-foreground" variant="h4">
+                {t('projectLanguageSuggestionTitle')}
+              </Text>
+            </View>
+            <Text className="text-sm text-muted-foreground" ph-no-capture>
+              {t('projectLanguageSuggestionDescription', {
+                project: projectName,
+                current: currentName,
+                suggested: suggestedName
+              })}
+            </Text>
+          </View>
+
+          <View className="flex gap-2">
+            <Button onPress={() => onAccept(suggestion)} loading={isProcessing}>
+              <Text className="text-sm">
+                {t('projectLanguageSuggestionSwitchTo', {
+                  language: suggestedName
+                })}
+              </Text>
+            </Button>
+            <Button
+              variant="ghost"
+              onPress={() => onDismiss(suggestion)}
+              loading={isProcessing}
+            >
+              <Text className="text-sm">
+                {t('projectLanguageSuggestionKeepCurrent')}
+              </Text>
+            </Button>
+          </View>
+        </View>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function NotificationsView() {
   const { t } = useLocalization();
   const { currentUser } = useAuth();
@@ -287,6 +356,14 @@ export default function NotificationsView() {
     useLanguoidLinkSuggestions();
   const acceptSuggestion = useAcceptLanguoidLinkSuggestion();
   const keepCustomLanguoid = useKeepCustomLanguoid();
+
+  // Project language suggestions (Event 1 - always on, no feature flag)
+  const { suggestions: projectLanguageSuggestions } =
+    useProjectLanguageSuggestions();
+  const acceptProjectLanguage = useAcceptProjectLanguageSuggestion();
+  const dismissProjectLanguage = useDismissProjectLanguageSuggestion();
+  const [processingProjectLanguageIds, setProcessingProjectLanguageIds] =
+    useState<Set<string>>(new Set());
 
   // All operations on invites, requests, and notifications go through synced tables
   // PowerSync will automatically sync changes to Supabase and back down
@@ -1168,6 +1245,56 @@ export default function NotificationsView() {
     return t('partialMatch');
   };
 
+  const handleAcceptProjectLanguageSuggestion = async (
+    suggestion: ProjectLanguageSuggestionWithDetails
+  ) => {
+    if (processingProjectLanguageIds.has(suggestion.id)) return;
+    if (!isOnline) {
+      RNAlert.alert(t('error'), t('mustBeOnlineToAcceptInvite'));
+      return;
+    }
+
+    setProcessingProjectLanguageIds((prev) => new Set(prev).add(suggestion.id));
+    try {
+      await acceptProjectLanguage.mutateAsync(suggestion.id);
+      RNAlert.alert(t('success'), t('projectLanguageSuggestionAcceptSuccess'));
+    } catch (error) {
+      console.error('Error accepting project language suggestion:', error);
+      RNAlert.alert(t('error'), t('projectLanguageSuggestionAcceptError'));
+    } finally {
+      setProcessingProjectLanguageIds((prev) => {
+        const next = new Set(prev);
+        next.delete(suggestion.id);
+        return next;
+      });
+    }
+  };
+
+  const handleDismissProjectLanguageSuggestion = async (
+    suggestion: ProjectLanguageSuggestionWithDetails
+  ) => {
+    if (processingProjectLanguageIds.has(suggestion.id)) return;
+    if (!isOnline) {
+      RNAlert.alert(t('error'), t('mustBeOnlineToAcceptInvite'));
+      return;
+    }
+
+    setProcessingProjectLanguageIds((prev) => new Set(prev).add(suggestion.id));
+    try {
+      await dismissProjectLanguage.mutateAsync(suggestion.id);
+      RNAlert.alert(t('success'), t('projectLanguageSuggestionDismissSuccess'));
+    } catch (error) {
+      console.error('Error dismissing project language suggestion:', error);
+      RNAlert.alert(t('error'), t('projectLanguageSuggestionAcceptError'));
+    } finally {
+      setProcessingProjectLanguageIds((prev) => {
+        const next = new Set(prev);
+        next.delete(suggestion.id);
+        return next;
+      });
+    }
+  };
+
   // Handle pull-to-refresh
   const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
@@ -1207,6 +1334,18 @@ export default function NotificationsView() {
           exact: false
         }),
         queryClient.invalidateQueries({
+          queryKey: ['project-language-suggestions'],
+          exact: false
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ['project-language-suggestion-project-details'],
+          exact: false
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ['project-language-suggestion-languoid-details'],
+          exact: false
+        }),
+        queryClient.invalidateQueries({
           queryKey: ['user-memberships'],
           exact: false
         })
@@ -1222,7 +1361,8 @@ export default function NotificationsView() {
   const hasAnyNotifications =
     allNotifications.length > 0 ||
     sentInviteDeliveryIssues.length > 0 ||
-    (enableLanguoidLinkSuggestions && isOnline && uniqueLanguoidCount > 0);
+    (enableLanguoidLinkSuggestions && isOnline && uniqueLanguoidCount > 0) ||
+    projectLanguageSuggestions.length > 0;
 
   return (
     <View className="flex-1 gap-4 px-4 pt-4">
@@ -1288,6 +1428,23 @@ export default function NotificationsView() {
                     ))}
                   </View>
                 )}
+
+              {/* Project language suggestions (Event 1) */}
+              {projectLanguageSuggestions.length > 0 && (
+                <View className="flex-col gap-4">
+                  {projectLanguageSuggestions.map((suggestion) => (
+                    <ProjectLanguageSuggestionItem
+                      key={suggestion.id}
+                      suggestion={suggestion}
+                      isProcessing={processingProjectLanguageIds.has(
+                        suggestion.id
+                      )}
+                      onAccept={handleAcceptProjectLanguageSuggestion}
+                      onDismiss={handleDismissProjectLanguageSuggestion}
+                    />
+                  ))}
+                </View>
+              )}
 
               {/* Project invites and requests */}
               {allNotifications.map(renderNotificationItem)}

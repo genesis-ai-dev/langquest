@@ -12709,6 +12709,108 @@ export const localizations = {
     thai: 'เก็บภาษาที่กำหนดเองของคุณแล้ว',
     mandarin: '您的自定义语言已保留'
   },
+  projectLanguageSuggestionTitle: {
+    english: 'Project language check',
+    french: 'Vérification de la langue du projet',
+    spanish: 'Verificación del idioma del proyecto',
+    brazilian_portuguese: 'Verificação do idioma do projeto',
+    tok_pisin: 'Sekim tok ples bilong projek',
+    indonesian: 'Pemeriksaan bahasa proyek',
+    nepali: 'परियोजना भाषा जाँच',
+    hindi: 'परियोजना भाषा जांच',
+    burmese: 'ပရောဂျက် ဘာသာစကား စစ်ဆေးခြင်း',
+    thai: 'ตรวจสอบภาษาของโปรเจกต์',
+    mandarin: '项目语言检查'
+  },
+  projectLanguageSuggestionDescription: {
+    english:
+      'The name of "{project}" looks like {suggested}, but its target language is set to {current}. Switch to {suggested}?',
+    french:
+      'Le nom de « {project} » ressemble à {suggested}, mais sa langue cible est définie sur {current}. Passer à {suggested} ?',
+    spanish:
+      'El nombre de "{project}" parece {suggested}, pero su idioma de destino es {current}. ¿Cambiar a {suggested}?',
+    brazilian_portuguese:
+      'O nome de "{project}" parece ser {suggested}, mas seu idioma de destino é {current}. Mudar para {suggested}?',
+    tok_pisin:
+      'Nem bilong "{project}" i luk olsem {suggested}, tasol tok ples bilong en em {current}. Senisim long {suggested}?',
+    indonesian:
+      'Nama "{project}" terlihat seperti {suggested}, tetapi bahasa targetnya adalah {current}. Ganti ke {suggested}?',
+    nepali:
+      '"{project}" को नाम {suggested} जस्तो देखिन्छ, तर यसको लक्ष्य भाषा {current} छ। {suggested} मा परिवर्तन गर्ने?',
+    hindi:
+      '"{project}" का नाम {suggested} जैसा लगता है, लेकिन इसकी लक्ष्य भाषा {current} है। {suggested} पर स्विच करें?',
+    burmese:
+      '"{project}" ၏ နာမည်သည် {suggested} နှင့်တူသော်လည်း ၎င်း၏ ပစ်မှတ်ဘာသာစကားကို {current} သတ်မှတ်ထားသည်။ {suggested} သို့ ပြောင်းမည်လား။',
+    thai:
+      'ชื่อของ "{project}" ดูเหมือน {suggested} แต่ภาษาเป้าหมายถูกตั้งเป็น {current} เปลี่ยนเป็น {suggested}?',
+    mandarin:
+      '"{project}" 的名称看起来像 {suggested}，但其目标语言设置为 {current}。切换到 {suggested}?'
+  },
+  projectLanguageSuggestionSwitchTo: {
+    english: 'Switch to {language}',
+    french: 'Passer à {language}',
+    spanish: 'Cambiar a {language}',
+    brazilian_portuguese: 'Mudar para {language}',
+    tok_pisin: 'Senisim long {language}',
+    indonesian: 'Ganti ke {language}',
+    nepali: '{language} मा परिवर्तन गर्नुहोस्',
+    hindi: '{language} पर स्विच करें',
+    burmese: '{language} သို့ ပြောင်းပါ',
+    thai: 'เปลี่ยนเป็น {language}',
+    mandarin: '切换到 {language}'
+  },
+  projectLanguageSuggestionKeepCurrent: {
+    english: 'Keep current language',
+    french: 'Garder la langue actuelle',
+    spanish: 'Mantener idioma actual',
+    brazilian_portuguese: 'Manter idioma atual',
+    tok_pisin: 'Holim tok ples bilong nau',
+    indonesian: 'Pertahankan bahasa saat ini',
+    nepali: 'हालको भाषा राख्नुहोस्',
+    hindi: 'वर्तमान भाषा रखें',
+    burmese: 'လက်ရှိ ဘာသာစကားကို ထားပါ',
+    thai: 'เก็บภาษาปัจจุบัน',
+    mandarin: '保留当前语言'
+  },
+  projectLanguageSuggestionAcceptSuccess: {
+    english: 'Project language updated',
+    french: 'Langue du projet mise à jour',
+    spanish: 'Idioma del proyecto actualizado',
+    brazilian_portuguese: 'Idioma do projeto atualizado',
+    tok_pisin: 'Tok ples bilong projek i nupela',
+    indonesian: 'Bahasa proyek diperbarui',
+    nepali: 'परियोजना भाषा अद्यावधिक गरियो',
+    hindi: 'परियोजना की भाषा अपडेट की गई',
+    burmese: 'ပရောဂျက် ဘာသာစကားကို မွမ်းမံပြီးပါပြီ',
+    thai: 'อัปเดตภาษาของโปรเจกต์แล้ว',
+    mandarin: '项目语言已更新'
+  },
+  projectLanguageSuggestionAcceptError: {
+    english: 'Failed to update project language',
+    french: 'Échec de la mise à jour de la langue du projet',
+    spanish: 'Error al actualizar el idioma del proyecto',
+    brazilian_portuguese: 'Falha ao atualizar o idioma do projeto',
+    tok_pisin: 'No inap senisim tok ples bilong projek',
+    indonesian: 'Gagal memperbarui bahasa proyek',
+    nepali: 'परियोजना भाषा अद्यावधिक गर्न असफल',
+    hindi: 'परियोजना की भाषा अपडेट करने में विफल',
+    burmese: 'ပရောဂျက် ဘာသာစကားကို မွမ်းမံ၍ မရပါ',
+    thai: 'อัปเดตภาษาของโปรเจกต์ไม่สำเร็จ',
+    mandarin: '更新项目语言失败'
+  },
+  projectLanguageSuggestionDismissSuccess: {
+    english: 'Suggestion dismissed',
+    french: 'Suggestion ignorée',
+    spanish: 'Sugerencia descartada',
+    brazilian_portuguese: 'Sugestão descartada',
+    tok_pisin: 'Tok bilong helpim em pinis',
+    indonesian: 'Saran diabaikan',
+    nepali: 'सुझाव खारेज गरियो',
+    hindi: 'सुझाव खारिज किया गया',
+    burmese: 'အကြံပြုချက်ကို ပယ်ဖျက်ပြီးပါပြီ',
+    thai: 'ปฏิเสธคำแนะนำแล้ว',
+    mandarin: '已忽略建议'
+  },
   enableLanguoidLinkSuggestions: {
     english: 'Language link suggestions',
     french: 'Suggestions de liens linguistiques',

@@ -94,7 +94,7 @@ git clone https://github.com/bbssppllvv/refero_skill.git .cursor/skills/refero-d
 <details>
 <summary>What's inside</summary>
 
-**SKILL.md** — Research-First methodology
+**agent-guidelines.md** — Research-First methodology
 - Discovery questions before designing
 - Research strategies and query patterns  
 - Analysis frameworks and steal lists

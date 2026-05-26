@@ -1636,3 +1636,55 @@ export function createLanguoidLinkSuggestionTable<
 
   return table;
 }
+
+export function createProjectLanguageSuggestionTable<
+  T extends TableSource,
+  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
+>(
+  source: T,
+  {
+    project,
+    languoid
+  }: {
+    project: { id: AnySQLiteColumn };
+    languoid: { id: AnySQLiteColumn };
+  },
+  columns?: TColumnsMap,
+  extraConfig?: (
+    self: BuildExtraConfigColumns<
+      'project_language_suggestion',
+      TColumnsMap,
+      'sqlite'
+    >
+  ) => SQLiteTableExtraConfigValue[]
+) {
+  const extraColumns = (columns ?? {}) as TColumnsMap;
+  const table = getTableCreator(source)(
+    'project_language_suggestion',
+    {
+      ...getTableColumns(source),
+      project_id: text()
+        .notNull()
+        .references(() => project.id),
+      current_languoid_id: text()
+        .notNull()
+        .references(() => languoid.id),
+      suggested_languoid_id: text()
+        .notNull()
+        .references(() => languoid.id),
+      language_type: text({ enum: ['source', 'target'] })
+        .notNull()
+        .default('target'),
+      matched_value: text(),
+      status: text({ enum: statusOptions }).notNull().default('pending'),
+      ...extraColumns
+    },
+    (table) => [
+      index('project_language_suggestion_project_idx').on(table.project_id),
+      index('project_language_suggestion_status_idx').on(table.status),
+      ...normalizeParams(extraConfig, table)
+    ]
+  );
+
+  return table;
+}
