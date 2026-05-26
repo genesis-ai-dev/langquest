@@ -1,10 +1,12 @@
 import { Button, OpacityPressable } from '@/components/ui/button';
+import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
 import { useRouter } from 'expo-router';
+import { XIcon } from 'lucide-react-native';
 import React, { useCallback } from 'react';
-import { Linking, ScrollView, View } from 'react-native';
+import { Linking, Pressable, ScrollView, View } from 'react-native';
 
 interface TermsViewProps {
   onAccept?: () => void;
@@ -49,7 +51,11 @@ export function RoutedTermsView({
   }, [router]);
 
   const handleDismiss = useCallback(() => {
-    router.dismiss();
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace('/');
   }, [router]);
 
   return (
@@ -94,6 +100,16 @@ function TermsViewInner({
           <Text variant="h4" className="flex-1">
             {t('termsAndPrivacyTitle')}
           </Text>
+          {!canAcceptTerms && onDismiss && (
+            <Pressable
+              onPress={handleDismiss}
+              accessibilityRole="button"
+              accessibilityLabel={t('cancel')}
+              className="p-1"
+            >
+              <Icon as={XIcon} size={24} className="text-foreground" />
+            </Pressable>
+          )}
         </View>
         {languageSelect && (
           <View className="w-full gap-2.5">{languageSelect}</View>

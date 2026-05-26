@@ -749,7 +749,7 @@ export const useLocalStore = create<LocalState>()(
     {
       name: 'local-store',
       storage: createJSONStorage(() => AsyncStorage),
-      onRehydrateStorage: () => async (state) => {
+      onRehydrateStorage: () => (state) => {
         console.log('rehydrating local store', state);
         if (state) {
           state.setTheme(state.theme);
@@ -765,26 +765,30 @@ export const useLocalStore = create<LocalState>()(
             state.vadThreshold = VAD_THRESHOLD_DEFAULT;
           }
 
-          // Migrate offline undownload warning preference from old AsyncStorage key
+          // Migrate offline undownload warning preference from old AsyncStorage key (non-blocking)
           if (!state.offlineUndownloadWarningEnabled) {
-            try {
-              const oldValue = await AsyncStorage.getItem(
-                OFFLINE_UNDOWNLOAD_WARNING_KEY
-              );
-              if (oldValue !== null) {
-                const migratedValue = oldValue === 'true';
-                state.offlineUndownloadWarningEnabled = migratedValue;
-                await AsyncStorage.removeItem(OFFLINE_UNDOWNLOAD_WARNING_KEY);
-                console.log(
-                  `[LocalStore] Migrated offline undownload warning preference: ${migratedValue}`
+            void (async () => {
+              try {
+                const oldValue = await AsyncStorage.getItem(
+                  OFFLINE_UNDOWNLOAD_WARNING_KEY
+                );
+                if (oldValue !== null) {
+                  const migratedValue = oldValue === 'true';
+                  useLocalStore.setState({
+                    offlineUndownloadWarningEnabled: migratedValue
+                  });
+                  await AsyncStorage.removeItem(OFFLINE_UNDOWNLOAD_WARNING_KEY);
+                  console.log(
+                    `[LocalStore] Migrated offline undownload warning preference: ${migratedValue}`
+                  );
+                }
+              } catch (error) {
+                console.error(
+                  '[LocalStore] Error migrating offline undownload warning preference:',
+                  error
                 );
               }
-            } catch (error) {
-              console.error(
-                '[LocalStore] Error migrating offline undownload warning preference:',
-                error
-              );
-            }
+            })();
           }
         }
         useLocalStore.setState({ _hasHydrated: true });
