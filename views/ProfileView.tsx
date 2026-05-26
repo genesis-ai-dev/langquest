@@ -342,16 +342,14 @@ export default function ProfileView() {
             )}
           </View>
         )}
-        {!posthog.isDisabled && (
-          <Button
-            onPress={async () => {
-              posthog.capture('feedback button pressed');
-              await posthog.flush();
-            }}
-          >
-            <Text>{t('submitFeedback')}</Text>
-          </Button>
-        )}
+        <Button
+          onPress={() => {
+            posthog?.capture('feedback button pressed');
+            router.push('/(app)/feedback');
+          }}
+        >
+          <Text>{t('submitFeedback')}</Text>
+        </Button>
         {/* User Profile Information */}
         {currentUser && (
           <View className="flex flex-col rounded-lg bg-card p-4" ph-no-capture>

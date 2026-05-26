@@ -4,15 +4,14 @@
 
 ```
 supabase-postgres-best-practices/
-  SKILL.md       # Main skill file - read this first
-  AGENTS.md      # This navigation guide
-  CLAUDE.md      # Symlink to AGENTS.md
-  references/    # Detailed reference files
+  agent-guidelines.md       # Main skill file - read this first
+  reference-guidelines.md   # Navigation guide for references
+  references/               # Detailed reference files
 ```
 
 ## Usage
 
-1. Read `SKILL.md` for the main skill instructions
+1. Read `agent-guidelines.md` for the main skill instructions
 2. Browse `references/` for detailed documentation on specific topics
 3. Reference files are loaded on-demand - read only what you need
 

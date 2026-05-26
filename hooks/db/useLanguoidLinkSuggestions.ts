@@ -42,8 +42,8 @@ export function useLanguoidLinkSuggestions() {
   const { db, supabaseConnector } = system;
 
   const userId = currentUser?.id;
-  const enableLanguoidLinkSuggestions = useLocalStore(
-    (state) => state.enableLanguoidLinkSuggestions
+  const enableProjectLanguageSuggestions = useLocalStore(
+    (state) => state.enableProjectLanguageSuggestions
   );
 
   // Fetch raw suggestions
@@ -54,7 +54,7 @@ export function useLanguoidLinkSuggestions() {
   } = useHybridData<LanguoidLinkSuggestion>({
     dataType: 'languoid-link-suggestions',
     queryKeyParams: [userId],
-    enabled: enableLanguoidLinkSuggestions && !!userId,
+    enabled: enableProjectLanguageSuggestions && !!userId,
 
     // PowerSync query using Drizzle
     offlineQuery: toCompilableQuery(
@@ -105,7 +105,7 @@ export function useLanguoidLinkSuggestions() {
   const { data: languoidDetails = [] } = useHybridData<LanguoidDetail>({
     dataType: 'languoid-link-suggestion-details',
     queryKeyParams: [languoidIds.join(',')],
-    enabled: enableLanguoidLinkSuggestions && languoidIds.length > 0,
+    enabled: enableProjectLanguageSuggestions && languoidIds.length > 0,
 
     offlineQuery: toCompilableQuery(
       db

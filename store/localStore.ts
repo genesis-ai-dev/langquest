@@ -143,8 +143,8 @@ export interface LocalState {
   setVerseMarkersFeaturePrompted: (prompted: boolean) => void;
   enableTranscription: boolean;
   setEnableTranscription: (enabled: boolean) => void;
-  enableLanguoidLinkSuggestions: boolean;
-  setEnableLanguoidLinkSuggestions: (enabled: boolean) => void;
+  enableProjectLanguageSuggestions: boolean;
+  setEnableProjectLanguageSuggestions: (enabled: boolean) => void;
   enableMerge: boolean;
   setEnableMerge: (enabled: boolean) => void;
   enableFia: boolean;
@@ -313,6 +313,10 @@ export interface LocalState {
   dismissedInviteBanners: Record<string, number>;
   dismissInviteBanner: (projectId: string) => void;
   resetInviteBannerDismissal: (projectId: string) => void;
+
+  /** Per-project invite rows hidden from the membership modal Invited list (local only). */
+  dismissedInvitedRows: Record<string, string[]>;
+  dismissInvitedRow: (projectId: string, inviteId: string) => void;
 }
 
 export const useLocalStore = create<LocalState>()(
@@ -344,7 +348,7 @@ export const useLocalStore = create<LocalState>()(
       enableVerseMarkers: true,
       verseMarkersFeaturePrompted: false,
       enableTranscription: false,
-      enableLanguoidLinkSuggestions: false,
+      enableProjectLanguageSuggestions: false,
       enableMerge: false,
       enableFia: false,
 
@@ -464,8 +468,8 @@ export const useLocalStore = create<LocalState>()(
         set({ verseMarkersFeaturePrompted: prompted }),
       setEnableTranscription: (enabled) =>
         set({ enableTranscription: enabled }),
-      setEnableLanguoidLinkSuggestions: (enabled) =>
-        set({ enableLanguoidLinkSuggestions: enabled }),
+      setEnableProjectLanguageSuggestions: (enabled) =>
+        set({ enableProjectLanguageSuggestions: enabled }),
       setEnableMerge: (enabled) => set({ enableMerge: enabled }),
       setEnableFia: (enabled) => set({ enableFia: enabled }),
 
@@ -727,12 +731,40 @@ export const useLocalStore = create<LocalState>()(
           const next = { ...state.dismissedInviteBanners };
           delete next[projectId];
           return { dismissedInviteBanners: next };
+        }),
+
+      dismissedInvitedRows: {},
+      dismissInvitedRow: (projectId, inviteId) =>
+        set((state) => {
+          const existing = state.dismissedInvitedRows[projectId] ?? [];
+          if (existing.includes(inviteId)) return state;
+          return {
+            dismissedInvitedRows: {
+              ...state.dismissedInvitedRows,
+              [projectId]: [...existing, inviteId]
+            }
+          };
         })
     }),
     {
       name: 'local-store',
+      version: 1,
       storage: createJSONStorage(() => AsyncStorage),
-      onRehydrateStorage: () => async (state) => {
+      migrate: (persistedState) => {
+        const state = persistedState as Record<string, unknown>;
+        if (
+          'enableLanguoidLinkSuggestions' in state ||
+          'enableProjectLanguoidSuggestions' in state
+        ) {
+          state.enableProjectLanguageSuggestions =
+            state.enableLanguoidLinkSuggestions === true ||
+            state.enableProjectLanguoidSuggestions === true;
+          delete state.enableLanguoidLinkSuggestions;
+          delete state.enableProjectLanguoidSuggestions;
+        }
+        return persistedState as LocalState;
+      },
+      onRehydrateStorage: () => (state) => {
         console.log('rehydrating local store', state);
         if (state) {
           state.setTheme(state.theme);
@@ -748,26 +780,30 @@ export const useLocalStore = create<LocalState>()(
             state.vadThreshold = VAD_THRESHOLD_DEFAULT;
           }
 
-          // Migrate offline undownload warning preference from old AsyncStorage key
+          // Migrate offline undownload warning preference from old AsyncStorage key (non-blocking)
           if (!state.offlineUndownloadWarningEnabled) {
-            try {
-              const oldValue = await AsyncStorage.getItem(
-                OFFLINE_UNDOWNLOAD_WARNING_KEY
-              );
-              if (oldValue !== null) {
-                const migratedValue = oldValue === 'true';
-                state.offlineUndownloadWarningEnabled = migratedValue;
-                await AsyncStorage.removeItem(OFFLINE_UNDOWNLOAD_WARNING_KEY);
-                console.log(
-                  `[LocalStore] Migrated offline undownload warning preference: ${migratedValue}`
+            void (async () => {
+              try {
+                const oldValue = await AsyncStorage.getItem(
+                  OFFLINE_UNDOWNLOAD_WARNING_KEY
+                );
+                if (oldValue !== null) {
+                  const migratedValue = oldValue === 'true';
+                  useLocalStore.setState({
+                    offlineUndownloadWarningEnabled: migratedValue
+                  });
+                  await AsyncStorage.removeItem(OFFLINE_UNDOWNLOAD_WARNING_KEY);
+                  console.log(
+                    `[LocalStore] Migrated offline undownload warning preference: ${migratedValue}`
+                  );
+                }
+              } catch (error) {
+                console.error(
+                  '[LocalStore] Error migrating offline undownload warning preference:',
+                  error
                 );
               }
-            } catch (error) {
-              console.error(
-                '[LocalStore] Error migrating offline undownload warning preference:',
-                error
-              );
-            }
+            })();
           }
         }
         useLocalStore.setState({ _hasHydrated: true });

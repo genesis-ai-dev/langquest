@@ -10,6 +10,7 @@ import {
   createAssetTagLinkTable,
   createBlockedContentTable,
   createBlockedUsersTable,
+  createFeedbackTable,
   createInviteTable,
   createLanguageTable,
   createLanguoidAliasTable,
@@ -23,6 +24,7 @@ import {
   createProfileTable,
   createProjectClosureTable,
   createProjectLanguageLinkTable,
+  createProjectLanguoidSuggestionTable,
   createProjectTable,
   createQuestAssetLinkTable,
   createQuestClosureTable,
@@ -63,7 +65,8 @@ export const user_localRelations = relations(
     }),
     sent_invites: many(invite_local, { relationName: 'invite_sender' }),
     received_invites: many(invite_local, { relationName: 'invite_receiver' }),
-    sent_requests: many(request_local, { relationName: 'request_sender' })
+    sent_requests: many(request_local, { relationName: 'request_sender' }),
+    feedback: many(feedback_local, { relationName: 'feedback' })
   })
 );
 
@@ -462,6 +465,18 @@ export const reports_local = createReportsTable('local', {
   profile: profile_local
 });
 
+export const feedback_local = createFeedbackTable('local', {
+  profile: profile_local
+});
+
+export const feedback_localRelations = relations(feedback_local, ({ one }) => ({
+  profile: one(profile_local, {
+    fields: [feedback_local.profile_id],
+    references: [profile_local.id],
+    relationName: 'feedback'
+  })
+}));
+
 export const blocked_users_local = createBlockedUsersTable('local', {
   profile: profile_local
 });
@@ -628,6 +643,33 @@ export const languoid_link_suggestion_localRelations = relations(
       fields: [languoid_link_suggestion_local.profile_id],
       references: [profile_local.id],
       relationName: 'suggestion_creator'
+    })
+  })
+);
+
+// Project languoid suggestion table - target-link switch suggestions for projects
+export const project_languoid_suggestion_local =
+  createProjectLanguoidSuggestionTable('local', {
+    project: project_local,
+    languoid: languoid_local
+  });
+
+export const project_languoid_suggestion_localRelations = relations(
+  project_languoid_suggestion_local,
+  ({ one }) => ({
+    project: one(project_local, {
+      fields: [project_languoid_suggestion_local.project_id],
+      references: [project_local.id]
+    }),
+    current_languoid: one(languoid_local, {
+      fields: [project_languoid_suggestion_local.current_languoid_id],
+      references: [languoid_local.id],
+      relationName: 'current_languoid'
+    }),
+    suggested_languoid: one(languoid_local, {
+      fields: [project_languoid_suggestion_local.suggested_languoid_id],
+      references: [languoid_local.id],
+      relationName: 'suggested_languoid_pls'
     })
   })
 );

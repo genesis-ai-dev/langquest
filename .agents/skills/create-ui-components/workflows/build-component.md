@@ -2,7 +2,7 @@
 
 <required_reading>
 **Read these NOW:**
-1. The `building-components` skill (`/.agents/skills/building-components/SKILL.md`) — for composition patterns, accessibility, data attributes, and component taxonomy
+1. The `building-components` skill (`/.agents/skills/building-components/agent-guidelines.md`) — for composition patterns, accessibility, data attributes, and component taxonomy
 2. references/project-conventions.md — for project-specific styling, icons, theming, and React 19/Compiler rules
 </required_reading>
 

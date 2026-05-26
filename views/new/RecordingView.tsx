@@ -2980,6 +2980,20 @@ const RecordingView = () => {
         );
       }
       void queryClient.invalidateQueries({ queryKey: ['assets'] });
+      if (questId) {
+        void queryClient.invalidateQueries({
+          queryKey: ['current-quest', 'offline', questId]
+        });
+        void queryClient.invalidateQueries({
+          queryKey: ['current-quest', 'cloud', questId]
+        });
+        void queryClient.invalidateQueries({
+          queryKey: ['quest-detail', 'offline', questId]
+        });
+        void queryClient.invalidateQueries({
+          queryKey: ['quest-detail', 'cloud', questId]
+        });
+      }
 
       // Stop audio playback if playing (access via ref for latest state)
       if (audioContextCurrentRef.current.isPlaying) {

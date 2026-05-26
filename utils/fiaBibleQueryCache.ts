@@ -1,5 +1,5 @@
-import { defaultShouldDehydrateQuery } from '@tanstack/query-core';
-import type { Query, QueryKey } from '@tanstack/query-core';
+import type { Query, QueryKey } from '@tanstack/react-query';
+import { defaultShouldDehydrateQuery } from '@tanstack/react-query';
 
 /** Persist FIA / Bible Brain API data on disk for 1 year */
 export const FIA_BIBLE_API_QUERY_CACHE_MS = 1000 * 60 * 60 * 24 * 365;

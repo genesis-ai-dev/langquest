@@ -1,5 +1,5 @@
-import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
-import pg from 'npm:pg@8.11.3';
+import '@supabase/functions-js/edge-runtime.d.ts';
+import pg from 'pg';
 import { processQueue, resolveLimit, type QueueRow } from './core.ts';
 import type {
   JsonRecord,

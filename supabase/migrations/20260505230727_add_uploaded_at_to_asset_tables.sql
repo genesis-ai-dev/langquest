@@ -27,13 +27,13 @@ set search_path = public;
 -- ============================================================================
 
 -- Add column WITHOUT default to avoid backfilling existing rows
-alter table public.asset add column uploaded_at timestamptz;
+alter table public.asset add column if not exists uploaded_at timestamptz;
 
 -- ============================================================================
 -- PART 2: Add uploaded_at column to asset_content_link table
 -- ============================================================================
 
-alter table public.asset_content_link add column uploaded_at timestamptz;
+alter table public.asset_content_link add column if not exists uploaded_at timestamptz;
 
 -- ============================================================================
 -- PART 3: Create INSERT trigger function for asset

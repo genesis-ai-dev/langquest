@@ -24,6 +24,7 @@ import {
   shouldRetryMigration
 } from '@/services/degradedModeService';
 import { useThemeColor } from '@/utils/styleUtils';
+import * as SplashScreen from 'expo-splash-screen';
 import { CheckIcon } from 'lucide-react-native';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
@@ -59,6 +60,10 @@ export function MigrationScreen({ onComplete }: MigrationScreenProps = {}) {
   const [isDegraded, setIsDegraded] = useState(false);
   const [shouldSkipAutoStart, setShouldSkipAutoStart] = useState(false);
   const [degradedCheckComplete, setDegradedCheckComplete] = useState(false);
+
+  useEffect(() => {
+    void SplashScreen.hideAsync();
+  }, []);
 
   // Check degraded mode on mount and auto-proceed if already in degraded mode
   useEffect(() => {
