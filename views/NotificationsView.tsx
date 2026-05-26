@@ -368,8 +368,10 @@ export default function NotificationsView() {
     useProjectLanguoidSuggestions();
   const acceptProjectLanguoid = useAcceptProjectLanguoidSuggestion();
   const dismissProjectLanguoid = useDismissProjectLanguoidSuggestion();
-  const [processingProjectLanguoidActions, setProcessingProjectLanguoidActions] =
-    useState<Map<string, ProjectLanguoidSuggestionAction>>(new Map());
+  const [
+    processingProjectLanguoidActions,
+    setProcessingProjectLanguoidActions
+  ] = useState<Map<string, ProjectLanguoidSuggestionAction>>(new Map());
 
   // All operations on invites, requests, and notifications go through synced tables
   // PowerSync will automatically sync changes to Supabase and back down
@@ -1298,6 +1300,7 @@ export default function NotificationsView() {
     setProjectLanguoidProcessing(suggestion.id, 'dismiss');
     try {
       await dismissProjectLanguoid.mutateAsync(suggestion.id);
+      RNAlert.alert(t('success'), t('projectLanguageSuggestionDismissSuccess'));
     } catch (error) {
       console.error('Error dismissing project languoid suggestion:', error);
       RNAlert.alert(t('error'), t('projectLanguageSuggestionAcceptError'));
@@ -1450,9 +1453,8 @@ export default function NotificationsView() {
                         key={suggestion.id}
                         suggestion={suggestion}
                         processingAction={
-                          processingProjectLanguoidActions.get(
-                            suggestion.id
-                          ) ?? null
+                          processingProjectLanguoidActions.get(suggestion.id) ??
+                          null
                         }
                         onAccept={handleAcceptProjectLanguoidSuggestion}
                         onDismiss={handleDismissProjectLanguoidSuggestion}

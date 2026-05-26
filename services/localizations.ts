@@ -12893,17 +12893,17 @@ export const localizations = {
     mandarin: '您的自定义语言已保留'
   },
   projectLanguageSuggestionTitle: {
-    english: 'Switch language?',
-    french: 'Changer de langue ?',
-    spanish: '¿Cambiar idioma?',
-    brazilian_portuguese: 'Mudar idioma?',
-    tok_pisin: 'Senisim tok ples?',
-    indonesian: 'Ganti bahasa?',
-    nepali: 'भाषा परिवर्तन गर्ने?',
-    hindi: 'भाषा बदलें?',
-    burmese: 'ဘာသာစကား ပြောင်းမည်လား?',
-    thai: 'เปลี่ยนภาษา?',
-    mandarin: '切换语言？'
+    english: 'Project language check',
+    french: 'Vérification de la langue du projet',
+    spanish: 'Verificación del idioma del proyecto',
+    brazilian_portuguese: 'Verificação do idioma do projeto',
+    tok_pisin: 'Sekim tok ples bilong projek',
+    indonesian: 'Pemeriksaan bahasa proyek',
+    nepali: 'परियोजना भाषा जाँच',
+    hindi: 'परियोजना भाषा जांच',
+    burmese: 'ပရောဂျက် ဘာသာစကား စစ်ဆေးခြင်း',
+    thai: 'ตรวจสอบภาษาของโปรเจกต์',
+    mandarin: '项目语言检查'
   },
   projectLanguageSuggestionDescription: {
     english:
@@ -12924,8 +12924,7 @@ export const localizations = {
       '"{project}" का नाम {suggested} जैसा लगता है, लेकिन इसकी लक्ष्य भाषा {current} है। {suggested} पर स्विच करें?',
     burmese:
       '"{project}" ၏ နာမည်သည် {suggested} နှင့်တူသော်လည်း ၎င်း၏ ပစ်မှတ်ဘာသာစကားကို {current} သတ်မှတ်ထားသည်။ {suggested} သို့ ပြောင်းမည်လား။',
-    thai:
-      'ชื่อของ "{project}" ดูเหมือน {suggested} แต่ภาษาเป้าหมายถูกตั้งเป็น {current} เปลี่ยนเป็น {suggested}?',
+    thai: 'ชื่อของ "{project}" ดูเหมือน {suggested} แต่ภาษาเป้าหมายถูกตั้งเป็น {current} เปลี่ยนเป็น {suggested}?',
     mandarin:
       '"{project}" 的名称看起来像 {suggested}，但其目标语言设置为 {current}。切换到 {suggested}?'
   },
@@ -13027,7 +13026,8 @@ export const localizations = {
     burmese:
       'ဒေတာဘေ့စ်တွင် ပိုကောင်းသော ကိုက်ညီမှု ရှိပါက စိတ်ကြိုက် ဘာသာစကားများကို ချိတ်ဆက်ရန်နှင့် ပရောဂျက်၏ ပစ်မှတ်ဘာသာစကားကို ပြောင်းရန် အကြံပြုချက်များ ရယူပါ',
     thai: 'รับคำแนะนำเพื่อเชื่อมโยงภาษาที่กำหนดเองและเปลี่ยนภาษาเป้าหมายของโครงการเมื่อมีตัวเลือกที่ตรงกันมากกว่าในฐานข้อมูล',
-    mandarin: '当数据库中存在更匹配的语言时，获取链接自定义语言和切换项目目标语言的建议'
+    mandarin:
+      '当数据库中存在更匹配的语言时，获取链接自定义语言和切换项目目标语言的建议'
   },
   enableMerge: {
     english: 'Merge assets',
