@@ -169,14 +169,8 @@ async function logAirtableTableFields(
         2
       )
     );
-    console.log(
-      '[feedback-to-airtable] Field names only:',
-      airtableFieldNames
-    );
-    console.log(
-      '[feedback-to-airtable] Fields we are submitting:',
-      submitKeys
-    );
+    console.log('[feedback-to-airtable] Field names only:', airtableFieldNames);
+    console.log('[feedback-to-airtable] Fields we are submitting:', submitKeys);
 
     const unknown = submitKeys.filter((k) => !airtableFieldNames.includes(k));
     if (unknown.length > 0) {
