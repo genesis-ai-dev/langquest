@@ -215,8 +215,7 @@ export default function RootLayout() {
   const hasHydrated = useHasHydrated();
   const termsAccepted = useLocalStore((s) => !!s.dateTermsAccepted);
 
-  const isBootstrapReady =
-    isColorSchemeLoaded && fontsLoaded && hasHydrated;
+  const isBootstrapReady = isColorSchemeLoaded && fontsLoaded && hasHydrated;
 
   useHideSplashWhen(isBootstrapReady && !termsAccepted);
 
