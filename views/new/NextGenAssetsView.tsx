@@ -89,7 +89,10 @@ import {
   redo as redoAssetOperation,
   undo as undoAssetOperation
 } from '@/database_services/assetUndoService';
-import { createQuestRecordingSession, getEffectiveLastRecordingSessionId } from '@/database_services/questService';
+import {
+  createQuestRecordingSession,
+  getEffectiveLastRecordingSessionId
+} from '@/database_services/questService';
 import type {
   AssetOperationDataItem,
   AssetOperationTypes
@@ -147,10 +150,12 @@ export default function NextGenAssetsView() {
     canUndo: hasUndoHistory,
     canRedo: hasRedoHistory
   } = useUndoHistory<AssetOperationDataItem[], AssetOperationDataItem[]>();
-  const currentUndoOperation =
-    peekUndoHistory() as AssetOperationTypes | undefined;
-  const currentRedoOperation =
-    peekRedoHistory() as AssetOperationTypes | undefined;
+  const currentUndoOperation = peekUndoHistory() as
+    | AssetOperationTypes
+    | undefined;
+  const currentRedoOperation = peekRedoHistory() as
+    | AssetOperationTypes
+    | undefined;
   const insets = useSafeAreaInsets();
 
   // Selection mode for batch operations and playAll start point
@@ -808,8 +813,12 @@ export default function NextGenAssetsView() {
 
       return (
         <Animated.View
-          entering={ENABLE_ASSET_LIST_TRANSITIONS ? FadeIn.duration(160) : undefined}
-          exiting={ENABLE_ASSET_LIST_TRANSITIONS ? FadeOut.duration(120) : undefined}
+          entering={
+            ENABLE_ASSET_LIST_TRANSITIONS ? FadeIn.duration(160) : undefined
+          }
+          exiting={
+            ENABLE_ASSET_LIST_TRANSITIONS ? FadeOut.duration(120) : undefined
+          }
           layout={
             ENABLE_ASSET_LIST_TRANSITIONS
               ? LinearTransition.duration(160)

@@ -39,7 +39,9 @@ async function restoreAssetsToQuest(
         )
       );
 
-    const existingAssetIds = new Set(existingLinks.map((link) => link.asset_id));
+    const existingAssetIds = new Set(
+      existingLinks.map((link) => link.asset_id)
+    );
 
     const assets = await tx
       .select({

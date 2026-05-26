@@ -17,10 +17,7 @@ export interface UndoHistoryAction<
  * Generic undo/redo history with a fixed max size.
  * Maintains a cursor so undo does not remove entries, enabling redo.
  */
-export function useUndoHistory<
-  TPreviousData = unknown,
-  TNewData = unknown
->() {
+export function useUndoHistory<TPreviousData = unknown, TNewData = unknown>() {
   const [history, setHistory] = useState<{
     entries: UndoHistoryAction<TPreviousData, TNewData>[];
     pointer: number;
@@ -79,7 +76,8 @@ export function useUndoHistory<
         entry: UndoHistoryAction<TPreviousData, TNewData>
       ) => void | Promise<void>
     ) => {
-      const last = history.pointer >= 0 ? history.entries[history.pointer] : null;
+      const last =
+        history.pointer >= 0 ? history.entries[history.pointer] : null;
       if (!last) {
         return undefined;
       }

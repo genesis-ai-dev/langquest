@@ -1891,215 +1891,218 @@ const RecordingView = () => {
   const handleRecordingComplete = React.useCallback(
     async (uri: string, recordingDuration: number, _waveformData: number[]) => {
       const runRecordingComplete = async () => {
-      let replacePreviousData: AssetOperationDataItem[] = [];
-      let didReplaceDeleteSucceed = false;
+        let replacePreviousData: AssetOperationDataItem[] = [];
+        let didReplaceDeleteSucceed = false;
 
-      // REPLACE MODE: Delete the asset being replaced (only once, on first recording)
-      debugLog(
-        `🔍 handleRecordingComplete | assetToReplaceRef.current: ${assetToReplaceRef.current?.slice(0, 8) ?? 'null'}`
-      );
-      if (assetToReplaceRef.current) {
-        const assetIdToReplace = assetToReplaceRef.current;
-        const replacedItem = sessionItemsRef.current.find(
-          (item) => isAsset(item) && item.id === assetIdToReplace
-        );
-        replacePreviousData = [
-          {
-            id: assetIdToReplace,
-            name:
-              replacedItem && isAsset(replacedItem) ? replacedItem.name : null
-          }
-        ];
-        assetToReplaceRef.current = null; // Clear immediately to prevent duplicate deletions
-        setIsReplacing(false); // Reset replace mode after first recording
-        wasReplaceRef.current = true; // Mark as replace so auto-scroll doesn't move position
-
+        // REPLACE MODE: Delete the asset being replaced (only once, on first recording)
         debugLog(
-          `🔄 REPLACE: Deleting asset ${assetIdToReplace.slice(0, 8)} before saving new recording`
+          `🔍 handleRecordingComplete | assetToReplaceRef.current: ${assetToReplaceRef.current?.slice(0, 8) ?? 'null'}`
         );
+        if (assetToReplaceRef.current) {
+          const assetIdToReplace = assetToReplaceRef.current;
+          const replacedItem = sessionItemsRef.current.find(
+            (item) => isAsset(item) && item.id === assetIdToReplace
+          );
+          replacePreviousData = [
+            {
+              id: assetIdToReplace,
+              name:
+                replacedItem && isAsset(replacedItem) ? replacedItem.name : null
+            }
+          ];
+          assetToReplaceRef.current = null; // Clear immediately to prevent duplicate deletions
+          setIsReplacing(false); // Reset replace mode after first recording
+          wasReplaceRef.current = true; // Mark as replace so auto-scroll doesn't move position
+
+          debugLog(
+            `🔄 REPLACE: Deleting asset ${assetIdToReplace.slice(0, 8)} before saving new recording`
+          );
+
+          try {
+            if (!questId) {
+              throw new Error('Missing questId for replace soft delete');
+            }
+            await softDeleteAssetsFromQuest(questId, [assetIdToReplace]);
+            // Remove from session assets list
+            setSessionItems((prev) =>
+              prev.filter((a) => a.id !== assetIdToReplace)
+            );
+            await queryClient.invalidateQueries({
+              queryKey: ['assets', 'by-quest', questId],
+              exact: false
+            });
+            didReplaceDeleteSucceed = true;
+            console.log(`✅ REPLACE: Asset deleted successfully`);
+          } catch (e) {
+            console.error('❌ REPLACE: Failed to delete asset', e);
+            wasReplaceRef.current = false; // Reset on error
+          }
+        }
+
+        // Determine order_index for this recording.
+        // If a previous save already ran inside this queue, use lastCommittedOrderIndexRef + 1
+        // so we never read stale React state. On the first save (or after a position reset),
+        // fall back to getInsertionContext which reads the live session list.
+        const targetOrder =
+          lastCommittedOrderIndexRef.current !== null
+            ? lastCommittedOrderIndexRef.current + 1
+            : getInsertionContext(insertionIndexRef.current).orderIndex;
+        const verseToUse =
+          currentRecordingVerseRef.current ??
+          getInsertionContext(insertionIndexRef.current).verse;
+
+        // Update refs for next recording in same session
+        currentRecordingOrderRef.current = targetOrder;
+        currentRecordingVerseRef.current = verseToUse;
 
         try {
-          if (!questId) {
-            throw new Error('Missing questId for replace soft delete');
+          debugLog('💾 Saving recording | order_index:', targetOrder);
+
+          // Validate required data
+          if (!projectId || !questId || !currentProject || !currentUser) {
+            console.error('❌ Missing required data');
+            return;
           }
-          await softDeleteAssetsFromQuest(questId, [assetIdToReplace]);
-          // Remove from session assets list
-          setSessionItems((prev) =>
-            prev.filter((a) => a.id !== assetIdToReplace)
+
+          // Generate name using persistent counter (independent of order_index and VAD mode)
+          // Counter is persisted per quest in AsyncStorage and increments continuously
+          const nextNumber = nameCounterRef.current;
+          nameCounterRef.current++; // Increment immediately to reserve this number
+          const assetName = String(nextNumber).padStart(3, '0');
+          pendingAssetNamesRef.current.add(assetName);
+          debugLog(
+            `🏷️ Reserved name: ${assetName} | counter: ${nextNumber} → ${nameCounterRef.current} | order_index: ${targetOrder}`
           );
+
+          // Native module flushes the file before sending onSegmentComplete event.
+          // File should be ready, but iOS Simulator may need a moment (handled by retry logic in saveAudioLocally).
+
+          // Save audio file locally (with retry logic for timing issues)
+          const saveResult = await (async () => {
+            try {
+              const savedUri = await saveAudioLocally(uri);
+              return { success: true as const, uri: savedUri };
+            } catch (error) {
+              // Release the reserved name on error
+              pendingAssetNamesRef.current.delete(assetName);
+              console.error('❌ Failed to save audio file locally:', error);
+              return { success: false as const, error };
+            }
+          })();
+
+          if (!saveResult.success) {
+            // Re-throw to be caught by outer catch block
+            throw saveResult.error;
+          }
+
+          const localUri = saveResult.uri;
+
+          if (!targetLanguoidId) {
+            throw new Error('Target languoid not found for project');
+          }
+          // Use the verse that was captured when recording started
+          // This ensures we use the correct verse for middle-of-list recordings
+          const verseToUse = currentRecordingVerseRef.current;
+          const metadataToSave = {
+            ...(verseToUse ? { verse: verseToUse } : {}),
+            ...(recordingSessionId
+              ? { recordingSessionId: recordingSessionId }
+              : {})
+          };
+
+          const newAssetId = await saveRecording({
+            questId: questId,
+            projectId: projectId,
+            targetLanguoidId: targetLanguoidId,
+            userId: currentUser.id,
+            orderIndex: targetOrder,
+            audioUri: localUri,
+            assetName: assetName, // Pass the reserved name
+            metadata:
+              Object.keys(metadataToSave).length > 0 ? metadataToSave : null
+          });
+
+          // Log the saved asset details
+          console.log(
+            `📼 Asset saved | name: "${assetName}" | order_index: ${targetOrder} | verse: ${verseToUse ? `${verseToUse.from}-${verseToUse.to}` : 'null'}`
+          );
+
+          // Add to session assets list (UI only - not loaded from DB)
+          addSessionAsset({
+            id: newAssetId,
+            name: assetName,
+            order_index: targetOrder,
+            verse: verseToUse,
+            duration: recordingDuration > 0 ? recordingDuration : undefined
+          });
+          if (didReplaceDeleteSucceed && replacePreviousData.length > 0) {
+            pushUndoHistory({
+              domain: 'asset',
+              action: 'replace',
+              previousData: replacePreviousData,
+              newData: [{ id: newAssetId }],
+              canUndo: true
+            });
+          } else {
+            pushUndoHistory({
+              domain: 'asset',
+              action: 'create',
+              previousData: [],
+              newData: [{ id: newAssetId }],
+              canUndo: true
+            });
+          }
+
+          // Pre-populate metadata Maps so the lazy loading effect
+          // skips this asset entirely (avoids expensive Audio.Sound.createAsync)
+          loadedAssetIdsRef.current.add(newAssetId);
+          setAssetSegmentCounts((prev) => {
+            const next = new Map(prev);
+            next.set(newAssetId, 1);
+            return next;
+          });
+          if (recordingDuration > 0) {
+            setAssetDurations((prev) => {
+              const next = new Map(prev);
+              next.set(newAssetId, recordingDuration);
+              return next;
+            });
+          }
+
+          // Track which verse was recorded (for order_index normalization on return)
+          // If no verse is assigned, use 999 (UNASSIGNED_VERSE_BASE)
+          const verseToTrack = verseToUse?.from ?? 999;
+          recordedVersesRef.current.add(verseToTrack);
+          debugLog(
+            `📋 Tracked verse ${verseToTrack} for normalization (total: ${recordedVersesRef.current.size})`
+          );
+
+          // Save the updated name counter to AsyncStorage
+          await saveNameCounter(nameCounterRef.current);
+
+          // Release the reserved name after successful save
+          pendingAssetNamesRef.current.delete(assetName);
+          debugLog(
+            `✅ Released name: ${assetName} (pending: ${pendingAssetNamesRef.current.size})`
+          );
+
+          // Record the committed order_index so the next queued save can derive the
+          // correct next value without reading potentially stale React state.
+          lastCommittedOrderIndexRef.current = targetOrder;
+
+          // Invalidate queries to sync order_index after insertions in the middle
+          // This is needed because recordingService shifts order_index values
           await queryClient.invalidateQueries({
             queryKey: ['assets', 'by-quest', questId],
             exact: false
           });
-          didReplaceDeleteSucceed = true;
-          console.log(`✅ REPLACE: Asset deleted successfully`);
-        } catch (e) {
-          console.error('❌ REPLACE: Failed to delete asset', e);
-          wasReplaceRef.current = false; // Reset on error
+
+          debugLog('🏁 Recording saved');
+          setIsRecording(false);
+        } catch (error) {
+          console.error('❌ Failed to save recording:', error);
+          setIsRecording(false);
         }
-      }
-
-      // Determine order_index for this recording.
-      // If a previous save already ran inside this queue, use lastCommittedOrderIndexRef + 1
-      // so we never read stale React state. On the first save (or after a position reset),
-      // fall back to getInsertionContext which reads the live session list.
-      const targetOrder =
-        lastCommittedOrderIndexRef.current !== null
-          ? lastCommittedOrderIndexRef.current + 1
-          : getInsertionContext(insertionIndexRef.current).orderIndex;
-      const verseToUse = currentRecordingVerseRef.current ?? getInsertionContext(insertionIndexRef.current).verse;
-
-      // Update refs for next recording in same session
-      currentRecordingOrderRef.current = targetOrder;
-      currentRecordingVerseRef.current = verseToUse;
-
-      try {
-        debugLog('💾 Saving recording | order_index:', targetOrder);
-
-        // Validate required data
-        if (!projectId || !questId || !currentProject || !currentUser) {
-          console.error('❌ Missing required data');
-          return;
-        }
-
-        // Generate name using persistent counter (independent of order_index and VAD mode)
-        // Counter is persisted per quest in AsyncStorage and increments continuously
-        const nextNumber = nameCounterRef.current;
-        nameCounterRef.current++; // Increment immediately to reserve this number
-        const assetName = String(nextNumber).padStart(3, '0');
-        pendingAssetNamesRef.current.add(assetName);
-        debugLog(
-          `🏷️ Reserved name: ${assetName} | counter: ${nextNumber} → ${nameCounterRef.current} | order_index: ${targetOrder}`
-        );
-
-        // Native module flushes the file before sending onSegmentComplete event.
-        // File should be ready, but iOS Simulator may need a moment (handled by retry logic in saveAudioLocally).
-
-        // Save audio file locally (with retry logic for timing issues)
-        const saveResult = await (async () => {
-          try {
-            const savedUri = await saveAudioLocally(uri);
-            return { success: true as const, uri: savedUri };
-          } catch (error) {
-            // Release the reserved name on error
-            pendingAssetNamesRef.current.delete(assetName);
-            console.error('❌ Failed to save audio file locally:', error);
-            return { success: false as const, error };
-          }
-        })();
-
-        if (!saveResult.success) {
-          // Re-throw to be caught by outer catch block
-          throw saveResult.error;
-        }
-
-        const localUri = saveResult.uri;
-
-        if (!targetLanguoidId) {
-          throw new Error('Target languoid not found for project');
-        }
-        // Use the verse that was captured when recording started
-        // This ensures we use the correct verse for middle-of-list recordings
-        const verseToUse = currentRecordingVerseRef.current;
-        const metadataToSave = {
-          ...(verseToUse ? { verse: verseToUse } : {}),
-          ...(recordingSessionId
-            ? { recordingSessionId: recordingSessionId }
-            : {})
-        };
-
-        const newAssetId = await saveRecording({
-          questId: questId,
-          projectId: projectId,
-          targetLanguoidId: targetLanguoidId,
-          userId: currentUser.id,
-          orderIndex: targetOrder,
-          audioUri: localUri,
-          assetName: assetName, // Pass the reserved name
-          metadata: Object.keys(metadataToSave).length > 0 ? metadataToSave : null
-        });
-
-        // Log the saved asset details
-        console.log(
-          `📼 Asset saved | name: "${assetName}" | order_index: ${targetOrder} | verse: ${verseToUse ? `${verseToUse.from}-${verseToUse.to}` : 'null'}`
-        );
-
-        // Add to session assets list (UI only - not loaded from DB)
-        addSessionAsset({
-          id: newAssetId,
-          name: assetName,
-          order_index: targetOrder,
-          verse: verseToUse,
-          duration: recordingDuration > 0 ? recordingDuration : undefined
-        });
-        if (didReplaceDeleteSucceed && replacePreviousData.length > 0) {
-          pushUndoHistory({
-            domain: 'asset',
-            action: 'replace',
-            previousData: replacePreviousData,
-            newData: [{ id: newAssetId }],
-            canUndo: true
-          });
-        } else {
-          pushUndoHistory({
-            domain: 'asset',
-            action: 'create',
-            previousData: [],
-            newData: [{ id: newAssetId }],
-            canUndo: true
-          });
-        }
-
-        // Pre-populate metadata Maps so the lazy loading effect
-        // skips this asset entirely (avoids expensive Audio.Sound.createAsync)
-        loadedAssetIdsRef.current.add(newAssetId);
-        setAssetSegmentCounts((prev) => {
-          const next = new Map(prev);
-          next.set(newAssetId, 1);
-          return next;
-        });
-        if (recordingDuration > 0) {
-          setAssetDurations((prev) => {
-            const next = new Map(prev);
-            next.set(newAssetId, recordingDuration);
-            return next;
-          });
-        }
-
-        // Track which verse was recorded (for order_index normalization on return)
-        // If no verse is assigned, use 999 (UNASSIGNED_VERSE_BASE)
-        const verseToTrack = verseToUse?.from ?? 999;
-        recordedVersesRef.current.add(verseToTrack);
-        debugLog(
-          `📋 Tracked verse ${verseToTrack} for normalization (total: ${recordedVersesRef.current.size})`
-        );
-
-        // Save the updated name counter to AsyncStorage
-        await saveNameCounter(nameCounterRef.current);
-
-        // Release the reserved name after successful save
-        pendingAssetNamesRef.current.delete(assetName);
-        debugLog(
-          `✅ Released name: ${assetName} (pending: ${pendingAssetNamesRef.current.size})`
-        );
-
-        // Record the committed order_index so the next queued save can derive the
-        // correct next value without reading potentially stale React state.
-        lastCommittedOrderIndexRef.current = targetOrder;
-
-        // Invalidate queries to sync order_index after insertions in the middle
-        // This is needed because recordingService shifts order_index values
-        await queryClient.invalidateQueries({
-          queryKey: ['assets', 'by-quest', questId],
-          exact: false
-        });
-
-        debugLog('🏁 Recording saved');
-        setIsRecording(false);
-      } catch (error) {
-        console.error('❌ Failed to save recording:', error);
-        setIsRecording(false);
-      }
       };
 
       // Serialize full recording completion flow to avoid order_index race conditions.
@@ -3295,7 +3298,9 @@ const RecordingView = () => {
             ENABLE_RECORDING_LIST_TRANSITIONS ? FadeIn.duration(160) : undefined
           }
           exiting={
-            ENABLE_RECORDING_LIST_TRANSITIONS ? FadeOut.duration(120) : undefined
+            ENABLE_RECORDING_LIST_TRANSITIONS
+              ? FadeOut.duration(120)
+              : undefined
           }
           layout={
             ENABLE_RECORDING_LIST_TRANSITIONS
@@ -3628,7 +3633,9 @@ const RecordingView = () => {
         operation.action === 'replace' ||
         operation.action === 'create'
       ) {
-        const idsToRemove = new Set(operation.previousData.map((item) => item.id));
+        const idsToRemove = new Set(
+          operation.previousData.map((item) => item.id)
+        );
         const idsToRestore = Array.from(
           new Set(operation.newData.map((item) => item.id))
         );
@@ -3642,41 +3649,47 @@ const RecordingView = () => {
                 .where(inArray(assetLocal.id, idsToRestore))
             : [];
 
-        const restoredAssets: UIAsset[] = restoredAssetsRaw.map((asset, index) => {
-          let verse: { from: number; to: number } | null = null;
-          try {
-            const parsed =
-              typeof asset.metadata === 'string'
-                ? (JSON.parse(asset.metadata) as {
-                    verse?: { from: number; to: number };
-                  })
-                : null;
-            if (parsed?.verse?.from && parsed.verse.to) {
-              verse = { from: parsed.verse.from, to: parsed.verse.to };
+        const restoredAssets: UIAsset[] = restoredAssetsRaw.map(
+          (asset, index) => {
+            let verse: { from: number; to: number } | null = null;
+            try {
+              const parsed =
+                typeof asset.metadata === 'string'
+                  ? (JSON.parse(asset.metadata) as {
+                      verse?: { from: number; to: number };
+                    })
+                  : null;
+              if (parsed?.verse?.from && parsed.verse.to) {
+                verse = { from: parsed.verse.from, to: parsed.verse.to };
+              }
+            } catch {
+              verse = null;
             }
-          } catch {
-            verse = null;
-          }
 
-          return {
-            type: 'asset',
-            id: asset.id,
-            name: asset.name ?? 'Unnamed',
-            created_at: asset.created_at ?? new Date().toISOString(),
-            order_index:
-              typeof asset.order_index === 'number' ? asset.order_index : index,
-            source: 'local',
-            segmentCount: assetSegmentCounts.get(asset.id) ?? 1,
-            duration: assetDurations.get(asset.id),
-            verse
-          };
-        });
+            return {
+              type: 'asset',
+              id: asset.id,
+              name: asset.name ?? 'Unnamed',
+              created_at: asset.created_at ?? new Date().toISOString(),
+              order_index:
+                typeof asset.order_index === 'number'
+                  ? asset.order_index
+                  : index,
+              source: 'local',
+              segmentCount: assetSegmentCounts.get(asset.id) ?? 1,
+              duration: assetDurations.get(asset.id),
+              verse
+            };
+          }
+        );
 
         setSessionItems((prev) => {
           const withoutPreviousData = prev.filter(
             (item) => !idsToRemove.has(item.id)
           );
-          const existingIds = new Set(withoutPreviousData.map((item) => item.id));
+          const existingIds = new Set(
+            withoutPreviousData.map((item) => item.id)
+          );
           const restoredToAdd = restoredAssets.filter(
             (item) => !existingIds.has(item.id)
           );
@@ -3858,35 +3871,35 @@ const RecordingView = () => {
           )}
         </View>
         <View className="flex-1 flex-row items-center justify-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-                disabled={
-                  isVADActive ||
-                  isRecording ||
-                  isVADRecording ||
-                  !hasUndoHistory ||
-                  !currentUndoOperation?.canUndo
-                }
-              onPress={handleUndoAction}
-            >
-              {/* <Icon as={Undo2} size={20} className="text-primary" /> */}
-              <Icon as={Undo2} size={20} className="text-primary" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-                disabled={
-                  isVADActive ||
-                  isRecording ||
-                  isVADRecording ||
-                  !hasRedoHistory ||
-                  !currentRedoOperation?.canUndo
-                }
-              onPress={handleRedoAction}
-            >
-              <Icon as={Redo2} size={20} className="text-primary" />
-            </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            disabled={
+              isVADActive ||
+              isRecording ||
+              isVADRecording ||
+              !hasUndoHistory ||
+              !currentUndoOperation?.canUndo
+            }
+            onPress={handleUndoAction}
+          >
+            {/* <Icon as={Undo2} size={20} className="text-primary" /> */}
+            <Icon as={Undo2} size={20} className="text-primary" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            disabled={
+              isVADActive ||
+              isRecording ||
+              isVADRecording ||
+              !hasRedoHistory ||
+              !currentRedoOperation?.canUndo
+            }
+            onPress={handleRedoAction}
+          >
+            <Icon as={Redo2} size={20} className="text-primary" />
+          </Button>
         </View>
         <View className="flex-1 flex-row items-center justify-end gap-3">
           {assets.length > 0 && (

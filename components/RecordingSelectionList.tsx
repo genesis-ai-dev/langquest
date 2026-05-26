@@ -105,10 +105,13 @@ function RecordingSelectionListInternal<T>(
     [itemCount]
   );
 
-  const scrollToOffset = React.useCallback((offset: number, animated = true) => {
-    const clamped = Math.max(0, offset);
-    listRef.current?.scrollToOffset({ offset: clamped, animated });
-  }, []);
+  const scrollToOffset = React.useCallback(
+    (offset: number, animated = true) => {
+      const clamped = Math.max(0, offset);
+      listRef.current?.scrollToOffset({ offset: clamped, animated });
+    },
+    []
+  );
 
   React.useImperativeHandle(
     ref,
