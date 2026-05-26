@@ -21,7 +21,7 @@ import {
   createProfileTable,
   createProjectClosureTable,
   createProjectLanguageLinkTable,
-  createProjectLanguageSuggestionTable,
+  createProjectLanguoidSuggestionTable,
   createProjectTable,
   createQuestAssetLinkTable,
   createQuestClosureTable,
@@ -649,26 +649,26 @@ export const languoid_link_suggestion_syncedRelations = relations(
 );
 
 // Project language suggestion table - target-link switch suggestions for projects
-export const project_language_suggestion_synced =
-  createProjectLanguageSuggestionTable('synced', {
+export const project_languoid_suggestion_synced =
+  createProjectLanguoidSuggestionTable('synced', {
     project: project_synced,
     languoid: languoid_synced
   });
 
-export const project_language_suggestion_syncedRelations = relations(
-  project_language_suggestion_synced,
+export const project_languoid_suggestion_syncedRelations = relations(
+  project_languoid_suggestion_synced,
   ({ one }) => ({
     project: one(project_synced, {
-      fields: [project_language_suggestion_synced.project_id],
+      fields: [project_languoid_suggestion_synced.project_id],
       references: [project_synced.id]
     }),
     current_languoid: one(languoid_synced, {
-      fields: [project_language_suggestion_synced.current_languoid_id],
+      fields: [project_languoid_suggestion_synced.current_languoid_id],
       references: [languoid_synced.id],
       relationName: 'current_languoid'
     }),
     suggested_languoid: one(languoid_synced, {
-      fields: [project_language_suggestion_synced.suggested_languoid_id],
+      fields: [project_languoid_suggestion_synced.suggested_languoid_id],
       references: [languoid_synced.id],
       relationName: 'suggested_languoid_pls'
     })

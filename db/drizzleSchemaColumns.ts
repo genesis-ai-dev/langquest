@@ -1637,7 +1637,7 @@ export function createLanguoidLinkSuggestionTable<
   return table;
 }
 
-export function createProjectLanguageSuggestionTable<
+export function createProjectLanguoidSuggestionTable<
   T extends TableSource,
   TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
 >(
@@ -1652,7 +1652,7 @@ export function createProjectLanguageSuggestionTable<
   columns?: TColumnsMap,
   extraConfig?: (
     self: BuildExtraConfigColumns<
-      'project_language_suggestion',
+      'project_languoid_suggestion',
       TColumnsMap,
       'sqlite'
     >
@@ -1660,7 +1660,7 @@ export function createProjectLanguageSuggestionTable<
 ) {
   const extraColumns = (columns ?? {}) as TColumnsMap;
   const table = getTableCreator(source)(
-    'project_language_suggestion',
+    'project_languoid_suggestion',
     {
       ...getTableColumns(source),
       project_id: text()
@@ -1680,8 +1680,8 @@ export function createProjectLanguageSuggestionTable<
       ...extraColumns
     },
     (table) => [
-      index('project_language_suggestion_project_idx').on(table.project_id),
-      index('project_language_suggestion_status_idx').on(table.status),
+      index('project_languoid_suggestion_project_idx').on(table.project_id),
+      index('project_languoid_suggestion_status_idx').on(table.status),
       ...normalizeParams(extraConfig, table)
     ]
   );

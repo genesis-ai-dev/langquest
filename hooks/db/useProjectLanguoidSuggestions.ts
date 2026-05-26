@@ -1,5 +1,5 @@
 /**
- * Hooks for managing project language suggestions (Event 1).
+ * Hooks for managing project languoid suggestions (Event 1).
  *
  * These suggestions are inserted server-side by the
  * `suggest_project_language_trigger` on `project_language_link` and surfaced
@@ -11,7 +11,7 @@ import {
   languoid,
   profile_project_link,
   project,
-  project_language_suggestion
+  project_languoid_suggestion
 } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useHybridData } from '@/views/new/useHybridData';
@@ -21,22 +21,22 @@ import type { InferSelectModel } from 'drizzle-orm';
 import { and, eq, inArray } from 'drizzle-orm';
 import { useMemo } from 'react';
 
-export type ProjectLanguageSuggestion = InferSelectModel<
-  typeof project_language_suggestion
+export type ProjectLanguoidSuggestion = InferSelectModel<
+  typeof project_languoid_suggestion
 >;
 
-export interface ProjectLanguageSuggestionWithDetails extends ProjectLanguageSuggestion {
+export interface ProjectLanguoidSuggestionWithDetails extends ProjectLanguoidSuggestion {
   project_name: string | null;
   current_languoid_name: string | null;
   suggested_languoid_name: string | null;
 }
 
 /**
- * Fetches pending project_language_suggestion rows for projects the current
+ * Fetches pending project_languoid_suggestion rows for projects the current
  * user owns. Suggestions are joined with the project name and both languoid
  * names for display.
  */
-export function useProjectLanguageSuggestions() {
+export function useProjectLanguoidSuggestions() {
   const { currentUser } = useAuth();
   const { db, supabaseConnector } = system;
   const userId = currentUser?.id;
@@ -45,7 +45,7 @@ export function useProjectLanguageSuggestions() {
   const { data: ownerProjectLinks = [] } = useHybridData<{
     project_id: string;
   }>({
-    dataType: 'project-language-suggestion-owner-projects',
+    dataType: 'project-languoid-suggestion-owner-projects',
     queryKeyParams: [userId],
     enabled: !!userId,
     offlineQuery: toCompilableQuery(
@@ -82,31 +82,31 @@ export function useProjectLanguageSuggestions() {
     data: rawSuggestions = [],
     isLoading: isSuggestionsLoading,
     ...rest
-  } = useHybridData<ProjectLanguageSuggestion>({
-    dataType: 'project-language-suggestions',
+  } = useHybridData<ProjectLanguoidSuggestion>({
+    dataType: 'project-languoid-suggestions',
     queryKeyParams: [ownerProjectIds.join(',')],
     enabled: !!userId && ownerProjectIds.length > 0,
     offlineQuery: toCompilableQuery(
       db
         .select()
-        .from(project_language_suggestion)
+        .from(project_languoid_suggestion)
         .where(
           and(
-            inArray(project_language_suggestion.project_id, ownerProjectIds),
-            eq(project_language_suggestion.status, 'pending'),
-            eq(project_language_suggestion.active, true)
+            inArray(project_languoid_suggestion.project_id, ownerProjectIds),
+            eq(project_languoid_suggestion.status, 'pending'),
+            eq(project_languoid_suggestion.active, true)
           )
         )
     ),
     cloudQueryFn: async () => {
       if (ownerProjectIds.length === 0) return [];
       const { data, error } = await supabaseConnector.client
-        .from('project_language_suggestion')
+        .from('project_languoid_suggestion')
         .select('*')
         .in('project_id', ownerProjectIds)
         .eq('status', 'pending')
         .eq('active', true)
-        .overrideTypes<ProjectLanguageSuggestion[]>();
+        .overrideTypes<ProjectLanguoidSuggestion[]>();
       if (error) throw error;
       return data;
     }
@@ -132,7 +132,7 @@ export function useProjectLanguageSuggestions() {
     id: string;
     name: string | null;
   }>({
-    dataType: 'project-language-suggestion-project-details',
+    dataType: 'project-languoid-suggestion-project-details',
     queryKeyParams: [detailIds.projectIds.join(',')],
     enabled: detailIds.projectIds.length > 0,
     offlineQuery: toCompilableQuery(
@@ -157,7 +157,7 @@ export function useProjectLanguageSuggestions() {
     id: string;
     name: string | null;
   }>({
-    dataType: 'project-language-suggestion-languoid-details',
+    dataType: 'project-languoid-suggestion-languoid-details',
     queryKeyParams: [detailIds.languoidIds.join(',')],
     enabled: detailIds.languoidIds.length > 0,
     offlineQuery: toCompilableQuery(
@@ -178,7 +178,7 @@ export function useProjectLanguageSuggestions() {
   });
 
   // Stitch everything together
-  const suggestions = useMemo<ProjectLanguageSuggestionWithDetails[]>(() => {
+  const suggestions = useMemo<ProjectLanguoidSuggestionWithDetails[]>(() => {
     const projectNameById = new Map(
       projectDetails.map((p) => [p.id, p.name] as const)
     );
@@ -204,17 +204,17 @@ export function useProjectLanguageSuggestions() {
 }
 
 /**
- * Mutation hook to accept a project_language_suggestion.
+ * Mutation hook to accept a project_languoid_suggestion.
  * Swaps the project's target language link to the suggested languoid.
  */
-export function useAcceptProjectLanguageSuggestion() {
+export function useAcceptProjectLanguoidSuggestion() {
   const queryClient = useQueryClient();
   const { supabaseConnector } = system;
 
   return useMutation({
     mutationFn: async (suggestionId: string) => {
       const { error } = await supabaseConnector.client.rpc(
-        'accept_project_language_suggestion',
+        'accept_project_languoid_suggestion',
         { p_suggestion_id: suggestionId }
       );
       if (error) throw error;
@@ -222,7 +222,7 @@ export function useAcceptProjectLanguageSuggestion() {
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({
-        queryKey: ['project-language-suggestions']
+        queryKey: ['project-languoid-suggestions']
       });
       await queryClient.invalidateQueries({
         queryKey: ['project-language-link']
@@ -233,17 +233,17 @@ export function useAcceptProjectLanguageSuggestion() {
 }
 
 /**
- * Mutation hook to dismiss a project_language_suggestion.
+ * Mutation hook to dismiss a project_languoid_suggestion.
  * Marks the row as declined; no schema changes to the project itself.
  */
-export function useDismissProjectLanguageSuggestion() {
+export function useDismissProjectLanguoidSuggestion() {
   const queryClient = useQueryClient();
   const { supabaseConnector } = system;
 
   return useMutation({
     mutationFn: async (suggestionId: string) => {
       const { error } = await supabaseConnector.client.rpc(
-        'dismiss_project_language_suggestion',
+        'dismiss_project_languoid_suggestion',
         { p_suggestion_id: suggestionId }
       );
       if (error) throw error;
@@ -251,7 +251,7 @@ export function useDismissProjectLanguageSuggestion() {
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({
-        queryKey: ['project-language-suggestions']
+        queryKey: ['project-languoid-suggestions']
       });
     }
   });

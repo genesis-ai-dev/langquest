@@ -133,6 +133,6 @@ bucket_definitions:
 
       # Sync project language suggestions for projects this user owns (Event 1).
       # Only owners can act on these, mirroring the RLS policy on the table.
-      - SELECT * FROM project_language_suggestion
+      - SELECT * FROM project_languoid_suggestion
         WHERE project_id = bucket.project_id
         AND active = true

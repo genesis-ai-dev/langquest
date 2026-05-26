@@ -35,12 +35,12 @@ import {
   useLanguoidLinkSuggestions
 } from '@/hooks/db/useLanguoidLinkSuggestions';
 import { useUserMemberships } from '@/hooks/db/useProfiles';
-import type { ProjectLanguageSuggestionWithDetails } from '@/hooks/db/useProjectLanguageSuggestions';
+import type { ProjectLanguoidSuggestionWithDetails } from '@/hooks/db/useProjectLanguoidSuggestions';
 import {
-  useAcceptProjectLanguageSuggestion,
-  useDismissProjectLanguageSuggestion,
-  useProjectLanguageSuggestions
-} from '@/hooks/db/useProjectLanguageSuggestions';
+  useAcceptProjectLanguoidSuggestion,
+  useDismissProjectLanguoidSuggestion,
+  useProjectLanguoidSuggestions
+} from '@/hooks/db/useProjectLanguoidSuggestions';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useLocalStore } from '@/store/localStore';
@@ -272,21 +272,21 @@ function LanguoidLinkSuggestionGroup({
   );
 }
 
-type ProjectLanguageSuggestionAction = 'accept' | 'dismiss';
+type ProjectLanguoidSuggestionAction = 'accept' | 'dismiss';
 
-interface ProjectLanguageSuggestionItemProps {
-  suggestion: ProjectLanguageSuggestionWithDetails;
-  processingAction: ProjectLanguageSuggestionAction | null;
-  onAccept: (suggestion: ProjectLanguageSuggestionWithDetails) => void;
-  onDismiss: (suggestion: ProjectLanguageSuggestionWithDetails) => void;
+interface ProjectLanguoidSuggestionItemProps {
+  suggestion: ProjectLanguoidSuggestionWithDetails;
+  processingAction: ProjectLanguoidSuggestionAction | null;
+  onAccept: (suggestion: ProjectLanguoidSuggestionWithDetails) => void;
+  onDismiss: (suggestion: ProjectLanguoidSuggestionWithDetails) => void;
 }
 
-function ProjectLanguageSuggestionItem({
+function ProjectLanguoidSuggestionItem({
   suggestion,
   processingAction,
   onAccept,
   onDismiss
-}: ProjectLanguageSuggestionItemProps) {
+}: ProjectLanguoidSuggestionItemProps) {
   const { t } = useLocalization();
   const projectName = suggestion.project_name ?? t('unknownProject');
   const currentName = suggestion.current_languoid_name ?? '?';
@@ -365,12 +365,12 @@ export default function NotificationsView() {
   const keepCustomLanguoid = useKeepCustomLanguoid();
 
   // Project language suggestions (Event 1 - always on, no feature flag)
-  const { suggestions: projectLanguageSuggestions } =
-    useProjectLanguageSuggestions();
-  const acceptProjectLanguage = useAcceptProjectLanguageSuggestion();
-  const dismissProjectLanguage = useDismissProjectLanguageSuggestion();
-  const [processingProjectLanguageActions, setProcessingProjectLanguageActions] =
-    useState<Map<string, ProjectLanguageSuggestionAction>>(new Map());
+  const { suggestions: projectLanguoidSuggestions } =
+    useProjectLanguoidSuggestions();
+  const acceptProjectLanguoid = useAcceptProjectLanguoidSuggestion();
+  const dismissProjectLanguoid = useDismissProjectLanguoidSuggestion();
+  const [processingProjectLanguoidActions, setProcessingProjectLanguoidActions] =
+    useState<Map<string, ProjectLanguoidSuggestionAction>>(new Map());
 
   // All operations on invites, requests, and notifications go through synced tables
   // PowerSync will automatically sync changes to Supabase and back down
@@ -1252,11 +1252,11 @@ export default function NotificationsView() {
     return t('partialMatch');
   };
 
-  const setProjectLanguageProcessing = (
+  const setProjectLanguoidProcessing = (
     suggestionId: string,
-    action: ProjectLanguageSuggestionAction | null
+    action: ProjectLanguoidSuggestionAction | null
   ) => {
-    setProcessingProjectLanguageActions((prev) => {
+    setProcessingProjectLanguoidActions((prev) => {
       const next = new Map(prev);
       if (action === null) {
         next.delete(suggestionId);
@@ -1267,44 +1267,44 @@ export default function NotificationsView() {
     });
   };
 
-  const handleAcceptProjectLanguageSuggestion = async (
-    suggestion: ProjectLanguageSuggestionWithDetails
+  const handleAcceptProjectLanguoidSuggestion = async (
+    suggestion: ProjectLanguoidSuggestionWithDetails
   ) => {
-    if (processingProjectLanguageActions.has(suggestion.id)) return;
+    if (processingProjectLanguoidActions.has(suggestion.id)) return;
     if (!isOnline) {
       RNAlert.alert(t('error'), t('mustBeOnlineToAcceptInvite'));
       return;
     }
 
-    setProjectLanguageProcessing(suggestion.id, 'accept');
+    setProjectLanguoidProcessing(suggestion.id, 'accept');
     try {
-      await acceptProjectLanguage.mutateAsync(suggestion.id);
+      await acceptProjectLanguoid.mutateAsync(suggestion.id);
     } catch (error) {
-      console.error('Error accepting project language suggestion:', error);
+      console.error('Error accepting project languoid suggestion:', error);
       RNAlert.alert(t('error'), t('projectLanguageSuggestionAcceptError'));
     } finally {
-      setProjectLanguageProcessing(suggestion.id, null);
+      setProjectLanguoidProcessing(suggestion.id, null);
     }
   };
 
-  const handleDismissProjectLanguageSuggestion = async (
-    suggestion: ProjectLanguageSuggestionWithDetails
+  const handleDismissProjectLanguoidSuggestion = async (
+    suggestion: ProjectLanguoidSuggestionWithDetails
   ) => {
-    if (processingProjectLanguageActions.has(suggestion.id)) return;
+    if (processingProjectLanguoidActions.has(suggestion.id)) return;
     if (!isOnline) {
       RNAlert.alert(t('error'), t('mustBeOnlineToAcceptInvite'));
       return;
     }
 
-    setProjectLanguageProcessing(suggestion.id, 'dismiss');
+    setProjectLanguoidProcessing(suggestion.id, 'dismiss');
     try {
-      await dismissProjectLanguage.mutateAsync(suggestion.id);
+      await dismissProjectLanguoid.mutateAsync(suggestion.id);
       RNAlert.alert(t('success'), t('projectLanguageSuggestionDismissSuccess'));
     } catch (error) {
-      console.error('Error dismissing project language suggestion:', error);
+      console.error('Error dismissing project languoid suggestion:', error);
       RNAlert.alert(t('error'), t('projectLanguageSuggestionAcceptError'));
     } finally {
-      setProjectLanguageProcessing(suggestion.id, null);
+      setProjectLanguoidProcessing(suggestion.id, null);
     }
   };
 
@@ -1347,15 +1347,15 @@ export default function NotificationsView() {
           exact: false
         }),
         queryClient.invalidateQueries({
-          queryKey: ['project-language-suggestions'],
+          queryKey: ['project-languoid-suggestions'],
           exact: false
         }),
         queryClient.invalidateQueries({
-          queryKey: ['project-language-suggestion-project-details'],
+          queryKey: ['project-languoid-suggestion-project-details'],
           exact: false
         }),
         queryClient.invalidateQueries({
-          queryKey: ['project-language-suggestion-languoid-details'],
+          queryKey: ['project-languoid-suggestion-languoid-details'],
           exact: false
         }),
         queryClient.invalidateQueries({
@@ -1375,7 +1375,7 @@ export default function NotificationsView() {
     allNotifications.length > 0 ||
     sentInviteDeliveryIssues.length > 0 ||
     (enableLanguoidLinkSuggestions && isOnline && uniqueLanguoidCount > 0) ||
-    projectLanguageSuggestions.length > 0;
+    projectLanguoidSuggestions.length > 0;
 
   return (
     <View className="flex-1 gap-4 px-4 pt-4">
@@ -1442,19 +1442,19 @@ export default function NotificationsView() {
                   </View>
                 )}
 
-              {/* Project language suggestions (Event 1) */}
-              {projectLanguageSuggestions.length > 0 && (
+              {/* Project languoid suggestions (Event 1) */}
+              {projectLanguoidSuggestions.length > 0 && (
                 <View className="flex-col gap-4">
-                  {projectLanguageSuggestions.map((suggestion) => (
-                    <ProjectLanguageSuggestionItem
+                  {projectLanguoidSuggestions.map((suggestion) => (
+                    <ProjectLanguoidSuggestionItem
                       key={suggestion.id}
                       suggestion={suggestion}
                       processingAction={
-                        processingProjectLanguageActions.get(suggestion.id) ??
+                        processingProjectLanguoidActions.get(suggestion.id) ??
                         null
                       }
-                      onAccept={handleAcceptProjectLanguageSuggestion}
-                      onDismiss={handleDismissProjectLanguageSuggestion}
+                      onAccept={handleAcceptProjectLanguoidSuggestion}
+                      onDismiss={handleDismissProjectLanguoidSuggestion}
                     />
                   ))}
                 </View>
