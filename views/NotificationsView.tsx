@@ -355,19 +355,15 @@ export default function NotificationsView() {
   >(new Set());
   const [refreshing, setRefreshing] = useState(false);
 
-  // Languoid link suggestions (only if feature flag is enabled)
-  const enableLanguoidLinkSuggestions = useLocalStore(
-    (state) => state.enableLanguoidLinkSuggestions
+  // Project language suggestions (only if feature flag is enabled)
+  const enableProjectLanguageSuggestions = useLocalStore(
+    (state) => state.enableProjectLanguageSuggestions
   );
   const { groupedSuggestions, uniqueLanguoidCount } =
     useLanguoidLinkSuggestions();
   const acceptSuggestion = useAcceptLanguoidLinkSuggestion();
   const keepCustomLanguoid = useKeepCustomLanguoid();
 
-  // Project language suggestions (Event 1 - only if feature flag is enabled)
-  const enableProjectLanguoidSuggestions = useLocalStore(
-    (state) => state.enableProjectLanguoidSuggestions
-  );
   const { suggestions: projectLanguoidSuggestions } =
     useProjectLanguoidSuggestions();
   const acceptProjectLanguoid = useAcceptProjectLanguoidSuggestion();
@@ -1376,9 +1372,9 @@ export default function NotificationsView() {
   const hasAnyNotifications =
     allNotifications.length > 0 ||
     sentInviteDeliveryIssues.length > 0 ||
-    (enableLanguoidLinkSuggestions && isOnline && uniqueLanguoidCount > 0) ||
-    (enableProjectLanguoidSuggestions &&
-      projectLanguoidSuggestions.length > 0);
+    (enableProjectLanguageSuggestions &&
+      ((isOnline && uniqueLanguoidCount > 0) ||
+        projectLanguoidSuggestions.length > 0));
 
   return (
     <View className="flex-1 gap-4 px-4 pt-4">
@@ -1426,7 +1422,7 @@ export default function NotificationsView() {
                 </View>
               )}
               {/* Languoid link suggestions section - only show when online and feature flag enabled */}
-              {enableLanguoidLinkSuggestions &&
+              {enableProjectLanguageSuggestions &&
                 isOnline &&
                 groupedSuggestions.length > 0 && (
                   <View className="flex-col gap-4">
@@ -1446,7 +1442,7 @@ export default function NotificationsView() {
                 )}
 
               {/* Project languoid suggestions (Event 1) - only when feature flag enabled */}
-              {enableProjectLanguoidSuggestions &&
+              {enableProjectLanguageSuggestions &&
                 projectLanguoidSuggestions.length > 0 && (
                   <View className="flex-col gap-4">
                     {projectLanguoidSuggestions.map((suggestion) => (

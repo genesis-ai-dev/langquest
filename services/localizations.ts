@@ -12811,42 +12811,7 @@ export const localizations = {
     thai: 'ปฏิเสธคำแนะนำแล้ว',
     mandarin: '已忽略建议'
   },
-  enableLanguoidLinkSuggestions: {
-    english: 'Language link suggestions',
-    french: 'Suggestions de liens linguistiques',
-    spanish: 'Sugerencias de vinculación de idioma',
-    brazilian_portuguese: 'Sugestões de vinculação de idioma',
-    tok_pisin: 'Ol tok ples bilong joinim',
-    indonesian: 'Saran tautan bahasa',
-    nepali: 'भाषा लिंक सुझावहरू',
-    hindi: 'भाषा लिंक सुझाव',
-    burmese: 'ဘာသာစကား ချိတ်ဆက်မှု အကြံပြုချက်များ',
-    thai: 'คำแนะนำการเชื่อมโยงภาษา',
-    mandarin: '语言链接建议'
-  },
-  enableLanguoidLinkSuggestionsDescription: {
-    english:
-      'Get suggestions to link your custom-created languages to existing ones in the database',
-    french:
-      'Obtenez des suggestions pour lier vos langues créées sur mesure à celles existantes dans la base de données',
-    spanish:
-      'Recibe sugerencias para vincular tus idiomas personalizados con los existentes en la base de datos',
-    brazilian_portuguese:
-      'Receba sugestões para vincular seus idiomas personalizados aos existentes no banco de dados',
-    tok_pisin:
-      'Kisim ol tok ples bilong joinim tok ples bilong yu wantaim ol tok ples i stap pinis long database',
-    indonesian:
-      'Dapatkan saran untuk menghubungkan bahasa kustom Anda dengan yang ada di database',
-    nepali:
-      'आफ्नो आफ्नै-सिर्जना गरिएका भाषाहरूलाई डाटाबेसमा अवस्थित भाषाहरूसँग लिंक गर्न सुझावहरू प्राप्त गर्नुहोस्',
-    hindi:
-      'अपनी कस्टम-बनाई गई भाषाओं को डेटाबेस में मौजूदा भाषाओं से लिंक करने के लिए सुझाव प्राप्त करें',
-    burmese:
-      'သင်၏ စိတ်ကြိုက် ဖန်တီးထားသော ဘာသာစကားများကို ဒေတာဘေ့စ်ရှိ ရှိပြီးသား ဘာသာစကားများသို့ ချိတ်ဆက်ရန် အကြံပြုချက်များ ရယူပါ',
-    thai: 'รับคำแนะนำเพื่อเชื่อมโยงภาษาที่คุณสร้างเองกับภาษาที่มีอยู่ในฐานข้อมูล',
-    mandarin: '获取建议，将您自定义创建的语言链接到数据库中的现有语言'
-  },
-  enableProjectLanguoidSuggestions: {
+  enableProjectLanguageSuggestions: {
     english: 'Project language suggestions',
     french: 'Suggestions de langue de projet',
     spanish: 'Sugerencias de idioma del proyecto',
@@ -12859,27 +12824,27 @@ export const localizations = {
     thai: 'คำแนะนำภาษาโครงการ',
     mandarin: '项目语言建议'
   },
-  enableProjectLanguoidSuggestionsDescription: {
+  enableProjectLanguageSuggestionsDescription: {
     english:
-      'Get suggestions to switch a project target language when a better match exists in the database',
+      'Get suggestions to link custom languages and switch project target languages when better matches exist in the database',
     french:
-      'Obtenez des suggestions pour changer la langue cible d’un projet lorsqu’une meilleure correspondance existe dans la base de données',
+      'Obtenez des suggestions pour lier des langues personnalisées et changer la langue cible d’un projet lorsqu’une meilleure correspondance existe dans la base de données',
     spanish:
-      'Recibe sugerencias para cambiar el idioma objetivo de un proyecto cuando exista una mejor coincidencia en la base de datos',
+      'Recibe sugerencias para vincular idiomas personalizados y cambiar el idioma objetivo del proyecto cuando exista una mejor coincidencia en la base de datos',
     brazilian_portuguese:
-      'Receba sugestões para alterar o idioma alvo de um projeto quando houver uma correspondência melhor no banco de dados',
+      'Receba sugestões para vincular idiomas personalizados e alterar o idioma alvo do projeto quando houver uma correspondência melhor no banco de dados',
     tok_pisin:
-      'Kisim ol tok ples bilong senisim target tok ples bilong projek taim i gat gutpela match long database',
+      'Kisim ol tok ples bilong joinim custom tok ples na senisim target tok ples bilong projek taim i gat gutpela match long database',
     indonesian:
-      'Dapatkan saran untuk mengganti bahasa target proyek ketika ada kecocokan yang lebih baik di database',
+      'Dapatkan saran untuk menghubungkan bahasa kustom dan mengganti bahasa target proyek ketika ada kecocokan yang lebih baik di database',
     nepali:
-      'डाटाबेसमा राम्रो मिलान भएमा परियोजनाको लक्ष्य भाषा बदल्न सुझावहरू प्राप्त गर्नुहोस्',
+      'डाटाबेसमा राम्रो मिलान भएमा कस्टम भाषाहरू लिंक गर्न र परियोजनाको लक्ष्य भाषा बदल्न सुझावहरू प्राप्त गर्नुहोस्',
     hindi:
-      'डेटाबेस में बेहतर मिलान होने पर प्रोजेक्ट की लक्ष्य भाषा बदलने के लिए सुझाव प्राप्त करें',
+      'डेटाबेस में बेहतर मिलान होने पर कस्टम भाषाओं को लिंक करने और प्रोजेक्ट की लक्ष्य भाषा बदलने के लिए सुझाव प्राप्त करें',
     burmese:
-      'ဒေတာဘေ့စ်တွင် ပိုကောင်းသော ကိုက်ညီမှု ရှိပါက ပရောဂျက်၏ ပစ်မှတ်ဘာသာစကားကို ပြောင်းရန် အကြံပြုချက်များ ရယူပါ',
-    thai: 'รับคำแนะนำเพื่อเปลี่ยนภาษาเป้าหมายของโครงการเมื่อมีตัวเลือกที่ตรงกันมากกว่าในฐานข้อมูล',
-    mandarin: '当数据库中存在更匹配的语言时，获取切换项目目标语言的建议'
+      'ဒေတာဘေ့စ်တွင် ပိုကောင်းသော ကိုက်ညီမှု ရှိပါက စိတ်ကြိုက် ဘာသာစကားများကို ချိတ်ဆက်ရန်နှင့် ပရောဂျက်၏ ပစ်မှတ်ဘာသာစကားကို ပြောင်းရန် အကြံပြုချက်များ ရယူပါ',
+    thai: 'รับคำแนะนำเพื่อเชื่อมโยงภาษาที่กำหนดเองและเปลี่ยนภาษาเป้าหมายของโครงการเมื่อมีตัวเลือกที่ตรงกันมากกว่าในฐานข้อมูล',
+    mandarin: '当数据库中存在更匹配的语言时，获取链接自定义语言和切换项目目标语言的建议'
   },
   enableMerge: {
     english: 'Merge assets',

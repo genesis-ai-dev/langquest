@@ -7,7 +7,6 @@
  */
 
 import { useAuth } from '@/contexts/AuthContext';
-import { useLocalStore } from '@/store/localStore';
 import {
   languoid,
   profile_project_link,
@@ -15,6 +14,7 @@ import {
   project_languoid_suggestion
 } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
+import { useLocalStore } from '@/store/localStore';
 import { useHybridData } from '@/views/new/useHybridData';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -41,8 +41,8 @@ export function useProjectLanguoidSuggestions() {
   const { currentUser } = useAuth();
   const { db, supabaseConnector } = system;
   const userId = currentUser?.id;
-  const enableProjectLanguoidSuggestions = useLocalStore(
-    (state) => state.enableProjectLanguoidSuggestions
+  const enableProjectLanguageSuggestions = useLocalStore(
+    (state) => state.enableProjectLanguageSuggestions
   );
 
   // Step 1: find project ids this user owns
@@ -51,7 +51,7 @@ export function useProjectLanguoidSuggestions() {
   }>({
     dataType: 'project-languoid-suggestion-owner-projects',
     queryKeyParams: [userId],
-    enabled: enableProjectLanguoidSuggestions && !!userId,
+    enabled: enableProjectLanguageSuggestions && !!userId,
     getItemId: (item) => item.project_id,
     offlineQuery: toCompilableQuery(
       db
@@ -91,7 +91,7 @@ export function useProjectLanguoidSuggestions() {
     dataType: 'project-languoid-suggestions',
     queryKeyParams: [ownerProjectIds.join(',')],
     enabled:
-      enableProjectLanguoidSuggestions &&
+      enableProjectLanguageSuggestions &&
       !!userId &&
       ownerProjectIds.length > 0,
     offlineQuery: toCompilableQuery(

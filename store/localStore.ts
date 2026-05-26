@@ -143,10 +143,8 @@ export interface LocalState {
   setVerseMarkersFeaturePrompted: (prompted: boolean) => void;
   enableTranscription: boolean;
   setEnableTranscription: (enabled: boolean) => void;
-  enableLanguoidLinkSuggestions: boolean;
-  setEnableLanguoidLinkSuggestions: (enabled: boolean) => void;
-  enableProjectLanguoidSuggestions: boolean;
-  setEnableProjectLanguoidSuggestions: (enabled: boolean) => void;
+  enableProjectLanguageSuggestions: boolean;
+  setEnableProjectLanguageSuggestions: (enabled: boolean) => void;
   enableMerge: boolean;
   setEnableMerge: (enabled: boolean) => void;
   enableFia: boolean;
@@ -350,8 +348,7 @@ export const useLocalStore = create<LocalState>()(
       enableVerseMarkers: true,
       verseMarkersFeaturePrompted: false,
       enableTranscription: false,
-      enableLanguoidLinkSuggestions: false,
-      enableProjectLanguoidSuggestions: false,
+      enableProjectLanguageSuggestions: false,
       enableMerge: false,
       enableFia: false,
 
@@ -471,10 +468,8 @@ export const useLocalStore = create<LocalState>()(
         set({ verseMarkersFeaturePrompted: prompted }),
       setEnableTranscription: (enabled) =>
         set({ enableTranscription: enabled }),
-      setEnableLanguoidLinkSuggestions: (enabled) =>
-        set({ enableLanguoidLinkSuggestions: enabled }),
-      setEnableProjectLanguoidSuggestions: (enabled) =>
-        set({ enableProjectLanguoidSuggestions: enabled }),
+      setEnableProjectLanguageSuggestions: (enabled) =>
+        set({ enableProjectLanguageSuggestions: enabled }),
       setEnableMerge: (enabled) => set({ enableMerge: enabled }),
       setEnableFia: (enabled) => set({ enableFia: enabled }),
 
@@ -753,7 +748,22 @@ export const useLocalStore = create<LocalState>()(
     }),
     {
       name: 'local-store',
+      version: 1,
       storage: createJSONStorage(() => AsyncStorage),
+      migrate: (persistedState) => {
+        const state = persistedState as Record<string, unknown>;
+        if (
+          'enableLanguoidLinkSuggestions' in state ||
+          'enableProjectLanguoidSuggestions' in state
+        ) {
+          state.enableProjectLanguageSuggestions =
+            state.enableLanguoidLinkSuggestions === true ||
+            state.enableProjectLanguoidSuggestions === true;
+          delete state.enableLanguoidLinkSuggestions;
+          delete state.enableProjectLanguoidSuggestions;
+        }
+        return persistedState as LocalState;
+      },
       onRehydrateStorage: () => (state) => {
         console.log('rehydrating local store', state);
         if (state) {

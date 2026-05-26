@@ -17,11 +17,8 @@ export const useNotifications = () => {
   const { currentUser, isAuthenticated } = useAuth();
   const userId = currentUser?.id;
   const shouldQueryOwnerProjects = !!userId && isAuthenticated;
-  const enableLanguoidLinkSuggestions = useLocalStore(
-    (state) => state.enableLanguoidLinkSuggestions
-  );
-  const enableProjectLanguoidSuggestions = useLocalStore(
-    (state) => state.enableProjectLanguoidSuggestions
+  const enableProjectLanguageSuggestions = useLocalStore(
+    (state) => state.enableProjectLanguageSuggestions
   );
 
   // Get all pending invites for the user's email or profile_id
@@ -177,7 +174,7 @@ export const useNotifications = () => {
   }>({
     dataType: 'languoid-suggestions-count',
     queryKeyParams: [userId || 'anonymous'],
-    enabled: enableLanguoidLinkSuggestions && !!userId && isAuthenticated,
+    enabled: enableProjectLanguageSuggestions && !!userId && isAuthenticated,
 
     // Get pending languoid link suggestions count
     // Query returns distinct languoid_id to count unique languoids needing linking
@@ -224,7 +221,7 @@ export const useNotifications = () => {
     dataType: 'project-languoid-suggestions-count',
     queryKeyParams: [requestQueryKey],
     enabled:
-      enableProjectLanguoidSuggestions &&
+      enableProjectLanguageSuggestions &&
       ownerProjectIds.length > 0 &&
       shouldQueryOwnerProjects,
     offlineQuery:
@@ -261,10 +258,10 @@ export const useNotifications = () => {
   const inviteCount = inviteRequests.length;
   const requestCount = requestNotifications.length;
   // Ignore cached query data when the feature flag is off (matches NotificationsView)
-  const languoidLinkCount = enableLanguoidLinkSuggestions
+  const languoidLinkCount = enableProjectLanguageSuggestions
     ? languoidSuggestions.length
     : 0;
-  const projectLanguoidSuggestionCount = enableProjectLanguoidSuggestions
+  const projectLanguoidSuggestionCount = enableProjectLanguageSuggestions
     ? projectLanguoidSuggestions.length
     : 0;
   const sentInviteDeliveryFailureCount = sentInviteDeliveryFailures.length;
