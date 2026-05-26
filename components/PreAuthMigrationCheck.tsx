@@ -11,6 +11,7 @@
  */
 
 import { system } from '@/db/powersync/system';
+import * as SplashScreen from 'expo-splash-screen';
 import React, { useCallback, useEffect, useState } from 'react';
 import { scheduleOnRN } from 'react-native-worklets';
 import { MigrationScreen } from './MigrationScreen';
@@ -58,6 +59,7 @@ export function PreAuthMigrationCheck({
   }, [checkMigrations]);
 
   if (migrationState === 'needed') {
+    void SplashScreen.hideAsync();
     return <MigrationScreen onComplete={handleMigrationComplete} />;
   }
 
