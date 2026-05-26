@@ -118,7 +118,6 @@ function AppContent() {
 
       <Stack screenOptions={DEFAULT_STACK_OPTIONS}>
         <Stack.Screen name="feedback" options={FORM_SHEET_OPTIONS} />
-        <Stack.Screen name="terms" options={FORM_SHEET_OPTIONS} />
       </Stack>
 
       <Suspense fallback={null}>

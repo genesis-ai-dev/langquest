@@ -56,29 +56,6 @@ configureReanimatedLogger({
 
 SplashScreen.preventAutoHideAsync();
 
-function useHideSplashWhen(shouldHide: boolean) {
-  useEffect(() => {
-    if (shouldHide) {
-      void SplashScreen.hideAsync();
-    }
-  }, [shouldHide]);
-}
-
-/** Hides splash once auth/migration/upgrade routing is ready (main app path only). */
-function AppSplashHider() {
-  const { isLoading, isAuthenticated, migrationNeeded, appUpgradeNeeded } =
-    useAuth();
-
-  const needsMigration = isAuthenticated && !!migrationNeeded;
-  const needsUpgrade = isAuthenticated && !!appUpgradeNeeded;
-  const appReady = !needsMigration && !needsUpgrade && !isLoading;
-  const isReady = appReady || needsMigration || needsUpgrade;
-
-  useHideSplashWhen(isReady);
-
-  return null;
-}
-
 LogBox.ignoreAllLogs(true);
 
 export const NAV_THEME = {
@@ -132,6 +109,12 @@ function RootNavigator() {
       cleanupPostHog?.();
     };
   }, []);
+
+  useEffect(() => {
+    if (isReady) {
+      void SplashScreen.hideAsync();
+    }
+  }, [isReady]);
 
   if (!isReady) {
     return null;
@@ -215,12 +198,7 @@ export default function RootLayout() {
   const hasHydrated = useHasHydrated();
   const termsAccepted = useLocalStore((s) => !!s.dateTermsAccepted);
 
-  const isBootstrapReady = isColorSchemeLoaded && fontsLoaded && hasHydrated;
-
-  useHideSplashWhen(isBootstrapReady && !termsAccepted);
-
-  // Keep splash visible until persisted local state has rehydrated.
-  if (!isBootstrapReady) {
+  if (!isColorSchemeLoaded || !fontsLoaded || !hasHydrated) {
     return null;
   }
 
@@ -240,7 +218,6 @@ export default function RootLayout() {
       <PostHogProvider>
         <PreAuthMigrationCheck>
           <AuthProvider>
-            <AppSplashHider />
             <QueryProvider>
               <LocalizationProvider>
                 <AudioProvider>
