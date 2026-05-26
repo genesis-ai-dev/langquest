@@ -20,6 +20,9 @@ export const useNotifications = () => {
   const enableLanguoidLinkSuggestions = useLocalStore(
     (state) => state.enableLanguoidLinkSuggestions
   );
+  const enableProjectLanguoidSuggestions = useLocalStore(
+    (state) => state.enableProjectLanguoidSuggestions
+  );
 
   // Get all pending invites for the user's email or profile_id
   const { data: inviteRequests = [] } = useHybridData<
@@ -220,7 +223,10 @@ export const useNotifications = () => {
   }>({
     dataType: 'project-languoid-suggestions-count',
     queryKeyParams: [requestQueryKey],
-    enabled: ownerProjectIds.length > 0 && shouldQueryOwnerProjects,
+    enabled:
+      enableProjectLanguoidSuggestions &&
+      ownerProjectIds.length > 0 &&
+      shouldQueryOwnerProjects,
     offlineQuery:
       ownerProjectIds.length > 0
         ? toCompilableQuery(
@@ -258,7 +264,9 @@ export const useNotifications = () => {
   const languoidLinkCount = enableLanguoidLinkSuggestions
     ? languoidSuggestions.length
     : 0;
-  const projectLanguoidSuggestionCount = projectLanguoidSuggestions.length;
+  const projectLanguoidSuggestionCount = enableProjectLanguoidSuggestions
+    ? projectLanguoidSuggestions.length
+    : 0;
   const sentInviteDeliveryFailureCount = sentInviteDeliveryFailures.length;
 
   return {

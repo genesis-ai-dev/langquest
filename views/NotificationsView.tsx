@@ -364,7 +364,10 @@ export default function NotificationsView() {
   const acceptSuggestion = useAcceptLanguoidLinkSuggestion();
   const keepCustomLanguoid = useKeepCustomLanguoid();
 
-  // Project language suggestions (Event 1 - always on, no feature flag)
+  // Project language suggestions (Event 1 - only if feature flag is enabled)
+  const enableProjectLanguoidSuggestions = useLocalStore(
+    (state) => state.enableProjectLanguoidSuggestions
+  );
   const { suggestions: projectLanguoidSuggestions } =
     useProjectLanguoidSuggestions();
   const acceptProjectLanguoid = useAcceptProjectLanguoidSuggestion();
@@ -1374,7 +1377,8 @@ export default function NotificationsView() {
     allNotifications.length > 0 ||
     sentInviteDeliveryIssues.length > 0 ||
     (enableLanguoidLinkSuggestions && isOnline && uniqueLanguoidCount > 0) ||
-    projectLanguoidSuggestions.length > 0;
+    (enableProjectLanguoidSuggestions &&
+      projectLanguoidSuggestions.length > 0);
 
   return (
     <View className="flex-1 gap-4 px-4 pt-4">
@@ -1441,23 +1445,25 @@ export default function NotificationsView() {
                   </View>
                 )}
 
-              {/* Project languoid suggestions (Event 1) */}
-              {projectLanguoidSuggestions.length > 0 && (
-                <View className="flex-col gap-4">
-                  {projectLanguoidSuggestions.map((suggestion) => (
-                    <ProjectLanguoidSuggestionItem
-                      key={suggestion.id}
-                      suggestion={suggestion}
-                      processingAction={
-                        processingProjectLanguoidActions.get(suggestion.id) ??
-                        null
-                      }
-                      onAccept={handleAcceptProjectLanguoidSuggestion}
-                      onDismiss={handleDismissProjectLanguoidSuggestion}
-                    />
-                  ))}
-                </View>
-              )}
+              {/* Project languoid suggestions (Event 1) - only when feature flag enabled */}
+              {enableProjectLanguoidSuggestions &&
+                projectLanguoidSuggestions.length > 0 && (
+                  <View className="flex-col gap-4">
+                    {projectLanguoidSuggestions.map((suggestion) => (
+                      <ProjectLanguoidSuggestionItem
+                        key={suggestion.id}
+                        suggestion={suggestion}
+                        processingAction={
+                          processingProjectLanguoidActions.get(
+                            suggestion.id
+                          ) ?? null
+                        }
+                        onAccept={handleAcceptProjectLanguoidSuggestion}
+                        onDismiss={handleDismissProjectLanguoidSuggestion}
+                      />
+                    ))}
+                  </View>
+                )}
 
               {/* Project invites and requests */}
               {allNotifications.map(renderNotificationItem)}

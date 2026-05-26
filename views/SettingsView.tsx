@@ -54,6 +54,9 @@ export default function SettingsView() {
   const enableLanguoidLinkSuggestions = useLocalStore(
     (state) => state.enableLanguoidLinkSuggestions
   );
+  const enableProjectLanguoidSuggestions = useLocalStore(
+    (state) => state.enableProjectLanguoidSuggestions
+  );
   const enableMerge = useLocalStore((state) => state.enableMerge);
   const enableFia = useLocalStore((state) => state.enableFia);
 
@@ -80,6 +83,9 @@ export default function SettingsView() {
   );
   const setEnableLanguoidLinkSuggestions = useLocalStore(
     (state) => state.setEnableLanguoidLinkSuggestions
+  );
+  const setEnableProjectLanguoidSuggestions = useLocalStore(
+    (state) => state.setEnableProjectLanguoidSuggestions
   );
   const setEnableMerge = useLocalStore((state) => state.setEnableMerge);
   const setEnableFia = useLocalStore((state) => state.setEnableFia);
@@ -132,6 +138,10 @@ export default function SettingsView() {
 
   const handleLanguoidLinkSuggestionsToggle = (value: boolean) => {
     setEnableLanguoidLinkSuggestions(value);
+  };
+
+  const handleProjectLanguoidSuggestionsToggle = (value: boolean) => {
+    setEnableProjectLanguoidSuggestions(value);
   };
 
   const handleMergeToggle = (value: boolean) => {
@@ -313,6 +323,18 @@ export default function SettingsView() {
           value: enableLanguoidLinkSuggestions,
           onPress: () =>
             handleLanguoidLinkSuggestionsToggle(!enableLanguoidLinkSuggestions),
+          disabled: !isOnline
+        },
+        {
+          id: 'projectLanguoidSuggestions',
+          title: t('enableProjectLanguoidSuggestions'),
+          description: t('enableProjectLanguoidSuggestionsDescription'),
+          type: 'toggle',
+          value: enableProjectLanguoidSuggestions,
+          onPress: () =>
+            handleProjectLanguoidSuggestionsToggle(
+              !enableProjectLanguoidSuggestions
+            ),
           disabled: !isOnline
         },
         {

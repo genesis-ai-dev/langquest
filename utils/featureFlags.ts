@@ -24,3 +24,18 @@ export function useLanguoidLinkSuggestionsFeatureFlag() {
 export function getLanguoidLinkSuggestionsFeatureFlag(): boolean {
   return useLocalStore.getState().enableLanguoidLinkSuggestions;
 }
+
+/**
+ * Hook to get the project languoid suggestions feature flag from localStore
+ */
+export function useProjectLanguoidSuggestionsFeatureFlag() {
+  return useLocalStore((state) => state.enableProjectLanguoidSuggestions);
+}
+
+/**
+ * Get the project languoid suggestions feature flag value synchronously
+ * (for use outside of React components)
+ */
+export function getProjectLanguoidSuggestionsFeatureFlag(): boolean {
+  return useLocalStore.getState().enableProjectLanguoidSuggestions;
+}

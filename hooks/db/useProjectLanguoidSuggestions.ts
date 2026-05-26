@@ -7,6 +7,7 @@
  */
 
 import { useAuth } from '@/contexts/AuthContext';
+import { useLocalStore } from '@/store/localStore';
 import {
   languoid,
   profile_project_link,
@@ -40,6 +41,9 @@ export function useProjectLanguoidSuggestions() {
   const { currentUser } = useAuth();
   const { db, supabaseConnector } = system;
   const userId = currentUser?.id;
+  const enableProjectLanguoidSuggestions = useLocalStore(
+    (state) => state.enableProjectLanguoidSuggestions
+  );
 
   // Step 1: find project ids this user owns
   const { data: ownerProjectLinks = [] } = useHybridData<{
@@ -47,7 +51,7 @@ export function useProjectLanguoidSuggestions() {
   }>({
     dataType: 'project-languoid-suggestion-owner-projects',
     queryKeyParams: [userId],
-    enabled: !!userId,
+    enabled: enableProjectLanguoidSuggestions && !!userId,
     getItemId: (item) => item.project_id,
     offlineQuery: toCompilableQuery(
       db
@@ -86,7 +90,10 @@ export function useProjectLanguoidSuggestions() {
   } = useHybridData<ProjectLanguoidSuggestion>({
     dataType: 'project-languoid-suggestions',
     queryKeyParams: [ownerProjectIds.join(',')],
-    enabled: !!userId && ownerProjectIds.length > 0,
+    enabled:
+      enableProjectLanguoidSuggestions &&
+      !!userId &&
+      ownerProjectIds.length > 0,
     offlineQuery: toCompilableQuery(
       db
         .select()

@@ -12846,6 +12846,41 @@ export const localizations = {
     thai: 'รับคำแนะนำเพื่อเชื่อมโยงภาษาที่คุณสร้างเองกับภาษาที่มีอยู่ในฐานข้อมูล',
     mandarin: '获取建议，将您自定义创建的语言链接到数据库中的现有语言'
   },
+  enableProjectLanguoidSuggestions: {
+    english: 'Project language suggestions',
+    french: 'Suggestions de langue de projet',
+    spanish: 'Sugerencias de idioma del proyecto',
+    brazilian_portuguese: 'Sugestões de idioma do projeto',
+    tok_pisin: 'Ol tok ples bilong projek',
+    indonesian: 'Saran bahasa proyek',
+    nepali: 'परियोजना भाषा सुझावहरू',
+    hindi: 'प्रोजेक्ट भाषा सुझाव',
+    burmese: 'ပရောဂျက် ဘာသာစကား အကြံပြုချက်များ',
+    thai: 'คำแนะนำภาษาโครงการ',
+    mandarin: '项目语言建议'
+  },
+  enableProjectLanguoidSuggestionsDescription: {
+    english:
+      'Get suggestions to switch a project target language when a better match exists in the database',
+    french:
+      'Obtenez des suggestions pour changer la langue cible d’un projet lorsqu’une meilleure correspondance existe dans la base de données',
+    spanish:
+      'Recibe sugerencias para cambiar el idioma objetivo de un proyecto cuando exista una mejor coincidencia en la base de datos',
+    brazilian_portuguese:
+      'Receba sugestões para alterar o idioma alvo de um projeto quando houver uma correspondência melhor no banco de dados',
+    tok_pisin:
+      'Kisim ol tok ples bilong senisim target tok ples bilong projek taim i gat gutpela match long database',
+    indonesian:
+      'Dapatkan saran untuk mengganti bahasa target proyek ketika ada kecocokan yang lebih baik di database',
+    nepali:
+      'डाटाबेसमा राम्रो मिलान भएमा परियोजनाको लक्ष्य भाषा बदल्न सुझावहरू प्राप्त गर्नुहोस्',
+    hindi:
+      'डेटाबेस में बेहतर मिलान होने पर प्रोजेक्ट की लक्ष्य भाषा बदलने के लिए सुझाव प्राप्त करें',
+    burmese:
+      'ဒေတာဘေ့စ်တွင် ပိုကောင်းသော ကိုက်ညီမှု ရှိပါက ပရောဂျက်၏ ပစ်မှတ်ဘာသာစကားကို ပြောင်းရန် အကြံပြုချက်များ ရယူပါ',
+    thai: 'รับคำแนะนำเพื่อเปลี่ยนภาษาเป้าหมายของโครงการเมื่อมีตัวเลือกที่ตรงกันมากกว่าในฐานข้อมูล',
+    mandarin: '当数据库中存在更匹配的语言时，获取切换项目目标语言的建议'
+  },
   enableMerge: {
     english: 'Merge assets',
     french: 'Fusionner les actifs',

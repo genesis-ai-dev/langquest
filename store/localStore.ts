@@ -145,6 +145,8 @@ export interface LocalState {
   setEnableTranscription: (enabled: boolean) => void;
   enableLanguoidLinkSuggestions: boolean;
   setEnableLanguoidLinkSuggestions: (enabled: boolean) => void;
+  enableProjectLanguoidSuggestions: boolean;
+  setEnableProjectLanguoidSuggestions: (enabled: boolean) => void;
   enableMerge: boolean;
   setEnableMerge: (enabled: boolean) => void;
   enableFia: boolean;
@@ -349,6 +351,7 @@ export const useLocalStore = create<LocalState>()(
       verseMarkersFeaturePrompted: false,
       enableTranscription: false,
       enableLanguoidLinkSuggestions: false,
+      enableProjectLanguoidSuggestions: false,
       enableMerge: false,
       enableFia: false,
 
@@ -470,6 +473,8 @@ export const useLocalStore = create<LocalState>()(
         set({ enableTranscription: enabled }),
       setEnableLanguoidLinkSuggestions: (enabled) =>
         set({ enableLanguoidLinkSuggestions: enabled }),
+      setEnableProjectLanguoidSuggestions: (enabled) =>
+        set({ enableProjectLanguoidSuggestions: enabled }),
       setEnableMerge: (enabled) => set({ enableMerge: enabled }),
       setEnableFia: (enabled) => set({ enableFia: enabled }),
 
