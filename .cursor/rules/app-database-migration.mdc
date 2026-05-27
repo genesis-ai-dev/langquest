@@ -1,17 +1,65 @@
 ---
-# Specify the following for Cursor rules
-description: Guidelines for modifying Drizzle schema and creating migrations
-# globs:
-#   - 'db/drizzleSchema*.ts'
-#   - 'db/constants.ts'
-#   - 'db/migrations/**/*.ts'
-#   - 'supabase/migrations/**/*.sql'
+description: Guidelines for modifying Drizzle schema and creating migrations. Auto-attached when editing Supabase migrations, Drizzle schema files, or db/constants.ts.
+globs:
+  - 'db/drizzleSchema*.ts'
+  - 'db/constants.ts'
+  - 'db/migrations/**/*.ts'
+  - 'supabase/migrations/**/*.sql'
 alwaysApply: false
 ---
 
 # Database: Drizzle Schema Migration Process
 
-When modifying the Drizzle schema, you must update multiple components in a coordinated manner to ensure both local SQLite and cloud Postgres schemas stay in sync.
+## ⛔ Hard rule (read before writing anything): version bumps come in pairs
+
+**`get_schema_info()` and `APP_SCHEMA_VERSION` change together, or neither changes. There is no third option.**
+
+Before you write or accept a migration, do this mechanical check on the diff:
+
+| `db/constants.ts` `APP_SCHEMA_VERSION` bumped? | Migration contains `create or replace function public.get_schema_info()`? | Verdict |
+|---|---|---|
+| ❌ No | ❌ No | ✅ Correct (server-only — Path A) |
+| ✅ Yes | ✅ Yes (matching version) | ✅ Correct (client schema change — Path B) |
+| ❌ No | ✅ Yes | 🛑 **Broken.** Remove the `get_schema_info()` block from the migration. |
+| ✅ Yes | ❌ No | 🛑 **Broken.** Add a `get_schema_info()` bump in the same migration. |
+
+If you cannot point to a specific client code change (a Drizzle column the app reads/writes, a sync-rules change clients must satisfy, a renamed table the client queries), the answer is **Path A — do not touch `APP_SCHEMA_VERSION` or `get_schema_info()`**. The default is to leave both alone.
+
+> **Real incident this rule prevents:** `20260529120000_rename_project_language_suggestion_to_languoid.sql` shipped a `get_schema_info()` bump to `2.5 / min 2.4` while `APP_SCHEMA_VERSION` stayed at `2.3`. That blocked sync for every user on the current app build and required `20260530120000_revert_schema_info_to_2_3.sql` to undo. Same mistake in `20260520210000_invite_bounce_type_and_reason.sql` (server-only `bounce_type`/`bounce_reason` columns, no client use — bumped to `2.4` anyway).
+
+## ⚠️ Read this first: not every Supabase migration needs a schema version bump
+
+**Most Postgres-only changes do NOT touch `APP_SCHEMA_VERSION`, `get_schema_info()`, Drizzle schema files, or local migrations.**
+
+Incorrectly bumping `APP_SCHEMA_VERSION` or `get_schema_info()` breaks sync for users on current app builds. Only change those when the **client** must change.
+
+### Decision: which path?
+
+```
+What are you changing?
+│
+├─ Server-only (no client impact)
+│   Examples: nullable column never read/written by app, RLS, triggers, indexes,
+│             server functions, backfills, invite bounce columns used only server-side
+│   → Path A only: Supabase SQL migration. STOP.
+│   → Do NOT bump APP_SCHEMA_VERSION
+│   → Do NOT call get_schema_info() in the migration
+│   → Do NOT edit drizzleSchemaColumns.ts / drizzleSchemaLocal.ts
+│   → Do NOT add db/migrations/*.ts
+│
+└─ Client must change (app code or client Drizzle/sync contract changes)
+    Examples: client reads/writes new column, required field, rename/drop column
+              client uses, sync-rules change old clients cannot satisfy
+    → Path B: full client schema process (versions, Drizzle, local migration if needed)
+```
+
+| Change type | Supabase migration | `APP_SCHEMA_VERSION` | `get_schema_info()` | Drizzle schema | Local `db/migrations/` |
+|-------------|-------------------|----------------------|---------------------|----------------|------------------------|
+| Server-only nullable column | ✅ | ❌ | ❌ | ❌ | ❌ |
+| RLS / triggers / functions / indexes | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Client reads/writes new synced column | ✅ | ✅ minor | ✅ (see 2.5) | ✅ | maybe |
+| Destructive client column change | ✅ | ✅ major | ✅ | ✅ | ✅ |
+| Server RPC transform for legacy uploads | ✅ | ✅ (with client) | ✅ | maybe | ❌ |
 
 ## Overview
 
@@ -21,13 +69,16 @@ This project uses a dual-schema system:
 - **Cloud Postgres** (`drizzleSchema`): For synced data in Supabase
 - **Shared definitions** (`drizzleSchemaColumns.ts`): Common table/column definitions used by both
 
-When you modify the schema, you must:
+**Path A (server-only):** Create a Supabase migration. Done.
+
+**Path B (client schema change):** Coordinate these as needed:
 
 1. Update the shared column definitions
 2. Update the local schema (`drizzleSchemaLocal.ts`) to match the shared definitions
-3. Create a Supabase migration for Postgres
-4. Create a local migration for SQLite (when needed - see below)
-5. Handle data transformation, especially for destructive changes
+3. Bump `APP_SCHEMA_VERSION` and update `get_schema_info()` when required (see below)
+4. Create a Supabase migration for Postgres
+5. Create a local migration for SQLite (when needed - see below)
+6. Handle data transformation, especially for destructive changes
 
 ## PowerSync is Schemaless (Important!)
 
@@ -63,17 +114,35 @@ You still need local migrations for:
 
 > **Note:** Both synced tables AND `*_local` tables use PowerSync's architecture (JSON storage + SQLite views). They're all schemaless. The difference is just sync scope, not storage mechanism.
 
-### Decision Flowchart
+### Decision Flowchart (local migration + version bump)
 
 ```
 Does client code actively read/write this column?
-├── NO → Skip local migration (PowerSync handles it schemalessly)
+├── NO → Path A for this column: no local migration, no APP_SCHEMA_VERSION bump
 └── YES → Is it a nullable/optional column?
-    ├── YES → Skip local migration (missing values = NULL)
-    └── NO → Need local migration (or make column nullable)
+    ├── YES → Path B lite: update Drizzle + APP_SCHEMA_VERSION; usually no local migration
+    └── NO → Path B full: Drizzle + APP_SCHEMA_VERSION + local migration (or make nullable)
 ```
 
-## Step-by-Step Migration Process
+Same rule applies to **`get_schema_info()`**: if the answer is "client does not read/write," do not bump versions.
+
+## Path A: Server-only Supabase migration
+
+Use when Postgres changes and **no** client code, Drizzle schema, or sync-rules contract changes.
+
+```sql
+-- Migration: Add server_only_flag to invite (server-side delivery tracking)
+-- NO schema version bump — server-only, nullable, not in client Drizzle schema
+
+alter table public.invite
+  add column if not exists server_only_flag text;
+
+comment on column public.invite.server_only_flag is 'Used by Resend webhook; not synced to client.';
+```
+
+**Do not include** `create or replace function public.get_schema_info()` in these migrations.
+
+## Path B: Step-by-step (client schema change)
 
 ### 1. Modify Shared Schema Definitions
 
@@ -95,7 +164,9 @@ export function createAssetTable(source: TableSource, refs: {...}) {
 - `drizzleSchema.ts` (creates 'merged' tables for views)
 - `drizzleSchemaLocal.ts` (manually maintained, creates '\_local' tables)
 
-### 2. Update Schema Version
+### 2. Update Schema Version (Path B only — skip for Path A)
+
+**Only when the client schema contract changes** (see decision table above). If you are on Path A, skip this step and step 2.5 entirely.
 
 Update `APP_SCHEMA_VERSION` in `db/constants.ts`:
 
@@ -105,12 +176,18 @@ export const APP_SCHEMA_VERSION = '2.1'; // Changed from '2.0'
 
 **Version Format**: `MAJOR.MINOR`
 
-- **Minor version** (2.0 → 2.1): Additive changes only (new columns, new tables, new indexes)
-- **Major version** (2.0 → 3.0): Destructive changes (removed columns, renamed columns, changed types, dropped tables)
+- **Minor version** (2.0 → 2.1): Additive client changes (new columns/tables the app uses, new indexes)
+- **Major version** (2.0 → 3.0): Destructive client changes (removed/renamed columns, changed types, dropped tables)
 
-### 2.5. Update Minimum Required Schema Version (Server)
+**Do NOT bump** for: server-only columns, RLS, triggers, backfills, or Postgres changes that PowerSync handles schemalessly without app updates.
 
-**Important**: When deploying DB migrations before app updates are approved, update the `min_required_schema_version` in `get_schema_info()` RPC to prevent race conditions.
+### 2.5. Update `get_schema_info()` (Path B only — skip for Path A)
+
+> 🛑 **STOP.** Before copying the SQL block below, confirm your diff also bumps `APP_SCHEMA_VERSION` in `db/constants.ts` to the same number. If it doesn't, you're on Path A — close this section and don't include any `get_schema_info()` block in your migration.
+
+**Only bump `get_schema_info()` in the same PR/release as a real `APP_SCHEMA_VERSION` bump.** Never add `get_schema_info()` to a server-only migration.
+
+When deploying DB migrations before app updates are approved, update the `min_required_schema_version` in `get_schema_info()` RPC to prevent race conditions.
 
 The system uses **minimum version requirement** instead of exact matching:
 
@@ -155,7 +232,7 @@ $$;
 
 See `db/schemaVersionService.ts` for client-side implementation.
 
-### 3. Update Local Schema
+### 3. Update Local Schema (Path B — when Drizzle columns change)
 
 Update `db/drizzleSchemaLocal.ts` to match changes in `drizzleSchemaColumns.ts`.
 
@@ -211,7 +288,7 @@ The `createAssetTable()` function (and similar create functions) accept an optio
 
 ### 4. Create Supabase Migration (Postgres)
 
-**Note**: Skip this step if you're only adding local-only columns (they don't exist in Postgres).
+**Note**: Skip this step if you're only adding local-only columns (they don't exist in Postgres). Path A and Path B both use Supabase migrations; only Path B includes version bumps in comments or `get_schema_info()`.
 
 Create a new migration file following `.cursor/rules/supabase/create-migration.mdc`:
 
@@ -220,7 +297,7 @@ Create a new migration file following `.cursor/rules/supabase/create-migration.m
 
 ```sql
 -- Migration: Add new_field to asset table
--- Version: 2.0 → 2.1
+-- Path B client change — bump APP_SCHEMA_VERSION 2.0 → 2.1 in same release
 
 -- Add new column
 alter table asset
@@ -254,9 +331,9 @@ alter table asset
   drop column deprecated_field;
 ```
 
-### 5. Create Local Migration (SQLite)
+### 5. Create Local Migration (SQLite — Path B, when client needs it)
 
-**Note**: This step is required for both regular columns and local-only columns. Even if a column is local-only and doesn't need a Supabase migration, you still need a local migration to add it to existing SQLite tables.
+**Note**: Required for local-only columns on existing tables, and for synced/local columns the client actively reads/writes with non-nullable semantics. **Not** required for server-only Postgres columns or nullable synced columns the client does not use (see PowerSync section).
 
 Create a new migration file in `db/migrations/`:
 
@@ -368,27 +445,53 @@ export const migrations: Migration[] = [
 
 ### ✅ DO
 
-- **Always update both schemas**: Local (SQLite) and Cloud (Postgres)
-- **Update `drizzleSchemaLocal.ts`** when modifying `drizzleSchemaColumns.ts` to ensure local tables match
+- **Run the pair check first**: if your diff bumps `get_schema_info()` but not `APP_SCHEMA_VERSION` (or vice versa), stop and fix that mismatch before anything else
+- **Start with the decision table** — Path A vs Path B before editing any file
+- **Server-only changes**: Supabase migration only; leave versions and Drizzle untouched
+- **Client changes**: Update Drizzle, bump `APP_SCHEMA_VERSION`, and update `get_schema_info()` together in the same release
+- **Update `drizzleSchemaLocal.ts`** when modifying `drizzleSchemaColumns.ts` (Path B)
 - **Test with real data** before deploying migrations
 - **Write data transformation code** for destructive changes
 - **Only migrate `*_local` tables** in client-side migrations (synced tables handled server-side)
 - **Keep migrations idempotent** - safe to run multiple times
-- **Use version format `MAJOR.MINOR`** (e.g., `2.0`, `2.1`, `3.0`)
-- **Bump minor version** for additive changes (`2.0` → `2.1`)
-- **Bump major version** for destructive changes (`2.0` → `3.0`)
+- **Use version format `MAJOR.MINOR`** (e.g., `2.0`, `2.1`, `3.0`) when bumping versions
+- **Bump minor version** for additive **client** changes (`2.0` → `2.1`)
+- **Bump major version** for destructive **client** changes (`2.0` → `3.0`)
 - **Provide progress updates** for long-running migrations
 - **Document why** the migration exists (link to PR/ticket)
 
 ### ❌ DON'T
 
+- **Don't bump `APP_SCHEMA_VERSION` or `get_schema_info()` for server-only Postgres changes** — this blocks sync and forces unnecessary app upgrades
+- **Don't add `get_schema_info()` to every Supabase migration** — only when `APP_SCHEMA_VERSION` actually changes
+- **Don't edit `drizzleSchemaColumns.ts` for columns the app never reads/writes** — Postgres can have columns the client Drizzle schema omits
 - **Never delete user data** - transform in-place instead
-- **Don't skip version testing** - test migration chains (2.0→2.1→2.2)
+- **Don't skip version testing** - test migration chains (2.0→2.1→2.2) when you did bump versions
 - **Don't migrate synced tables** in client-side migrations - server handles those via RPC
 - **Don't make breaking changes** without a migration path
 - **Don't deploy untested migrations** - always test on real data first
-- **Don't forget to update `APP_SCHEMA_VERSION`** in `db/constants.ts`
-- **Don't forget to update `drizzleSchemaLocal.ts`** when modifying `drizzleSchemaColumns.ts`
+- **Don't forget `APP_SCHEMA_VERSION` + `get_schema_info()`** when you **did** change the client schema (Path B)
+- **Don't forget `drizzleSchemaLocal.ts`** when modifying `drizzleSchemaColumns.ts` (Path B)
+
+### Common mistakes (avoid)
+
+```sql
+-- ❌ WRONG: server-only column but version bump blocks all current app users
+alter table invite add column bounce_reason text;
+create or replace function public.get_schema_info() ... 'schema_version', '2.4' ...;
+
+-- ✅ RIGHT: server-only — no version function
+alter table invite add column bounce_reason text;
+comment on column invite.bounce_reason is 'Set by Resend webhook; server-only.';
+```
+
+```typescript
+// ❌ WRONG: bumped APP_SCHEMA_VERSION for a column not in Drizzle / not used by app
+export const APP_SCHEMA_VERSION = '2.4';
+
+// ✅ RIGHT: leave version unchanged; only Postgres migration
+export const APP_SCHEMA_VERSION = '2.3';
+```
 
 ## Data Transformation Guidelines
 
@@ -439,9 +542,10 @@ Use helper functions from `db/migrations/utils.ts`:
 
 Before deploying a migration:
 
+- [ ] Confirmed Path A vs Path B — server-only migrations must not touch `get_schema_info()` or `APP_SCHEMA_VERSION`
 - [ ] Test with real production-like data
-- [ ] Test migration chain (e.g., 1.0→1.1→1.2, and 1.0→1.2 directly)
-- [ ] Verify `_metadata.schema_version` is updated correctly
+- [ ] Test migration chain (e.g., 1.0→1.1→1.2, and 1.0→1.2 directly) — **Path B only**
+- [ ] Verify `_metadata.schema_version` is updated correctly — **Path B only**
 - [ ] Verify only `*_local` tables were migrated (not synced tables)
 - [ ] Test rollback scenario (if applicable)
 - [ ] Check for performance issues with large datasets
