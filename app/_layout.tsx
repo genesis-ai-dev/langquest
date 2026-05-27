@@ -25,7 +25,7 @@ import { ThemeProvider } from '@react-navigation/native';
 import { PortalHost } from '@rn-primitives/portal';
 import { useFonts } from 'expo-font';
 import * as Linking from 'expo-linking';
-import { Stack } from 'expo-router';
+import { Redirect, Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -122,24 +122,27 @@ function RootNavigator() {
   }
 
   return (
-    <Stack screenOptions={DEFAULT_STACK_OPTIONS}>
-      <Stack.Screen
-        name="(auth)"
-        options={{
-          ...DEFAULT_STACK_OPTIONS,
-          ...FORM_SHEET_OPTIONS
-        }}
-      />
-      <Stack.Protected guard={appReady}>
-        <Stack.Screen name="(app)" />
-      </Stack.Protected>
-      <Stack.Protected guard={needsMigration}>
-        <Stack.Screen name="migration" />
-      </Stack.Protected>
-      <Stack.Protected guard={needsUpgrade}>
-        <Stack.Screen name="upgrade" />
-      </Stack.Protected>
-    </Stack>
+    <>
+      {needsUpgrade ? <Redirect href="/upgrade" /> : null}
+      <Stack screenOptions={DEFAULT_STACK_OPTIONS}>
+        <Stack.Screen
+          name="(auth)"
+          options={{
+            ...DEFAULT_STACK_OPTIONS,
+            ...FORM_SHEET_OPTIONS
+          }}
+        />
+        <Stack.Protected guard={appReady}>
+          <Stack.Screen name="(app)" />
+        </Stack.Protected>
+        <Stack.Protected guard={needsMigration}>
+          <Stack.Screen name="migration" />
+        </Stack.Protected>
+        <Stack.Protected guard={needsUpgrade}>
+          <Stack.Screen name="upgrade" />
+        </Stack.Protected>
+      </Stack>
+    </>
   );
 }
 
