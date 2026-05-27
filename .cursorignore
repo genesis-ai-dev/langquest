@@ -1,0 +1,6 @@
+# Vendor skill trees — use SKILL.md under .agents/skills/ instead
+aso-skills/
+
+# Cursor auto-applies AGENTS.md / CLAUDE.md as always-on rules; keep compiled skill output out
+**/.agents/skills/**/AGENTS.md
+**/.agents/skills/**/CLAUDE.md

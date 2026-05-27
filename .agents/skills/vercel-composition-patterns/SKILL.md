@@ -86,4 +86,4 @@ Each rule file contains:
 
 ## Full Compiled Document
 
-For the complete guide with all rules expanded: `reference-guidelines.md`
+For the complete guide with all rules expanded (on demand only): `COMPILED.md`

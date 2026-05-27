@@ -11,7 +11,7 @@ lifting state, and composing internals.
   - `_template.md` - Template for creating new rules
   - `area-description.md` - Individual rule files
 - `metadata.json` - Document metadata (version, organization, abstract)
-- **`reference-guidelines.md`** - Compiled output (generated)
+- **`AGENTS.md`** - Compiled output (generated)
 
 ## Rules
 
