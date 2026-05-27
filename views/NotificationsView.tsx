@@ -1300,7 +1300,6 @@ export default function NotificationsView() {
     setProjectLanguoidProcessing(suggestion.id, 'dismiss');
     try {
       await dismissProjectLanguoid.mutateAsync(suggestion.id);
-      RNAlert.alert(t('success'), t('projectLanguageSuggestionDismissSuccess'));
     } catch (error) {
       console.error('Error dismissing project languoid suggestion:', error);
       RNAlert.alert(t('error'), t('projectLanguageSuggestionAcceptError'));
