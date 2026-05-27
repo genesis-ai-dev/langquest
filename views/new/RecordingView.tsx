@@ -11,16 +11,28 @@ import { VersePill } from '@/components/VersePill';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
+import {
+  getAssetOperationMessage,
+  MAX_ASSETS_WITHOUT_CONFIRMATION
+} from '@/constants/assetOperations';
 import { formatPericopeVerseLabel } from '@/constants/bibleStructure';
 import { useAudio } from '@/contexts/AudioContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { run as runAssetGarbageCollector } from '@/database_services/assetGarbageCollectorService';
 import {
-  getNextOrderIndex as getNextAclOrderIndex,
   normalizeOrderIndexForVerses,
   renameAsset,
-  updateContentLinkOrder
+  softDeleteAssetsFromQuest,
+  softMergeAssetsInQuest
 } from '@/database_services/assetService';
-import { audioSegmentService } from '@/database_services/audioSegmentService';
+import {
+  redo as redoAssetOperation,
+  undo as undoAssetOperation
+} from '@/database_services/assetUndoService';
+import type {
+  AssetOperationDataItem,
+  AssetOperationTypes
+} from '@/database_services/types';
 import {
   asset_content_link,
   project_language_link,
@@ -29,11 +41,12 @@ import {
 import type { FiaMetadata } from '@/db/drizzleSchemaColumns';
 import { system } from '@/db/powersync/system';
 import type { Project } from '@/hooks/db/useProjects';
-import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useAudioPlaybackCheckpoint } from '@/hooks/useAudioPlaybackCheckpoint';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { usePlayAllAudioController } from '@/hooks/usePlayAllAudioController';
 import { useSingleAudioController } from '@/hooks/useSingleAudioController';
+import { useUndoHistory } from '@/hooks/useUndoHistory';
 import { useLocalStore } from '@/store/localStore';
 import { resolveTable } from '@/utils/dbUtils';
 import {
@@ -45,21 +58,28 @@ import RNAlert from '@blazejkustra/react-native-alert';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { and, asc, eq } from 'drizzle-orm';
-import { createAudioPlayer, type AudioPlayer } from 'expo-audio';
+import { and, asc, eq, inArray } from 'drizzle-orm';
+import { createAudioPlayer } from 'expo-audio';
 import { useKeepAwake } from 'expo-keep-awake';
 import { Stack } from 'expo-router';
 import {
   BookOpenIcon,
   ChevronLeft,
   Ellipsis,
-  ListVideo,
+  PlayIcon,
   Plus,
-  SquareIcon
+  Redo2,
+  Undo2
 } from 'lucide-react-native';
 import React, { useMemo } from 'react';
 import { InteractionManager, View } from 'react-native';
+import Animated, {
+  FadeIn,
+  FadeOut,
+  LinearTransition
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { toast } from 'sonner-native';
 import { FullScreenVADOverlay } from './recording/components/FullScreenVADOverlay';
 import { RecordAssetCard } from './recording/components/RecordAssetCard';
 import { RecordAssetCardSkeleton } from './recording/components/RecordAssetCardSkeleton';
@@ -92,6 +112,7 @@ function extractFiaMetadata(metadata: unknown): FiaMetadata | null {
 }
 
 const DEBUG_MODE = false;
+const ENABLE_RECORDING_LIST_TRANSITIONS = true;
 function debugLog(...args: unknown[]) {
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
   if (DEBUG_MODE) {
@@ -433,6 +454,13 @@ const RecordingView = () => {
   const vadCounterRef = React.useRef<number | null>(null);
   const dbWriteQueueRef = React.useRef<Promise<void>>(Promise.resolve());
 
+  // Tracks the last order_index successfully committed inside the serial write queue.
+  // Updated synchronously after each save so the next queued item reads the correct
+  // value without relying on React state (which is async and can be stale).
+  // Reset to null whenever the insertion position changes so the first save of a new
+  // position recalculates from the live list state via getInsertionContext.
+  const lastCommittedOrderIndexRef = React.useRef<number | null>(null);
+
   // Track pending asset names to prevent duplicates when recording multiple assets quickly
   const pendingAssetNamesRef = React.useRef<Set<string>>(new Set());
 
@@ -633,6 +661,20 @@ const RecordingView = () => {
   const [assetDurations, setAssetDurations] = React.useState<
     Map<string, number>
   >(new Map());
+  const {
+    push: pushUndoHistory,
+    undo: undoHistory,
+    redo: redoHistory,
+    clear: clearUndoHistory,
+    peekUndo: peekUndoHistory,
+    peekRedo: peekRedoHistory,
+    canUndo: hasUndoHistory,
+    canRedo: hasRedoHistory
+  } = useUndoHistory<AssetOperationDataItem[], AssetOperationDataItem[]>();
+  const currentUndoOperation =
+    (peekUndoHistory() as AssetOperationTypes | undefined) ?? null;
+  const currentRedoOperation =
+    (peekRedoHistory() as AssetOperationTypes | undefined) ?? null;
 
   // SESSION-ONLY ITEMS: Assets and verse pills created during this recording session
   // When user exits and returns, the list starts with just the initial verse pill
@@ -1096,6 +1138,7 @@ const RecordingView = () => {
 
   // Auto-scroll request token to ignore stale scheduled scrolls
   const scrollRequestIdRef = React.useRef(0);
+  const pendingUndoScrollOffsetRef = React.useRef<number | null>(null);
 
   // Schedule a single scroll after list/layout settle.
   // If another insertion happens before this runs, the older request is ignored.
@@ -1127,6 +1170,12 @@ const RecordingView = () => {
     const currentCount = sessionItems.length;
     const previousCount = previousItemCountRef.current;
     const currentInsertionIndex = insertionIndexRef.current;
+
+    // Undo can change list length, but we preserve scroll manually in handleUndoAction.
+    if (pendingUndoScrollOffsetRef.current !== null) {
+      previousItemCountRef.current = currentCount;
+      return;
+    }
 
     // Only scroll if a new item was added (count increased)
     if (currentCount > previousCount && currentCount > 0) {
@@ -1667,6 +1716,9 @@ const RecordingView = () => {
   const insertionIndexRef = React.useRef(insertionIndex);
   React.useEffect(() => {
     insertionIndexRef.current = insertionIndex;
+    // Position changed: the committed counter is no longer valid for the new
+    // insertion point, so reset it so the next save recalculates from context.
+    lastCommittedOrderIndexRef.current = null;
   }, [insertionIndex]);
 
   // Refs for values read inside card callbacks (prevents callback recreation on every click)
@@ -1734,6 +1786,8 @@ const RecordingView = () => {
     } else if (!isVADActive) {
       vadCounterRef.current = null;
       vadInsertionIndexRef.current = null;
+      // Reset so the next VAD session recalculates from the live list state.
+      lastCommittedOrderIndexRef.current = null;
       debugLog(
         '[INSERTION INDEX REF 000X VAD]>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>',
         vadInsertionIndexRef.current,
@@ -1836,186 +1890,228 @@ const RecordingView = () => {
 
   const handleRecordingComplete = React.useCallback(
     async (uri: string, recordingDuration: number, _waveformData: number[]) => {
-      // REPLACE MODE: Delete the asset being replaced (only once, on first recording)
-      debugLog(
-        `🔍 handleRecordingComplete | assetToReplaceRef.current: ${assetToReplaceRef.current?.slice(0, 8) ?? 'null'}`
-      );
-      if (assetToReplaceRef.current) {
-        const assetIdToReplace = assetToReplaceRef.current;
-        assetToReplaceRef.current = null; // Clear immediately to prevent duplicate deletions
-        setIsReplacing(false); // Reset replace mode after first recording
-        wasReplaceRef.current = true; // Mark as replace so auto-scroll doesn't move position
+      const runRecordingComplete = async () => {
+        let replacePreviousData: AssetOperationDataItem[] = [];
+        let didReplaceDeleteSucceed = false;
 
+        // REPLACE MODE: Delete the asset being replaced (only once, on first recording)
         debugLog(
-          `🔄 REPLACE: Deleting asset ${assetIdToReplace.slice(0, 8)} before saving new recording`
+          `🔍 handleRecordingComplete | assetToReplaceRef.current: ${assetToReplaceRef.current?.slice(0, 8) ?? 'null'}`
         );
+        if (assetToReplaceRef.current) {
+          const assetIdToReplace = assetToReplaceRef.current;
+          const replacedItem = sessionItemsRef.current.find(
+            (item) => isAsset(item) && item.id === assetIdToReplace
+          );
+          replacePreviousData = [
+            {
+              id: assetIdToReplace,
+              name:
+                replacedItem && isAsset(replacedItem) ? replacedItem.name : null
+            }
+          ];
+          assetToReplaceRef.current = null; // Clear immediately to prevent duplicate deletions
+          setIsReplacing(false); // Reset replace mode after first recording
+          wasReplaceRef.current = true; // Mark as replace so auto-scroll doesn't move position
+
+          debugLog(
+            `🔄 REPLACE: Deleting asset ${assetIdToReplace.slice(0, 8)} before saving new recording`
+          );
+
+          try {
+            if (!questId) {
+              throw new Error('Missing questId for replace soft delete');
+            }
+            await softDeleteAssetsFromQuest(questId, [assetIdToReplace]);
+            // Remove from session assets list
+            setSessionItems((prev) =>
+              prev.filter((a) => a.id !== assetIdToReplace)
+            );
+            await queryClient.invalidateQueries({
+              queryKey: ['assets', 'by-quest', questId],
+              exact: false
+            });
+            didReplaceDeleteSucceed = true;
+            console.log(`✅ REPLACE: Asset deleted successfully`);
+          } catch (e) {
+            console.error('❌ REPLACE: Failed to delete asset', e);
+            wasReplaceRef.current = false; // Reset on error
+          }
+        }
+
+        // Determine order_index for this recording.
+        // If a previous save already ran inside this queue, use lastCommittedOrderIndexRef + 1
+        // so we never read stale React state. On the first save (or after a position reset),
+        // fall back to getInsertionContext which reads the live session list.
+        const targetOrder =
+          lastCommittedOrderIndexRef.current !== null
+            ? lastCommittedOrderIndexRef.current + 1
+            : getInsertionContext(insertionIndexRef.current).orderIndex;
+        const verseToUse =
+          currentRecordingVerseRef.current ??
+          getInsertionContext(insertionIndexRef.current).verse;
+
+        // Update refs for next recording in same session
+        currentRecordingOrderRef.current = targetOrder;
+        currentRecordingVerseRef.current = verseToUse;
 
         try {
-          await audioSegmentService.deleteAudioSegment(assetIdToReplace);
-          // Remove from session assets list
-          setSessionItems((prev) =>
-            prev.filter((a) => a.id !== assetIdToReplace)
+          debugLog('💾 Saving recording | order_index:', targetOrder);
+
+          // Validate required data
+          if (!projectId || !questId || !currentProject || !currentUser) {
+            console.error('❌ Missing required data');
+            return;
+          }
+
+          // Generate name using persistent counter (independent of order_index and VAD mode)
+          // Counter is persisted per quest in AsyncStorage and increments continuously
+          const nextNumber = nameCounterRef.current;
+          nameCounterRef.current++; // Increment immediately to reserve this number
+          const assetName = String(nextNumber).padStart(3, '0');
+          pendingAssetNamesRef.current.add(assetName);
+          debugLog(
+            `🏷️ Reserved name: ${assetName} | counter: ${nextNumber} → ${nameCounterRef.current} | order_index: ${targetOrder}`
           );
+
+          // Native module flushes the file before sending onSegmentComplete event.
+          // File should be ready, but iOS Simulator may need a moment (handled by retry logic in saveAudioLocally).
+
+          // Save audio file locally (with retry logic for timing issues)
+          const saveResult = await (async () => {
+            try {
+              const savedUri = await saveAudioLocally(uri);
+              return { success: true as const, uri: savedUri };
+            } catch (error) {
+              // Release the reserved name on error
+              pendingAssetNamesRef.current.delete(assetName);
+              console.error('❌ Failed to save audio file locally:', error);
+              return { success: false as const, error };
+            }
+          })();
+
+          if (!saveResult.success) {
+            // Re-throw to be caught by outer catch block
+            throw saveResult.error;
+          }
+
+          const localUri = saveResult.uri;
+
+          if (!targetLanguoidId) {
+            throw new Error('Target languoid not found for project');
+          }
+          // Use the verse that was captured when recording started
+          // This ensures we use the correct verse for middle-of-list recordings
+          const verseToUse = currentRecordingVerseRef.current;
+          const metadataToSave = {
+            ...(verseToUse ? { verse: verseToUse } : {}),
+            ...(recordingSessionId
+              ? { recordingSessionId: recordingSessionId }
+              : {})
+          };
+
+          const newAssetId = await saveRecording({
+            questId: questId,
+            projectId: projectId,
+            targetLanguoidId: targetLanguoidId,
+            userId: currentUser.id,
+            orderIndex: targetOrder,
+            audioUri: localUri,
+            assetName: assetName, // Pass the reserved name
+            metadata:
+              Object.keys(metadataToSave).length > 0 ? metadataToSave : null
+          });
+
+          // Log the saved asset details
+          console.log(
+            `📼 Asset saved | name: "${assetName}" | order_index: ${targetOrder} | verse: ${verseToUse ? `${verseToUse.from}-${verseToUse.to}` : 'null'}`
+          );
+
+          // Add to session assets list (UI only - not loaded from DB)
+          addSessionAsset({
+            id: newAssetId,
+            name: assetName,
+            order_index: targetOrder,
+            verse: verseToUse,
+            duration: recordingDuration > 0 ? recordingDuration : undefined
+          });
+          if (didReplaceDeleteSucceed && replacePreviousData.length > 0) {
+            pushUndoHistory({
+              domain: 'asset',
+              action: 'replace',
+              previousData: replacePreviousData,
+              newData: [{ id: newAssetId }],
+              canUndo: true
+            });
+          } else {
+            pushUndoHistory({
+              domain: 'asset',
+              action: 'create',
+              previousData: [],
+              newData: [{ id: newAssetId }],
+              canUndo: true
+            });
+          }
+
+          // Pre-populate metadata Maps so the lazy loading effect
+          // skips this asset entirely (avoids expensive Audio.Sound.createAsync)
+          loadedAssetIdsRef.current.add(newAssetId);
+          setAssetSegmentCounts((prev) => {
+            const next = new Map(prev);
+            next.set(newAssetId, 1);
+            return next;
+          });
+          if (recordingDuration > 0) {
+            setAssetDurations((prev) => {
+              const next = new Map(prev);
+              next.set(newAssetId, recordingDuration);
+              return next;
+            });
+          }
+
+          // Track which verse was recorded (for order_index normalization on return)
+          // If no verse is assigned, use 999 (UNASSIGNED_VERSE_BASE)
+          const verseToTrack = verseToUse?.from ?? 999;
+          recordedVersesRef.current.add(verseToTrack);
+          debugLog(
+            `📋 Tracked verse ${verseToTrack} for normalization (total: ${recordedVersesRef.current.size})`
+          );
+
+          // Save the updated name counter to AsyncStorage
+          await saveNameCounter(nameCounterRef.current);
+
+          // Release the reserved name after successful save
+          pendingAssetNamesRef.current.delete(assetName);
+          debugLog(
+            `✅ Released name: ${assetName} (pending: ${pendingAssetNamesRef.current.size})`
+          );
+
+          // Record the committed order_index so the next queued save can derive the
+          // correct next value without reading potentially stale React state.
+          lastCommittedOrderIndexRef.current = targetOrder;
+
+          // Invalidate queries to sync order_index after insertions in the middle
+          // This is needed because recordingService shifts order_index values
           await queryClient.invalidateQueries({
             queryKey: ['assets', 'by-quest', questId],
             exact: false
           });
-          console.log(`✅ REPLACE: Asset deleted successfully`);
-        } catch (e) {
-          console.error('❌ REPLACE: Failed to delete asset', e);
-          wasReplaceRef.current = false; // Reset on error
+
+          debugLog('🏁 Recording saved');
+          setIsRecording(false);
+        } catch (error) {
+          console.error('❌ Failed to save recording:', error);
+          setIsRecording(false);
         }
-      }
+      };
 
-      // Recalculate order_index based on current list state
-      // This ensures each consecutive recording gets a unique incremented order_index
-      const currentContext = getInsertionContext(insertionIndexRef.current);
-      const targetOrder = currentContext.orderIndex;
-      const verseToUse = currentContext.verse;
-
-      // Update refs for next recording in same session
-      currentRecordingOrderRef.current = targetOrder;
-      currentRecordingVerseRef.current = verseToUse;
-
-      try {
-        debugLog('💾 Saving recording | order_index:', targetOrder);
-
-        // Validate required data
-        if (!projectId || !questId || !currentProject || !currentUser) {
-          console.error('❌ Missing required data');
-          return;
-        }
-
-        // Generate name using persistent counter (independent of order_index and VAD mode)
-        // Counter is persisted per quest in AsyncStorage and increments continuously
-        const nextNumber = nameCounterRef.current;
-        nameCounterRef.current++; // Increment immediately to reserve this number
-        const assetName = String(nextNumber).padStart(3, '0');
-        pendingAssetNamesRef.current.add(assetName);
-        debugLog(
-          `🏷️ Reserved name: ${assetName} | counter: ${nextNumber} → ${nameCounterRef.current} | order_index: ${targetOrder}`
-        );
-
-        // Native module flushes the file before sending onSegmentComplete event.
-        // File should be ready, but iOS Simulator may need a moment (handled by retry logic in saveAudioLocally).
-
-        // Save audio file locally (with retry logic for timing issues)
-        const saveResult = await (async () => {
-          try {
-            const savedUri = await saveAudioLocally(uri);
-            return { success: true as const, uri: savedUri };
-          } catch (error) {
-            // Release the reserved name on error
-            pendingAssetNamesRef.current.delete(assetName);
-            console.error('❌ Failed to save audio file locally:', error);
-            return { success: false as const, error };
-          }
-        })();
-
-        if (!saveResult.success) {
-          // Re-throw to be caught by outer catch block
-          throw saveResult.error;
-        }
-
-        const localUri = saveResult.uri;
-
-        // Queue DB write (serialized to prevent race conditions)
-        dbWriteQueueRef.current = dbWriteQueueRef.current
-          .then(async () => {
-            if (!targetLanguoidId) {
-              throw new Error('Target languoid not found for project');
-            }
-            // Use the verse that was captured when recording started
-            // This ensures we use the correct verse for middle-of-list recordings
-            const verseToUse = currentRecordingVerseRef.current;
-            const metadataToSave = {
-              ...(verseToUse ? { verse: verseToUse } : {}),
-              ...(recordingSessionId
-                ? { recordingSessionId: recordingSessionId }
-                : {})
-            };
-
-            const newAssetId = await saveRecording({
-              questId: questId,
-              projectId: projectId,
-              targetLanguoidId: targetLanguoidId,
-              userId: currentUser.id,
-              orderIndex: targetOrder,
-              audioUri: localUri,
-              assetName: assetName, // Pass the reserved name
-              metadata:
-                Object.keys(metadataToSave).length > 0 ? metadataToSave : null
-            });
-
-            // Log the saved asset details
-            console.log(
-              `📼 Asset saved | name: "${assetName}" | order_index: ${targetOrder} | verse: ${verseToUse ? `${verseToUse.from}-${verseToUse.to}` : 'null'}`
-            );
-
-            // Add to session assets list (UI only - not loaded from DB)
-            addSessionAsset({
-              id: newAssetId,
-              name: assetName,
-              order_index: targetOrder,
-              verse: verseToUse,
-              duration: recordingDuration > 0 ? recordingDuration : undefined
-            });
-
-            // Pre-populate metadata Maps so the lazy loading effect
-            // skips this asset entirely (avoids expensive Audio.Sound.createAsync)
-            loadedAssetIdsRef.current.add(newAssetId);
-            setAssetSegmentCounts((prev) => {
-              const next = new Map(prev);
-              next.set(newAssetId, 1);
-              return next;
-            });
-            if (recordingDuration > 0) {
-              setAssetDurations((prev) => {
-                const next = new Map(prev);
-                next.set(newAssetId, recordingDuration);
-                return next;
-              });
-            }
-
-            // Track which verse was recorded (for order_index normalization on return)
-            // If no verse is assigned, use 999 (UNASSIGNED_VERSE_BASE)
-            const verseToTrack = verseToUse?.from ?? 999;
-            recordedVersesRef.current.add(verseToTrack);
-            debugLog(
-              `📋 Tracked verse ${verseToTrack} for normalization (total: ${recordedVersesRef.current.size})`
-            );
-
-            // Save the updated name counter to AsyncStorage
-            await saveNameCounter(nameCounterRef.current);
-
-            // Release the reserved name after successful save
-            pendingAssetNamesRef.current.delete(assetName);
-            debugLog(
-              `✅ Released name: ${assetName} (pending: ${pendingAssetNamesRef.current.size})`
-            );
-          })
-          .catch((err) => {
-            console.error('❌ DB write failed:', err);
-            // Release the reserved name on error
-            pendingAssetNamesRef.current.delete(assetName);
-            throw err;
-          });
-
-        await dbWriteQueueRef.current;
-
-        // Invalidate queries to sync order_index after insertions in the middle
-        // This is needed because recordingService shifts order_index values
-        await queryClient.invalidateQueries({
-          queryKey: ['assets', 'by-quest', questId],
-          exact: false
-        });
-
-        debugLog('🏁 Recording saved');
-        setIsRecording(false);
-      } catch (error) {
-        console.error('❌ Failed to save recording:', error);
-        setIsRecording(false);
-      }
+      // Serialize full recording completion flow to avoid order_index race conditions.
+      const queuedOperation = dbWriteQueueRef.current.then(
+        runRecordingComplete,
+        runRecordingComplete
+      );
+      dbWriteQueueRef.current = queuedOperation.catch(() => undefined);
+      await queuedOperation;
     },
     [
       projectId,
@@ -2027,7 +2123,8 @@ const RecordingView = () => {
       recordingSessionId,
       addSessionAsset,
       saveNameCounter,
-      getInsertionContext
+      getInsertionContext,
+      pushUndoHistory
     ]
   );
 
@@ -2450,10 +2547,18 @@ const RecordingView = () => {
   const handleDeleteLocalAsset = React.useCallback(
     async (assetId: string) => {
       try {
-        await audioSegmentService.deleteAudioSegment(assetId);
+        if (!questId) return;
+        await softDeleteAssetsFromQuest(questId, [assetId]);
 
         // Remove from session assets list
         setSessionItems((prev) => prev.filter((a) => a.id !== assetId));
+        pushUndoHistory({
+          domain: 'asset',
+          action: 'delete',
+          previousData: [{ id: assetId }],
+          newData: [],
+          canUndo: true
+        });
 
         await queryClient.invalidateQueries({
           queryKey: ['assets', 'by-quest', questId],
@@ -2463,7 +2568,7 @@ const RecordingView = () => {
         console.error('Failed to delete local asset', e);
       }
     },
-    [queryClient, questId]
+    [pushUndoHistory, queryClient, questId]
   );
 
   const handleMergeDownLocal = React.useCallback(
@@ -2471,66 +2576,73 @@ const RecordingView = () => {
       try {
         const first = assets[index];
         const second = assets[index + 1];
-        if (!first || !second || !currentUser) return;
+        if (!first || !second) return;
         if (first.source === 'cloud' || second.source === 'cloud') return;
 
-        const contentLocal = resolveTable('asset_content_link', {
-          localOverride: true
+        if (!questId) return;
+        const mergeResult = await softMergeAssetsInQuest({
+          questId,
+          assetsToMerge: [{ id: first.id }, { id: second.id }],
+          fallbackProjectId: projectId,
+          fallbackCreatorId: currentUser?.id ?? null
         });
-        const secondContent = await system.db
-          .select()
-          .from(contentLocal)
-          .where(eq(contentLocal.asset_id, second.id))
-          .orderBy(asc(contentLocal.order_index), asc(contentLocal.created_at));
+        if (!mergeResult) return;
 
-        // Get next available order_index for the target asset (local table)
-        let nextOrder = await getNextAclOrderIndex(first.id, {
-          localOverride: true
-        });
+        // Remove merged source assets and add the newly linked asset.
+        const sourceIds = new Set([first.id, second.id]);
+        setSessionItems((prev) => {
+          const withoutSources = prev.filter((item) => !sourceIds.has(item.id));
+          const newMergedAsset: UIAsset = {
+            type: 'asset',
+            id: mergeResult.newAssetId,
+            name: mergeResult.newAssetName,
+            created_at: new Date().toISOString(),
+            order_index:
+              typeof mergeResult.orderIndex === 'number'
+                ? mergeResult.orderIndex
+                : first.order_index,
+            source: 'local',
+            segmentCount: 1,
+            verse: first.verse ?? null
+          };
 
-        for (const c of secondContent) {
-          if (!c.audio) continue;
-          await system.db.insert(contentLocal).values({
-            asset_id: first.id,
-            source_language_id: c.source_language_id, // Deprecated field, kept for backward compatibility
-            languoid_id: c.languoid_id ?? c.source_language_id ?? null, // Use languoid_id if available, fallback to source_language_id
-            text: c.text || '',
-            audio: c.audio,
-            download_profiles: [currentUser.id],
-            order_index: nextOrder++
+          return [...withoutSources, newMergedAsset].sort((a, b) => {
+            if (a.order_index === b.order_index) {
+              if (isPill(a) && isAsset(b)) return -1;
+              if (isAsset(a) && isPill(b)) return 1;
+              if (isAsset(a) && isAsset(b)) {
+                return a.created_at.localeCompare(b.created_at);
+              }
+              return 0;
+            }
+            return a.order_index > b.order_index ? 1 : -1;
           });
-        }
+        });
+        pushUndoHistory({
+          domain: 'asset',
+          action: 'merge',
+          previousData: [{ id: first.id }, { id: second.id }],
+          newData: [{ id: mergeResult.newAssetId }],
+          canUndo: true
+        });
 
-        await audioSegmentService.deleteAudioSegment(second.id);
-
-        // Normalize all content links on target to 1-based ordering
-        const allContent = await system.db
-          .select({ id: contentLocal.id })
-          .from(contentLocal)
-          .where(eq(contentLocal.asset_id, first.id))
-          .orderBy(asc(contentLocal.order_index), asc(contentLocal.created_at));
-        await updateContentLinkOrder(
-          first.id,
-          allContent.map((c) => c.id),
-          { localOverride: true }
-        );
-
-        // Remove merged asset from session list (second one gets deleted)
-        setSessionItems((prev) => prev.filter((a) => a.id !== second.id));
-
-        // Force re-load of segment count for the merged asset
+        // Force re-load of segment count for the new merged asset
         debugLog(
-          `🔄 Forcing segment count reload for merged asset: ${first.id}`
+          `🔄 Forcing segment count reload for merged asset: ${mergeResult.newAssetId}`
         );
-        loadedAssetIdsRef.current.delete(first.id);
+        loadedAssetIdsRef.current.delete(mergeResult.newAssetId);
         setAssetSegmentCounts((prev) => {
           const next = new Map(prev);
           next.delete(first.id);
+          next.delete(second.id);
+          next.delete(mergeResult.newAssetId);
           return next;
         });
         setAssetDurations((prev) => {
           const next = new Map(prev);
           next.delete(first.id);
+          next.delete(second.id);
+          next.delete(mergeResult.newAssetId);
           return next;
         });
 
@@ -2542,7 +2654,7 @@ const RecordingView = () => {
         console.error('Failed to merge local assets', e);
       }
     },
-    [assets, currentUser, queryClient, questId]
+    [assets, currentUser?.id, projectId, pushUndoHistory, queryClient, questId]
   );
 
   const handleBatchMergeSelected = React.useCallback(() => {
@@ -2550,113 +2662,123 @@ const RecordingView = () => {
       (a) => selectedAssetIds.has(a.id) && a.source !== 'cloud'
     );
     if (selectedOrdered.length < 2) return;
+    const shouldRequireConfirmation =
+      selectedOrdered.length > MAX_ASSETS_WITHOUT_CONFIRMATION;
+
+    const runBatchMerge = async (allowUndo: boolean) => {
+      try {
+        if (!questId) return;
+        if (!allowUndo) {
+          clearUndoHistory();
+        }
+
+        const mergeResult = await softMergeAssetsInQuest({
+          questId,
+          assetsToMerge: selectedOrdered.map((asset) => ({
+            id: asset.id
+          })),
+          fallbackProjectId: projectId,
+          fallbackCreatorId: currentUser?.id ?? null
+        });
+        if (!mergeResult) return;
+
+        const mergedSourceIds = new Set(selectedOrdered.map((a) => a.id));
+        setSessionItems((prev) => {
+          const withoutSources = prev.filter(
+            (item) => !mergedSourceIds.has(item.id)
+          );
+          const firstSelected = selectedOrdered[0]!;
+          const newMergedAsset: UIAsset = {
+            type: 'asset',
+            id: mergeResult.newAssetId,
+            name: mergeResult.newAssetName,
+            created_at: new Date().toISOString(),
+            order_index:
+              typeof mergeResult.orderIndex === 'number'
+                ? mergeResult.orderIndex
+                : firstSelected.order_index,
+            source: 'local',
+            segmentCount: 1,
+            verse: firstSelected.verse ?? null
+          };
+
+          return [...withoutSources, newMergedAsset].sort((a, b) => {
+            if (a.order_index === b.order_index) {
+              if (isPill(a) && isAsset(b)) return -1;
+              if (isAsset(a) && isPill(b)) return 1;
+              if (isAsset(a) && isAsset(b)) {
+                return a.created_at.localeCompare(b.created_at);
+              }
+              return 0;
+            }
+            return a.order_index > b.order_index ? 1 : -1;
+          });
+        });
+
+        if (allowUndo) {
+          pushUndoHistory({
+            domain: 'asset',
+            action: 'merge',
+            previousData: selectedOrdered.map((asset) => ({
+              id: asset.id
+            })),
+            newData: [{ id: mergeResult.newAssetId }],
+            canUndo: true
+          });
+        }
+
+        // Force re-load of segment count for the merged target asset
+        debugLog(
+          `🔄 Forcing segment count reload for merged asset: ${mergeResult.newAssetId}`
+        );
+        loadedAssetIdsRef.current.delete(mergeResult.newAssetId);
+        setAssetSegmentCounts((prev) => {
+          const next = new Map(prev);
+          selectedOrdered.forEach((asset) => next.delete(asset.id));
+          next.delete(mergeResult.newAssetId);
+          return next;
+        });
+        setAssetDurations((prev) => {
+          const next = new Map(prev);
+          selectedOrdered.forEach((asset) => next.delete(asset.id));
+          next.delete(mergeResult.newAssetId);
+          return next;
+        });
+
+        cancelSelection();
+        await queryClient.invalidateQueries({
+          queryKey: ['assets', 'by-quest', questId],
+          exact: false
+        });
+
+        debugLog('✅ Batch merge completed');
+      } catch (e) {
+        console.error('Failed to batch merge local assets', e);
+        RNAlert.alert('Error', 'Failed to merge assets. Please try again.');
+      }
+    };
+
+    if (!shouldRequireConfirmation) {
+      void runBatchMerge(true);
+      return;
+    }
 
     RNAlert.alert(
-      'Merge Assets',
-      `Are you sure you want to merge ${selectedOrdered.length} assets? The audio segments will be combined into the first selected asset, and the others will be deleted.`,
+      t('mergeAssets'),
+      t('mergeAssetsConfirmation').replace(
+        '{count}',
+        String(selectedOrdered.length)
+      ),
       [
         {
-          text: 'Cancel',
+          text: t('cancel'),
           style: 'cancel'
         },
         {
-          text: 'Merge',
+          text: t('merge'),
           style: 'destructive',
           onPress: () => {
-            void (async () => {
-              try {
-                if (!currentUser) return;
-
-                const target = selectedOrdered[0]!;
-                const rest = selectedOrdered.slice(1);
-                const contentLocal = resolveTable('asset_content_link', {
-                  localOverride: true
-                });
-
-                for (const src of rest) {
-                  const srcContent = await system.db
-                    .select()
-                    .from(contentLocal)
-                    .where(eq(contentLocal.asset_id, src.id))
-                    .orderBy(
-                      asc(contentLocal.order_index),
-                      asc(contentLocal.created_at)
-                    );
-
-                  // Get next available order_index for the target asset (local table)
-                  let nextOrder = await getNextAclOrderIndex(target.id, {
-                    localOverride: true
-                  });
-
-                  for (const c of srcContent) {
-                    if (!c.audio) continue;
-                    await system.db.insert(contentLocal).values({
-                      asset_id: target.id,
-                      source_language_id: c.source_language_id, // Deprecated field, kept for backward compatibility
-                      languoid_id:
-                        c.languoid_id ?? c.source_language_id ?? null, // Use languoid_id if available, fallback to source_language_id
-                      text: c.text || '',
-                      audio: c.audio,
-                      download_profiles: [currentUser.id],
-                      order_index: nextOrder++
-                    });
-                  }
-
-                  await audioSegmentService.deleteAudioSegment(src.id);
-                }
-
-                // Normalize all content links on target to 1-based ordering
-                const allContent = await system.db
-                  .select({ id: contentLocal.id })
-                  .from(contentLocal)
-                  .where(eq(contentLocal.asset_id, target.id))
-                  .orderBy(
-                    asc(contentLocal.order_index),
-                    asc(contentLocal.created_at)
-                  );
-                await updateContentLinkOrder(
-                  target.id,
-                  allContent.map((c) => c.id),
-                  { localOverride: true }
-                );
-
-                // Remove merged assets from session list (all except target get deleted)
-                const deletedIds = new Set(rest.map((a) => a.id));
-                setSessionItems((prev) =>
-                  prev.filter((a) => !deletedIds.has(a.id))
-                );
-
-                // Force re-load of segment count for the merged target asset
-                debugLog(
-                  `🔄 Forcing segment count reload for merged asset: ${target.id}`
-                );
-                loadedAssetIdsRef.current.delete(target.id);
-                setAssetSegmentCounts((prev) => {
-                  const next = new Map(prev);
-                  next.delete(target.id);
-                  return next;
-                });
-                setAssetDurations((prev) => {
-                  const next = new Map(prev);
-                  next.delete(target.id);
-                  return next;
-                });
-
-                cancelSelection();
-                await queryClient.invalidateQueries({
-                  queryKey: ['assets', 'by-quest', questId],
-                  exact: false
-                });
-
-                debugLog('✅ Batch merge completed');
-              } catch (e) {
-                console.error('Failed to batch merge local assets', e);
-                RNAlert.alert(
-                  'Error',
-                  'Failed to merge assets. Please try again.'
-                );
-              }
-            })();
+            void runBatchMerge(false);
           }
         }
       ]
@@ -2664,10 +2786,14 @@ const RecordingView = () => {
   }, [
     assets,
     selectedAssetIds,
-    currentUser,
     cancelSelection,
+    clearUndoHistory,
+    currentUser?.id,
+    projectId,
+    pushUndoHistory,
     queryClient,
-    questId
+    questId,
+    t
   ]);
 
   const handleBatchDeleteSelected = React.useCallback(() => {
@@ -2675,53 +2801,85 @@ const RecordingView = () => {
       (a) => selectedAssetIds.has(a.id) && a.source !== 'cloud'
     );
     if (selectedOrdered.length < 1) return;
+    const shouldRequireConfirmation =
+      selectedOrdered.length > MAX_ASSETS_WITHOUT_CONFIRMATION;
+
+    const runBatchDelete = async (allowUndo: boolean) => {
+      try {
+        if (!questId) return;
+        if (!allowUndo) {
+          clearUndoHistory();
+        }
+
+        await softDeleteAssetsFromQuest(
+          questId,
+          selectedOrdered.map((asset) => asset.id)
+        );
+
+        // Remove deleted assets from session list
+        const deletedIds = new Set(selectedOrdered.map((a) => a.id));
+        setSessionItems((prev) => prev.filter((a) => !deletedIds.has(a.id)));
+
+        if (allowUndo) {
+          pushUndoHistory({
+            domain: 'asset',
+            action: 'delete',
+            previousData: selectedOrdered.map((asset) => ({
+              id: asset.id
+            })),
+            newData: [],
+            canUndo: true
+          });
+        }
+
+        cancelSelection();
+        await queryClient.invalidateQueries({
+          queryKey: ['assets', 'by-quest', questId],
+          exact: false
+        });
+
+        debugLog(`✅ Batch delete completed: ${selectedOrdered.length} assets`);
+      } catch (e) {
+        console.error('Failed to batch delete local assets', e);
+        RNAlert.alert('Error', 'Failed to delete assets. Please try again.');
+      }
+    };
+
+    if (!shouldRequireConfirmation) {
+      void runBatchDelete(true);
+      return;
+    }
 
     RNAlert.alert(
-      'Delete Assets',
-      `Are you sure you want to delete ${selectedOrdered.length} asset${selectedOrdered.length > 1 ? 's' : ''}? This action cannot be undone.`,
+      t('deleteAssets'),
+      t('deleteAssetsConfirmation').replace(
+        '{count}',
+        String(selectedOrdered.length)
+      ),
       [
         {
-          text: 'Cancel',
+          text: t('cancel'),
           style: 'cancel'
         },
         {
-          text: 'Delete',
+          text: t('delete'),
           style: 'destructive',
           onPress: () => {
-            void (async () => {
-              try {
-                for (const asset of selectedOrdered) {
-                  await audioSegmentService.deleteAudioSegment(asset.id);
-                }
-
-                // Remove deleted assets from session list
-                const deletedIds = new Set(selectedOrdered.map((a) => a.id));
-                setSessionItems((prev) =>
-                  prev.filter((a) => !deletedIds.has(a.id))
-                );
-
-                cancelSelection();
-                await queryClient.invalidateQueries({
-                  queryKey: ['assets', 'by-quest', questId],
-                  exact: false
-                });
-
-                debugLog(
-                  `✅ Batch delete completed: ${selectedOrdered.length} assets`
-                );
-              } catch (e) {
-                console.error('Failed to batch delete local assets', e);
-                RNAlert.alert(
-                  'Error',
-                  'Failed to delete assets. Please try again.'
-                );
-              }
-            })();
+            void runBatchDelete(false);
           }
         }
       ]
     );
-  }, [assets, selectedAssetIds, cancelSelection, queryClient, questId]);
+  }, [
+    assets,
+    selectedAssetIds,
+    cancelSelection,
+    clearUndoHistory,
+    pushUndoHistory,
+    queryClient,
+    questId,
+    t
+  ]);
 
   // ============================================================================
   // SELECT ALL / DESELECT ALL
@@ -2778,6 +2936,13 @@ const RecordingView = () => {
             asset.id === renameAssetId ? { ...asset, name: newName } : asset
           )
         );
+        pushUndoHistory({
+          domain: 'asset',
+          action: 'rename',
+          previousData: [{ id: renameAssetId, name: renameAssetName }],
+          newData: [{ id: renameAssetId, name: newName }],
+          canUndo: true
+        });
 
         // Invalidate queries to refresh the list in parent view
         await queryClient.invalidateQueries({
@@ -2794,7 +2959,7 @@ const RecordingView = () => {
         }
       }
     },
-    [renameAssetId, queryClient, questId]
+    [renameAssetId, renameAssetName, pushUndoHistory, queryClient, questId]
   );
 
   // ============================================================================
@@ -3063,13 +3228,32 @@ const RecordingView = () => {
         const onPillPress = pillCallbacksMap.get(item.id)?.onPress;
 
         return (
-          <PillListRow
-            itemId={item.id}
-            text={pillText}
-            isHighlighted={isHighlighted}
-            showSkeleton={isHighlighted}
-            onPress={onPillPress}
-          />
+          <Animated.View
+            key={item.id}
+            entering={
+              ENABLE_RECORDING_LIST_TRANSITIONS
+                ? FadeIn.duration(160)
+                : undefined
+            }
+            exiting={
+              ENABLE_RECORDING_LIST_TRANSITIONS
+                ? FadeOut.duration(120)
+                : undefined
+            }
+            layout={
+              ENABLE_RECORDING_LIST_TRANSITIONS
+                ? LinearTransition.duration(160)
+                : undefined
+            }
+          >
+            <PillListRow
+              itemId={item.id}
+              text={pillText}
+              isHighlighted={isHighlighted}
+              showSkeleton={isHighlighted}
+              onPress={onPillPress}
+            />
+          </Animated.View>
         );
       }
 
@@ -3083,35 +3267,73 @@ const RecordingView = () => {
       // Fallback if callbacks not found (shouldn't happen, but defensive)
       if (!callbacks) {
         console.warn(`Missing callbacks for asset ${item.id}`);
-        return <View key={item.id} style={{ height: ROW_HEIGHT }} />;
+        return (
+          <Animated.View
+            key={item.id}
+            entering={
+              ENABLE_RECORDING_LIST_TRANSITIONS
+                ? FadeIn.duration(160)
+                : undefined
+            }
+            exiting={
+              ENABLE_RECORDING_LIST_TRANSITIONS
+                ? FadeOut.duration(120)
+                : undefined
+            }
+            layout={
+              ENABLE_RECORDING_LIST_TRANSITIONS
+                ? LinearTransition.duration(160)
+                : undefined
+            }
+          >
+            <View style={{ height: ROW_HEIGHT }} />
+          </Animated.View>
+        );
       }
 
       return (
-        <AssetListRow
-          asset={item}
-          index={index}
-          isSelected={isInBatchSelection}
-          isHighlighted={isHighlighted}
-          isSelectionMode={isSelectionMode}
-          isPlaying={isThisAssetPlaying}
-          playDisabled={
-            isPlayAllPlayerActive ||
-            isRecording ||
-            isVADRecording ||
-            isVADActive
+        <Animated.View
+          key={item.id}
+          entering={
+            ENABLE_RECORDING_LIST_TRANSITIONS ? FadeIn.duration(160) : undefined
           }
-          hideButtons={isRecording || isVADRecording || isVADActive}
-          duration={duration}
-          canMergeDown={canMergeDown}
-          showSkeleton={isHighlighted && !isReplacing}
-          onPress={callbacks.onPress}
-          onLongPress={callbacks.onLongPress}
-          onPlay={callbacks.onPlay}
-          onDelete={stableHandleDeleteLocalAsset}
-          onMerge={stableHandleMergeDownLocal}
-          onRename={stableHandleRenameAsset}
-          onActionTypeChange={stableHandleActionTypeChange}
-        />
+          exiting={
+            ENABLE_RECORDING_LIST_TRANSITIONS
+              ? FadeOut.duration(120)
+              : undefined
+          }
+          layout={
+            ENABLE_RECORDING_LIST_TRANSITIONS
+              ? LinearTransition.duration(160)
+              : undefined
+          }
+        >
+          <AssetListRow
+            asset={item}
+            index={index}
+            isSelected={isInBatchSelection}
+            isHighlighted={isHighlighted}
+            isSelectionMode={isSelectionMode}
+            isPlaying={isThisAssetPlaying}
+            playDisabled={
+              isPlayAllPlayerActive ||
+              isRecording ||
+              isVADRecording ||
+              isVADActive
+            }
+            hideButtons={isRecording || isVADRecording || isVADActive}
+            duration={duration}
+            canMergeDown={canMergeDown}
+            showSkeleton={isHighlighted && !isReplacing}
+            onPress={callbacks.onPress}
+            onLongPress={callbacks.onLongPress}
+            onPlay={callbacks.onPlay}
+            onDelete={stableHandleDeleteLocalAsset}
+            onMerge={stableHandleMergeDownLocal}
+            onRename={stableHandleRenameAsset}
+            onActionTypeChange={stableHandleActionTypeChange}
+          />
+        </Animated.View>
       );
     },
     [
@@ -3286,6 +3508,315 @@ const RecordingView = () => {
     [isReplacing]
   );
 
+  const updateSessionItemsAfterUndo = React.useCallback(
+    async (operation: AssetOperationTypes) => {
+      if (operation.action === 'rename') {
+        const previousNameMap = new Map(
+          operation.previousData.map((item) => [item.id, item.name ?? null])
+        );
+
+        setSessionItems((prev) =>
+          prev.map((item) =>
+            isAsset(item) && previousNameMap.has(item.id)
+              ? {
+                  ...item,
+                  name: previousNameMap.get(item.id) ?? item.name
+                }
+              : item
+          )
+        );
+        return;
+      }
+
+      if (
+        operation.action === 'delete' ||
+        operation.action === 'merge' ||
+        operation.action === 'replace' ||
+        operation.action === 'create'
+      ) {
+        const previousIds = Array.from(
+          new Set(operation.previousData.map((item) => item.id))
+        );
+        const newIds = new Set(operation.newData.map((item) => item.id));
+
+        const assetLocal = resolveTable('asset', { localOverride: true });
+        const restoredAssetsRaw =
+          previousIds.length > 0
+            ? await system.db
+                .select()
+                .from(assetLocal)
+                .where(inArray(assetLocal.id, previousIds))
+            : [];
+
+        const restoredAssets: UIAsset[] = restoredAssetsRaw.map(
+          (asset, index) => {
+            let verse: { from: number; to: number } | null = null;
+            try {
+              const parsed =
+                typeof asset.metadata === 'string'
+                  ? (JSON.parse(asset.metadata) as {
+                      verse?: { from: number; to: number };
+                    })
+                  : null;
+              if (parsed?.verse?.from && parsed.verse.to) {
+                verse = { from: parsed.verse.from, to: parsed.verse.to };
+              }
+            } catch {
+              verse = null;
+            }
+
+            return {
+              type: 'asset',
+              id: asset.id,
+              name: asset.name ?? 'Unnamed',
+              created_at: asset.created_at ?? new Date().toISOString(),
+              order_index:
+                typeof asset.order_index === 'number'
+                  ? asset.order_index
+                  : index,
+              source: 'local',
+              segmentCount: assetSegmentCounts.get(asset.id) ?? 1,
+              duration: assetDurations.get(asset.id),
+              verse
+            };
+          }
+        );
+
+        setSessionItems((prev) => {
+          const withoutNewData = prev.filter((item) => !newIds.has(item.id));
+          const existingIds = new Set(withoutNewData.map((item) => item.id));
+          const restoredToAdd = restoredAssets.filter(
+            (item) => !existingIds.has(item.id)
+          );
+          const next = [...withoutNewData, ...restoredToAdd];
+
+          return next.sort((a, b) => {
+            if (a.order_index === b.order_index) {
+              if (isPill(a) && isAsset(b)) return -1;
+              if (isAsset(a) && isPill(b)) return 1;
+              if (isAsset(a) && isAsset(b)) {
+                return a.created_at.localeCompare(b.created_at);
+              }
+              return 0;
+            }
+            return a.order_index > b.order_index ? 1 : -1;
+          });
+        });
+      }
+    },
+    [assetDurations, assetSegmentCounts]
+  );
+
+  const updateSessionItemsAfterRedo = React.useCallback(
+    async (operation: AssetOperationTypes) => {
+      if (operation.action === 'rename') {
+        const newNameMap = new Map(
+          operation.newData.map((item) => [item.id, item.name ?? null])
+        );
+
+        setSessionItems((prev) =>
+          prev.map((item) =>
+            isAsset(item) && newNameMap.has(item.id)
+              ? {
+                  ...item,
+                  name: newNameMap.get(item.id) ?? item.name
+                }
+              : item
+          )
+        );
+        return;
+      }
+
+      if (
+        operation.action === 'delete' ||
+        operation.action === 'merge' ||
+        operation.action === 'replace' ||
+        operation.action === 'create'
+      ) {
+        const idsToRemove = new Set(
+          operation.previousData.map((item) => item.id)
+        );
+        const idsToRestore = Array.from(
+          new Set(operation.newData.map((item) => item.id))
+        );
+
+        const assetLocal = resolveTable('asset', { localOverride: true });
+        const restoredAssetsRaw =
+          idsToRestore.length > 0
+            ? await system.db
+                .select()
+                .from(assetLocal)
+                .where(inArray(assetLocal.id, idsToRestore))
+            : [];
+
+        const restoredAssets: UIAsset[] = restoredAssetsRaw.map(
+          (asset, index) => {
+            let verse: { from: number; to: number } | null = null;
+            try {
+              const parsed =
+                typeof asset.metadata === 'string'
+                  ? (JSON.parse(asset.metadata) as {
+                      verse?: { from: number; to: number };
+                    })
+                  : null;
+              if (parsed?.verse?.from && parsed.verse.to) {
+                verse = { from: parsed.verse.from, to: parsed.verse.to };
+              }
+            } catch {
+              verse = null;
+            }
+
+            return {
+              type: 'asset',
+              id: asset.id,
+              name: asset.name ?? 'Unnamed',
+              created_at: asset.created_at ?? new Date().toISOString(),
+              order_index:
+                typeof asset.order_index === 'number'
+                  ? asset.order_index
+                  : index,
+              source: 'local',
+              segmentCount: assetSegmentCounts.get(asset.id) ?? 1,
+              duration: assetDurations.get(asset.id),
+              verse
+            };
+          }
+        );
+
+        setSessionItems((prev) => {
+          const withoutPreviousData = prev.filter(
+            (item) => !idsToRemove.has(item.id)
+          );
+          const existingIds = new Set(
+            withoutPreviousData.map((item) => item.id)
+          );
+          const restoredToAdd = restoredAssets.filter(
+            (item) => !existingIds.has(item.id)
+          );
+          const next = [...withoutPreviousData, ...restoredToAdd];
+
+          return next.sort((a, b) => {
+            if (a.order_index === b.order_index) {
+              if (isPill(a) && isAsset(b)) return -1;
+              if (isAsset(a) && isPill(b)) return 1;
+              if (isAsset(a) && isAsset(b)) {
+                return a.created_at.localeCompare(b.created_at);
+              }
+              return 0;
+            }
+            return a.order_index > b.order_index ? 1 : -1;
+          });
+        });
+      }
+    },
+    [assetDurations, assetSegmentCounts]
+  );
+
+  const handleUndoAction = React.useCallback(() => {
+    if (!currentUndoOperation?.canUndo) return;
+
+    if (!projectId || !questId) {
+      console.warn('[Undo] Missing projectId or questId, cannot execute undo');
+      return;
+    }
+
+    const preservedScrollOffset = listRef.current?.getScrollOffset() ?? 0;
+    pendingUndoScrollOffsetRef.current = preservedScrollOffset;
+
+    void undoHistory(async (entry) => {
+      const operation = {
+        ...(entry as AssetOperationTypes),
+        domain: 'asset'
+      } as AssetOperationTypes;
+      await undoAssetOperation(projectId, questId, operation);
+      const message = getAssetOperationMessage(operation, 'undo');
+      toast.info(t('undo'), {
+        description: t(message.key).replace('{count}', String(message.count))
+      });
+      await updateSessionItemsAfterUndo(operation);
+      await queryClient.invalidateQueries({
+        queryKey: ['assets', 'by-quest', questId],
+        exact: false
+      });
+      InteractionManager.runAfterInteractions(() => {
+        requestAnimationFrame(() => {
+          const restoreOffset =
+            pendingUndoScrollOffsetRef.current ?? preservedScrollOffset;
+          listRef.current?.scrollToOffset(restoreOffset, false);
+          pendingUndoScrollOffsetRef.current = null;
+        });
+      });
+    }).catch((error) => {
+      pendingUndoScrollOffsetRef.current = null;
+      console.error('[Undo] Failed to preserve scroll position:', error);
+    });
+  }, [
+    currentUndoOperation,
+    projectId,
+    queryClient,
+    questId,
+    t,
+    undoHistory,
+    updateSessionItemsAfterUndo
+  ]);
+
+  const handleRedoAction = React.useCallback(() => {
+    if (!currentRedoOperation?.canUndo) return;
+
+    if (!projectId || !questId) {
+      console.warn('[Redo] Missing projectId or questId, cannot execute redo');
+      return;
+    }
+
+    const preservedScrollOffset = listRef.current?.getScrollOffset() ?? 0;
+    pendingUndoScrollOffsetRef.current = preservedScrollOffset;
+
+    void redoHistory(async (entry) => {
+      const operation = {
+        ...(entry as AssetOperationTypes),
+        domain: 'asset'
+      } as AssetOperationTypes;
+      await redoAssetOperation(projectId, questId, operation);
+      const message = getAssetOperationMessage(operation, 'redo');
+      toast.info(t('redo'), {
+        description: t(message.key).replace('{count}', String(message.count))
+      });
+      await updateSessionItemsAfterRedo(operation);
+      await queryClient.invalidateQueries({
+        queryKey: ['assets', 'by-quest', questId],
+        exact: false
+      });
+      InteractionManager.runAfterInteractions(() => {
+        requestAnimationFrame(() => {
+          const restoreOffset =
+            pendingUndoScrollOffsetRef.current ?? preservedScrollOffset;
+          listRef.current?.scrollToOffset(restoreOffset, false);
+          pendingUndoScrollOffsetRef.current = null;
+        });
+      });
+    }).catch((error) => {
+      pendingUndoScrollOffsetRef.current = null;
+      console.error('[Redo] Failed to preserve scroll position:', error);
+    });
+  }, [
+    currentRedoOperation,
+    projectId,
+    queryClient,
+    questId,
+    redoHistory,
+    t,
+    updateSessionItemsAfterRedo
+  ]);
+
+  React.useEffect(() => {
+    return () => {
+      void runAssetGarbageCollector();
+      // .then((entries) => {
+      //   console.log('[AssetGC] run on exit result:', entries);
+      // });
+    };
+  }, []);
+
   return (
     <View className="flex-1 bg-background">
       {bookChapterLabelFull && (
@@ -3306,23 +3837,75 @@ const RecordingView = () => {
         />
       )}
 
+      <View className="flex-row items-center justify-between px-4 py-4">
+        <Text
+          className="flex-1 text-sm font-semibold text-foreground"
+          numberOfLines={1}
+          ellipsizeMode="tail"
+        >
+          {bookChapterLabelFull || bookChapterLabel}
+        </Text>
+        <Text className="text-sm font-medium text-muted-foreground">
+          {assets.length} {t('assets').toLowerCase()}
+        </Text>
+      </View>
+
       {/* Header */}
-      <View className="flex-row items-center justify-between px-4 pb-2">
-        <View className="flex-col">
-          <Text className="text-base font-semibold text-foreground">
-            {(bookChapterLabelFull || bookChapterLabel).length > 25
-              ? `${(bookChapterLabelFull || bookChapterLabel).slice(0, 25)}...`
-              : bookChapterLabelFull || bookChapterLabel}
-          </Text>
-          <Text className="text-sm font-medium text-muted-foreground">
-            {assets.length} {t('assets').toLowerCase()}
-          </Text>
+      <View className="flex-row items-center px-4 pb-2">
+        <View className="flex-1 flex-row items-center gap-2">
+          {fiaPericopeId && (
+            <Button
+              variant="default"
+              size="icon"
+              disabled={isPlayAllPlayerActive}
+              onPress={() => setShowFiaTextDrawer(true)}
+              style={isPlayAllPlayerActive ? { opacity: 0.5 } : undefined}
+              className="size-10 rounded-full bg-primary"
+            >
+              <Icon
+                as={BookOpenIcon}
+                size={20}
+                className="text-primary-foreground"
+              />
+            </Button>
+          )}
         </View>
-        <View className="flex-row items-center justify-end gap-3">
+        <View className="flex-1 flex-row items-center justify-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            disabled={
+              isVADActive ||
+              isRecording ||
+              isVADRecording ||
+              !hasUndoHistory ||
+              !currentUndoOperation?.canUndo
+            }
+            onPress={handleUndoAction}
+          >
+            {/* <Icon as={Undo2} size={20} className="text-primary" /> */}
+            <Icon as={Undo2} size={20} className="text-primary" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            disabled={
+              isVADActive ||
+              isRecording ||
+              isVADRecording ||
+              !hasRedoHistory ||
+              !currentRedoOperation?.canUndo
+            }
+            onPress={handleRedoAction}
+          >
+            <Icon as={Redo2} size={20} className="text-primary" />
+          </Button>
+        </View>
+        <View className="flex-1 flex-row items-center justify-end gap-3">
           {assets.length > 0 && (
             <Button
-              variant="ghost"
-              size="icon"
+              variant="default"
+              size="default"
               disabled={
                 isRecording ||
                 isVADRecording ||
@@ -3337,26 +3920,11 @@ const RecordingView = () => {
                 }
                 void handlePlayAll();
               }}
-              className="h-10 w-10"
+              className="h-10 w-10 flex-row items-center rounded-full bg-primary"
             >
               <Icon
-                as={isPlayAllPlayerActive ? SquareIcon : ListVideo}
-                size={20}
-                className="text-primary"
-              />
-            </Button>
-          )}
-          {fiaPericopeId && (
-            <Button
-              variant="default"
-              size="icon"
-              disabled={isPlayAllPlayerActive}
-              onPress={() => setShowFiaTextDrawer(true)}
-              style={isPlayAllPlayerActive ? { opacity: 0.5 } : undefined}
-            >
-              <Icon
-                as={BookOpenIcon}
-                size={20}
+                as={PlayIcon}
+                size={16}
                 className="text-primary-foreground"
               />
             </Button>

@@ -129,7 +129,7 @@ export function ExportButton({
               icon={Share2Icon}
               variant="outline"
               size="icon"
-              className="rounded-md border border-input bg-background"
+              className="rounded-md border border-border/50 bg-background"
               iconClassName="text-foreground"
               onPress={() => openExportList(true)}
             />
@@ -137,7 +137,7 @@ export function ExportButton({
               icon={DownloadIcon}
               variant="outline"
               size="icon"
-              className="rounded-md border border-input bg-background"
+              className="rounded-md border border-border/50 bg-background"
               iconClassName="text-foreground"
               onPress={() => openExportList(false)}
             />
@@ -152,7 +152,7 @@ export function ExportButton({
           iconSize={16}
           disableIconRotation
           disabled={disabled || exportMutation.isPending || isConcatenating}
-          className="rounded-md border border-input bg-background"
+          className="rounded-md border border-border/50 bg-background"
           openClassName="bg-accent border-input "
           iconClassName="text-foreground"
         />
@@ -166,7 +166,7 @@ export function ExportButton({
               icon={Share2Icon}
               variant="outline"
               size="icon"
-              className="rounded-md border border-input bg-background"
+              className="rounded-md border border-border/50 bg-background"
               iconClassName="text-foreground"
               onPress={() => openExportList(true)}
             />
@@ -174,7 +174,7 @@ export function ExportButton({
               icon={HardDriveDownload}
               variant="outline"
               size="icon"
-              className="rounded-md border border-input bg-background"
+              className="rounded-md border border-border/50 bg-background"
               iconClassName="text-foreground"
               onPress={() => openExportList(false)}
             />

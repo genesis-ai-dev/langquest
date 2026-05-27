@@ -2593,26 +2593,26 @@ export const localizations = {
   },
   mergeAssetsConfirmation: {
     english:
-      'Are you sure you want to merge {count} assets? The audio segments will be combined into the first selected asset, and the others will be deleted.',
+      'Are you sure you want to merge {count} assets? The audio segments will be combined into the first selected asset, and the others will be deleted. This action cannot be undone.',
     french:
-      'Êtes-vous sûr de vouloir fusionner {count} éléments ? Les segments audio seront combinés dans le premier élément sélectionné et les autres seront supprimés.',
+      'Êtes-vous sûr de vouloir fusionner {count} éléments ? Les segments audio seront combinés dans le premier élément sélectionné et les autres seront supprimés. Cette action ne peut pas être annulée.',
     spanish:
-      '¿Estás seguro de que deseas combinar {count} recursos? Los segmentos de audio se combinarán en el primer recurso seleccionado y los demás se eliminarán.',
+      '¿Estás seguro de que deseas combinar {count} recursos? Los segmentos de audio se combinarán en el primer recurso seleccionado y los demás se eliminarán. Esta acción no se puede deshacer.',
     brazilian_portuguese:
-      'Tem certeza de que deseja mesclar {count} recursos? Os segmentos de áudio serão combinados no primeiro recurso selecionado e os outros serão excluídos.',
+      'Tem certeza de que deseja mesclar {count} recursos? Os segmentos de áudio serão combinados no primeiro recurso selecionado e os outros serão excluídos. Esta ação não pode ser desfeita.',
     tok_pisin:
-      'Yu sua long joinim {count} asset? Ol audio segment bai joinim wantaim first asset yu makim, na ol narapela bai raus.',
+      'Yu sua long joinim {count} asset? Ol audio segment bai joinim wantaim first asset yu makim, na ol narapela bai raus. Dispela action i no inap senisim bek.',
     indonesian:
-      'Apakah Anda yakin ingin menggabungkan {count} aset? Segmen audio akan digabungkan ke aset pertama yang dipilih, dan yang lainnya akan dihapus.',
+      'Apakah Anda yakin ingin menggabungkan {count} aset? Segmen audio akan digabungkan ke aset pertama yang dipilih, dan yang lainnya akan dihapus. Tindakan ini tidak dapat dibatalkan.',
     nepali:
-      'के तपाईं निश्चित हुनुहुन्छ कि तपाईं {count} एसेटहरू मर्ज गर्न चाहनुहुन्छ? अडियो खण्डहरू पहिलो चयन गरिएको एसेटमा संयोजन हुनेछन्, र अरूहरू मेटिनेछन्।',
+      'के तपाईं निश्चित हुनुहुन्छ कि तपाईं {count} एसेटहरू मर्ज गर्न चाहनुहुन्छ? अडियो खण्डहरू पहिलो चयन गरिएको एसेटमा संयोजन हुनेछन्, र अरूहरू मेटिनेछन्। यो कार्य पूर्ववत गर्न सकिँदैन।',
     hindi:
-      'क्या आप वाकई {count} एसेट मर्ज करना चाहते हैं? ऑडियो सेगमेंट पहले चयनित एसेट में संयोजित हो जाएंगे, और अन्य हटा दिए जाएंगे।',
+      'क्या आप वाकई {count} एसेट मर्ज करना चाहते हैं? ऑडियो सेगमेंट पहले चयनित एसेट में संयोजित हो जाएंगे, और अन्य हटा दिए जाएंगे। यह कार्रवाई पूर्ववत नहीं की जा सकती।',
     burmese:
-      'သင်သည် {count} ပိုင်ဆိုင်မှုများကို ပေါင်းစပ်ရန် သေချာပါသလား? အသံအပိုင်းများကို ပထမဆုံး ရွေးချယ်ထားသော ပိုင်ဆိုင်မှုသို့ ပေါင်းစပ်ပါမည်၊ အခြားများကို ဖျက်ပါမည်။',
-    thai: 'คุณแน่ใจหรือไม่ว่าต้องการรวมสินทรัพย์ {count} รายการ? ส่วนเสียงจะถูกรวมเข้ากับสินทรัพย์แรกที่เลือก และรายการอื่นๆ จะถูกลบ',
+      'သင်သည် {count} ပိုင်ဆိုင်မှုများကို ပေါင်းစပ်ရန် သေချာပါသလား? အသံအပိုင်းများကို ပထမဆုံး ရွေးချယ်ထားသော ပိုင်ဆိုင်မှုသို့ ပေါင်းစပ်ပါမည်၊ အခြားများကို ဖျက်ပါမည်။ ဤလုပ်ဆောင်ချက်ကို ပြန်လည်ပြုပြင်မရပါ။',
+    thai: 'คุณแน่ใจหรือไม่ว่าต้องการรวมสินทรัพย์ {count} รายการ? ส่วนเสียงจะถูกรวมเข้ากับสินทรัพย์แรกที่เลือก และรายการอื่นๆ จะถูกลบ การดำเนินการนี้ไม่สามารถยกเลิกได้',
     mandarin:
-      '您确定要合并 {count} 个资产吗？音频片段将合并到第一个选定的资产中，其他资产将被删除。'
+      '您确定要合并 {count} 个资产吗？音频片段将合并到第一个选定的资产中，其他资产将被删除。此操作无法撤消。'
   },
   merge: {
     english: 'Merge',
@@ -2655,6 +2655,189 @@ export const localizations = {
     burmese: 'ပိုင်ဆိုင်မှုများကို ဖျက်၍မရပါ။ ကျေးဇူးပြု၍ ထပ်မံကြိုးစားပါ။',
     thai: 'ลบสินทรัพย์ไม่สำเร็จ กรุณาลองอีกครั้ง',
     mandarin: '删除资产失败。请重试。'
+  },
+  undo: {
+    english: 'Undo',
+    french: 'Annuler',
+    spanish: 'Deshacer',
+    brazilian_portuguese: 'Desfazer',
+    tok_pisin: 'Senisim i go bek',
+    indonesian: 'Urungkan',
+    nepali: 'पूर्ववत गर्नु',
+    hindi: 'पूर्ववत करें',
+    burmese: 'မလုပ်တော့ပါ',
+    thai: 'เลิกทำ',
+    mandarin: '撤销'
+  },
+  redo: {
+    english: 'Redo',
+    french: 'Rétablir',
+    spanish: 'Rehacer',
+    brazilian_portuguese: 'Refazer',
+    tok_pisin: 'Mekim gen',
+    indonesian: 'Ulangi',
+    nepali: 'फेरि गर्नु',
+    hindi: 'फिर से करें',
+    burmese: 'ပြန်လုပ်',
+    thai: 'ทำซ้ำ',
+    mandarin: '重做'
+  },
+  assetRedoCreateMessage: {
+    english: 'Asset created',
+    french: 'Élément créé',
+    spanish: 'Recurso creado',
+    brazilian_portuguese: 'Recurso criado',
+    tok_pisin: 'Asset i kamap nupela',
+    indonesian: 'Aset dibuat',
+    nepali: 'एसेट सिर्जना गरियो',
+    hindi: 'एसेट बनाया गया',
+    burmese: 'ပိုင်ဆိုင်မှု ဖန်တီးပြီးပါပြီ',
+    thai: 'สร้างสินทรัพย์แล้ว',
+    mandarin: '资产已创建'
+  },
+  assetRedoRenameMessage: {
+    english: 'Asset renamed',
+    french: 'Élément renommé',
+    spanish: 'Recurso renombrado',
+    brazilian_portuguese: 'Recurso renomeado',
+    tok_pisin: 'Asset i senisim nem',
+    indonesian: 'Aset diganti nama',
+    nepali: 'एसेट पुन:नामकरण गरियो',
+    hindi: 'एसेट का नाम बदला गया',
+    burmese: 'ပိုင်ဆိုင်မှုအမည် ပြောင်းပြီးပါပြီ',
+    thai: 'เปลี่ยนชื่อสินทรัพย์แล้ว',
+    mandarin: '资产已重命名'
+  },
+  assetRedoMergeMessage: {
+    english: 'Assets merged: {count}',
+    french: 'Éléments fusionnés : {count}',
+    spanish: 'Recursos combinados: {count}',
+    brazilian_portuguese: 'Recursos mesclados: {count}',
+    tok_pisin: 'Ol asset i join: {count}',
+    indonesian: 'Aset digabungkan: {count}',
+    nepali: 'एसेटहरू मर्ज गरियो: {count}',
+    hindi: 'एसेट मर्ज किए गए: {count}',
+    burmese: 'ပိုင်ဆိုင်မှုများ ပေါင်းစည်းပြီးပါပြီ: {count}',
+    thai: 'รวมสินทรัพย์แล้ว: {count}',
+    mandarin: '已合并资产：{count}'
+  },
+  assetRedoDeleteMessage: {
+    english: 'Assets deleted: {count}',
+    french: 'Éléments supprimés : {count}',
+    spanish: 'Recursos eliminados: {count}',
+    brazilian_portuguese: 'Recursos excluídos: {count}',
+    tok_pisin: 'Ol asset i raus: {count}',
+    indonesian: 'Aset dihapus: {count}',
+    nepali: 'एसेटहरू मेटाइयो: {count}',
+    hindi: 'एसेट हटाए गए: {count}',
+    burmese: 'ပိုင်ဆိုင်မှုများ ဖျက်ပြီးပါပြီ: {count}',
+    thai: 'ลบสินทรัพย์แล้ว: {count}',
+    mandarin: '已删除资产：{count}'
+  },
+  assetRedoReplaceMessage: {
+    english: 'Asset replaced',
+    french: 'Élément remplacé',
+    spanish: 'Recurso reemplazado',
+    brazilian_portuguese: 'Recurso substituído',
+    tok_pisin: 'Asset i senis wantaim narapela',
+    indonesian: 'Aset diganti',
+    nepali: 'एसेट प्रतिस्थापित गरियो',
+    hindi: 'एसेट बदला गया',
+    burmese: 'ပိုင်ဆိုင်မှု အစားထိုးပြီးပါပြီ',
+    thai: 'แทนที่สินทรัพย์แล้ว',
+    mandarin: '资产已替换'
+  },
+  assetRedoMoveMessage: {
+    english: 'Assets moved: {count}',
+    french: 'Éléments déplacés : {count}',
+    spanish: 'Recursos movidos: {count}',
+    brazilian_portuguese: 'Recursos movidos: {count}',
+    tok_pisin: 'Ol asset i muv: {count}',
+    indonesian: 'Aset dipindahkan: {count}',
+    nepali: 'एसेटहरू सारियो: {count}',
+    hindi: 'एसेट स्थानांतरित किए गए: {count}',
+    burmese: 'ပိုင်ဆိုင်မှုများ ရွှေ့ပြီးပါပြီ: {count}',
+    thai: 'ย้ายสินทรัพย์แล้ว: {count}',
+    mandarin: '已移动资产：{count}'
+  },
+  assetUndoCreateMessage: {
+    english: 'Asset removed',
+    french: 'Élément supprimé',
+    spanish: 'Recurso eliminado',
+    brazilian_portuguese: 'Recurso removido',
+    tok_pisin: 'Asset i raus',
+    indonesian: 'Aset dihapus',
+    nepali: 'एसेट हटाइयो',
+    hindi: 'एसेट हटाया गया',
+    burmese: 'ပိုင်ဆိုင်မှု ဖျက်ပြီးပါပြီ',
+    thai: 'ลบสินทรัพย์แล้ว',
+    mandarin: '资产已删除'
+  },
+  assetUndoRenameMessage: {
+    english: 'Asset name restored',
+    french: "Nom de l'élément restauré",
+    spanish: 'Nombre del recurso restaurado',
+    brazilian_portuguese: 'Nome do recurso restaurado',
+    tok_pisin: 'Nem bilong asset i kam bek',
+    indonesian: 'Nama aset dipulihkan',
+    nepali: 'एसेटको नाम पुनर्स्थापित गरियो',
+    hindi: 'एसेट का नाम पुनर्स्थापित किया गया',
+    burmese: 'ပိုင်ဆိုင်မှုအမည် ပြန်လည်ရယူပြီးပါပြီ',
+    thai: 'กู้คืนชื่อสินทรัพย์แล้ว',
+    mandarin: '资产名称已恢复'
+  },
+  assetUndoMergeMessage: {
+    english: 'Asset merges reverted: {count}',
+    french: "Fusions d'éléments annulées : {count}",
+    spanish: 'Combinaciones de recursos revertidas: {count}',
+    brazilian_portuguese: 'Mesclagens de recursos revertidas: {count}',
+    tok_pisin: 'Ol join bilong asset i go bek: {count}',
+    indonesian: 'Penggabungan aset dibatalkan: {count}',
+    nepali: 'एसेट मर्ज फिर्ता गरियो: {count}',
+    hindi: 'एसेट मर्ज पूर्ववत किए गए: {count}',
+    burmese:
+      'ပိုင်ဆိုင်မှုပေါင်းစည်းမှုများကို နောက်ပြန်လှန်ပြီးပါပြီ: {count}',
+    thai: 'ย้อนกลับการรวมสินทรัพย์แล้ว: {count}',
+    mandarin: '已撤销资产合并：{count}'
+  },
+  assetUndoDeleteMessage: {
+    english: 'Assets restored: {count}',
+    french: 'Éléments restaurés : {count}',
+    spanish: 'Recursos restaurados: {count}',
+    brazilian_portuguese: 'Recursos restaurados: {count}',
+    tok_pisin: 'Ol asset i kam bek: {count}',
+    indonesian: 'Aset dipulihkan: {count}',
+    nepali: 'एसेटहरू पुनर्स्थापित गरियो: {count}',
+    hindi: 'एसेट पुनर्स्थापित किए गए: {count}',
+    burmese: 'ပိုင်ဆိုင်မှုများ ပြန်လည်ရယူပြီးပါပြီ: {count}',
+    thai: 'กู้คืนสินทรัพย์แล้ว: {count}',
+    mandarin: '已恢复资产：{count}'
+  },
+  assetUndoReplaceMessage: {
+    english: 'Asset replacement reverted',
+    french: "Remplacement de l'élément annulé",
+    spanish: 'Reemplazo del recurso revertido',
+    brazilian_portuguese: 'Substituição do recurso revertida',
+    tok_pisin: 'Senis bilong asset i go bek',
+    indonesian: 'Penggantian aset dibatalkan',
+    nepali: 'एसेट प्रतिस्थापन फिर्ता गरियो',
+    hindi: 'एसेट प्रतिस्थापन पूर्ववत किया गया',
+    burmese: 'ပိုင်ဆိုင်မှုအစားထိုးမှုကို နောက်ပြန်လှန်ပြီးပါပြီ',
+    thai: 'ย้อนกลับการแทนที่สินทรัพย์แล้ว',
+    mandarin: '资产替换已撤销'
+  },
+  assetUndoMoveMessage: {
+    english: 'Assets moved back: {count}',
+    french: 'Éléments remis en place : {count}',
+    spanish: 'Recursos movidos de vuelta: {count}',
+    brazilian_portuguese: 'Recursos movidos de volta: {count}',
+    tok_pisin: 'Ol asset i muv i go bek: {count}',
+    indonesian: 'Aset dipindahkan kembali: {count}',
+    nepali: 'एसेटहरू फिर्ता सारियो: {count}',
+    hindi: 'एसेट वापस स्थानांतरित किए गए: {count}',
+    burmese: 'ပိုင်ဆိုင်မှုများကို နဂိုနေရာသို့ ပြန်ရွှေ့ပြီးပါပြီ: {count}',
+    thai: 'ย้ายสินทรัพย์กลับแล้ว: {count}',
+    mandarin: '已移回资产：{count}'
   },
   errorLoadingAssets: {
     english: 'Error loading assets',

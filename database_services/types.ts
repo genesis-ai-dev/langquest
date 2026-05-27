@@ -18,3 +18,27 @@ export interface AssetStatus extends LayerStatus {
 export interface TranslationStatus extends LayerStatus {
   creator_id: string;
 }
+
+export type AssetOperationAction =
+  | 'create'
+  | 'rename'
+  | 'merge'
+  | 'delete'
+  | 'replace'
+  | 'move';
+
+export interface AssetOperationDataItem {
+  id: string;
+  name?: string | null;
+  // orderIndex?: number | null;
+  order_index?: number | null;
+  metadata?: Record<string, any> | null;
+}
+
+export interface AssetOperationTypes {
+  domain: 'asset';
+  action: AssetOperationAction;
+  previousData: AssetOperationDataItem[];
+  newData: AssetOperationDataItem[];
+  canUndo: boolean;
+}

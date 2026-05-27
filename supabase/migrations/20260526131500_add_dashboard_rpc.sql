@@ -1,8 +1,8 @@
--- Migration: create rpc_dashboard_chart_by_profile
+-- Migration: create dashboard_chart_by_profile
 -- Description:
 -- Returns daily aggregates of quests/assets for projects where the profile is an active owner.
 
-create or replace function public.rpc_dashboard_chart_by_profile(
+create or replace function public.dashboard_chart_by_profile(
   p_profile_id uuid,
   p_days integer default 45,
   p_project_id uuid default null
