@@ -6,8 +6,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 export default function UpgradeRoute() {
   const { upgradeError } = useAuth();
 
-  if (!upgradeError) return null;
-
   return (
     <>
       <Stack.Screen options={{ title: 'Upgrade' }} />
@@ -17,9 +15,12 @@ export default function UpgradeRoute() {
         edges={['top', 'left', 'right']}
       >
         <AppUpgradeScreen
-          localVersion={upgradeError.localVersion}
-          serverVersion={upgradeError.serverVersion}
-          reason={upgradeError.reason as 'server_ahead' | 'server_behind'}
+          localVersion={upgradeError!.localVersion}
+          serverVersion={upgradeError?.serverVersion ?? 'unknown'}
+          reason={
+            (upgradeError?.reason as 'server_ahead' | 'server_behind') ??
+            'server_ahead'
+          }
         />
       </SafeAreaView>
     </>
