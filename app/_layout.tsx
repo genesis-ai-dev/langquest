@@ -78,7 +78,6 @@ export const DEFAULT_STACK_OPTIONS = {
 export const FORM_SHEET_OPTIONS = {
   presentation: 'formSheet',
   sheetCornerRadius: Platform.OS === 'android' ? 24 : undefined
-  // sheetGrabberVisible: Platform.OS === 'ios'
 } as const;
 
 /**

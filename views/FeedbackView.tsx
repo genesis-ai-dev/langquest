@@ -24,7 +24,7 @@ import RNAlert from '@blazejkustra/react-native-alert';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
 import Constants from 'expo-constants';
-import { useForm, useWatch } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { Keyboard, View } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { z } from 'zod';
@@ -106,11 +106,6 @@ export default function FeedbackView({ onClose }: FeedbackViewProps) {
   });
 
   const handleFormSubmit = form.handleSubmit((data) => submitFeedback(data));
-
-  const description = useWatch({
-    control: form.control,
-    name: 'description'
-  });
 
   const requestTypeLabels: Record<(typeof requestTypeOptions)[number], string> =
     {
@@ -227,7 +222,7 @@ export default function FeedbackView({ onClose }: FeedbackViewProps) {
         {/* Character count indicator */}
         <View className="flex-row justify-end">
           <Text className="text-sm text-muted-foreground">
-            {description?.length ?? 0}/2000
+            {form.watch('description')?.length ?? 0}/2000
           </Text>
         </View>
 
