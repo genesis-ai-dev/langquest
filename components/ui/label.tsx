@@ -23,7 +23,7 @@ const Label = React.forwardRef<
           'native:text-base text-sm font-medium leading-none text-foreground web:peer-disabled:cursor-not-allowed web:peer-disabled:opacity-70',
           className
         )}
-        style={useNotoSans(className, style)}
+        style={useNotoSans(className, [{ fontWeight: '500' }, style])}
         {...props}
       />
     </LabelPrimitive.Root>

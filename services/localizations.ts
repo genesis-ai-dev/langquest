@@ -6829,6 +6829,19 @@ export const localizations = {
     thai: 'ทั่วไป',
     mandarin: '常规'
   },
+  details: {
+    english: 'Details',
+    french: 'Détails',
+    spanish: 'Detalles',
+    brazilian_portuguese: 'Detalhes',
+    tok_pisin: 'Details',
+    indonesian: 'Detail',
+    nepali: 'विवरण',
+    hindi: 'विवरण',
+    burmese: 'အသေးစိတ်',
+    thai: 'รายละเอียด',
+    mandarin: '详情'
+  },
   currentQuest: {
     english: 'Current Quest',
     french: 'Quête actuelle',

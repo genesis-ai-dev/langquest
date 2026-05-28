@@ -3,8 +3,7 @@ import * as SelectPrimitive from '@rn-primitives/select';
 import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from 'lucide-react-native';
 import { MotiView } from 'moti';
 import * as React from 'react';
-import { Platform, StyleSheet, View } from 'react-native';
-import { ScrollView as GHScrollView } from 'react-native-gesture-handler';
+import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { Icon } from './icon';
 
 export function getOptionFromValue(value?: string | null): Option {
@@ -103,63 +102,125 @@ const SelectScrollDownButton = ({
   );
 };
 
+const selectContentClassName = (
+  open: boolean,
+  className?: string,
+  position: SelectPrimitive.ContentProps['position'] = 'popper'
+) =>
+  cn(
+    'relative min-w-[8rem] rounded-md border border-input bg-popover p-1.5 px-1 py-2 shadow-md shadow-foreground/10 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2',
+    position === 'popper' &&
+      'data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1',
+    open
+      ? 'web:animate-in web:fade-in-0 web:zoom-in-95'
+      : 'web:animate-out web:fade-out-0 web:zoom-out-95',
+    className
+  );
+
 const SelectContent = React.forwardRef<
   SelectPrimitive.ContentRef,
-  SelectPrimitive.ContentProps & { portalHost?: string }
->(({ className, children, position = 'popper', portalHost, ...props }, ref) => {
-  const { open } = SelectPrimitive.useRootContext();
+  SelectPrimitive.ContentProps & {
+    portalHost?: string;
+    maxHeight?: number;
+    /**
+     * Render below the trigger in document flow (no portal). Use inside native
+     * form sheets so the list scrolls with nestedScrollEnabled instead of
+     * fighting sheet detent gestures.
+     */
+    inline?: boolean;
+  }
+>(
+  (
+    {
+      className,
+      children,
+      position = 'popper',
+      portalHost,
+      maxHeight = 300,
+      inline = false,
+      style,
+      ...props
+    },
+    ref
+  ) => {
+    const { open } = SelectPrimitive.useRootContext();
 
-  return (
-    <SelectPrimitive.Portal hostName={portalHost}>
-      <SelectPrimitive.Overlay
-        style={Platform.OS !== 'web' ? StyleSheet.absoluteFill : undefined}
-        pointerEvents={open ? 'auto' : 'none'}
+    const list =
+      Platform.OS === 'web' ? (
+        children
+      ) : (
+        <ScrollView
+          nestedScrollEnabled
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator
+          style={{ maxHeight }}
+        >
+          {children}
+        </ScrollView>
+      );
+
+    const content = (
+      <SelectPrimitive.Content
+        ref={ref}
+        disablePositioningStyle={inline}
+        onStartShouldSetResponder={() => false}
+        style={StyleSheet.flatten([{ maxHeight }, style])}
+        className={selectContentClassName(
+          open,
+          className,
+          inline ? undefined : position
+        )}
+        position={inline ? undefined : position}
+        {...props}
       >
-        <View className="z-[400]">
-          <MotiView
-            from={{ opacity: 0 }}
-            animate={{ opacity: open ? 1 : 0 }}
-            transition={{ type: 'timing', duration: 200 }}
-            pointerEvents={open ? 'auto' : 'none'}
-          >
-            <SelectPrimitive.Content
-              ref={ref}
-              className={cn(
-                'relative max-h-96 min-w-[8rem] rounded-md border border-input bg-popover p-1.5 px-1 py-2 shadow-md shadow-foreground/10 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2',
-                position === 'popper' &&
-                  'data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1',
-                open
-                  ? 'web:animate-in web:fade-in-0 web:zoom-in-95'
-                  : 'web:animate-out web:fade-out-0 web:zoom-out-95',
-                className
-              )}
-              position={position}
-              {...props}
-            >
-              <SelectScrollUpButton />
-              <SelectPrimitive.Viewport
-                className={cn(
-                  'p-1',
-                  position === 'popper' &&
-                    'h-[var(--radix-select-trigger-height)] w-full min-w-[var(--radix-select-trigger-width)]'
-                )}
-              >
-                {Platform.OS === 'web' ? (
-                  children
-                ) : (
-                  <GHScrollView style={{ maxHeight: 300 }} nestedScrollEnabled>
-                    {children}
-                  </GHScrollView>
-                )}
-              </SelectPrimitive.Viewport>
-              <SelectScrollDownButton />
-            </SelectPrimitive.Content>
-          </MotiView>
+        <SelectScrollUpButton />
+        <SelectPrimitive.Viewport
+          className={cn(
+            'p-1',
+            !inline &&
+              position === 'popper' &&
+              'h-[var(--radix-select-trigger-height)] w-full min-w-[var(--radix-select-trigger-width)]'
+          )}
+        >
+          {list}
+        </SelectPrimitive.Viewport>
+        <SelectScrollDownButton />
+      </SelectPrimitive.Content>
+    );
+
+    if (inline) {
+      if (!open) return null;
+      return (
+        <View
+          className={cn('absolute inset-x-0 top-full z-50 mt-1', className)}
+          style={{ maxHeight }}
+        >
+          {content}
         </View>
-      </SelectPrimitive.Overlay>
-    </SelectPrimitive.Portal>
-  );
-});
+      );
+    }
+
+    return (
+      <SelectPrimitive.Portal hostName={portalHost}>
+        <SelectPrimitive.Overlay
+          style={Platform.OS !== 'web' ? StyleSheet.absoluteFill : undefined}
+          pointerEvents={open ? 'auto' : 'none'}
+        >
+          <View className="z-[400]">
+            <MotiView
+              from={{ opacity: 0 }}
+              animate={{ opacity: open ? 1 : 0 }}
+              transition={{ type: 'timing', duration: 200 }}
+              pointerEvents={open ? 'auto' : 'none'}
+            >
+              {content}
+            </MotiView>
+          </View>
+        </SelectPrimitive.Overlay>
+      </SelectPrimitive.Portal>
+    );
+  }
+);
 SelectContent.displayName = SelectPrimitive.Content.displayName;
 
 const SelectLabel = React.forwardRef<
