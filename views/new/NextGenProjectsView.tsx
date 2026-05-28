@@ -1,5 +1,6 @@
 import { ProjectListSkeleton } from '@/components/ProjectListSkeleton';
 import { Button } from '@/components/ui/button';
+import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Text } from '@/components/ui/text';
@@ -16,7 +17,6 @@ import {
   useHybridData,
   useSimpleHybridInfiniteData
 } from '@/views/new/useHybridData';
-import RNAlert from '@blazejkustra/react-native-alert';
 import { LegendList } from '@legendapp/list';
 import {
   and,
@@ -31,57 +31,19 @@ import {
 import { useRouter } from 'expo-router';
 import {
   ArrowRightIcon,
-  FolderPenIcon,
   PlusIcon,
   SearchIcon,
   UserIcon
 } from 'lucide-react-native';
 import React, { useEffect } from 'react';
 import { ActivityIndicator, useWindowDimensions, View } from 'react-native';
-import { Dropdown } from 'react-native-element-dropdown';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { CreateProjectView } from './CreateProjectView';
 import { InvitedProjectListItem } from './InvitedProjectListItem';
 import { ProjectListItem } from './ProjectListItem';
-
-// New imports for bottom sheet + form
-import { LanguageCombobox } from '@/components/language-combobox';
-import {
-  Drawer,
-  DrawerClose,
-  DrawerContent,
-  DrawerFooter,
-  DrawerHeader,
-  DrawerTitle,
-  DrawerTrigger
-} from '@/components/ui/drawer';
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-  FormSubmit,
-  transformInputProps,
-  transformSwitchProps
-} from '@/components/ui/form';
-import { Icon } from '@/components/ui/icon';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Switch } from '@/components/ui/switch';
-import { Textarea } from '@/components/ui/textarea';
-import { templateOptions } from '@/db/constants';
-import { useFiaLanguoids } from '@/hooks/db/useFiaLanguoids';
-import { resolveTable } from '@/utils/dbUtils';
-import {
-  ensureLanguoidDownloadProfile,
-  findOrCreateLanguoidByName
-} from '@/utils/languoidUtils';
-import { zodResolver } from '@hookform/resolvers/zod';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useForm } from 'react-hook-form';
-import { z } from 'zod';
+import { useQueryClient } from '@tanstack/react-query';
 
 type TabType = 'my' | 'all';
 
@@ -96,210 +58,8 @@ export default function NextGenProjectsView() {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = React.useState('');
   const [activeTab, setActiveTab] = React.useState<TabType>('my');
-
-  // Create modal state
   const [isCreateOpen, setIsCreateOpen] = React.useState(false);
 
-  const formSchema = z
-    .object({
-      name: z.string(t('nameRequired')).nonempty(t('nameRequired')).trim(),
-      // this is the TARGET languoid we're translating to
-      target_languoid_id: z
-        .string(t('selectLanguage'))
-        .min(1, t('selectLanguage')),
-      // FIA content language (source) - required when template is 'fia'
-      source_languoid_id: z.string().optional(),
-      description: z
-        .string()
-        .max(196, t('descriptionTooLong', { max: 196 }))
-        .trim()
-        .optional(),
-      private: z.boolean(),
-      visible: z.boolean(),
-      template: z.enum(templateOptions)
-    })
-    .refine(
-      (data) =>
-        data.template !== 'fia' ||
-        (data.source_languoid_id && data.source_languoid_id.length > 0),
-      {
-        message: t('selectLanguage'),
-        path: ['source_languoid_id']
-      }
-    );
-
-  type FormData = z.infer<typeof formSchema>;
-
-  const { mutateAsync: createProject, isPending: isCreatingProject } =
-    useMutation({
-      mutationFn: async (values: FormData) => {
-        // Guard against anonymous users
-        if (!currentUser?.id) {
-          throw new Error('Must be logged in to create projects');
-        }
-
-        // Ensure the languoid has this user in download_profiles so it syncs offline
-        // This is critical for existing languoids the user didn't create
-        await ensureLanguoidDownloadProfile(
-          values.target_languoid_id,
-          currentUser.id
-        );
-
-        // Also ensure source languoid syncs for FIA projects
-        if (values.source_languoid_id) {
-          await ensureLanguoidDownloadProfile(
-            values.source_languoid_id,
-            currentUser.id
-          );
-        }
-
-        // Insert into synced tables (project is published immediately for invites)
-        await db.transaction(async (tx) => {
-          // Create project (target_language_id is deprecated but still required by schema)
-          const { target_languoid_id, source_languoid_id, ...projectValues } =
-            values;
-          const [newProject] = await tx
-            .insert(resolveTable('project', { localOverride: false }))
-            .values({
-              ...projectValues,
-              template: projectValues.template,
-              target_language_id: target_languoid_id, // Deprecated field, kept for backward compatibility
-              creator_id: currentUser.id,
-              download_profiles: [currentUser.id]
-            })
-            .returning();
-          if (!newProject) throw new Error('Failed to create project');
-
-          // Create profile_project_link
-          await tx
-            .insert(
-              resolveTable('profile_project_link', { localOverride: false })
-            )
-            .values({
-              id: `${currentUser.id}_${newProject.id}`,
-              project_id: newProject.id,
-              profile_id: currentUser.id,
-              membership: 'owner'
-              // download_profiles will be set by database trigger
-            });
-
-          // Create project_language_link with languoid_id
-          // PK is (project_id, languoid_id, language_type) - language_id is optional
-          const projectLanguageLinkSynced = resolveTable(
-            'project_language_link',
-            {
-              localOverride: false
-            }
-          );
-          await tx.insert(projectLanguageLinkSynced).values({
-            project_id: newProject.id,
-            language_id: null, // Optional - for backward compatibility
-            languoid_id: target_languoid_id, // Required - part of PK
-            language_type: 'target',
-            active: true,
-            download_profiles: [currentUser.id]
-          });
-
-          // For FIA projects, also create source language link
-          if (source_languoid_id) {
-            await tx.insert(projectLanguageLinkSynced).values({
-              project_id: newProject.id,
-              language_id: null,
-              languoid_id: source_languoid_id,
-              language_type: 'source',
-              active: true,
-              download_profiles: [currentUser.id]
-            });
-          }
-        });
-      },
-      onSuccess: () => {
-        setIsCreateOpen(false);
-        if (activeTab === 'my') {
-          void myProjectsQuery.refetch();
-        } else {
-          void allProjects.refetch();
-        }
-      },
-      onError: (error) => {
-        console.error('Failed to create project', error);
-      }
-    });
-
-  const savedLanguage = useLocalStore((state) => state.savedLanguage);
-  const setSavedLanguage = useLocalStore((state) => state.setSavedLanguage);
-
-  const resetForm = () => {
-    form.reset(defaultValues);
-    // Handle savedLanguage - it might be a Language (old) or Languoid (new)
-    // If it's a Language, we'll need to find/create the corresponding languoid
-    if (savedLanguage) {
-      // Check if savedLanguage has a 'name' property (Languoid) or 'native_name' (Language)
-      if ('name' in savedLanguage && savedLanguage.name) {
-        // It's a Languoid
-        form.setValue('target_languoid_id', savedLanguage.id);
-      } else if (
-        'native_name' in savedLanguage ||
-        'english_name' in savedLanguage
-      ) {
-        // It's a Language - find or create corresponding languoid
-        const languageName =
-          savedLanguage.native_name || savedLanguage.english_name || '';
-        if (languageName && currentUser?.id) {
-          findOrCreateLanguoidByName(languageName, currentUser.id).then(
-            (languoidId) => {
-              form.setValue('target_languoid_id', languoidId);
-            }
-          );
-        }
-      }
-    }
-  };
-
-  const defaultValues = {
-    private: true,
-    visible: true,
-    template: 'unstructured',
-    name: ''
-  } as const;
-
-  const form = useForm<FormData>({
-    defaultValues,
-    resolver: zodResolver(formSchema),
-    disabled: !currentUser?.id
-  });
-
-  const watchedTemplate = form.watch('template');
-  const isFiaTemplate = watchedTemplate === 'fia';
-
-  const { fiaDropdownData } = useFiaLanguoids();
-
-  useEffect(() => {
-    if (savedLanguage && !form.getValues('target_languoid_id')) {
-      // Handle savedLanguage - it might be a Language (old) or Languoid (new)
-      if ('name' in savedLanguage && savedLanguage.name) {
-        // It's a Languoid
-        form.setValue('target_languoid_id', savedLanguage.id);
-      } else if (
-        'native_name' in savedLanguage ||
-        'english_name' in savedLanguage
-      ) {
-        // It's a Language - find or create corresponding languoid
-        const languageName =
-          savedLanguage.native_name || savedLanguage.english_name || '';
-        if (languageName && currentUser?.id) {
-          findOrCreateLanguoidByName(languageName, currentUser.id).then(
-            (languoidId) => {
-              form.setValue('target_languoid_id', languoidId);
-            }
-          );
-        }
-      }
-    }
-  }, [form, savedLanguage, currentUser?.id]);
-
-  const enableFia = useLocalStore((state) => state.enableFia);
-  const setEnableFia = useLocalStore((state) => state.setEnableFia);
   const showInvisibleContent = useLocalStore(
     (state) => state.showHiddenContent
   );
@@ -738,9 +498,6 @@ export default function NextGenProjectsView() {
   const _handleOnboardingCreateProject = () => {
     if (currentUser) {
       setIsCreateOpen(true);
-    } else {
-      // For anonymous users, just advance to next step
-      // They can see the flow but can't actually create projects
     }
   };
 
@@ -767,23 +524,13 @@ export default function NextGenProjectsView() {
   };
 
   return (
-    <>
-      <Drawer
-        open={isCreateOpen}
-        onOpenChange={(open) => {
-          setIsCreateOpen(open);
-          resetForm();
-        }}
-        dismissible={!isCreatingProject}
-        snapPoints={[700]}
-        enableDynamicSizing={false}
+    <CreateProjectView open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+      <KeyboardAvoidingView
+        className="flex flex-1"
+        behavior="padding"
+        keyboardVerticalOffset={bottom + 42}
       >
-        <KeyboardAvoidingView
-          className="flex flex-1"
-          behavior="padding"
-          keyboardVerticalOffset={bottom + 42}
-        >
-          <View className="flex flex-1 flex-col gap-6 p-4 pt-0">
+        <View className="flex flex-1 flex-col gap-6 p-4 pt-0">
             <View className="flex flex-col gap-4">
               {/* Tabs */}
               <Tabs
@@ -881,12 +628,12 @@ export default function NextGenProjectsView() {
                       hitSlop={12}
                     />
                     {currentUser && (
-                      <DrawerTrigger size="icon-lg">
+                      <Button size="icon-lg" onPress={() => setIsCreateOpen(true)}>
                         <Icon
                           as={PlusIcon}
                           className="text-primary-foreground"
                         />
-                      </DrawerTrigger>
+                      </Button>
                     )}
                   </View>
                 </>
@@ -975,216 +722,8 @@ export default function NextGenProjectsView() {
                 )}
               />
             )}
-          </View>
-        </KeyboardAvoidingView>
-
-        <DrawerContent className="pb-safe">
-          <Form {...form}>
-            <DrawerHeader>
-              <DrawerTitle>{t('newProject')}</DrawerTitle>
-            </DrawerHeader>
-            <View className="flex flex-col gap-4">
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormControl>
-                      <Input
-                        {...transformInputProps(field)}
-                        placeholder={t('projectName')}
-                        size="sm"
-                        prefix={FolderPenIcon}
-                        drawerInput
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="target_languoid_id"
-                render={({ field }) => {
-                  return (
-                    <FormItem>
-                      <FormControl>
-                        <LanguageCombobox
-                          value={field.value}
-                          onChange={(languoid) => {
-                            field.onChange(languoid.id);
-                            // Note: We don't save languoid to savedLanguage store
-                            // because the store still expects Language type (with native_name, etc.)
-                            // The form will handle languoid selection directly
-                          }}
-                          allowCreate
-                          onCreateNew={(languoidId) => {
-                            field.onChange(languoidId);
-                          }}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  );
-                }}
-              />
-
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormControl>
-                      <Textarea
-                        {...transformInputProps(field)}
-                        placeholder={t('description')}
-                        size="sm"
-                        drawerInput
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="template"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t('template')}</FormLabel>
-                    <FormControl>
-                      <RadioGroup
-                        value={field.value}
-                        onValueChange={(value) => {
-                          if (value === 'fia' && !enableFia) {
-                            RNAlert.alert(
-                              t('fiaExperimentalTitle'),
-                              t('enableFiaPrompt'),
-                              [
-                                { text: t('cancel'), style: 'cancel' },
-                                {
-                                  text: t('enable'),
-                                  onPress: () => {
-                                    setEnableFia(true);
-                                    field.onChange(value);
-                                  }
-                                }
-                              ]
-                            );
-                            return;
-                          }
-                          field.onChange(value);
-                          if (value !== 'fia') {
-                            form.setValue('source_languoid_id', undefined);
-                          }
-                        }}
-                      >
-                        {templateOptions.map((option) => (
-                          <RadioGroupItem
-                            key={option}
-                            value={option}
-                            label={t(option)}
-                          >
-                            <Text className="capitalize">{t(option)}</Text>
-                          </RadioGroupItem>
-                        ))}
-                      </RadioGroup>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {isFiaTemplate && (
-                <FormField
-                  control={form.control}
-                  name="source_languoid_id"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{t('fiaContentLanguage')}</FormLabel>
-                      <FormControl>
-                        <Dropdown
-                          style={{
-                            height: 48,
-                            borderWidth: 1,
-                            borderRadius: 8,
-                            paddingHorizontal: 12,
-                            backgroundColor: getThemeColor('card'),
-                            borderColor: getThemeColor('border')
-                          }}
-                          placeholderStyle={{
-                            fontSize: 14,
-                            color: getThemeColor('muted-foreground')
-                          }}
-                          selectedTextStyle={{
-                            fontSize: 14,
-                            color: getThemeColor('foreground')
-                          }}
-                          containerStyle={{
-                            borderRadius: 8,
-                            overflow: 'hidden',
-                            borderWidth: 1,
-                            marginTop: 8,
-                            backgroundColor: getThemeColor('card'),
-                            borderColor: getThemeColor('border')
-                          }}
-                          itemTextStyle={{
-                            fontSize: 14,
-                            color: getThemeColor('foreground')
-                          }}
-                          itemContainerStyle={{
-                            borderRadius: 8,
-                            overflow: 'hidden'
-                          }}
-                          activeColor={getThemeColor('primary')}
-                          dropdownPosition="auto"
-                          data={fiaDropdownData}
-                          maxHeight={300}
-                          labelField="label"
-                          valueField="value"
-                          placeholder={t('fiaContentLanguage')}
-                          value={field.value}
-                          onChange={(item) => field.onChange(item.value)}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              )}
-
-              <FormField
-                control={form.control}
-                name="private"
-                render={({ field }) => (
-                  <FormItem>
-                    <View className="flex-row items-center justify-between">
-                      <FormLabel>{t('private')}</FormLabel>
-                      <FormControl>
-                        <Switch {...transformSwitchProps(field)} />
-                      </FormControl>
-                    </View>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </View>
-            <DrawerFooter>
-              <FormSubmit
-                onPress={form.handleSubmit((data) => createProject(data))}
-                className="flex-row items-center gap-2"
-              >
-                <Text>{t('createObject')}</Text>
-              </FormSubmit>
-              <DrawerClose disabled={isCreatingProject}>
-                <Text>{t('cancel')}</Text>
-              </DrawerClose>
-            </DrawerFooter>
-          </Form>
-        </DrawerContent>
-      </Drawer>
-    </>
+        </View>
+      </KeyboardAvoidingView>
+    </CreateProjectView>
   );
 }
