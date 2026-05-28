@@ -27,6 +27,7 @@ import {
 } from './CreateProjectStepLayout';
 import {
   createProjectDetailsStepSchema,
+  type CreateProjectDetailsStepFormValues,
   type CreateProjectDetailsStepValues
 } from './schema';
 
@@ -52,7 +53,11 @@ export function CreateProjectDetailsStep({
   const { t } = useLocalization();
   const { languoid: targetLanguoid } = useLanguoidById(targetLanguoidId);
 
-  const form = useForm<CreateProjectDetailsStepValues>({
+  const form = useForm<
+    CreateProjectDetailsStepFormValues,
+    unknown,
+    CreateProjectDetailsStepValues
+  >({
     resolver: zodResolver(createProjectDetailsStepSchema(t)),
     defaultValues: {
       name: '',

@@ -164,7 +164,7 @@ const SelectContent = React.forwardRef<
         ref={ref}
         disablePositioningStyle={inline}
         onStartShouldSetResponder={() => false}
-        style={[{ maxHeight }, style]}
+        style={StyleSheet.flatten([{ maxHeight }, style])}
         className={selectContentClassName(
           open,
           className,

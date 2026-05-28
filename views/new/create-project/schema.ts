@@ -23,8 +23,8 @@ function createProjectCoreFields(t: Translate) {
       .trim()
       .max(1024, t('descriptionTooLong', { max: 1024 }))
       .optional(),
-    private: z.boolean().default(true),
-    visible: z.boolean().default(true)
+    private: z.boolean(),
+    visible: z.boolean()
   };
 }
 
@@ -81,9 +81,12 @@ export function createProjectTemplateStepSchema(t: Translate) {
 }
 
 export function createProjectDetailsStepSchema(t: Translate) {
-  return createProjectSubmitUnionMembers(t).unstructured.pick(
-    createProjectDetailsStepPick
-  );
+  return createProjectSubmitUnionMembers(t)
+    .unstructured.pick(createProjectDetailsStepPick)
+    .extend({
+      private: z.boolean().default(true),
+      visible: z.boolean().default(true)
+    });
 }
 
 export function createProjectSubmitSchema(t: Translate) {
@@ -99,7 +102,11 @@ export type CreateProjectTemplateStepValues = z.infer<
   ReturnType<typeof createProjectTemplateStepSchema>
 >;
 
-export type CreateProjectDetailsStepValues = z.infer<
+export type CreateProjectDetailsStepFormValues = z.input<
+  ReturnType<typeof createProjectDetailsStepSchema>
+>;
+
+export type CreateProjectDetailsStepValues = z.output<
   ReturnType<typeof createProjectDetailsStepSchema>
 >;
 
