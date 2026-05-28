@@ -11,7 +11,7 @@ import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 // import type { Tag } from '@/database_services/tagCache';
 // import { tagService } from '@/database_services/tagService';
 import type { asset as asset_type } from '@/db/drizzleSchema';
-import { useAppNavigation } from '@/hooks/useAppNavigation';
+import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 // import { useTagStore } from '@/hooks/useTagStore';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
@@ -62,8 +62,7 @@ export const AssetListItem: React.FC<AssetListItemProps> = ({
   isSelected = false,
   onToggleSelect
 }) => {
-  const { goToAsset, currentProjectData, currentQuestData } =
-    useAppNavigation();
+  const { goToAsset } = useNavigationHelpers();
   const { currentUser } = useAuth();
   const { t } = useLocalization();
   // Check if asset is downloaded
@@ -150,11 +149,7 @@ export const AssetListItem: React.FC<AssetListItemProps> = ({
       id: asset.id,
       name: asset.name || t('unnamedAsset'),
       questId: questId,
-      projectId: asset.project_id!,
-      projectData: currentProjectData, // Pass project data forward!
-      questData: currentQuestData // Pass quest data forward!
-      // NOTE: Don't pass assetData - the detail view needs full asset with content/audio
-      // relationships which aren't loaded in the list view
+      projectId: asset.project_id!
     });
   };
 

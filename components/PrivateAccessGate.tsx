@@ -12,7 +12,7 @@ import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
 import type { PrivateAccessAction } from '@/hooks/useUserPermissions';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
-import { useLocalStore } from '@/store/localStore';
+
 import { isExpiredByLastUpdated } from '@/utils/dateUtils';
 import { useHybridData } from '@/views/new/useHybridData';
 import RNAlert from '@blazejkustra/react-native-alert';
@@ -86,7 +86,6 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
   const { currentUser } = useAuth();
   const { db } = system;
   const router = useRouter();
-  const setAuthView = useLocalStore((state) => state.setAuthView);
   const [showModal, setShowModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -97,7 +96,7 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
       onLoginRequest();
     } else {
       // Default: show auth modal
-      setAuthView('sign-in');
+      router.push('/(auth)/sign-in');
     }
   };
 
@@ -431,7 +430,7 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
                 </Text>
               </View>
               <Button onPress={handleLoginRequest} className="mb-2">
-                <Text>{t('signIn') || 'Sign In'}</Text>
+                <Text>{t('signIn')}</Text>
               </Button>
             </>
           ) : (
@@ -443,7 +442,7 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
                 {t('privateProjectNotLoggedInInline')}
               </Text>
               <Button onPress={handleLoginRequest} className="mt-4">
-                <Text>{t('signIn') || 'Sign In'}</Text>
+                <Text>{t('signIn')}</Text>
               </Button>
             </>
           )}

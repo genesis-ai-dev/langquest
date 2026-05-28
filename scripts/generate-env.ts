@@ -166,17 +166,21 @@ function findIPInGatewaySubnet(
 
 function generateEnvFile() {
   const localIP = getLocalIP();
-  const examplePath = path.join(process.cwd(), '.env.local.example');
-  const targetPath = path.join(process.cwd(), '.env.local');
 
-  // Read the example file
-  const envExample = fs.readFileSync(examplePath, 'utf8');
+  const filesToGenerate = [
+    { example: '.env.local.example', target: '.env.local' },
+    { example: 'supabase/.env.local.example', target: 'supabase/.env.local' }
+  ];
 
-  // Replace the IP placeholders with actual IP and add Supabase auth hook URL
-  const envContent = envExample.replaceAll('LOCAL_IP', localIP);
-  // Write the new .env.local file
-  fs.writeFileSync(targetPath, envContent);
-  console.log(`Generated .env.local with IP: ${localIP}`);
+  for (const { example, target } of filesToGenerate) {
+    const examplePath = path.join(process.cwd(), example);
+    const targetPath = path.join(process.cwd(), target);
+    const envExample = fs.readFileSync(examplePath, 'utf8');
+    const envContent = envExample.replaceAll('LOCAL_IP', localIP);
+    fs.writeFileSync(targetPath, envContent);
+    console.log(`Generated ${target} with IP: ${localIP}`);
+  }
+
   console.log(
     'All glory to God, the Father of our Lord Jesus Christ, and the Holy Spirit!'
   );

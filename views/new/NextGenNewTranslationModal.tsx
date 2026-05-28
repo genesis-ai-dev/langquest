@@ -1,4 +1,7 @@
-import AudioRecorder from '@/components/AudioRecorder';
+import AudioRecorder, {
+  type AudioRecorderRef,
+  type RecordingState
+} from '@/components/AudioRecorder';
 import {
   Drawer,
   DrawerClose,
@@ -27,8 +30,8 @@ import { project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useLanguageById } from '@/hooks/db/useLanguages';
 import { useLanguoidById } from '@/hooks/db/useLanguoids';
-import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useNearbyTranslations } from '@/hooks/useNearbyTranslations';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useOrthographyExamples } from '@/hooks/useOrthographyExamples';
@@ -50,6 +53,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation } from '@tanstack/react-query';
 import { eq } from 'drizzle-orm';
+import { useRouter } from 'expo-router';
 import {
   EyeIcon,
   Lightbulb,
@@ -60,10 +64,11 @@ import {
   XIcon
 } from 'lucide-react-native';
 import React, { useRef, useState } from 'react';
-import { useForm, useWatch } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import type { TextInput } from 'react-native';
 import {
   ActivityIndicator,
+  Keyboard,
   Modal,
   Pressable,
   ScrollView,
@@ -105,11 +110,10 @@ export default function NextGenNewTranslationModal({
   initialText = '',
   resolvedAudioUris = []
 }: NextGenNewTranslationModalProps) {
-  const { currentProjectId, currentQuestId, currentProjectData } =
-    useAppNavigation();
+  const { projectId, questId } = useNavigationHelpers();
   const { t } = useLocalization();
-  const { currentUser, isAuthenticated, isSystemReady } = useAuth();
-  const setAuthView = useLocalStore((state) => state.setAuthView);
+  const { currentUser, isAuthenticated } = useAuth();
+  const router = useRouter();
   const isOnline = useNetworkStatus();
   const enableAiSuggestions = useLocalStore(
     (state) => state.enableAiSuggestions
@@ -122,6 +126,11 @@ export default function NextGenNewTranslationModal({
   const [contentType, setContentType] = useState<
     'translation' | 'transcription'
   >(initialContentType);
+  const [recordingState, setRecordingState] = useState<RecordingState>({
+    isRecording: false,
+    isPaused: false
+  });
+  const audioRecorderRef = useRef<AudioRecorderRef>(null);
 
   // Transcription hooks for AI transcription button
   const { mutateAsync: transcribeAudio, isPending: isTranscribing } =
@@ -129,92 +138,99 @@ export default function NextGenNewTranslationModal({
   const { mutateAsync: localizeTranscription, isPending: isLocalizing } =
     useTranscriptionLocalization();
 
-  // Use reactive isSystemReady from AuthContext instead of non-reactive isPowerSyncInitialized
-  const isPowerSyncReady = isSystemReady;
-
   // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   const projectOfflineQuery = React.useMemo(() => {
-    if (!isPowerSyncReady || !isAuthenticated) {
+    if (!isAuthenticated) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return
       return 'SELECT * FROM project WHERE 1=0' as any;
     }
     return toCompilableQuery(
       system.db.query.project.findFirst({
-        where: currentProjectId ? eq(project.id, currentProjectId) : undefined
+        where: projectId ? eq(project.id, projectId) : undefined
       })
     );
-  }, [currentProjectId, isPowerSyncReady, isAuthenticated]);
+  }, [projectId, isAuthenticated]);
 
   const { data: queriedProjectDataArray } = useHybridData({
     dataType: 'project-new-translation',
-    queryKeyParams: [currentProjectId || ''],
+    queryKeyParams: [projectId || ''],
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     offlineQuery: projectOfflineQuery,
     cloudQueryFn: async (): Promise<(typeof project.$inferSelect)[]> => {
-      if (!currentProjectId) return [];
+      if (!projectId) return [];
       const result = await system.supabaseConnector.client
         .from('project')
         .select('*')
-        .eq('id', currentProjectId)
+        .eq('id', projectId)
         .limit(1);
       if (result.error) throw result.error;
       const typedData = result.data as (typeof project.$inferSelect)[] | null;
       return typedData || [];
     },
-    enableCloudQuery: !!currentProjectId && !currentProjectData,
-    enableOfflineQuery: !!currentProjectId && !currentProjectData
+    enableCloudQuery: !!projectId,
+    enableOfflineQuery: !!projectId
   });
 
   const queriedProjectData =
     queriedProjectDataArray.length > 0 ? queriedProjectDataArray[0] : undefined;
 
-  // Prefer passed project data for instant rendering
   // Extract project data from WithSource wrapper if needed
   const projectData =
-    currentProjectData ||
-    (queriedProjectData && 'source' in queriedProjectData
+    queriedProjectData && 'source' in queriedProjectData
       ? (queriedProjectData as typeof project.$inferSelect & {
           source?: string;
         })
-      : queriedProjectData);
+      : queriedProjectData;
 
   const { hasAccess: canTranslate } = useUserPermissions(
-    currentProjectId || '',
+    projectId || '',
     'translate',
     (projectData as typeof project.$inferSelect | undefined)?.private
   );
 
   React.useEffect(() => {
-    if (__DEV__ && visible && !translationLanguageId) {
+    if (visible && !translationLanguageId) {
       console.error(
         '[NEW TRANSLATION MODAL] ERROR: translationLanguageId is empty!'
       );
     }
   }, [visible, translationLanguageId]);
 
-  // Simpler schema - just validate that fields exist when provided
-  const translationSchema = z.object({
-    text: z.string().trim().optional(),
-    audioUri: z.string().optional()
-  });
+  // Schema with conditional validation based on translation type.
+  // Audio presence is NOT enforced here — it's set manually in handleFormSubmit
+  // so the error only surfaces on submit, not during onChange re-validation
+  // (which would flash the message when the user starts/pauses a recording).
+  const translationSchema = z
+    .object({
+      text: z.string().trim().optional(),
+      audioUri: z.union([z.string(), z.null()]).optional()
+    })
+    .superRefine((data, ctx) => {
+      if (translationType === 'text' && !data.text) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message:
+            contentType === 'transcription'
+              ? t('enterTranscription')
+              : t('enterTranslation'),
+          path: ['text']
+        });
+      }
+    });
 
   type TranslationFormData = z.infer<typeof translationSchema>;
 
+  const defaultValues: TranslationFormData = {
+    text: '',
+    audioUri: null
+  };
+
   const form = useForm<TranslationFormData>({
-    defaultValues: {
-      text: '',
-      audioUri: ''
-    },
+    defaultValues,
     resolver: zodResolver(translationSchema),
     disabled: !currentUser?.id || !canTranslate,
     mode: 'onChange'
   });
-
-  const subscription = useWatch({ control: form.control });
-  const isValid =
-    canTranslate &&
-    ((translationType === 'text' && !!subscription.text) ||
-      (translationType === 'audio' && !!subscription.audioUri));
 
   // State for AI prediction
   const [predictedTranslation, setPredictedTranslation] = useState<
@@ -279,21 +295,14 @@ export default function NextGenNewTranslationModal({
   // Handle AI transcription from source audio
   const handleAiTranscription = async () => {
     if (!isAuthenticated) {
-      RNAlert.alert(
-        t('error'),
-        t('pleaseLogInToTranscribe') || 'Please log in to transcribe audio'
-      );
+      RNAlert.alert(t('error'), t('pleaseLogInToTranscribe'));
       return;
     }
 
     // Use pre-resolved audio URIs from parent
     const audioUri = resolvedAudioUris[0];
     if (!audioUri) {
-      RNAlert.alert(
-        t('error'),
-        t('audioNotAvailable') ||
-          'Audio not available. The file may not have been downloaded yet.'
-      );
+      RNAlert.alert(t('error'), t('audioNotAvailable'));
       return;
     }
 
@@ -355,7 +364,7 @@ export default function NextGenNewTranslationModal({
         error instanceof Error ? error.message : 'Unknown error';
       RNAlert.alert(
         t('error'),
-        `${t('transcriptionFailed') || 'Failed to transcribe audio.'}\n\n${errorMessage}`
+        `${t('transcriptionFailed')}\n\n${errorMessage}`
       );
     }
   };
@@ -385,7 +394,7 @@ export default function NextGenNewTranslationModal({
   // Get orthography examples for transcription localization
   // Use primitive string value directly for stable query key
   const { data: orthographyExamples = [] } = useOrthographyExamples(
-    currentProjectId,
+    projectId,
     sourceLanguoidId || ''
   );
 
@@ -396,7 +405,7 @@ export default function NextGenNewTranslationModal({
   // Using primitive string value directly ensures stable query key
   const { data: nearbyExamples = [], isLoading: isLoadingExamples } =
     useNearbyTranslations(
-      visible ? currentQuestId || undefined : undefined,
+      visible ? questId || undefined : undefined,
       visible ? translationLanguageId : '',
       visible ? contentPreview || null : null
     );
@@ -408,9 +417,9 @@ export default function NextGenNewTranslationModal({
   // Button disabled only when actively predicting (prevents double-clicks)
   const isButtonDisabled = isPredicting;
 
+  // Initialize form when modal opens
   React.useEffect(() => {
     if (visible) {
-      form.reset();
       // Set initial text if provided (e.g., from AI transcription)
       if (initialText) {
         form.setValue('text', initialText);
@@ -427,6 +436,15 @@ export default function NextGenNewTranslationModal({
     }
   }, [visible, form, initialContentType, initialText]);
 
+  // Clear the "Please record audio" validation error as soon as the user
+  // starts or pauses a recording — at that point they've clearly begun,
+  // even if audioUri isn't finalized yet.
+  React.useEffect(() => {
+    if (recordingState.isRecording || recordingState.isPaused) {
+      form.clearErrors('audioUri');
+    }
+  }, [recordingState.isRecording, recordingState.isPaused, form]);
+
   // Warn if modal opens without permission or if anonymous
   React.useEffect(() => {
     if (visible && (!isAuthenticated || !canTranslate)) {
@@ -435,149 +453,182 @@ export default function NextGenNewTranslationModal({
       );
       if (!isAuthenticated) {
         RNAlert.alert(t('signInRequired'), t('signInToSaveOrContribute'));
-        setAuthView('sign-in');
+        router.push('/(auth)/sign-in');
       } else {
         RNAlert.alert(t('error'), t('membersOnly'));
       }
       onClose();
     }
-  }, [visible, canTranslate, isAuthenticated, onClose, t, setAuthView]);
+  }, [visible, canTranslate, isAuthenticated, onClose, t, router]);
 
-  const { mutateAsync: createTranslation } = useMutation({
-    mutationFn: async (data: TranslationFormData) => {
-      if (translationType === 'text' && !data.text) {
-        throw new Error(
-          contentType === 'transcription'
-            ? t('enterTranscription')
-            : t('enterTranslation')
+  const { mutateAsync: createTranslation, isPending: isCreatingTranslation } =
+    useMutation({
+      mutationFn: async (data: TranslationFormData) => {
+        // Validation is handled by Zod schema via form.handleSubmit
+        // These runtime checks are defensive fallbacks
+        if (!translationLanguageId || !projectId || !questId) {
+          throw new Error('Missing required context');
+        }
+
+        let audioAttachment: string | null = null;
+        if (data.audioUri) {
+          // Ensure attachment queues are ready before saving audio
+          // This handles the case where the app started offline and queues weren't initialized
+          await system.ensureAttachmentQueuesReady();
+
+          if (system.permAttachmentQueue) {
+            // Convert recording to local attachment path
+            // - On web: converts blob URL to OPFS file
+            // - On native: moves from cache dir to local attachments dir
+            const localAudioPath = await saveAudioLocally(data.audioUri);
+
+            const attachment = await system.permAttachmentQueue.saveAudio(
+              getLocalAttachmentUri(localAudioPath)
+            );
+            audioAttachment = attachment.filename;
+          }
+        }
+
+        // Guard against anonymous users
+        if (!currentUser?.id || !isAuthenticated) {
+          throw new Error('Must be logged in to create translations');
+        }
+
+        // Guard against PowerSync not being initialized
+        if (!system.isPowerSyncInitialized()) {
+          throw new Error(
+            'System not initialized - cannot create translations'
+          );
+        }
+
+        // Use local tables for prepublished content, synced tables for published content
+        const tableOptions = { localOverride: isLocalSource };
+        console.log(
+          `[CREATE ${contentType.toUpperCase()}] Starting transaction... (isLocalSource: ${isLocalSource})`
+        );
+        await system.db.transaction(async (tx) => {
+          const [newAsset] = await tx
+            .insert(resolveTable('asset', tableOptions))
+            .values({
+              source_asset_id: assetId,
+              source_language_id: translationLanguageId,
+              content_type: contentType,
+              project_id: projectId,
+              creator_id: currentUser.id,
+              download_profiles: [currentUser.id]
+            })
+            .returning();
+
+          if (!newAsset) {
+            throw new Error('Failed to insert asset');
+          }
+
+          const contentValues: {
+            asset_id: string;
+            source_language_id: string;
+            download_profiles: string[];
+            text?: string;
+            audio?: string[];
+          } = {
+            asset_id: newAsset.id,
+            source_language_id: translationLanguageId,
+            download_profiles: [currentUser.id]
+          };
+
+          if (translationType === 'text' && data.text) {
+            contentValues.text = data.text;
+          } else if (translationType === 'audio' && audioAttachment) {
+            contentValues.audio = [audioAttachment];
+          }
+
+          await tx
+            .insert(resolveTable('asset_content_link', tableOptions))
+            .values(contentValues);
+
+          await tx
+            .insert(resolveTable('quest_asset_link', tableOptions))
+            .values({
+              quest_id: questId,
+              asset_id: newAsset.id,
+              download_profiles: [currentUser.id]
+            });
+        });
+      },
+      onSuccess: () => {
+        Keyboard.dismiss();
+        form.reset(defaultValues);
+        onSuccess?.();
+        onClose();
+      },
+      onError: (error) => {
+        console.error(
+          `[CREATE ${contentType.toUpperCase()}] Error creating ${contentType}:`,
+          error
+        );
+        console.error(
+          `[CREATE ${contentType.toUpperCase()}] Error stack:`,
+          error.stack
+        );
+        RNAlert.alert(
+          t('error'),
+          (contentType === 'transcription'
+            ? t('failedCreateTranscription')
+            : t('failedCreateTranslation')) +
+            '\n\n' +
+            error.message
         );
       }
-      if (translationType === 'audio' && !data.audioUri) {
-        throw new Error('Please record audio');
-      }
-
-      if (!translationLanguageId || !currentProjectId || !currentQuestId) {
-        throw new Error('Missing required context');
-      }
-
-      let audioAttachment: string | null = null;
-      if (data.audioUri) {
-        // Ensure attachment queues are ready before saving audio
-        // This handles the case where the app started offline and queues weren't initialized
-        await system.ensureAttachmentQueuesReady();
-
-        if (system.permAttachmentQueue) {
-          // Convert recording to local attachment path
-          // - On web: converts blob URL to OPFS file
-          // - On native: moves from cache dir to local attachments dir
-          const localAudioPath = await saveAudioLocally(data.audioUri);
-
-          const attachment = await system.permAttachmentQueue.saveAudio(
-            getLocalAttachmentUri(localAudioPath)
-          );
-          audioAttachment = attachment.filename;
-        }
-      }
-
-      // Guard against anonymous users
-      if (!currentUser?.id || !isAuthenticated) {
-        throw new Error('Must be logged in to create translations');
-      }
-
-      // Guard against PowerSync not being initialized
-      if (!system.isPowerSyncInitialized()) {
-        throw new Error('System not initialized - cannot create translations');
-      }
-
-      // Use local tables for prepublished content, synced tables for published content
-      const tableOptions = { localOverride: isLocalSource };
-      console.log(
-        `[CREATE ${contentType.toUpperCase()}] Starting transaction... (isLocalSource: ${isLocalSource})`
-      );
-      await system.db.transaction(async (tx) => {
-        const [newAsset] = await tx
-          .insert(resolveTable('asset', tableOptions))
-          .values({
-            source_asset_id: assetId,
-            source_language_id: translationLanguageId,
-            content_type: contentType,
-            project_id: currentProjectId,
-            creator_id: currentUser.id,
-            download_profiles: [currentUser.id]
-          })
-          .returning();
-
-        if (!newAsset) {
-          throw new Error('Failed to insert asset');
-        }
-
-        const contentValues: {
-          asset_id: string;
-          source_language_id: string;
-          download_profiles: string[];
-          text?: string;
-          audio?: string[];
-        } = {
-          asset_id: newAsset.id,
-          source_language_id: translationLanguageId,
-          download_profiles: [currentUser.id]
-        };
-
-        if (translationType === 'text' && data.text) {
-          contentValues.text = data.text;
-        } else if (translationType === 'audio' && audioAttachment) {
-          contentValues.audio = [audioAttachment];
-        }
-
-        await tx
-          .insert(resolveTable('asset_content_link', tableOptions))
-          .values(contentValues);
-
-        await tx.insert(resolveTable('quest_asset_link', tableOptions)).values({
-          quest_id: currentQuestId,
-          asset_id: newAsset.id,
-          download_profiles: [currentUser.id]
-        });
-      });
-    },
-    onSuccess: () => {
-      form.reset();
-      RNAlert.alert(
-        t('success'),
-        contentType === 'transcription'
-          ? t('transcriptionSubmittedSuccessfully')
-          : t('translationSubmittedSuccessfully')
-      );
-      onSuccess?.();
-      onClose();
-    },
-    onError: (error) => {
-      console.error(
-        `[CREATE ${contentType.toUpperCase()}] Error creating ${contentType}:`,
-        error
-      );
-      console.error(
-        `[CREATE ${contentType.toUpperCase()}] Error stack:`,
-        error.stack
-      );
-      RNAlert.alert(
-        t('error'),
-        (contentType === 'transcription'
-          ? t('failedCreateTranscription')
-          : t('failedCreateTranslation')) +
-          '\n\n' +
-          error.message
-      );
-    }
-  });
+    });
 
   const handleClose = () => {
     // Clean up audio file if exists
     const audioUri = form.getValues('audioUri');
     if (audioUri) void deleteIfExists(audioUri);
-    form.reset();
-    setPredictedTranslation(null);
     onClose();
+  };
+
+  // Handle drawer open/change with form reset
+  const handleOpenChange = (open: boolean) => {
+    if (!open) {
+      handleClose();
+    }
+    // Reset form when modal closes
+    if (!open) {
+      form.reset(defaultValues);
+      setPredictedTranslation(null);
+      setPredictionDetails(null);
+    }
+  };
+
+  // Form submission handler - handles paused recording by stopping first
+  const handleFormSubmit = async () => {
+    // If recording is paused, stop it first and get the URI
+    if (recordingState.isPaused && audioRecorderRef.current) {
+      const uri = await audioRecorderRef.current.stopRecording();
+      if (uri) {
+        form.setValue('audioUri', uri);
+      }
+    }
+
+    // Audio presence check is set manually (not via Zod) so it only surfaces
+    // on submit — never during onChange re-validation.
+    if (translationType === 'audio' && !form.getValues('audioUri')) {
+      form.setError('audioUri', {
+        type: 'manual',
+        message: t('pleaseRecordAudio')
+      });
+      return;
+    }
+
+    return form.handleSubmit(
+      async (data) => {
+        await createTranslation(data);
+      },
+      (errors) => {
+        // Validation errors are shown inline via FormMessage
+        console.error('[CREATE TRANSLATION] Form validation failed:', errors);
+      }
+    )();
   };
 
   const handlePredictTranslation = async () => {
@@ -633,12 +684,10 @@ export default function NextGenNewTranslationModal({
         targetLanguageName
       });
 
-      if (__DEV__) {
-        console.log(
-          '[AI PREDICTION] Raw response received:',
-          result.rawResponse?.substring(0, 100)
-        );
-      }
+      console.log(
+        '[AI PREDICTION] Raw response received:',
+        result.rawResponse?.substring(0, 100)
+      );
 
       setPredictedTranslation(result.translation);
       setPredictionDetails({
@@ -677,9 +726,10 @@ export default function NextGenNewTranslationModal({
   return (
     <Drawer
       open={visible}
-      onOpenChange={(open) => !open && handleClose()}
+      onOpenChange={handleOpenChange}
       snapPoints={['80%']}
       enableDynamicSizing={false}
+      dismissible={!isCreatingTranslation}
     >
       <DrawerContent className="pb-safe">
         <Form {...form}>
@@ -1010,7 +1060,10 @@ export default function NextGenNewTranslationModal({
                   </View>
                 </TabsContent>
 
-                <TabsContent value="audio" className="min-h-36">
+                <TabsContent
+                  value="audio"
+                  className="flex min-h-36 flex-col justify-end"
+                >
                   <FormField
                     control={form.control}
                     name="audioUri"
@@ -1018,8 +1071,10 @@ export default function NextGenNewTranslationModal({
                       <FormItem>
                         <FormControl>
                           <AudioRecorder
+                            ref={audioRecorderRef}
                             onRecordingComplete={field.onChange}
                             resetRecording={() => field.onChange(null)}
+                            onRecordingStateChange={setRecordingState}
                           />
                         </FormControl>
                         <FormMessage />
@@ -1049,22 +1104,17 @@ export default function NextGenNewTranslationModal({
               </View>
             )}
             <FormSubmit
-              disabled={!isValid || !canTranslate}
-              onPress={form.handleSubmit(
-                (data) => createTranslation(data),
-                () => {
-                  if (__DEV__) {
-                    console.error(
-                      '[CREATE TRANSLATION] Form validation failed'
-                    );
-                  }
-                  RNAlert.alert(t('error'), t('fillFields'));
-                }
-              )}
+              disabled={
+                !canTranslate ||
+                recordingState.isRecording ||
+                recordingState.isPaused ||
+                (translationType === 'audio' && !form.getValues('audioUri'))
+              }
+              onPress={() => void handleFormSubmit()}
             >
               <Text className="text-base font-bold">{t('createObject')}</Text>
             </FormSubmit>
-            <DrawerClose>
+            <DrawerClose disabled={isCreatingTranslation}>
               <Text>{t('cancel')}</Text>
             </DrawerClose>
           </DrawerFooter>

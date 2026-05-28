@@ -16,13 +16,12 @@ import type { asset_content_link } from '@/db/drizzleSchema';
 import { asset } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useProjectById } from '@/hooks/db/useProjects';
-import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useHasUserReported } from '@/hooks/useReports';
 import { useTranscription } from '@/hooks/useTranscription';
-import { useLocalStore } from '@/store/localStore';
 import { resolveTable } from '@/utils/dbUtils';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import { fileExists, getLocalUri } from '@/utils/fileUtils';
@@ -31,6 +30,7 @@ import RNAlert from '@blazejkustra/react-native-alert';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { eq } from 'drizzle-orm';
+import { useRouter } from 'expo-router';
 import {
   FlagIcon,
   LockIcon,
@@ -67,13 +67,10 @@ interface NextGenTranslationModalProps {
 }
 
 function useNextGenTranslation(assetId: string) {
-  const { isAuthenticated, isSystemReady } = useAuth();
-  // Use reactive isSystemReady from AuthContext instead of non-reactive isPowerSyncInitialized
-  const isPowerSyncReady = isSystemReady;
+  const { isAuthenticated } = useAuth();
 
-  // Only create offline query if PowerSync is initialized and user is authenticated
   const offlineQuery = React.useMemo(() => {
-    if (!isPowerSyncReady || !isAuthenticated) {
+    if (!isAuthenticated) {
       return 'SELECT * FROM asset WHERE 1=0' as any;
     }
     return toCompilableQuery(
@@ -85,7 +82,7 @@ function useNextGenTranslation(assetId: string) {
         }
       })
     );
-  }, [assetId, isPowerSyncReady, isAuthenticated]);
+  }, [assetId, isAuthenticated]);
 
   return useHybridData<
     Omit<typeof asset.$inferSelect, 'images'> & {
@@ -170,10 +167,10 @@ export default function NextGenTranslationModal({
   projectName
 }: NextGenTranslationModalProps) {
   const { project } = useProjectById(projectId);
-  const { currentQuestId } = useAppNavigation();
+  const { questId } = useNavigationHelpers();
   const { t } = useLocalization();
   const { currentUser, isAuthenticated } = useAuth();
-  const setAuthView = useLocalStore((state) => state.setAuthView);
+  const router = useRouter();
   const isOnline = useNetworkStatus();
   const queryClient = useQueryClient();
   const [pendingVoteType, setPendingVoteType] = useState<'up' | 'down' | null>(
@@ -300,7 +297,7 @@ export default function NextGenTranslationModal({
           throw new Error('Project is required');
         }
 
-        if (!currentQuestId) {
+        if (!questId) {
           throw new Error(
             'Quest context is missing. This is an unexpected error.'
           );
@@ -390,20 +387,13 @@ export default function NextGenTranslationModal({
           await tx
             .insert(resolveTable('quest_asset_link', tableOptions))
             .values({
-              quest_id: currentQuestId,
+              quest_id: questId,
               asset_id: newAsset.id,
               download_profiles: [currentUser.id]
             });
         });
       },
       onSuccess: () => {
-        const isTranscription = asset?.content_type === 'transcription';
-        RNAlert.alert(
-          t('success'),
-          isTranscription
-            ? t('transcriptionSubmittedSuccessfully')
-            : t('translationSubmittedSuccessfully')
-        );
         setIsEditing(false);
         onVoteSuccess?.(); // Refresh the list
         onOpenChange(false);
@@ -450,31 +440,20 @@ export default function NextGenTranslationModal({
 
   const handleTranscribe = async (uri: string) => {
     if (!isAuthenticated) {
-      RNAlert.alert(
-        t('error'),
-        t('pleaseLogInToTranscribe') || 'Please log in to transcribe audio'
-      );
+      RNAlert.alert(t('error'), t('pleaseLogInToTranscribe'));
       return;
     }
 
     // Validate the audio file exists before attempting transcription
     if (!uri) {
-      RNAlert.alert(
-        t('error'),
-        t('audioNotAvailable') ||
-          'Audio not available. The file may not have been downloaded yet.'
-      );
+      RNAlert.alert(t('error'), t('audioNotAvailable'));
       return;
     }
 
     const exists = await fileExists(uri);
     if (!exists) {
       console.log('[Transcription] Audio file not found at URI:', uri);
-      RNAlert.alert(
-        t('error'),
-        t('audioNotAvailable') ||
-          'Audio not available. The file may not have been downloaded yet.'
-      );
+      RNAlert.alert(t('error'), t('audioNotAvailable'));
       return;
     }
 
@@ -492,7 +471,7 @@ export default function NextGenTranslationModal({
         error instanceof Error ? error.message : 'Unknown error';
       RNAlert.alert(
         t('error'),
-        `${t('transcriptionFailed') || 'Failed to transcribe audio.'}\n\n${errorMessage}`
+        `${t('transcriptionFailed')}\n\n${errorMessage}`
       );
     }
   };
@@ -665,11 +644,11 @@ export default function NextGenTranslationModal({
                           <Button
                             onPress={() => {
                               onOpenChange(false);
-                              setAuthView('sign-in');
+                              router.push('/(auth)/sign-in');
                             }}
                             className="mt-4"
                           >
-                            <Text>{t('signIn') || 'Sign In'}</Text>
+                            <Text>{t('signIn')}</Text>
                           </Button>
                         </Alert>
                       ) : (

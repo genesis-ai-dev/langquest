@@ -1,0 +1,7 @@
+{
+  "imports": {
+    "@supabase/supabase-js": "npm:@supabase/supabase-js@2",
+    "standardwebhooks": "npm:standardwebhooks@1",
+    "airtable": "npm:airtable@0.12.2"
+  }
+}

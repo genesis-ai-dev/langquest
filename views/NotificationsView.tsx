@@ -35,7 +35,12 @@ import {
   useLanguoidLinkSuggestions
 } from '@/hooks/db/useLanguoidLinkSuggestions';
 import { useUserMemberships } from '@/hooks/db/useProfiles';
-import { useAppNavigation } from '@/hooks/useAppNavigation';
+import type { ProjectLanguoidSuggestionWithDetails } from '@/hooks/db/useProjectLanguoidSuggestions';
+import {
+  useAcceptProjectLanguoidSuggestion,
+  useDismissProjectLanguoidSuggestion,
+  useProjectLanguoidSuggestions
+} from '@/hooks/db/useProjectLanguoidSuggestions';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useLocalStore } from '@/store/localStore';
@@ -43,12 +48,13 @@ import { useHybridData } from '@/views/new/useHybridData';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useQueryClient } from '@tanstack/react-query';
-import { and, eq, inArray, or } from 'drizzle-orm';
+import { and, eq, inArray, isNull, or } from 'drizzle-orm';
+import { useRouter } from 'expo-router';
 import {
   AlertTriangle,
   BellIcon,
   CheckIcon,
-  HomeIcon,
+  LanguagesIcon,
   LinkIcon,
   MailIcon,
   UserPlusIcon,
@@ -266,26 +272,106 @@ function LanguoidLinkSuggestionGroup({
   );
 }
 
+type ProjectLanguoidSuggestionAction = 'accept' | 'dismiss';
+
+interface ProjectLanguoidSuggestionItemProps {
+  suggestion: ProjectLanguoidSuggestionWithDetails;
+  processingAction: ProjectLanguoidSuggestionAction | null;
+  onAccept: (suggestion: ProjectLanguoidSuggestionWithDetails) => void;
+  onDismiss: (suggestion: ProjectLanguoidSuggestionWithDetails) => void;
+}
+
+function ProjectLanguoidSuggestionItem({
+  suggestion,
+  processingAction,
+  onAccept,
+  onDismiss
+}: ProjectLanguoidSuggestionItemProps) {
+  const { t } = useLocalization();
+  const projectName = suggestion.project_name ?? t('unknownProject');
+  const currentName = suggestion.current_languoid_name ?? '?';
+  const suggestedName = suggestion.suggested_languoid_name ?? '?';
+
+  return (
+    <Card>
+      <CardContent className="p-4">
+        <View className="flex gap-3">
+          <View className="flex-col gap-1">
+            <View className="flex flex-row items-center gap-2">
+              <Icon as={LanguagesIcon} size={20} className="text-primary" />
+              <Text className="font-semibold text-foreground" variant="h4">
+                {t('projectLanguageSuggestionTitle')}
+              </Text>
+            </View>
+            <Text className="text-sm text-muted-foreground" ph-no-capture>
+              {t('projectLanguageSuggestionDescription', {
+                project: projectName,
+                current: currentName,
+                suggested: suggestedName
+              })}
+            </Text>
+          </View>
+
+          <View className="flex gap-2">
+            <Button
+              onPress={() => onAccept(suggestion)}
+              loading={processingAction === 'accept'}
+              disabled={processingAction !== null}
+            >
+              <Text className="text-sm">
+                {t('projectLanguageSuggestionSwitchTo', {
+                  language: suggestedName
+                })}
+              </Text>
+            </Button>
+            <Button
+              variant="ghost"
+              onPress={() => onDismiss(suggestion)}
+              loading={processingAction === 'dismiss'}
+              disabled={processingAction !== null}
+            >
+              <Text className="text-sm">
+                {t('projectLanguageSuggestionKeepCurrent')}
+              </Text>
+            </Button>
+          </View>
+        </View>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function NotificationsView() {
   const { t } = useLocalization();
   const { currentUser } = useAuth();
-  const { goToProjects } = useAppNavigation();
+  const router = useRouter();
   const queryClient = useQueryClient();
   const isOnline = useNetworkStatus();
   const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
+  const [processingDeliveryDismissIds, setProcessingDeliveryDismissIds] =
+    useState<Set<string>>(new Set());
   const [processingLanguoidIds, setProcessingLanguoidIds] = useState<
     Set<string>
   >(new Set());
   const [refreshing, setRefreshing] = useState(false);
 
-  // Languoid link suggestions (only if feature flag is enabled)
-  const enableLanguoidLinkSuggestions = useLocalStore(
-    (state) => state.enableLanguoidLinkSuggestions
+  // Project language suggestions (only if feature flag is enabled)
+  const enableProjectLanguageSuggestions = useLocalStore(
+    (state) => state.enableProjectLanguageSuggestions
   );
   const { groupedSuggestions, uniqueLanguoidCount } =
     useLanguoidLinkSuggestions();
   const acceptSuggestion = useAcceptLanguoidLinkSuggestion();
   const keepCustomLanguoid = useKeepCustomLanguoid();
+
+  const { suggestions: projectLanguoidSuggestions } =
+    useProjectLanguoidSuggestions();
+  const acceptProjectLanguoid = useAcceptProjectLanguoidSuggestion();
+  const dismissProjectLanguoid = useDismissProjectLanguoidSuggestion();
+  const [
+    processingProjectLanguoidActions,
+    setProcessingProjectLanguoidActions
+  ] = useState<Map<string, ProjectLanguoidSuggestionAction>>(new Map());
 
   // All operations on invites, requests, and notifications go through synced tables
   // PowerSync will automatically sync changes to Supabase and back down
@@ -330,6 +416,28 @@ export default function NotificationsView() {
     enableOfflineQuery: !!(currentUser?.id || currentUser?.email)
   });
 
+  // Pending invites you sent whose email bounced or was complained about (notify inviter)
+  const { data: sentInviteDeliveryIssues = [] } = useHybridData<
+    typeof invite.$inferSelect
+  >({
+    dataType: 'invite-sent-delivery-failures',
+    queryKeyParams: [currentUser?.id || ''],
+    offlineQuery: toCompilableQuery(
+      system.db.query.invite.findMany({
+        where: and(
+          ...[
+            currentUser?.id && eq(invite.sender_profile_id, currentUser.id),
+            or(eq(invite.status, 'pending'), eq(invite.status, 'withdrawn')),
+            eq(invite.active, true),
+            inArray(invite.email_status, ['bounced', 'complained']),
+            isNull(invite.bounce_notice_dismissed_at)
+          ].filter(Boolean)
+        )
+      })
+    ),
+    enableOfflineQuery: !!currentUser?.id
+  });
+
   // Get pending requests for owner projects - without project relation
   const { data: requestData = [] } = useHybridData({
     dataType: 'request-notifications',
@@ -352,10 +460,11 @@ export default function NotificationsView() {
   const projectIds = React.useMemo(() => {
     const ids = [
       ...inviteData.map((invite) => invite.project_id),
-      ...filteredRequestData.map((request) => request.project_id)
+      ...filteredRequestData.map((request) => request.project_id),
+      ...sentInviteDeliveryIssues.map((row) => row.project_id)
     ];
     return [...new Set(ids)]; // Remove duplicates
-  }, [inviteData, filteredRequestData]);
+  }, [inviteData, filteredRequestData, sentInviteDeliveryIssues]);
 
   // Query for projects separately
   const { data: projects } = useHybridData({
@@ -868,6 +977,103 @@ export default function NotificationsView() {
     }
   };
 
+  const dismissInviteDeliveryNotice = async (
+    inviteId: string
+  ): Promise<boolean> => {
+    if (processingDeliveryDismissIds.has(inviteId)) return false;
+    if (!isOnline) {
+      RNAlert.alert(t('error'), t('mustBeOnlineToAcceptInvite'));
+      return false;
+    }
+
+    setProcessingDeliveryDismissIds((prev) => new Set(prev).add(inviteId));
+    try {
+      await system.db
+        .update(invite_synced)
+        .set({
+          bounce_notice_dismissed_at: new Date().toISOString(),
+          last_updated: new Date().toISOString()
+        })
+        .where(eq(invite_synced.id, inviteId));
+
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ['invite-sent-delivery-failures'],
+          exact: false
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ['invite-sent-delivery-failures-count'],
+          exact: false
+        })
+      ]);
+      return true;
+    } catch (error) {
+      console.error(
+        '[NotificationsView] Dismiss delivery notice failed:',
+        error
+      );
+      RNAlert.alert(t('error'), t('failedToDismissNotice'));
+      return false;
+    } finally {
+      setProcessingDeliveryDismissIds((prev) => {
+        const next = new Set(prev);
+        next.delete(inviteId);
+        return next;
+      });
+    }
+  };
+
+  const renderSentInviteDeliveryIssue = (row: typeof invite.$inferSelect) => {
+    const projectData = projectMap[row.project_id];
+    return (
+      <Card key={`sent-delivery-${row.id}`}>
+        <CardContent className="p-4">
+          <View className="flex gap-3">
+            <View className="flex-row items-center gap-2">
+              <Icon as={AlertTriangle} size={24} className="text-destructive" />
+              <Text className="text-sm font-semibold text-foreground">
+                {t('inviteDeliveryFailedTitle')}
+              </Text>
+            </View>
+            <Text className="text-sm leading-5 text-foreground" ph-no-capture>
+              {t('inviteDeliveryFailedMessage', {
+                email: row.email,
+                project: projectData?.name || t('unknownProject')
+              })}
+            </Text>
+            <Text className="text-xs text-muted-foreground">
+              {new Date(row.created_at).toLocaleDateString()}
+            </Text>
+            <View className="flex-row flex-wrap gap-2">
+              <Button
+                className="min-w-[140px] flex-1"
+                loading={processingDeliveryDismissIds.has(row.id)}
+                onPress={async () => {
+                  const ok = await dismissInviteDeliveryNotice(row.id);
+                  if (ok) {
+                    router.push(
+                      `/(app)/project/${row.project_id}?openMembership=invited`
+                    );
+                  }
+                }}
+              >
+                <Text>{t('viewProjectInvites')}</Text>
+              </Button>
+              <Button
+                variant="secondary"
+                className="min-w-[120px] flex-1"
+                loading={processingDeliveryDismissIds.has(row.id)}
+                onPress={() => void dismissInviteDeliveryNotice(row.id)}
+              >
+                <Text>{t('dismissInviteDeliveryNotice')}</Text>
+              </Button>
+            </View>
+          </View>
+        </CardContent>
+      </Card>
+    );
+  };
+
   const renderNotificationItem = (item: NotificationItem) => {
     const isProcessing = processingIds.has(item.id);
     const roleText = item.as_owner ? t('ownerRole') : t('memberRole');
@@ -1047,12 +1253,75 @@ export default function NotificationsView() {
     return t('partialMatch');
   };
 
+  const setProjectLanguoidProcessing = (
+    suggestionId: string,
+    action: ProjectLanguoidSuggestionAction | null
+  ) => {
+    setProcessingProjectLanguoidActions((prev) => {
+      const next = new Map(prev);
+      if (action === null) {
+        next.delete(suggestionId);
+      } else {
+        next.set(suggestionId, action);
+      }
+      return next;
+    });
+  };
+
+  const handleAcceptProjectLanguoidSuggestion = async (
+    suggestion: ProjectLanguoidSuggestionWithDetails
+  ) => {
+    if (processingProjectLanguoidActions.has(suggestion.id)) return;
+    if (!isOnline) {
+      RNAlert.alert(t('error'), t('mustBeOnlineToAcceptInvite'));
+      return;
+    }
+
+    setProjectLanguoidProcessing(suggestion.id, 'accept');
+    try {
+      await acceptProjectLanguoid.mutateAsync(suggestion.id);
+    } catch (error) {
+      console.error('Error accepting project languoid suggestion:', error);
+      RNAlert.alert(t('error'), t('projectLanguageSuggestionAcceptError'));
+    } finally {
+      setProjectLanguoidProcessing(suggestion.id, null);
+    }
+  };
+
+  const handleDismissProjectLanguoidSuggestion = async (
+    suggestion: ProjectLanguoidSuggestionWithDetails
+  ) => {
+    if (processingProjectLanguoidActions.has(suggestion.id)) return;
+    if (!isOnline) {
+      RNAlert.alert(t('error'), t('mustBeOnlineToAcceptInvite'));
+      return;
+    }
+
+    setProjectLanguoidProcessing(suggestion.id, 'dismiss');
+    try {
+      await dismissProjectLanguoid.mutateAsync(suggestion.id);
+    } catch (error) {
+      console.error('Error dismissing project languoid suggestion:', error);
+      RNAlert.alert(t('error'), t('projectLanguageSuggestionAcceptError'));
+    } finally {
+      setProjectLanguoidProcessing(suggestion.id, null);
+    }
+  };
+
   // Handle pull-to-refresh
   const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
     try {
       // Invalidate all notification-related queries
       await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ['invite-sent-delivery-failures-count'],
+          exact: false
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ['invite-sent-delivery-failures'],
+          exact: false
+        }),
         queryClient.invalidateQueries({
           queryKey: ['invite-notifications'],
           exact: false
@@ -1078,6 +1347,18 @@ export default function NotificationsView() {
           exact: false
         }),
         queryClient.invalidateQueries({
+          queryKey: ['project-languoid-suggestions'],
+          exact: false
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ['project-languoid-suggestion-project-details'],
+          exact: false
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ['project-languoid-suggestion-languoid-details'],
+          exact: false
+        }),
+        queryClient.invalidateQueries({
           queryKey: ['user-memberships'],
           exact: false
         })
@@ -1092,7 +1373,10 @@ export default function NotificationsView() {
   // Check if there are any notifications (including languoid suggestions when online and feature flag enabled)
   const hasAnyNotifications =
     allNotifications.length > 0 ||
-    (enableLanguoidLinkSuggestions && isOnline && uniqueLanguoidCount > 0);
+    sentInviteDeliveryIssues.length > 0 ||
+    (enableProjectLanguageSuggestions &&
+      ((isOnline && uniqueLanguoidCount > 0) ||
+        projectLanguoidSuggestions.length > 0));
 
   return (
     <View className="flex-1 gap-4 px-4 pt-4">
@@ -1107,6 +1391,7 @@ export default function NotificationsView() {
       <View className="flex-1 flex-col gap-4">
         <ScrollView
           className="flex-1"
+          contentContainerClassName="pb-safe android:pb-[calc(env(safe-area-inset-bottom)+1rem)]"
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           refreshControl={
@@ -1128,21 +1413,18 @@ export default function NotificationsView() {
                   <Text className="max-w-sm px-6 text-center text-sm text-muted-foreground">
                     {t('noNotificationsMessage')}
                   </Text>
-                  <Button
-                    variant="default"
-                    size="icon-lg"
-                    onPress={goToProjects}
-                    className="mt-4"
-                  >
-                    <Icon as={HomeIcon} className="text-primary-foreground" />
-                  </Button>
                 </View>
               </View>
             </View>
           ) : (
             <View className="flex-col gap-4 pb-4">
+              {sentInviteDeliveryIssues.length > 0 && (
+                <View className="flex-col gap-4">
+                  {sentInviteDeliveryIssues.map(renderSentInviteDeliveryIssue)}
+                </View>
+              )}
               {/* Languoid link suggestions section - only show when online and feature flag enabled */}
-              {enableLanguoidLinkSuggestions &&
+              {enableProjectLanguageSuggestions &&
                 isOnline &&
                 groupedSuggestions.length > 0 && (
                   <View className="flex-col gap-4">
@@ -1156,6 +1438,25 @@ export default function NotificationsView() {
                         onAccept={handleAcceptLanguoidLink}
                         onKeepCustom={handleKeepCustomLanguoid}
                         getMatchBadgeText={getMatchBadgeText}
+                      />
+                    ))}
+                  </View>
+                )}
+
+              {/* Project languoid suggestions (Event 1) - only when feature flag enabled */}
+              {enableProjectLanguageSuggestions &&
+                projectLanguoidSuggestions.length > 0 && (
+                  <View className="flex-col gap-4">
+                    {projectLanguoidSuggestions.map((suggestion) => (
+                      <ProjectLanguoidSuggestionItem
+                        key={suggestion.id}
+                        suggestion={suggestion}
+                        processingAction={
+                          processingProjectLanguoidActions.get(suggestion.id) ??
+                          null
+                        }
+                        onAccept={handleAcceptProjectLanguoidSuggestion}
+                        onDismiss={handleDismissProjectLanguoidSuggestion}
                       />
                     ))}
                   </View>

@@ -1,14 +1,13 @@
 // Minimal queue worker for local Supabase. Processes at most one queued job per request.
-import pg from 'npm:pg@8.11.3';
+import '@supabase/functions-js/edge-runtime.d.ts';
+import pg from 'pg';
 
-// Prefer internal DSN if available (works inside Docker network)
-// Fallbacks:
-// - 'db' is the standard hostname for the local Postgres service inside Supabase's Docker network
-// - localhost:54322 works for direct host access when running via `supabase functions serve`
 const dbUrl =
-  Deno.env.get('SUPABASE_DB_URL') ||
-  Deno.env.get('PS_DATA_SOURCE_URI') ||
-  'postgresql://postgres:postgres@db:5432/postgres';
+  Deno.env.get('SUPABASE_DB_URL') || Deno.env.get('PS_DATA_SOURCE_URI');
+
+if (!dbUrl) {
+  throw new Error('Missing database connection string.');
+}
 const { Pool } = pg as unknown as {
   Pool: new (opts: { connectionString: string; max?: number }) => any;
 };

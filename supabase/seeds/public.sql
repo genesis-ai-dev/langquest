@@ -45,7 +45,8 @@ INSERT INTO "public"."profile" ("id", "created_at", "last_updated", "username", 
 	('f2adf435-fd35-4927-8644-9b03785722b5', '2025-02-19 18:06:29.610079+00', '2025-02-19 18:06:29.610079+00', 'Keean2', NULL, '422eanboi@gmail.com', 'fd3b1f58-0d2e-4798-b593-a51f7a37a2c1', 'fd3b1f58-0d2e-4798-b593-a51f7a37a2c1', true, false, NULL),
 	('59b05eb2-d3b8-4292-975a-45f9c614e58f', '2025-03-10 20:49:17.040094+00', '2025-03-10 20:49:17.040094+00', 'ryder10032025_2', NULL, 'ryderwishart+langquest10032025@gmail.com', 'fd3b1f58-0d2e-4798-b593-a51f7a37a2c1', 'fd3b1f58-0d2e-4798-b593-a51f7a37a2c1', true, false, NULL),
 	('c111d43b-5983-4342-9d9e-5fc8d09d77b9', '2025-01-19 00:13:31.935664+00', '2025-01-19 00:13:31.935664+00', 'Keean', NULL, 'realdinozoid@gmail.com', 'fd3b1f58-0d2e-4798-b593-a51f7a37a2c1', 'fd3b1f58-0d2e-4798-b593-a51f7a37a2c1', true, true, NULL),
-	('ff6e4bb4-3840-4168-917a-d29e09145958', '2025-03-06 18:20:56.649327+00', '2025-03-06 18:20:56.649327+00', 'BenScholtens', NULL, 'ben.scholtens@me.com', 'fd3b1f58-0d2e-4798-b593-a51f7a37a2c1', 'fd3b1f58-0d2e-4798-b593-a51f7a37a2c1', true, true, NULL);
+	('ff6e4bb4-3840-4168-917a-d29e09145958', '2025-03-06 18:20:56.649327+00', '2025-03-06 18:20:56.649327+00', 'BenScholtens', NULL, 'ben.scholtens@me.com', 'fd3b1f58-0d2e-4798-b593-a51f7a37a2c1', 'fd3b1f58-0d2e-4798-b593-a51f7a37a2c1', true, true, NULL),
+	('a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d', '2025-04-11 00:00:00.000000+00', '2025-04-11 00:00:00.000000+00', 'TestUser', NULL, 'test@langquest.org', 'fd3b1f58-0d2e-4798-b593-a51f7a37a2c1', 'fd3b1f58-0d2e-4798-b593-a51f7a37a2c1', true, true, '2025-04-11 00:00:00.000000+00');
 
 
 --

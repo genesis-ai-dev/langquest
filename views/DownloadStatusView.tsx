@@ -10,7 +10,7 @@ import { Icon } from '@/components/ui/icon';
 import { Progress } from '@/components/ui/progress';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
-import { useAppNavigation } from '@/hooks/useAppNavigation';
+import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useAttachmentProgress } from '@/hooks/useAttachmentProgress';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
@@ -30,7 +30,7 @@ import { ScrollView, View } from 'react-native';
 
 export default function DownloadStatusView() {
   const { t } = useLocalization();
-  const { goToProjects } = useAppNavigation();
+  const { goToProjects } = useNavigationHelpers();
   const { isAuthenticated } = useAuth();
   const isConnected = useNetworkStatus();
 
@@ -107,12 +107,15 @@ export default function DownloadStatusView() {
   }, [progress.synced, progress.total]);
 
   return (
-    <ScrollView className="flex-1 bg-background">
+    <ScrollView
+      className="flex-1 bg-background"
+      contentContainerClassName="pb-safe android:pb-[calc(env(safe-area-inset-bottom)+1rem)]"
+    >
       <View className="flex-1 gap-4 p-4">
         {/* Header */}
         <View className="flex-row items-center justify-between">
           <Text className="text-2xl font-bold text-foreground">
-            {t('downloadStatus') || 'Download Status'}
+            {t('downloadStatus')}
           </Text>
           <Button variant="ghost" size="icon" onPress={goToProjects}>
             <Icon as={RefreshCw} size={20} />
@@ -141,21 +144,21 @@ export default function DownloadStatusView() {
                         : 'text-destructive'
                   )}
                 />
-                <Text>{t('powersyncStatus') || 'PowerSync Status'}</Text>
+                <Text>{t('powersyncStatus')}</Text>
               </View>
             </CardTitle>
             <CardDescription>
               {powerSyncStatus.connected
-                ? t('connected') || 'Connected'
+                ? t('connected')
                 : powerSyncStatus.connecting
-                  ? t('connecting') || 'Connecting...'
-                  : t('disconnected') || 'Disconnected'}
+                  ? t('connecting')
+                  : t('disconnected')}
             </CardDescription>
           </CardHeader>
           <View className="gap-2 p-4 pt-0">
             <View className="flex-row items-center justify-between">
               <Text className="text-sm text-muted-foreground">
-                {t('lastSync') || 'Last Sync'}
+                {t('lastSync')}
               </Text>
               <Text className="text-sm font-medium text-foreground">
                 {formattedLastSync}
@@ -169,7 +172,7 @@ export default function DownloadStatusView() {
                   className="text-yellow-500"
                 />
                 <Text className="ml-2 flex-1 text-sm text-yellow-500">
-                  {t('notSynced') || 'Not yet synced'}
+                  {t('notSynced')}
                 </Text>
               </View>
             )}
@@ -183,7 +186,7 @@ export default function DownloadStatusView() {
                       className="text-primary"
                     />
                     <Text className="ml-2 text-sm text-foreground">
-                      {t('downloadingData') || 'Downloading data...'}
+                      {t('downloadingData')}
                     </Text>
                   </View>
                 )}
@@ -191,7 +194,7 @@ export default function DownloadStatusView() {
                   <View className="flex-row items-center gap-2">
                     <Icon as={CloudUpload} size={16} className="text-primary" />
                     <Text className="ml-2 text-sm text-foreground">
-                      {t('uploadingData') || 'Uploading data...'}
+                      {t('uploadingData')}
                     </Text>
                   </View>
                 )}
@@ -202,7 +205,7 @@ export default function DownloadStatusView() {
                 <Icon as={XCircle} size={16} className="text-destructive" />
                 <View className="ml-2 flex-1">
                   <Text className="text-sm font-semibold text-destructive">
-                    {t('syncError') || 'Sync Error'}
+                    {t('syncError')}
                   </Text>
                   {powerSyncStatus.downloadError && (
                     <Text className="text-xs text-destructive">
@@ -232,13 +235,11 @@ export default function DownloadStatusView() {
                     isConnected ? 'text-green-500' : 'text-destructive'
                   )}
                 />
-                <Text>{t('networkStatus') || 'Network Status'}</Text>
+                <Text>{t('networkStatus')}</Text>
               </View>
             </CardTitle>
             <CardDescription>
-              {isConnected
-                ? t('online') || 'Online'
-                : t('offline') || 'Offline'}
+              {isConnected ? t('online') : t('offline')}
             </CardDescription>
           </CardHeader>
         </Card>
@@ -249,17 +250,14 @@ export default function DownloadStatusView() {
             <CardHeader>
               <CardTitle className="flex-row items-center gap-2">
                 <Icon as={CloudDownload} size={20} className="text-primary" />
-                <Text className="ml-1">
-                  {t('attachmentDownloadProgress') ||
-                    'Attachment Download Progress'}
-                </Text>
+                <Text className="ml-1">{t('attachmentDownloadProgress')}</Text>
               </CardTitle>
               <CardDescription>
                 {isLoading
-                  ? t('loading') || 'Loading...'
+                  ? t('loading')
                   : progress.hasActivity
-                    ? t('downloading') || 'Downloading...'
-                    : t('allSynced') || 'All files synced'}
+                    ? t('downloading')
+                    : t('allSynced')}
               </CardDescription>
             </CardHeader>
             <View className="gap-4 p-4 pt-0">
@@ -267,10 +265,10 @@ export default function DownloadStatusView() {
               <View className="gap-2">
                 <View className="flex-row items-center justify-between">
                   <Text className="text-sm font-medium text-foreground">
-                    {t('overallProgress') || 'Overall Progress'}
+                    {t('overallProgress')}
                   </Text>
                   <Text className="text-sm text-muted-foreground">
-                    {progress.synced}/{progress.total} {t('files') || 'files'}
+                    {progress.synced}/{progress.total} {t('files')}
                   </Text>
                 </View>
                 <Progress value={attachmentSyncPercentage} className="h-2" />
@@ -281,7 +279,7 @@ export default function DownloadStatusView() {
                 <View className="gap-2">
                   <View className="flex-row items-center justify-between">
                     <Text className="text-sm font-medium text-foreground">
-                      {t('currentDownload') || 'Current Download'}
+                      {t('currentDownload')}
                     </Text>
                     <Text className="text-sm text-muted-foreground">
                       {syncProgress.downloadCurrent}/
@@ -331,7 +329,7 @@ export default function DownloadStatusView() {
               {/* Queue Status */}
               <View className="gap-2">
                 <Text className="text-sm font-medium text-foreground">
-                  {t('queueStatus') || 'Queue Status'}
+                  {t('queueStatus')}
                 </Text>
                 <View className="flex-row flex-wrap gap-2">
                   <Badge
@@ -339,14 +337,13 @@ export default function DownloadStatusView() {
                     className="px-3 py-1"
                   >
                     <Text className="text-xs">
-                      {t('synced') || 'Synced'}: {progress.synced}
+                      {t('synced')}: {progress.synced}
                     </Text>
                   </Badge>
                   {progress.downloading > 0 && (
                     <Badge variant="default" className="bg-blue-500 px-3 py-1">
                       <Text className="text-xs">
-                        {t('downloading') || 'Downloading'}:{' '}
-                        {progress.downloading}
+                        {t('downloading')}: {progress.downloading}
                       </Text>
                     </Badge>
                   )}
@@ -360,14 +357,14 @@ export default function DownloadStatusView() {
                   {progress.queued > 0 && (
                     <Badge variant="secondary" className="px-3 py-1">
                       <Text className="text-xs">
-                        {t('queued') || 'Queued'}: {progress.queued}
+                        {t('queued')}: {progress.queued}
                       </Text>
                     </Badge>
                   )}
                   {progress.unsynced > 0 && (
                     <Badge variant="outline" className="px-3 py-1">
                       <Text className="text-xs">
-                        {t('unsynced') || 'Unsynced'}: {progress.unsynced}
+                        {t('unsynced')}: {progress.unsynced}
                       </Text>
                     </Badge>
                   )}
@@ -381,10 +378,9 @@ export default function DownloadStatusView() {
         {!isAuthenticated && (
           <Card>
             <CardHeader>
-              <CardTitle>{t('signInRequired') || 'Sign In Required'}</CardTitle>
+              <CardTitle>{t('signInRequired')}</CardTitle>
               <CardDescription>
-                {t('signInToViewDownloadStatus') ||
-                  'Please sign in to view download status and sync information.'}
+                {t('signInToViewDownloadStatus')}
               </CardDescription>
             </CardHeader>
           </Card>

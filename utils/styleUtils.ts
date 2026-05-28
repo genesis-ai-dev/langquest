@@ -17,13 +17,14 @@ type ThemeName = keyof typeof cssTokens;
 type TokenName = keyof (typeof cssTokens)[keyof typeof cssTokens];
 
 export function toNavTheme(t: Record<string, string>) {
+  const hsl = (v: string) => `hsl(${v})`;
   return {
-    background: t['--background']!,
-    border: t['--border']!,
-    card: t['--card']!,
-    notification: t['--destructive']!,
-    primary: t['--primary']!,
-    text: t['--foreground']!
+    background: hsl(t['--background']!),
+    border: hsl(t['--border']!),
+    card: hsl(t['--card']!),
+    notification: hsl(t['--destructive']!),
+    primary: hsl(t['--primary']!),
+    text: hsl(t['--foreground']!)
   };
 }
 

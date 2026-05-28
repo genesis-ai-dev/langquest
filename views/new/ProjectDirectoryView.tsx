@@ -35,16 +35,13 @@ import {
 import { Text } from '@/components/ui/text';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/contexts/AuthContext';
-import { useCloudLoading } from '@/contexts/CloudLoadingContext';
+
 import type { quest } from '@/db/drizzleSchema';
+import { invite, profile_project_link } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useProjectById } from '@/hooks/db/useProjects';
 import type { Quest } from '@/hooks/db/useQuests';
 import { useHasUserReported } from '@/hooks/db/useReports';
-import {
-  useAppNavigation,
-  useCurrentNavigation
-} from '@/hooks/useAppNavigation';
 import {
   useBibleBookCreation,
   useBibleBooks
@@ -55,6 +52,7 @@ import {
 } from '@/hooks/useFiaBookCreation';
 import { useFiaBooks } from '@/hooks/useFiaBooks';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useProjectSourceLanguoid } from '@/hooks/useProjectSourceLanguoid';
 import { useQuestDownloadDiscovery } from '@/hooks/useQuestDownloadDiscovery';
 import { useQuestOffloadVerification } from '@/hooks/useQuestOffloadVerification';
@@ -64,12 +62,14 @@ import { useLocalStore } from '@/store/localStore';
 import { bulkDownloadQuest } from '@/utils/bulkDownload';
 import { resolveTable } from '@/utils/dbUtils';
 import { offloadQuest } from '@/utils/questOffloadUtils';
-import { getThemeColor, useThemeColor } from '@/utils/styleUtils';
+import { cn, getThemeColor, useThemeColor } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { and, count, eq } from 'drizzle-orm';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import {
-  ArrowLeftIcon,
   BookOpenIcon,
   ChurchIcon,
   FlagIcon,
@@ -80,7 +80,8 @@ import {
   SearchIcon,
   SettingsIcon,
   UserPlusIcon,
-  UsersIcon
+  UsersIcon,
+  XIcon
 } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -96,33 +97,155 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import z from 'zod';
 import { BibleBookList } from './BibleBookList';
-import { BibleChapterList } from './BibleChapterList';
 import { FiaBookList } from './FiaBookList';
-import { FiaPericopeList } from './FiaPericopeList';
 import { QuestListView } from './QuestListView';
+import { useHybridData } from './useHybridData';
+
+// Hook to determine if the invite banner should be shown for a project
+// Returns shouldShowInviteBanner=true if ALL of the following are true:
+// 1. Current user is the owner
+// 2. No invites have been sent for this project (invite count = 0)
+// 3. User is the only member (member count = 1)
+// Invite Members Banner Component
+function InviteMembersBanner({
+  show,
+  onDismiss,
+  onInvite
+}: {
+  show: boolean;
+  onDismiss: () => void;
+  onInvite: () => void;
+}) {
+  const { t } = useLocalization();
+
+  if (!show) return null;
+
+  return (
+    <View className="flex-row items-center justify-between gap-2 rounded-md border border-border bg-card p-3">
+      <View className="min-w-0 flex-1 flex-row items-center gap-2">
+        <Icon as={UsersIcon} className="text-primary" size={20} />
+        <View className="min-w-0 flex-1">
+          <Text className="text-sm font-medium leading-tight">
+            {t('inviteMembersTitle')}
+          </Text>
+          <Text
+            className="text-xs leading-snug text-muted-foreground"
+            numberOfLines={2}
+          >
+            {t('inviteMembersDescription')}
+          </Text>
+        </View>
+      </View>
+      <View className="flex-row items-center gap-1">
+        <Button
+          variant="default"
+          size="sm"
+          className={cn('h-7 gap-1 px-3')}
+          onPress={onInvite}
+        >
+          <Text className="text-xs font-medium text-primary-foreground">
+            {t('invite')}
+          </Text>
+        </Button>
+        <Button variant="ghost" size="icon-sm" onPress={onDismiss}>
+          <Icon as={XIcon} size={16} className="text-muted-foreground" />
+        </Button>
+      </View>
+    </View>
+  );
+}
+
+function useProjectHasNoInvites(projectId: string) {
+  // Check ownership
+  const { membership, isMembershipLoading } = useUserPermissions(
+    projectId,
+    'send_invite_section'
+  );
+  const isOwner = membership === 'owner';
+
+  // Query invite count for this project (offline only - PowerSync has this data)
+  const {
+    data: inviteData,
+    isLoading: isInviteLoading,
+    isError: isInviteError
+  } = useHybridData<{
+    count: number;
+  }>({
+    dataType: 'project-invite-count',
+    queryKeyParams: [projectId],
+
+    // PowerSync query - count all invites for this project
+    offlineQuery: toCompilableQuery(
+      system.db
+        .select({ count: count() })
+        .from(invite)
+        .where(eq(invite.project_id, projectId))
+    ),
+
+    enableCloudQuery: false
+  });
+
+  // Query member count for this project (offline only - PowerSync has this data)
+  const {
+    data: memberData,
+    isLoading: isMemberLoading,
+    isError: isMemberError
+  } = useHybridData<{
+    count: number;
+  }>({
+    dataType: 'project-member-count',
+    queryKeyParams: [projectId],
+
+    // PowerSync query - count active members
+    offlineQuery: toCompilableQuery(
+      system.db
+        .select({ count: count() })
+        .from(profile_project_link)
+        .where(
+          and(
+            eq(profile_project_link.project_id, projectId),
+            eq(profile_project_link.active, true)
+          )
+        )
+    ),
+
+    enableCloudQuery: false
+  });
+
+  const inviteCount = inviteData[0]?.count ?? 0;
+  const memberCount = memberData[0]?.count ?? 0;
+
+  // Solo owner = only 1 member and that member is the owner
+  const isSoloOwner = isOwner && memberCount === 1;
+
+  // Show banner if: solo owner and no invites sent
+  const shouldShowInviteBanner = isSoloOwner && inviteCount === 0;
+
+  return {
+    shouldShowInviteBanner,
+    isLoading: isMembershipLoading || isInviteLoading || isMemberLoading,
+    isError: isInviteError || isMemberError,
+    inviteCount,
+    memberCount,
+    isOwner,
+    isSoloOwner
+  };
+}
 
 export default function ProjectDirectoryView() {
-  const {
-    currentProjectId,
-    currentProjectName,
-    currentProjectTemplate,
-    currentBookId,
-    currentProjectData
-  } = useCurrentNavigation();
-  const { navigate, goBack, goToSettings } = useAppNavigation();
+  const { projectId, router, goToQuest } = useNavigationHelpers();
+  const expoRouter = useRouter();
+  const { openMembership } = useLocalSearchParams<{
+    openMembership?: string;
+  }>();
   const { currentUser, isAuthenticated } = useAuth();
   const { t } = useLocalization();
   const queryClient = useQueryClient();
-  const { setCloudLoading } = useCloudLoading();
   const insets = useSafeAreaInsets();
   const primaryColor = useThemeColor('primary');
 
   // Track cloud loading states from child components
   const [questListCloudLoading, setQuestListCloudLoading] =
-    React.useState(false);
-  const [chapterListCloudLoading, setChapterListCloudLoading] =
-    React.useState(false);
-  const [pericopeListCloudLoading, setPericopeListCloudLoading] =
     React.useState(false);
   const [questListFetching, setQuestListFetching] = React.useState(false);
 
@@ -151,23 +274,33 @@ export default function ProjectDirectoryView() {
 
   // Use passed project data if available (instant!), otherwise query
   // Query runs in background to get updates even if data was passed
-  const { project: queriedProject, isCloudLoading: projectCloudLoading } =
-    useProjectById(currentProjectId);
+  const { project: queriedProject } = useProjectById(projectId);
 
-  // Prefer passed data for instant rendering, fallback to queried
-  const project =
-    (currentProjectData as typeof queriedProject) || queriedProject;
-
-  // Use template from navigation state, or fall back to fetched project
-  const template =
-    currentProjectTemplate !== undefined
-      ? currentProjectTemplate
-      : project?.template;
-  const projectName = currentProjectName || project?.name;
+  const project = queriedProject;
+  const template = project?.template;
+  const projectName = project?.name;
   const isPrivateProject = project?.private ?? false;
 
   // Modal states
   const [showMembershipModal, setShowMembershipModal] = useState(false);
+  const [membershipModalInitialTab, setMembershipModalInitialTab] = useState<
+    'members' | 'invited' | 'requests'
+  >('members');
+
+  const openMembershipModal = React.useCallback(
+    (tab: 'members' | 'invited' | 'requests') => {
+      setMembershipModalInitialTab(tab);
+      setShowMembershipModal(true);
+    },
+    []
+  );
+
+  React.useEffect(() => {
+    if (openMembership === 'invited') {
+      openMembershipModal('invited');
+      expoRouter.setParams({ openMembership: undefined });
+    }
+  }, [openMembership, expoRouter, openMembershipModal]);
   const [showProjectDetails, setShowProjectDetails] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showReportModal, setShowReportModal] = React.useState(false);
@@ -300,7 +433,7 @@ export default function ProjectDirectoryView() {
       // Update offline queries (handles all search query variations)
       queryClient.setQueriesData(
         {
-          queryKey: ['quests', 'offline', 'for-project', currentProjectId],
+          queryKey: ['quests', 'offline', 'for-project', projectId],
           exact: false
         },
         updateQuestCache
@@ -309,7 +442,7 @@ export default function ProjectDirectoryView() {
       // Update cloud queries (handles all search query variations)
       queryClient.setQueriesData(
         {
-          queryKey: ['quests', 'cloud', 'for-project', currentProjectId],
+          queryKey: ['quests', 'cloud', 'for-project', projectId],
           exact: false
         },
         updateQuestCache
@@ -341,15 +474,15 @@ export default function ProjectDirectoryView() {
 
           // Invalidate all quest queries for this project
           await queryClient.invalidateQueries({
-            queryKey: ['quests', 'infinite', 'for-project', currentProjectId]
+            queryKey: ['quests', 'infinite', 'for-project', projectId]
           });
 
           await queryClient.invalidateQueries({
-            queryKey: ['quests', 'offline', 'for-project', currentProjectId]
+            queryKey: ['quests', 'offline', 'for-project', projectId]
           });
 
           await queryClient.invalidateQueries({
-            queryKey: ['quests', 'cloud', 'for-project', currentProjectId]
+            queryKey: ['quests', 'cloud', 'for-project', projectId]
           });
 
           // Invalidate assets queries to refresh assets list if user is viewing a quest
@@ -374,7 +507,7 @@ export default function ProjectDirectoryView() {
 
   const formSchema = z.object({
     name: z.string(t('nameRequired')).nonempty(t('nameRequired')).trim(),
-    description: z.string().max(196).trim().optional()
+    description: z.string().max(1024).trim().optional()
   });
   type FormData = z.infer<typeof formSchema>;
 
@@ -391,15 +524,11 @@ export default function ProjectDirectoryView() {
   // Check membership status separately from settings permission
   // Use 'open_project' action to get accurate membership status
   const { membership: membershipStatus, hasAccess: _canOpenProject } =
-    useUserPermissions(
-      currentProjectId || '',
-      'open_project',
-      isPrivateProject
-    );
+    useUserPermissions(projectId || '', 'open_project', isPrivateProject);
 
   // Check if user can manage project settings (separate from membership)
   const { hasAccess: canManageProject } = useUserPermissions(
-    currentProjectId || '',
+    projectId || '',
     'project_settings_cog',
     isPrivateProject
   );
@@ -409,7 +538,7 @@ export default function ProjectDirectoryView() {
 
   // Only check for reports if user is logged in
   const { hasReported, isLoading: isReportLoading } = useHasUserReported(
-    currentProjectId!,
+    projectId!,
     'projects',
     currentUser?.id || ''
   );
@@ -417,14 +546,32 @@ export default function ProjectDirectoryView() {
   const _showHiddenContent = useLocalStore((state) => state.showHiddenContent);
   const enableFia = useLocalStore((state) => state.enableFia);
   const setEnableFia = useLocalStore((state) => state.setEnableFia);
+  const dismissedInviteBanners = useLocalStore(
+    (state) => state.dismissedInviteBanners
+  );
+  const dismissInviteBanner = useLocalStore(
+    (state) => state.dismissInviteBanner
+  );
+
+  // Check if banner should show: owner, no invites sent, only member
+  const { shouldShowInviteBanner, isLoading: isInviteCheckLoading } =
+    useProjectHasNoInvites(projectId || '');
+
+  // Check if banner is dismissed for this project
+  const isBannerDismissed = Boolean(dismissedInviteBanners[projectId || '']);
+
+  // Show invite banner if: conditions met, not dismissed, not loading
+  const showInviteBanner =
+    shouldShowInviteBanner && !isBannerDismissed && !isInviteCheckLoading;
 
   // Query existing books for Bible projects (after isMember is defined)
-  const { books: existingBooks = [], isCloudLoading: booksCloudLoading } =
-    useBibleBooks(template === 'bible' ? currentProjectId || '' : '');
+  const { books: existingBooks = [] } = useBibleBooks(
+    template === 'bible' ? projectId || '' : ''
+  );
 
   // FIA: Fetch source languoid, FIA books from API, and existing book quests
   const { sourceLanguoidId, isLoading: sourceLanguoidLoading } =
-    useProjectSourceLanguoid(template === 'fia' ? currentProjectId || '' : '');
+    useProjectSourceLanguoid(template === 'fia' ? projectId || '' : '');
   const {
     books: fiaBooks,
     isLoading: fiaBooksLoading,
@@ -433,7 +580,7 @@ export default function ProjectDirectoryView() {
   } = useFiaBooks(template === 'fia' ? sourceLanguoidId : null);
   const fiaLoading = sourceLanguoidLoading || fiaBooksLoading;
   const { books: existingFiaBookQuests = [] } = useFiaBookQuests(
-    template === 'fia' ? currentProjectId || '' : ''
+    template === 'fia' ? projectId || '' : ''
   );
   const { findOrCreateBook: findOrCreateFiaBook } = useFiaBookCreation();
 
@@ -446,19 +593,6 @@ export default function ProjectDirectoryView() {
     }
     return ids;
   }, [existingFiaBookQuests]);
-
-  // Aggregate all cloud loading states
-  const isCloudLoading =
-    projectCloudLoading ||
-    questListCloudLoading ||
-    chapterListCloudLoading ||
-    pericopeListCloudLoading ||
-    booksCloudLoading;
-
-  // Update global cloud loading state
-  React.useEffect(() => {
-    setCloudLoading(isCloudLoading);
-  }, [isCloudLoading, setCloudLoading]);
 
   // Build set of existing book IDs from metadata
   const existingBookIds = React.useMemo(() => {
@@ -477,27 +611,24 @@ export default function ProjectDirectoryView() {
     (bookId: string) => {
       const bookExists = existingBookIds.has(bookId);
 
-      // Allow navigation if book exists (anyone can view)
-      // OR if user is member (can create)
       if (bookExists || isMember) {
-        // Navigate to quests view with bookId to show chapter list
-        navigate({
-          view: 'quests',
-          projectId: currentProjectId,
-          projectName: currentProjectName,
-          projectTemplate: currentProjectTemplate,
-          bookId
-        });
-
-        // Find/create book quest in background if user is a member
-        // This ensures the book quest exists for other operations
         if (isMember && template === 'bible') {
           findOrCreateBook({
-            projectId: currentProjectId!,
+            projectId: projectId!,
             bookId: bookId
-          }).catch((error: unknown) => {
-            console.error('Error finding/creating book quest:', error);
-          });
+          })
+            .then((result) => {
+              if (result?.id) {
+                goToQuest({
+                  id: result.id,
+                  project_id: result.project_id,
+                  name: result.name
+                });
+              }
+            })
+            .catch((error: unknown) => {
+              console.error('Error finding/creating book quest:', error);
+            });
         }
       } else {
         RNAlert.alert(t('error'), t('membersOnlyCreate'));
@@ -506,10 +637,8 @@ export default function ProjectDirectoryView() {
     [
       existingBookIds,
       isMember,
-      navigate,
-      currentProjectId,
-      currentProjectName,
-      currentProjectTemplate,
+      goToQuest,
+      projectId,
       template,
       findOrCreateBook,
       t
@@ -521,27 +650,26 @@ export default function ProjectDirectoryView() {
     (bookId: string) => {
       const bookExists = existingFiaBookIds.has(bookId);
       if (bookExists || isMember) {
-        navigate({
-          view: 'quests',
-          projectId: currentProjectId,
-          projectName: currentProjectName,
-          projectTemplate: currentProjectTemplate,
-          bookId
-        });
-
-        // Find/create FIA book quest in background
-        if (isMember) {
-          const fiaBook = fiaBooks.find((b) => b.id === bookId);
-          if (fiaBook) {
-            findOrCreateFiaBook({
-              projectId: currentProjectId!,
-              bookId,
-              bookTitle: fiaBook.title,
-              pericopeCount: fiaBook.pericopes.length
-            }).catch((error: unknown) => {
+        const fiaBook = fiaBooks.find((b) => b.id === bookId);
+        if (isMember && fiaBook) {
+          findOrCreateFiaBook({
+            projectId: projectId!,
+            bookId,
+            bookTitle: fiaBook.title,
+            pericopeCount: fiaBook.pericopes.length
+          })
+            .then((result) => {
+              if (result?.id) {
+                goToQuest({
+                  id: result.id,
+                  project_id: result.project_id,
+                  name: result.name
+                });
+              }
+            })
+            .catch((error: unknown) => {
               console.error('Error finding/creating FIA book quest:', error);
             });
-          }
         }
       } else {
         RNAlert.alert(t('error'), t('membersOnlyCreate'));
@@ -550,10 +678,8 @@ export default function ProjectDirectoryView() {
     [
       existingFiaBookIds,
       isMember,
-      navigate,
-      currentProjectId,
-      currentProjectName,
-      currentProjectTemplate,
+      goToQuest,
+      projectId,
       fiaBooks,
       findOrCreateFiaBook,
       t
@@ -725,15 +851,15 @@ export default function ProjectDirectoryView() {
 
           // Invalidate all quest queries for this project
           await queryClient.invalidateQueries({
-            queryKey: ['quests', 'infinite', 'for-project', currentProjectId]
+            queryKey: ['quests', 'infinite', 'for-project', projectId]
           });
 
           await queryClient.invalidateQueries({
-            queryKey: ['quests', 'offline', 'for-project', currentProjectId]
+            queryKey: ['quests', 'offline', 'for-project', projectId]
           });
 
           await queryClient.invalidateQueries({
-            queryKey: ['quests', 'cloud', 'for-project', currentProjectId]
+            queryKey: ['quests', 'cloud', 'for-project', projectId]
           });
 
           console.log('🗑️ [Offload] Queries invalidated - UI will refresh');
@@ -785,12 +911,12 @@ export default function ProjectDirectoryView() {
 
   const { mutateAsync: createQuest, isPending: isCreatingQuest } = useMutation({
     mutationFn: async (values: FormData) => {
-      if (!currentProjectId || !currentUser?.id) return;
+      if (!projectId || !currentUser?.id) return;
       const [newQuest] = await system.db
         .insert(resolveTable('quest', { localOverride: true }))
         .values({
           ...values,
-          project_id: currentProjectId,
+          project_id: projectId,
           parent_id: parentForNewQuest,
           creator_id: currentUser.id,
           download_profiles: [currentUser.id]
@@ -805,13 +931,13 @@ export default function ProjectDirectoryView() {
     },
     onMutate: async (values) => {
       // Optimistically update the UI immediately
-      if (!currentProjectId || !currentUser?.id) return;
+      if (!projectId || !currentUser?.id) return;
 
       const baseKey = [
         'quests',
         'infinite',
         'for-project',
-        currentProjectId,
+        projectId,
         searchQuery
       ];
       const offlineKey = [...baseKey, 'offline'];
@@ -819,7 +945,7 @@ export default function ProjectDirectoryView() {
 
       // Cancel outgoing queries to avoid overwriting optimistic update
       await queryClient.cancelQueries({
-        queryKey: ['quests', 'infinite', 'for-project', currentProjectId]
+        queryKey: ['quests', 'infinite', 'for-project', projectId]
       });
 
       // Snapshot previous values for rollback
@@ -831,7 +957,7 @@ export default function ProjectDirectoryView() {
         id: `temp-${Date.now()}`, // Temporary ID until real one is returned
         name: values.name,
         description: values.description || null,
-        project_id: currentProjectId,
+        project_id: projectId,
         parent_id: parentForNewQuest,
         creator_id: currentUser.id,
         download_profiles: [currentUser.id],
@@ -877,7 +1003,7 @@ export default function ProjectDirectoryView() {
         'quests',
         'infinite',
         'for-project',
-        currentProjectId,
+        projectId,
         searchQuery
       ];
       const offlineKey = [...baseKey, 'offline'];
@@ -919,16 +1045,16 @@ export default function ProjectDirectoryView() {
       console.log('📥 [Create Quest] Invalidating all quest queries...');
       // Invalidate ALL quest queries to refresh the list (matches manual refresh button)
       await queryClient.invalidateQueries({
-        queryKey: ['quests', 'for-project', currentProjectId]
+        queryKey: ['quests', 'for-project', projectId]
       });
       await queryClient.invalidateQueries({
-        queryKey: ['quests', 'infinite', 'for-project', currentProjectId]
+        queryKey: ['quests', 'infinite', 'for-project', projectId]
       });
       await queryClient.invalidateQueries({
-        queryKey: ['quests', 'offline', 'for-project', currentProjectId]
+        queryKey: ['quests', 'offline', 'for-project', projectId]
       });
       await queryClient.invalidateQueries({
-        queryKey: ['quests', 'cloud', 'for-project', currentProjectId]
+        queryKey: ['quests', 'cloud', 'for-project', projectId]
       });
 
       console.log('📥 [Create Quest] Invalidating assets queries');
@@ -948,7 +1074,7 @@ export default function ProjectDirectoryView() {
           'quests',
           'infinite',
           'for-project',
-          currentProjectId,
+          projectId,
           searchQuery
         ];
         queryClient.setQueryData(
@@ -961,7 +1087,7 @@ export default function ProjectDirectoryView() {
           'quests',
           'infinite',
           'for-project',
-          currentProjectId,
+          projectId,
           searchQuery
         ];
         queryClient.setQueryData([...baseKey, 'cloud'], context.previousCloud);
@@ -976,53 +1102,40 @@ export default function ProjectDirectoryView() {
   const renderContent = () => {
     // Bible project routing
     if (template === 'bible') {
-      // Show book list if no book selected
-      if (!currentBookId) {
-        return (
-          <View className="align-start flex-1">
-            <View className="flex-col items-center justify-between gap-3 p-4">
-              <View className="flex flex-row items-center gap-3">
-                <View className="flex flex-row items-center gap-1">
-                  <Icon as={ChurchIcon} />
-                  <Icon as={BookOpenIcon} />
-                </View>
-                <Text variant="h4">{projectName}</Text>
-              </View>
-              {isPrivateProject && !isMember && currentUser && (
-                <Button
-                  variant="default"
-                  size="sm"
-                  onPress={() => setShowPrivateAccessModal(true)}
-                >
-                  <Icon as={UserPlusIcon} size={16} />
-                  <Icon as={LockIcon} size={16} />
-                </Button>
-              )}
-            </View>
-            <BibleBookList
-              projectId={currentProjectId!}
-              onBookSelect={handleBookSelect}
-              existingBookIds={existingBookIds}
-              canCreateNew={isMember}
-            />
-          </View>
-        );
-      }
-
-      // Show chapter list
       return (
-        <View className="flex flex-1 flex-col items-start justify-start gap-2 px-4 pb-10">
-          <Button variant="ghost" size="sm" onPress={goBack}>
-            <Icon as={ArrowLeftIcon} />
-            <Text>{t('back')}</Text>
-          </Button>
-          <View className="w-full flex-1">
-            <BibleChapterList
-              projectId={currentProjectId!}
-              bookId={currentBookId}
-              onCloudLoadingChange={setChapterListCloudLoading}
+        <View className="align-start flex-1">
+          <View className="m-4 mb-0">
+            <InviteMembersBanner
+              show={showInviteBanner}
+              onDismiss={() => dismissInviteBanner(projectId || '')}
+              onInvite={() => openMembershipModal('invited')}
             />
           </View>
+          <View className="flex-col items-center justify-between gap-3 p-4">
+            <View className="flex flex-row items-center gap-3">
+              <View className="flex flex-row items-center gap-1">
+                <Icon as={ChurchIcon} />
+                <Icon as={BookOpenIcon} />
+              </View>
+              <Text variant="h4">{projectName}</Text>
+            </View>
+            {isPrivateProject && !isMember && currentUser && (
+              <Button
+                variant="default"
+                size="sm"
+                onPress={() => setShowPrivateAccessModal(true)}
+              >
+                <Icon as={UserPlusIcon} size={16} />
+                <Icon as={LockIcon} size={16} />
+              </Button>
+            )}
+          </View>
+          <BibleBookList
+            projectId={projectId!}
+            onBookSelect={handleBookSelect}
+            existingBookIds={existingBookIds}
+            canCreateNew={isMember}
+          />
         </View>
       );
     }
@@ -1043,76 +1156,51 @@ export default function ProjectDirectoryView() {
             <Text className="text-center text-muted-foreground">
               {t('enableFiaPrompt')}
             </Text>
-            <Button variant="default" onPress={() => setEnableFia(true)}>
-              <Text>{t('enable')}</Text>
+            <Button
+              variant="default"
+              onPress={() => router.push('/(app)/settings')}
+            >
+              <Icon as={SettingsIcon} size={16} />
+              <Text>{t('openSettings')}</Text>
             </Button>
-          </View>
-        );
-      }
-
-      if (!currentBookId) {
-        // Show FIA book list
-        return (
-          <View className="align-start flex-1">
-            <View className="flex-col items-center justify-between gap-3 p-4">
-              <View className="flex flex-row items-center gap-3">
-                <Icon as={BookOpenIcon} />
-                <Text variant="h4">{projectName}</Text>
-              </View>
-              {isPrivateProject && !isMember && currentUser && (
-                <Button
-                  variant="default"
-                  size="sm"
-                  onPress={() => setShowPrivateAccessModal(true)}
-                >
-                  <Icon as={UserPlusIcon} size={16} />
-                  <Icon as={LockIcon} size={16} />
-                </Button>
-              )}
-            </View>
-            <FiaBookList
-              books={fiaBooks}
-              isLoading={fiaLoading}
-              error={fiaError}
-              existingBookIds={existingFiaBookIds}
-              canCreateNew={isMember}
-              onBookSelect={handleFiaBookSelect}
-              onRefresh={() => void refetchFia()}
-            />
-          </View>
-        );
-      }
-
-      // Show FIA pericope list for selected book
-      const selectedBook = fiaBooks.find((b) => b.id === currentBookId);
-      if (!selectedBook) {
-        // Book data may still be loading
-        return (
-          <View className="flex flex-1 flex-col items-start justify-start gap-2 px-4 pb-10">
-            <Button variant="ghost" size="sm" onPress={goBack}>
-              <Icon as={ArrowLeftIcon} />
-              <Text>{t('back')}</Text>
-            </Button>
-            <View className="w-full flex-1 items-center justify-center">
-              <ActivityIndicator size="large" color={primaryColor} />
-            </View>
           </View>
         );
       }
 
       return (
-        <View className="flex flex-1 flex-col items-start justify-start gap-2 px-4 pb-10">
-          <Button variant="ghost" size="sm" onPress={goBack}>
-            <Icon as={ArrowLeftIcon} />
-            <Text>{t('back')}</Text>
-          </Button>
-          <View className="w-full flex-1">
-            <FiaPericopeList
-              projectId={currentProjectId!}
-              book={selectedBook}
-              onCloudLoadingChange={setPericopeListCloudLoading}
+        <View className="align-start flex-1">
+          <View className="m-4 mb-0">
+            <InviteMembersBanner
+              show={showInviteBanner}
+              onDismiss={() => dismissInviteBanner(projectId || '')}
+              onInvite={() => openMembershipModal('invited')}
             />
           </View>
+          <View className="flex-col items-center justify-between gap-3 p-4">
+            <View className="flex flex-row items-center gap-3">
+              <Icon as={BookOpenIcon} />
+              <Text variant="h4">{projectName}</Text>
+            </View>
+            {isPrivateProject && !isMember && currentUser && (
+              <Button
+                variant="default"
+                size="sm"
+                onPress={() => setShowPrivateAccessModal(true)}
+              >
+                <Icon as={UserPlusIcon} size={16} />
+                <Icon as={LockIcon} size={16} />
+              </Button>
+            )}
+          </View>
+          <FiaBookList
+            books={fiaBooks}
+            isLoading={fiaLoading}
+            error={fiaError}
+            existingBookIds={existingFiaBookIds}
+            canCreateNew={isMember}
+            onBookSelect={handleFiaBookSelect}
+            onRefresh={() => void refetchFia()}
+          />
         </View>
       );
     }
@@ -1132,31 +1220,16 @@ export default function ProjectDirectoryView() {
                   setIsRefreshing(true);
                   console.log('🔄 Manually refreshing quest queries...');
                   await queryClient.invalidateQueries({
-                    queryKey: ['quests', 'for-project', currentProjectId]
+                    queryKey: ['quests', 'for-project', projectId]
                   });
                   await queryClient.invalidateQueries({
-                    queryKey: [
-                      'quests',
-                      'infinite',
-                      'for-project',
-                      currentProjectId
-                    ]
+                    queryKey: ['quests', 'infinite', 'for-project', projectId]
                   });
                   await queryClient.invalidateQueries({
-                    queryKey: [
-                      'quests',
-                      'offline',
-                      'for-project',
-                      currentProjectId
-                    ]
+                    queryKey: ['quests', 'offline', 'for-project', projectId]
                   });
                   await queryClient.invalidateQueries({
-                    queryKey: [
-                      'quests',
-                      'cloud',
-                      'for-project',
-                      currentProjectId
-                    ]
+                    queryKey: ['quests', 'cloud', 'for-project', projectId]
                   });
                   console.log('🔄 Quest queries invalidated');
                   // Stop animation after a brief delay
@@ -1203,12 +1276,19 @@ export default function ProjectDirectoryView() {
             suffixStyling={false}
             hitSlop={12}
           />
+
+          {/* Invite Members Banner for Solo Projects - below search bar */}
+          <InviteMembersBanner
+            show={showInviteBanner}
+            onDismiss={() => dismissInviteBanner(projectId || '')}
+            onInvite={() => openMembershipModal('invited')}
+          />
         </View>
 
         <View className="pb-safe flex flex-1 flex-col gap-2">
           {/* Quest List - Separated component to prevent search input re-renders */}
           <QuestListView
-            projectId={currentProjectId!}
+            projectId={projectId!}
             searchQuery={searchQuery}
             projectSource={project?.source || 'local'}
             isMember={isMember}
@@ -1245,6 +1325,7 @@ export default function ProjectDirectoryView() {
 
   return (
     <>
+      {projectName && <Stack.Screen options={{ title: projectName }} />}
       {template === 'bible' || template === 'fia' ? (
         // Bible/FIA project - no Form/Drawer needed (quests come from structured content)
         <View className="flex-1">{renderContent()}</View>
@@ -1353,7 +1434,7 @@ export default function ProjectDirectoryView() {
                     <SpeedDialItem
                       icon={UsersIcon}
                       variant="outline"
-                      onPress={() => setShowMembershipModal(true)}
+                      onPress={() => openMembershipModal('members')}
                     />
                   )}
               </>
@@ -1373,7 +1454,8 @@ export default function ProjectDirectoryView() {
       <ProjectMembershipModal
         isVisible={showMembershipModal}
         onClose={() => setShowMembershipModal(false)}
-        projectId={currentProjectId || ''}
+        projectId={projectId || ''}
+        initialTab={membershipModalInitialTab}
       />
 
       {showProjectDetails && project && (
@@ -1389,13 +1471,13 @@ export default function ProjectDirectoryView() {
         <ProjectSettingsModal
           isVisible={showSettingsModal}
           onClose={() => setShowSettingsModal(false)}
-          projectId={currentProjectId || ''}
+          projectId={projectId || ''}
         />
       ) : (
         <ReportModal
           isVisible={showReportModal}
           onClose={() => setShowReportModal(false)}
-          recordId={currentProjectId!}
+          recordId={projectId!}
           creatorId={project?.creator_id ?? undefined}
           recordTable="project"
           hasAlreadyReported={hasReported}
@@ -1404,7 +1486,7 @@ export default function ProjectDirectoryView() {
       )}
 
       <PrivateAccessGate
-        projectId={currentProjectId || ''}
+        projectId={projectId || ''}
         projectName={projectName || ''}
         isPrivate={isPrivateProject}
         action="contribute"

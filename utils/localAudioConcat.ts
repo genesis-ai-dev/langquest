@@ -802,63 +802,69 @@ export async function getQuestAudioUrisByAssetList(
     return [];
   }
 
-  // Local-only source (requested): no synced fallback.
-  const assetContentLinkLocal = resolveTable('asset_content_link', {
-    localOverride: true
+  // Query assets with their content links and languoid info in a single query
+  const assets = await system.db.query.asset.findMany({
+    columns: {
+      id: true,
+      order_index: true,
+      name: true,
+      metadata: true
+    },
+    where: inArray(asset.id, assetIds),
+    with: {
+      content: {
+        columns: {
+          id: true,
+          asset_id: true,
+          audio: true,
+          order_index: true,
+          created_at: true,
+          text: true,
+          source: true
+        },
+        with: {
+          languoid: true
+        },
+        where: (content, { isNotNull }) => isNotNull(content.audio),
+        orderBy: (content) => [
+          asc(content.order_index),
+          asc(content.created_at)
+        ]
+      }
+    },
+    orderBy: [asc(asset.order_index), asc(asset.created_at)]
   });
 
-  const assetsInfo = await system.db
-    .select({
-      id: asset.id,
-      order_index: asset.order_index,
-      name: asset.name,
-      metadata: asset.metadata
-    })
-    .from(asset)
-    .where(inArray(asset.id, assetIds));
+  // Deduplicate assets by ID (first wins, synced preferred as it comes first)
+  const seenAssetIds = new Set<string>();
+  const dedupedAssets = assets.filter((assetItem) => {
+    if (seenAssetIds.has(assetItem.id)) {
+      return false;
+    }
+    seenAssetIds.add(assetItem.id);
+    return true;
+  });
 
-  const contentLinks = await system.db
-    .select({
-      asset_id: assetContentLinkLocal.asset_id,
-      audio: assetContentLinkLocal.audio,
-      order_index: assetContentLinkLocal.order_index,
-      created_at: assetContentLinkLocal.created_at,
-      text: assetContentLinkLocal.text,
-      languoid_name: languoid.name
-    })
-    .from(assetContentLinkLocal)
-    .leftJoin(languoid, eq(assetContentLinkLocal.languoid_id, languoid.id))
-    .where(
-      and(
-        inArray(assetContentLinkLocal.asset_id, assetIds),
-        isNotNull(assetContentLinkLocal.audio)
-      )
-    );
+  // Deduplicate content links within each asset by ID (prefer synced over local)
+  for (const assetItem of dedupedAssets) {
+    if (!assetItem.content) continue;
 
-  const assetById = new Map(assetsInfo.map((a) => [a.id, a]));
-  const linksByAssetId = new Map<string, typeof contentLinks>();
-
-  for (const link of contentLinks) {
-    const list = linksByAssetId.get(link.asset_id) ?? [];
-    list.push(link);
-    linksByAssetId.set(link.asset_id, list);
+    const seenContentIds = new Set<string>();
+    assetItem.content = assetItem.content.filter((contentLink) => {
+      if (seenContentIds.has(contentLink.id)) {
+        return false;
+      }
+      seenContentIds.add(contentLink.id);
+      return true;
+    });
   }
 
   const output: QuestAudioAssetItem[] = [];
   const seenKeys = new Set<string>();
 
-  for (const selectedAssetId of assetIds) {
-    const assetInfo = assetById.get(selectedAssetId);
-    const assetLinks = linksByAssetId.get(selectedAssetId) ?? [];
-
-    assetLinks.sort((a, b) => {
-      const aOrder = a.order_index || 0;
-      const bOrder = b.order_index || 0;
-      if (aOrder !== bOrder) return aOrder - bOrder;
-      const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
-      const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
-      return aTime - bTime;
-    });
+  // Assets are already sorted by the database query (orderBy: order_index, created_at)
+  for (const assetItem of dedupedAssets) {
+    const assetLinks = assetItem.content ?? [];
 
     for (const contentLink of assetLinks) {
       if (!contentLink.audio?.length) continue;
@@ -890,17 +896,17 @@ export async function getQuestAudioUrisByAssetList(
         }
 
         const normalizedUri = normalizeFileUri(localUri);
-        const dedupeKey = `${selectedAssetId}:${contentLink.order_index || 0}:${normalizedUri}`;
+        const dedupeKey = `${assetItem.id}:${contentLink.order_index || 0}:${normalizedUri}`;
         if (seenKeys.has(dedupeKey)) continue;
         seenKeys.add(dedupeKey);
 
         output.push({
-          assetId: selectedAssetId,
-          assetOrderIndex: assetInfo?.order_index ?? 0,
-          assetName: assetInfo?.name ?? null,
+          assetId: assetItem.id,
+          assetOrderIndex: assetItem.order_index ?? 0,
+          assetName: assetItem.name ?? null,
           text: contentLink.text ?? null,
-          metadata: assetInfo?.metadata ?? null,
-          languoidName: contentLink.languoid_name ?? null,
+          metadata: assetItem.metadata ?? null,
+          languoidName: contentLink.languoid?.name ?? null,
           segmentOrder: contentLink.order_index || 0,
           uri: localUri,
           createdAt: contentLink.created_at

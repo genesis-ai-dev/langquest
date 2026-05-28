@@ -3,6 +3,7 @@
     "bradlc.vscode-tailwindcss",
     "esbenp.prettier-vscode",
     "ms-vscode.vscode-eslint",
+    "denoland.vscode-deno",
     "expo.vscode-expo-tools",
     "YoavBls.pretty-ts-errors",
     "mxsdev.typescript-explorer",

@@ -46,15 +46,16 @@ What would you like to do?
 <reference_index>
 Domain knowledge in `references/`:
 
-**Animation Design:** animation-principles.md — UX philosophy, purpose of motion, progressive disclosure, tray system, fluidity, delight-impact curve, transition checklist
+**Animation Design:** animation-principles.md — Progressive disclosure, tray system, fluidity patterns, transition checklist (mobile flow specifics)
 
-**Animation Code:** animation-technical.md — Easing, timing, springs, clip-path, performance, reduced motion, good vs great comparison
+**Animation Code:** animation-technical.md — Reanimated APIs, project easing constants, shared values, worklet threading, mobile performance
 
 **UX Patterns:** ux-patterns.md — Input/selection heuristics, feedback/loading strategies, button/action rules, modal/drawer dismiss, OTP handling, inline vs toast feedback
 
 **Conventions:** project-conventions.md — Styling rules, icons, React 19, theming, worklet threading, React Compiler
 
 **Cross-references (other skills/rules — not in this folder):**
+- **Animation philosophy & craft** → `emil-design-eng` skill (decision framework, easing theory, component patterns, review checklist, Sonner principles)
 - Component architecture → `building-components` skill (composition, accessibility, data attributes, taxonomy)
 - Form patterns → `.cursor/rules/form-handling.mdc` (react-hook-form + Zod + TanStack Query)
 - Composition patterns → `vercel-composition-patterns` skill (compound components, state management, explicit variants)

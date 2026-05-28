@@ -9,7 +9,7 @@ import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
 import type { language as languageTable } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import { useAppNavigation } from '@/hooks/useAppNavigation';
+import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useLanguagesByRegion } from '@/hooks/useLanguagesByRegion';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useProjectsByLanguage } from '@/hooks/useProjectsByLanguage';
@@ -59,7 +59,8 @@ type Step = OnboardingStep | 'create-language';
 export function OnboardingFlow({ visible, onClose }: OnboardingFlowProps) {
   const { t } = useLocalization();
   const { currentUser } = useAuth();
-  const { goToProject } = useAppNavigation();
+  const { router } = useNavigationHelpers();
+  const enableFia = useLocalStore((s) => s.enableFia);
   const queryClient = useQueryClient();
   const _insets = useSafeAreaInsets();
 
@@ -216,11 +217,7 @@ export function OnboardingFlow({ visible, onClose }: OnboardingFlowProps) {
         });
 
         // Navigate to the project
-        goToProject({
-          id: newProject.id,
-          name: newProject.name,
-          template: newProject.template
-        });
+        router.push(`/(app)/project/${newProject.id}`);
 
         // Close onboarding and reset state
         handleClose();
@@ -298,12 +295,7 @@ export function OnboardingFlow({ visible, onClose }: OnboardingFlowProps) {
 
   const handleProjectSelect = (project: (typeof projectsByLanguage)[0]) => {
     // Navigate to existing project
-    goToProject({
-      id: project.id,
-      name: project.name,
-      template: project.template,
-      projectData: project as Record<string, unknown>
-    });
+    router.push(`/(app)/project/${project.id}`);
     handleClose();
   };
 

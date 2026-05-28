@@ -12,6 +12,7 @@ on:
       - '!restore-remote-db-backup/**'
       - '!debug_closure_issue.sql'
       - '!supabase/**'
+      - '!supabase/migrations/*.sql'
       - '!**/*.backup'
       - '!.github/**'
       - '!.prettierignore'

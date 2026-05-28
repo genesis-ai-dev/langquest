@@ -103,11 +103,6 @@ export function ExportButton({
   //     return null;
   // }
 
-  // Allow export only for local content
-  if (isQuestPublished || passedQuestPublished) {
-    return null;
-  }
-
   // If membership is still loading and we don't have passed membership, don't show button yet
   if (!passedMembership && isMembershipLoading) {
     return null;
@@ -134,7 +129,7 @@ export function ExportButton({
               icon={Share2Icon}
               variant="outline"
               size="icon"
-              className="rounded-md border border-input bg-background"
+              className="rounded-md border border-border/50 bg-background"
               iconClassName="text-foreground"
               onPress={() => openExportList(true)}
             />
@@ -142,7 +137,7 @@ export function ExportButton({
               icon={DownloadIcon}
               variant="outline"
               size="icon"
-              className="rounded-md border border-input bg-background"
+              className="rounded-md border border-border/50 bg-background"
               iconClassName="text-foreground"
               onPress={() => openExportList(false)}
             />
@@ -157,7 +152,7 @@ export function ExportButton({
           iconSize={16}
           disableIconRotation
           disabled={disabled || exportMutation.isPending || isConcatenating}
-          className="rounded-md border border-input bg-background"
+          className="rounded-md border border-border/50 bg-background"
           openClassName="bg-accent border-input "
           iconClassName="text-foreground"
         />
@@ -171,7 +166,7 @@ export function ExportButton({
               icon={Share2Icon}
               variant="outline"
               size="icon"
-              className="rounded-md border border-input bg-background"
+              className="rounded-md border border-border/50 bg-background"
               iconClassName="text-foreground"
               onPress={() => openExportList(true)}
             />
@@ -179,7 +174,7 @@ export function ExportButton({
               icon={HardDriveDownload}
               variant="outline"
               size="icon"
-              className="rounded-md border border-input bg-background"
+              className="rounded-md border border-border/50 bg-background"
               iconClassName="text-foreground"
               onPress={() => openExportList(false)}
             />

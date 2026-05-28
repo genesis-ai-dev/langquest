@@ -973,6 +973,32 @@ export const localizations = {
     thai: 'ป้อนการถอดความของคุณที่นี่',
     mandarin: '在此输入您的转录'
   },
+  noText: {
+    english: '(No text)',
+    french: '(Pas de texte)',
+    spanish: '(Sin texto)',
+    brazilian_portuguese: '(Sem texto)',
+    tok_pisin: '(Nogat text)',
+    indonesian: '(Tidak ada teks)',
+    nepali: '(पाठ छैन)',
+    hindi: '(कोई टेक्स्ट नहीं)',
+    burmese: '(စာသားမရှိပါ)',
+    thai: '(ไม่มีข้อความ)',
+    mandarin: '(无文本)'
+  },
+  pleaseRecordAudio: {
+    english: 'Please record audio',
+    french: 'Veuillez enregistrer un audio',
+    spanish: 'Por favor grabe un audio',
+    brazilian_portuguese: 'Por favor, grave um áudio',
+    tok_pisin: 'Plis rekodim audio',
+    indonesian: 'Silakan rekam audio',
+    nepali: 'कृपया अडियो रेकर्ड गर्नुहोस्',
+    hindi: 'कृपया ऑडियो रिकॉर्ड करें',
+    burmese: 'ကျေးဇူးပြု၍ အသံဖမ်းပါ',
+    thai: 'กรุณาบันทึกเสียง',
+    mandarin: '请录制音频'
+  },
   enterYourTranscriptionIn: {
     english: 'Enter your transcription in {language}',
     french: 'Entrez votre transcription dans {language}',
@@ -2567,26 +2593,26 @@ export const localizations = {
   },
   mergeAssetsConfirmation: {
     english:
-      'Are you sure you want to merge {count} assets? The audio segments will be combined into the first selected asset, and the others will be deleted.',
+      'Are you sure you want to merge {count} assets? The audio segments will be combined into the first selected asset, and the others will be deleted. This action cannot be undone.',
     french:
-      'Êtes-vous sûr de vouloir fusionner {count} éléments ? Les segments audio seront combinés dans le premier élément sélectionné et les autres seront supprimés.',
+      'Êtes-vous sûr de vouloir fusionner {count} éléments ? Les segments audio seront combinés dans le premier élément sélectionné et les autres seront supprimés. Cette action ne peut pas être annulée.',
     spanish:
-      '¿Estás seguro de que deseas combinar {count} recursos? Los segmentos de audio se combinarán en el primer recurso seleccionado y los demás se eliminarán.',
+      '¿Estás seguro de que deseas combinar {count} recursos? Los segmentos de audio se combinarán en el primer recurso seleccionado y los demás se eliminarán. Esta acción no se puede deshacer.',
     brazilian_portuguese:
-      'Tem certeza de que deseja mesclar {count} recursos? Os segmentos de áudio serão combinados no primeiro recurso selecionado e os outros serão excluídos.',
+      'Tem certeza de que deseja mesclar {count} recursos? Os segmentos de áudio serão combinados no primeiro recurso selecionado e os outros serão excluídos. Esta ação não pode ser desfeita.',
     tok_pisin:
-      'Yu sua long joinim {count} asset? Ol audio segment bai joinim wantaim first asset yu makim, na ol narapela bai raus.',
+      'Yu sua long joinim {count} asset? Ol audio segment bai joinim wantaim first asset yu makim, na ol narapela bai raus. Dispela action i no inap senisim bek.',
     indonesian:
-      'Apakah Anda yakin ingin menggabungkan {count} aset? Segmen audio akan digabungkan ke aset pertama yang dipilih, dan yang lainnya akan dihapus.',
+      'Apakah Anda yakin ingin menggabungkan {count} aset? Segmen audio akan digabungkan ke aset pertama yang dipilih, dan yang lainnya akan dihapus. Tindakan ini tidak dapat dibatalkan.',
     nepali:
-      'के तपाईं निश्चित हुनुहुन्छ कि तपाईं {count} एसेटहरू मर्ज गर्न चाहनुहुन्छ? अडियो खण्डहरू पहिलो चयन गरिएको एसेटमा संयोजन हुनेछन्, र अरूहरू मेटिनेछन्।',
+      'के तपाईं निश्चित हुनुहुन्छ कि तपाईं {count} एसेटहरू मर्ज गर्न चाहनुहुन्छ? अडियो खण्डहरू पहिलो चयन गरिएको एसेटमा संयोजन हुनेछन्, र अरूहरू मेटिनेछन्। यो कार्य पूर्ववत गर्न सकिँदैन।',
     hindi:
-      'क्या आप वाकई {count} एसेट मर्ज करना चाहते हैं? ऑडियो सेगमेंट पहले चयनित एसेट में संयोजित हो जाएंगे, और अन्य हटा दिए जाएंगे।',
+      'क्या आप वाकई {count} एसेट मर्ज करना चाहते हैं? ऑडियो सेगमेंट पहले चयनित एसेट में संयोजित हो जाएंगे, और अन्य हटा दिए जाएंगे। यह कार्रवाई पूर्ववत नहीं की जा सकती।',
     burmese:
-      'သင်သည် {count} ပိုင်ဆိုင်မှုများကို ပေါင်းစပ်ရန် သေချာပါသလား? အသံအပိုင်းများကို ပထမဆုံး ရွေးချယ်ထားသော ပိုင်ဆိုင်မှုသို့ ပေါင်းစပ်ပါမည်၊ အခြားများကို ဖျက်ပါမည်။',
-    thai: 'คุณแน่ใจหรือไม่ว่าต้องการรวมสินทรัพย์ {count} รายการ? ส่วนเสียงจะถูกรวมเข้ากับสินทรัพย์แรกที่เลือก และรายการอื่นๆ จะถูกลบ',
+      'သင်သည် {count} ပိုင်ဆိုင်မှုများကို ပေါင်းစပ်ရန် သေချာပါသလား? အသံအပိုင်းများကို ပထမဆုံး ရွေးချယ်ထားသော ပိုင်ဆိုင်မှုသို့ ပေါင်းစပ်ပါမည်၊ အခြားများကို ဖျက်ပါမည်။ ဤလုပ်ဆောင်ချက်ကို ပြန်လည်ပြုပြင်မရပါ။',
+    thai: 'คุณแน่ใจหรือไม่ว่าต้องการรวมสินทรัพย์ {count} รายการ? ส่วนเสียงจะถูกรวมเข้ากับสินทรัพย์แรกที่เลือก และรายการอื่นๆ จะถูกลบ การดำเนินการนี้ไม่สามารถยกเลิกได้',
     mandarin:
-      '您确定要合并 {count} 个资产吗？音频片段将合并到第一个选定的资产中，其他资产将被删除。'
+      '您确定要合并 {count} 个资产吗？音频片段将合并到第一个选定的资产中，其他资产将被删除。此操作无法撤消。'
   },
   merge: {
     english: 'Merge',
@@ -2629,6 +2655,189 @@ export const localizations = {
     burmese: 'ပိုင်ဆိုင်မှုများကို ဖျက်၍မရပါ။ ကျေးဇူးပြု၍ ထပ်မံကြိုးစားပါ။',
     thai: 'ลบสินทรัพย์ไม่สำเร็จ กรุณาลองอีกครั้ง',
     mandarin: '删除资产失败。请重试。'
+  },
+  undo: {
+    english: 'Undo',
+    french: 'Annuler',
+    spanish: 'Deshacer',
+    brazilian_portuguese: 'Desfazer',
+    tok_pisin: 'Senisim i go bek',
+    indonesian: 'Urungkan',
+    nepali: 'पूर्ववत गर्नु',
+    hindi: 'पूर्ववत करें',
+    burmese: 'မလုပ်တော့ပါ',
+    thai: 'เลิกทำ',
+    mandarin: '撤销'
+  },
+  redo: {
+    english: 'Redo',
+    french: 'Rétablir',
+    spanish: 'Rehacer',
+    brazilian_portuguese: 'Refazer',
+    tok_pisin: 'Mekim gen',
+    indonesian: 'Ulangi',
+    nepali: 'फेरि गर्नु',
+    hindi: 'फिर से करें',
+    burmese: 'ပြန်လုပ်',
+    thai: 'ทำซ้ำ',
+    mandarin: '重做'
+  },
+  assetRedoCreateMessage: {
+    english: 'Asset created',
+    french: 'Élément créé',
+    spanish: 'Recurso creado',
+    brazilian_portuguese: 'Recurso criado',
+    tok_pisin: 'Asset i kamap nupela',
+    indonesian: 'Aset dibuat',
+    nepali: 'एसेट सिर्जना गरियो',
+    hindi: 'एसेट बनाया गया',
+    burmese: 'ပိုင်ဆိုင်မှု ဖန်တီးပြီးပါပြီ',
+    thai: 'สร้างสินทรัพย์แล้ว',
+    mandarin: '资产已创建'
+  },
+  assetRedoRenameMessage: {
+    english: 'Asset renamed',
+    french: 'Élément renommé',
+    spanish: 'Recurso renombrado',
+    brazilian_portuguese: 'Recurso renomeado',
+    tok_pisin: 'Asset i senisim nem',
+    indonesian: 'Aset diganti nama',
+    nepali: 'एसेट पुन:नामकरण गरियो',
+    hindi: 'एसेट का नाम बदला गया',
+    burmese: 'ပိုင်ဆိုင်မှုအမည် ပြောင်းပြီးပါပြီ',
+    thai: 'เปลี่ยนชื่อสินทรัพย์แล้ว',
+    mandarin: '资产已重命名'
+  },
+  assetRedoMergeMessage: {
+    english: 'Assets merged: {count}',
+    french: 'Éléments fusionnés : {count}',
+    spanish: 'Recursos combinados: {count}',
+    brazilian_portuguese: 'Recursos mesclados: {count}',
+    tok_pisin: 'Ol asset i join: {count}',
+    indonesian: 'Aset digabungkan: {count}',
+    nepali: 'एसेटहरू मर्ज गरियो: {count}',
+    hindi: 'एसेट मर्ज किए गए: {count}',
+    burmese: 'ပိုင်ဆိုင်မှုများ ပေါင်းစည်းပြီးပါပြီ: {count}',
+    thai: 'รวมสินทรัพย์แล้ว: {count}',
+    mandarin: '已合并资产：{count}'
+  },
+  assetRedoDeleteMessage: {
+    english: 'Assets deleted: {count}',
+    french: 'Éléments supprimés : {count}',
+    spanish: 'Recursos eliminados: {count}',
+    brazilian_portuguese: 'Recursos excluídos: {count}',
+    tok_pisin: 'Ol asset i raus: {count}',
+    indonesian: 'Aset dihapus: {count}',
+    nepali: 'एसेटहरू मेटाइयो: {count}',
+    hindi: 'एसेट हटाए गए: {count}',
+    burmese: 'ပိုင်ဆိုင်မှုများ ဖျက်ပြီးပါပြီ: {count}',
+    thai: 'ลบสินทรัพย์แล้ว: {count}',
+    mandarin: '已删除资产：{count}'
+  },
+  assetRedoReplaceMessage: {
+    english: 'Asset replaced',
+    french: 'Élément remplacé',
+    spanish: 'Recurso reemplazado',
+    brazilian_portuguese: 'Recurso substituído',
+    tok_pisin: 'Asset i senis wantaim narapela',
+    indonesian: 'Aset diganti',
+    nepali: 'एसेट प्रतिस्थापित गरियो',
+    hindi: 'एसेट बदला गया',
+    burmese: 'ပိုင်ဆိုင်မှု အစားထိုးပြီးပါပြီ',
+    thai: 'แทนที่สินทรัพย์แล้ว',
+    mandarin: '资产已替换'
+  },
+  assetRedoMoveMessage: {
+    english: 'Assets moved: {count}',
+    french: 'Éléments déplacés : {count}',
+    spanish: 'Recursos movidos: {count}',
+    brazilian_portuguese: 'Recursos movidos: {count}',
+    tok_pisin: 'Ol asset i muv: {count}',
+    indonesian: 'Aset dipindahkan: {count}',
+    nepali: 'एसेटहरू सारियो: {count}',
+    hindi: 'एसेट स्थानांतरित किए गए: {count}',
+    burmese: 'ပိုင်ဆိုင်မှုများ ရွှေ့ပြီးပါပြီ: {count}',
+    thai: 'ย้ายสินทรัพย์แล้ว: {count}',
+    mandarin: '已移动资产：{count}'
+  },
+  assetUndoCreateMessage: {
+    english: 'Asset removed',
+    french: 'Élément supprimé',
+    spanish: 'Recurso eliminado',
+    brazilian_portuguese: 'Recurso removido',
+    tok_pisin: 'Asset i raus',
+    indonesian: 'Aset dihapus',
+    nepali: 'एसेट हटाइयो',
+    hindi: 'एसेट हटाया गया',
+    burmese: 'ပိုင်ဆိုင်မှု ဖျက်ပြီးပါပြီ',
+    thai: 'ลบสินทรัพย์แล้ว',
+    mandarin: '资产已删除'
+  },
+  assetUndoRenameMessage: {
+    english: 'Asset name restored',
+    french: "Nom de l'élément restauré",
+    spanish: 'Nombre del recurso restaurado',
+    brazilian_portuguese: 'Nome do recurso restaurado',
+    tok_pisin: 'Nem bilong asset i kam bek',
+    indonesian: 'Nama aset dipulihkan',
+    nepali: 'एसेटको नाम पुनर्स्थापित गरियो',
+    hindi: 'एसेट का नाम पुनर्स्थापित किया गया',
+    burmese: 'ပိုင်ဆိုင်မှုအမည် ပြန်လည်ရယူပြီးပါပြီ',
+    thai: 'กู้คืนชื่อสินทรัพย์แล้ว',
+    mandarin: '资产名称已恢复'
+  },
+  assetUndoMergeMessage: {
+    english: 'Asset merges reverted: {count}',
+    french: "Fusions d'éléments annulées : {count}",
+    spanish: 'Combinaciones de recursos revertidas: {count}',
+    brazilian_portuguese: 'Mesclagens de recursos revertidas: {count}',
+    tok_pisin: 'Ol join bilong asset i go bek: {count}',
+    indonesian: 'Penggabungan aset dibatalkan: {count}',
+    nepali: 'एसेट मर्ज फिर्ता गरियो: {count}',
+    hindi: 'एसेट मर्ज पूर्ववत किए गए: {count}',
+    burmese:
+      'ပိုင်ဆိုင်မှုပေါင်းစည်းမှုများကို နောက်ပြန်လှန်ပြီးပါပြီ: {count}',
+    thai: 'ย้อนกลับการรวมสินทรัพย์แล้ว: {count}',
+    mandarin: '已撤销资产合并：{count}'
+  },
+  assetUndoDeleteMessage: {
+    english: 'Assets restored: {count}',
+    french: 'Éléments restaurés : {count}',
+    spanish: 'Recursos restaurados: {count}',
+    brazilian_portuguese: 'Recursos restaurados: {count}',
+    tok_pisin: 'Ol asset i kam bek: {count}',
+    indonesian: 'Aset dipulihkan: {count}',
+    nepali: 'एसेटहरू पुनर्स्थापित गरियो: {count}',
+    hindi: 'एसेट पुनर्स्थापित किए गए: {count}',
+    burmese: 'ပိုင်ဆိုင်မှုများ ပြန်လည်ရယူပြီးပါပြီ: {count}',
+    thai: 'กู้คืนสินทรัพย์แล้ว: {count}',
+    mandarin: '已恢复资产：{count}'
+  },
+  assetUndoReplaceMessage: {
+    english: 'Asset replacement reverted',
+    french: "Remplacement de l'élément annulé",
+    spanish: 'Reemplazo del recurso revertido',
+    brazilian_portuguese: 'Substituição do recurso revertida',
+    tok_pisin: 'Senis bilong asset i go bek',
+    indonesian: 'Penggantian aset dibatalkan',
+    nepali: 'एसेट प्रतिस्थापन फिर्ता गरियो',
+    hindi: 'एसेट प्रतिस्थापन पूर्ववत किया गया',
+    burmese: 'ပိုင်ဆိုင်မှုအစားထိုးမှုကို နောက်ပြန်လှန်ပြီးပါပြီ',
+    thai: 'ย้อนกลับการแทนที่สินทรัพย์แล้ว',
+    mandarin: '资产替换已撤销'
+  },
+  assetUndoMoveMessage: {
+    english: 'Assets moved back: {count}',
+    french: 'Éléments remis en place : {count}',
+    spanish: 'Recursos movidos de vuelta: {count}',
+    brazilian_portuguese: 'Recursos movidos de volta: {count}',
+    tok_pisin: 'Ol asset i muv i go bek: {count}',
+    indonesian: 'Aset dipindahkan kembali: {count}',
+    nepali: 'एसेटहरू फिर्ता सारियो: {count}',
+    hindi: 'एसेट वापस स्थानांतरित किए गए: {count}',
+    burmese: 'ပိုင်ဆိုင်မှုများကို နဂိုနေရာသို့ ပြန်ရွှေ့ပြီးပါပြီ: {count}',
+    thai: 'ย้ายสินทรัพย์กลับแล้ว: {count}',
+    mandarin: '已移回资产：{count}'
   },
   errorLoadingAssets: {
     english: 'Error loading assets',
@@ -3933,6 +4142,19 @@ export const localizations = {
     thai: 'ดูคำเชิญ',
     mandarin: '查看邀请'
   },
+  invite: {
+    english: 'Invite',
+    french: 'Inviter',
+    spanish: 'Invitar',
+    brazilian_portuguese: 'Convidar',
+    tok_pisin: 'Invit',
+    indonesian: 'Undang',
+    nepali: 'आमन्त्रण',
+    hindi: 'आमंत्रित',
+    burmese: 'ဖိတ်ခေါ်',
+    thai: 'เชิญ',
+    mandarin: '邀请'
+  },
   inviteMembers: {
     english: 'Invite Members',
     french: 'Inviter des membres',
@@ -3945,6 +4167,34 @@ export const localizations = {
     burmese: 'အဖွဲ့ဝင်များကို ဖိတ်ခေါ်ပါ',
     thai: 'เชิญสมาชิก',
     mandarin: '邀请成员'
+  },
+  inviteMembersTitle: {
+    english: 'Invite Members',
+    french: 'Inviter des membres',
+    spanish: 'Invitar Miembros',
+    brazilian_portuguese: 'Convidar Membros',
+    tok_pisin: 'Invitim ol Member',
+    indonesian: 'Undang Anggota',
+    nepali: 'सदस्यहरूलाई आमन्त्रित गर्नुहोस्',
+    hindi: 'सदस्यों को आमंत्रित करें',
+    burmese: 'အဖွဲ့ဝင်များကို ဖိတ်ခေါ်ပါ',
+    thai: 'เชิญสมาชิก',
+    mandarin: '邀请成员'
+  },
+  inviteMembersDescription: {
+    english: 'Invite others to collaborate on translation work.',
+    french: "Invitez d'autres à collaborer sur le travail de traduction.",
+    spanish: 'Invita a otros a colaborar en el trabajo de traducción.',
+    brazilian_portuguese:
+      'Convide outros para colaborar no trabalho de tradução.',
+    tok_pisin: 'Inivitim ol narapela long helpim wok bilong tanim tok.',
+    indonesian:
+      'Undang orang lain untuk berkolaborasi dalam pekerjaan penerjemahan.',
+    nepali: 'अनुवाद कार्यमा सहयोग गर्न अरूलाई आमन्त्रित गर्नुहोस्।',
+    hindi: 'अनुवाद कार्य पर सहयोग करने के लिए दूसरों को आमंत्रित करें।',
+    burmese: 'ဘာသာပြန်အလုပ်၌ပူးပေါင်းဆောင်ရွက်ဖိတ်ခေါ်ပါ။',
+    thai: 'เชิญผู้อื่นมาร่วมงานแปลด้วยกัน',
+    mandarin: '邀请其他人协作进行翻译工作。'
   },
   inviteAsOwner: {
     english: 'Invite as owner',
@@ -4036,6 +4286,174 @@ export const localizations = {
     burmese: 'ဖိတ်ခေါ်မှုကို ရုပ်သိမ်းပါ',
     thai: 'ถอนคำเชิญ',
     mandarin: '撤回邀请'
+  },
+  emailBounced: {
+    english: 'Delivery failed',
+    french: 'Échec de livraison',
+    spanish: 'Entrega fallida',
+    brazilian_portuguese: 'Falha na entrega',
+    tok_pisin: 'Email i no kamap',
+    indonesian: 'Pengiriman gagal',
+    nepali: 'वितरण असफल',
+    hindi: 'वितरण विफल',
+    burmese: 'ပို့ဆောင်မှု မအောင်မြင်ပါ',
+    thai: 'ส่งไม่สำเร็จ',
+    mandarin: '投递失败'
+  },
+  inviteEmailNotFound: {
+    english:
+      "Their mail server reported this address doesn't exist. Try a different email.",
+    french:
+      "Le serveur de messagerie du destinataire a indiqué que cette adresse n'existe pas. Essayez une autre adresse e-mail.",
+    spanish:
+      'El servidor de correo del destinatario informó que esta dirección no existe. Prueba con otro correo.',
+    brazilian_portuguese:
+      'O servidor de e-mail do destinatário informou que este endereço não existe. Tente outro e-mail.',
+    tok_pisin:
+      'Email server bilong ol i tok dispela adres i no stap. Narapela email tasol.',
+    indonesian:
+      'Server email penerima melaporkan alamat ini tidak ada. Coba alamat email lain.',
+    nepali:
+      'प्राप्तकर्ताको मेल सर्भरले यो ठेगाना अवस्थित नभएको जानकारी दियो। फरक इमेल प्रयोग गर्नुहोस्।',
+    hindi:
+      'प्राप्तकर्ता के मेल सर्वर ने बताया कि यह पता मौजूद नहीं है। दूसरा ईमेल आज़माएँ।',
+    burmese:
+      'လက်ခံသူ၏ မေးလ်ဆာဗာက ဤလိပ်စာ မရှိကြောင်း အကြောင်းပြန်ခဲ့သည်။ အခြားအီးမေးလ်သုံးပါ။',
+    thai: 'เซิร์ฟเวอร์อีเมลของผู้รับแจ้งว่าไม่มีที่อยู่นี้ ลองใช้อีเมลอื่น',
+    mandarin: '对方邮件服务器反馈该地址不存在。请换用其他邮箱。'
+  },
+  inviteDeliveryFailed: {
+    english:
+      "We couldn't deliver an invite to this address. Please use a different email.",
+    french:
+      "Nous n'avons pas pu envoyer d'invitation à cette adresse. Utilisez une autre adresse e-mail.",
+    spanish:
+      'No pudimos enviar una invitación a esta dirección. Usa otro correo.',
+    brazilian_portuguese:
+      'Não foi possível enviar um convite para este endereço. Use outro e-mail.',
+    tok_pisin:
+      'Mipela no inap salim invite long dispela email. Narapela email tasol.',
+    indonesian:
+      'Kami tidak dapat mengirim undangan ke alamat ini. Gunakan alamat email lain.',
+    nepali:
+      'हामीले यो ठेगानामा आमन्त्रण पठाउन सकेनौं। कृपया फरक इमेल प्रयोग गर्नुहोस्।',
+    hindi: 'हम इस पते पर आमंत्रण नहीं भेज सके। कृपया दूसरा ईमेल उपयोग करें।',
+    burmese: 'ဤလိပ်စာသို့ ဖိတ်ခေါ်မှု ပို့၍မရပါ။ အခြားအီးမေးလ်ကို သုံးပါ။',
+    thai: 'เราไม่สามารถส่งคำเชิญไปที่อยู่นี้ได้ กรุณาใช้อีเมลอื่น',
+    mandarin: '无法向该地址发送邀请。请使用其他邮箱。'
+  },
+  inviteDeliveryFailedTitle: {
+    english: 'Invite could not be delivered',
+    french: "L'invitation n'a pas pu être livrée",
+    spanish: 'No se pudo entregar la invitación',
+    brazilian_portuguese: 'O convite não pôde ser entregue',
+    tok_pisin: 'Invite i no save kamap long em',
+    indonesian: 'Undangan tidak dapat dikirim',
+    nepali: 'आमन्त्रण वितरण हुन सकेन',
+    hindi: 'आमंत्रण वितरित नहीं किया जा सका',
+    burmese: 'ဖိတ်ခေါ်မှုကို ပို့၍မရပါ',
+    thai: 'ไม่สามารถส่งคำเชิญได้',
+    mandarin: '邀请无法送达'
+  },
+  inviteDeliveryFailedMessage: {
+    english:
+      'We could not deliver your invite to {email} for the project "{project}".',
+    french:
+      "Nous n'avons pas pu livrer votre invitation à {email} pour le projet « {project} ».",
+    spanish:
+      'No pudimos entregar tu invitación a {email} para el proyecto "{project}".',
+    brazilian_portuguese:
+      'Não foi possível entregar seu convite para {email} no projeto "{project}".',
+    tok_pisin:
+      'Mipela no inap salim invite long {email} long project "{project}".',
+    indonesian:
+      'Kami tidak dapat mengirim undangan Anda ke {email} untuk proyek "{project}".',
+    nepali:
+      'हामीले "{project}" प्रोजेक्टको लागि {email} मा तपाईंको आमन्त्रण वितरण गर्न सकेनौं।',
+    hindi:
+      'हम "{project}" परियोजना के लिए {email} पर आपका आमंत्रण वितरित नहीं कर सके।',
+    burmese:
+      '"{project}" စီမံကိန်းအတွက် သင့်ဖိတ်ခေါ်မှုကို {email} သို့ ပို့၍မရပါ။',
+    thai: 'เราไม่สามารถส่งคำเชิญของคุณไปที่ {email} สำหรับโครงการ "{project}" ได้',
+    mandarin: '我们无法将您对 {email} 的项目「{project}」的邀请送达。'
+  },
+  viewProjectInvites: {
+    english: 'View in project',
+    french: 'Voir dans le projet',
+    spanish: 'Ver en el proyecto',
+    brazilian_portuguese: 'Ver no projeto',
+    tok_pisin: 'Lukim long project',
+    indonesian: 'Lihat di proyek',
+    nepali: 'प्रोजेक्टमा हेर्नुहोस्',
+    hindi: 'परियोजना में देखें',
+    burmese: 'စီမံကိန်းတွင် ကြည့်ပါ',
+    thai: 'ดูในโครงการ',
+    mandarin: '在项目中查看'
+  },
+  dismissInviteDeliveryNotice: {
+    english: 'Dismiss',
+    french: 'Masquer',
+    spanish: 'Descartar',
+    brazilian_portuguese: 'Dispensar',
+    tok_pisin: 'Rausim',
+    indonesian: 'Tutup',
+    nepali: 'खारेज गर्नुहोस्',
+    hindi: 'खारिज करें',
+    burmese: 'ပယ်ဖျက်ပါ',
+    thai: 'ปิดการแจ้ง',
+    mandarin: '关闭提醒'
+  },
+  failedToDismissNotice: {
+    english: 'Could not dismiss this notice. Try again when you are online.',
+    french:
+      'Impossible de masquer cet avis. Réessayez lorsque vous êtes en ligne.',
+    spanish:
+      'No se pudo descartar este aviso. Inténtalo de nuevo cuando estés en línea.',
+    brazilian_portuguese:
+      'Não foi possível dispensar este aviso. Tente novamente quando estiver online.',
+    tok_pisin: 'Ino inap rausim notice. Traim gen taim yu stap online.',
+    indonesian:
+      'Tidak dapat menutup pemberitahuan ini. Coba lagi saat Anda daring.',
+    nepali: 'यो सूचना खारेज गर्न सकिएन। अनलाइन हुँदा फेरि प्रयास गर्नुहोस्।',
+    hindi: 'यह सूचना खारिज नहीं की जा सकी। ऑनलाइन होने पर पुनः प्रयास करें।',
+    burmese: 'ဤအသိပေးချက်ကို ပယ်ဖျက်၍မရပါ။ အွန်လိုင်းရှိစဉ် ထပ်ကြိုးစားပါ။',
+    thai: 'ไม่สามารถปิดการแจ้งนี้ได้ ลองอีกครั้งเมื่อคุณออนไลน์',
+    mandarin: '无法关闭此提醒。请在联网后重试。'
+  },
+  emailBlacklistedForProject: {
+    english:
+      'This email can no longer receive invites after delivery problems. Use a different email address.',
+    french:
+      'Cette adresse ne peut plus recevoir d’invitations après des problèmes de livraison. Utilisez une autre adresse e-mail.',
+    spanish:
+      'Este correo ya no puede recibir invitaciones tras problemas de entrega. Usa otra dirección de correo.',
+    brazilian_portuguese:
+      'Este e-mail não pode mais receber convites após problemas de entrega. Use outro endereço de e-mail.',
+    tok_pisin:
+      'Dispela email i no inap kisim invite. Narapela email adres tasol.',
+    indonesian:
+      'Email ini tidak lagi dapat menerima undangan setelah masalah pengiriman. Gunakan alamat email lain.',
+    nepali:
+      'वितरण समस्यापछि यो इमेलले आमन्त्रण प्राप्त गर्न सक्दैन। फरक इमेल प्रयोग गर्नुहोस्।',
+    hindi:
+      'वितरण समस्याओं के बाद यह ईमेल आमंत्रण प्राप्त नहीं कर सकता। दूसरा ईमेल पता उपयोग करें।',
+    burmese:
+      'ပို့ဆောင်မှု ပြဿနာများကြောင့် ဤအီးမေးလ်သည် ဖိတ်ခေါ်မှုများ လက်ခံ၍မတော့ပါ။ အခြားအီးမေးလ်သုံးပါ။',
+    thai: 'อีเมลนี้ไม่สามารถรับคำเชิญได้อีกหลังมีปัญหาการส่ง กรุณาใช้อีเมลอื่น',
+    mandarin: '该邮箱因投递问题无法再接收邀请。请使用其他邮箱地址。'
+  },
+  deliveryBlocked: {
+    english: 'Blocked',
+    french: 'Bloqué',
+    spanish: 'Bloqueado',
+    brazilian_portuguese: 'Bloqueado',
+    tok_pisin: 'Pas',
+    indonesian: 'Diblokir',
+    nepali: 'रोकिएको',
+    hindi: 'अवरुद्ध',
+    burmese: 'ပိတ်ထားသည်',
+    thai: 'ถูกบล็อก',
+    mandarin: '已阻止'
   },
   you: {
     english: 'You',
@@ -4226,6 +4644,29 @@ export const localizations = {
     thai: 'ได้ส่งคำเชิญไปยังที่อยู่อีเมลนี้แล้ว',
     mandarin: '已向此电子邮件地址发送了邀请。'
   },
+  cannotRetryHardBounceInvite: {
+    english:
+      'This address returned a permanent (hard) bounce. Remove the invite or use a different email; retrying is blocked to protect deliverability.',
+    french:
+      'Cette adresse a renvoyé un rejet permanent (hard bounce). Retirez l’invitation ou utilisez un autre e-mail ; un nouvel envoi est bloqué pour protéger la délivrabilité.',
+    spanish:
+      'Esta dirección devolvió un rechazo permanente (hard bounce). Retira la invitación o usa otro correo; no se permite reintentar para proteger la entregabilidad.',
+    brazilian_portuguese:
+      'Este endereço retornou um hard bounce permanente. Remova o convite ou use outro e-mail; novas tentativas são bloqueadas para proteger a entregabilidade.',
+    tok_pisin:
+      'Dispela email i hard bounce. Rausim invite o narapela email — mipela no inap salim gen long helpim email gut.',
+    indonesian:
+      'Alamat ini mengembalikan hard bounce permanen. Hapus undangan atau gunakan email lain; pengiriman ulang diblokir untuk melindungi reputasi pengiriman.',
+    nepali:
+      'यो ठेगानाले स्थायी (हार्ड) बाउन्स फर्कायो। आमन्त्रण हटाउनुहोस् वा अर्को इमेल प्रयोग गर्नुहोस्; पुन: पठाउन रोकिएको छ।',
+    hindi:
+      'इस पते पर स्थायी (हार्ड) बाउन्स आया। आमंत्रण हटाएं या दूसरा ईमेल उपयोग करें; डिलीवरेबिलिटी के लिए पुनः प्रयास अवरुद्ध है।',
+    burmese:
+      'ဤလိပ်စာသည် အပြီးအပိုင် (hard) bounce ပြန်လာသည်။ ဖိတ်ခေါ်မှုကို ဖျက်ပါ သို့မဟုတ် အခြားအီးမေးလ်သုံးပါ။ ပို့ဆောင်မှုအရည်အသွေးကို ကာကွယ်ရန် ပြန်မပို့နိုင်ပါ။',
+    thai: 'ที่อยู่นี้ถูกตีกลับแบบถาวร (hard bounce) ลบคำเชิญหรือใช้อีเมลอื่น การส่งซ้ำถูกบล็อกเพื่อความสามารถในการส่ง',
+    mandarin:
+      '该地址返回了永久性（硬）退信。请删除邀请或更换邮箱；为保护送达率，禁止重试。'
+  },
   invitationSent: {
     english: 'Invitation sent successfully',
     french: 'Invitation envoyée avec succès',
@@ -4277,6 +4718,19 @@ export const localizations = {
     burmese: 'ရုပ်သိမ်းပြီး',
     thai: 'ถอนแล้ว',
     mandarin: '已撤回'
+  },
+  invitedBy: {
+    english: 'Invited by {name}',
+    french: 'Invité par {name}',
+    spanish: 'Invitado por {name}',
+    brazilian_portuguese: 'Convidado por {name}',
+    tok_pisin: '{name} i salim invite',
+    indonesian: 'Diundang oleh {name}',
+    nepali: '{name} ले आमन्त्रण गर्नुभयो',
+    hindi: '{name} ने आमंत्रित किया',
+    burmese: '{name} က ဖိတ်ခေါ်ခဲ့သည်',
+    thai: 'เชิญโดย {name}',
+    mandarin: '由 {name} 邀请'
   },
   sending: {
     english: 'Sending...',
@@ -12438,40 +12892,142 @@ export const localizations = {
     thai: 'เก็บภาษาที่กำหนดเองของคุณแล้ว',
     mandarin: '您的自定义语言已保留'
   },
-  enableLanguoidLinkSuggestions: {
-    english: 'Language link suggestions',
-    french: 'Suggestions de liens linguistiques',
-    spanish: 'Sugerencias de vinculación de idioma',
-    brazilian_portuguese: 'Sugestões de vinculação de idioma',
-    tok_pisin: 'Ol tok ples bilong joinim',
-    indonesian: 'Saran tautan bahasa',
-    nepali: 'भाषा लिंक सुझावहरू',
-    hindi: 'भाषा लिंक सुझाव',
-    burmese: 'ဘာသာစကား ချိတ်ဆက်မှု အကြံပြုချက်များ',
-    thai: 'คำแนะนำการเชื่อมโยงภาษา',
-    mandarin: '语言链接建议'
+  projectLanguageSuggestionTitle: {
+    english: 'Switch language?',
+    french: 'Changer de langue ?',
+    spanish: '¿Cambiar de idioma?',
+    brazilian_portuguese: 'Mudar de idioma?',
+    tok_pisin: 'Senisim tok ples?',
+    indonesian: 'Ganti bahasa?',
+    nepali: 'भाषा परिवर्तन गर्ने?',
+    hindi: 'भाषा बदलें?',
+    burmese: 'ဘာသာစကား ပြောင်းမည်လား',
+    thai: 'เปลี่ยนภาษา?',
+    mandarin: '切换语言？'
   },
-  enableLanguoidLinkSuggestionsDescription: {
+  projectLanguageSuggestionDescription: {
     english:
-      'Get suggestions to link your custom-created languages to existing ones in the database',
+      'The name of "{project}" looks like {suggested}, but its target language is set to {current}. Switch to {suggested}?',
     french:
-      'Obtenez des suggestions pour lier vos langues créées sur mesure à celles existantes dans la base de données',
+      'Le nom de « {project} » ressemble à {suggested}, mais sa langue cible est définie sur {current}. Passer à {suggested} ?',
     spanish:
-      'Recibe sugerencias para vincular tus idiomas personalizados con los existentes en la base de datos',
+      'El nombre de "{project}" parece {suggested}, pero su idioma de destino es {current}. ¿Cambiar a {suggested}?',
     brazilian_portuguese:
-      'Receba sugestões para vincular seus idiomas personalizados aos existentes no banco de dados',
+      'O nome de "{project}" parece ser {suggested}, mas seu idioma de destino é {current}. Mudar para {suggested}?',
     tok_pisin:
-      'Kisim ol tok ples bilong joinim tok ples bilong yu wantaim ol tok ples i stap pinis long database',
+      'Nem bilong "{project}" i luk olsem {suggested}, tasol tok ples bilong en em {current}. Senisim long {suggested}?',
     indonesian:
-      'Dapatkan saran untuk menghubungkan bahasa kustom Anda dengan yang ada di database',
+      'Nama "{project}" terlihat seperti {suggested}, tetapi bahasa targetnya adalah {current}. Ganti ke {suggested}?',
     nepali:
-      'आफ्नो आफ्नै-सिर्जना गरिएका भाषाहरूलाई डाटाबेसमा अवस्थित भाषाहरूसँग लिंक गर्न सुझावहरू प्राप्त गर्नुहोस्',
+      '"{project}" को नाम {suggested} जस्तो देखिन्छ, तर यसको लक्ष्य भाषा {current} छ। {suggested} मा परिवर्तन गर्ने?',
     hindi:
-      'अपनी कस्टम-बनाई गई भाषाओं को डेटाबेस में मौजूदा भाषाओं से लिंक करने के लिए सुझाव प्राप्त करें',
+      '"{project}" का नाम {suggested} जैसा लगता है, लेकिन इसकी लक्ष्य भाषा {current} है। {suggested} पर स्विच करें?',
     burmese:
-      'သင်၏ စိတ်ကြိုက် ဖန်တီးထားသော ဘာသာစကားများကို ဒေတာဘေ့စ်ရှိ ရှိပြီးသား ဘာသာစကားများသို့ ချိတ်ဆက်ရန် အကြံပြုချက်များ ရယူပါ',
-    thai: 'รับคำแนะนำเพื่อเชื่อมโยงภาษาที่คุณสร้างเองกับภาษาที่มีอยู่ในฐานข้อมูล',
-    mandarin: '获取建议，将您自定义创建的语言链接到数据库中的现有语言'
+      '"{project}" ၏ နာမည်သည် {suggested} နှင့်တူသော်လည်း ၎င်း၏ ပစ်မှတ်ဘာသာစကားကို {current} သတ်မှတ်ထားသည်။ {suggested} သို့ ပြောင်းမည်လား။',
+    thai: 'ชื่อของ "{project}" ดูเหมือน {suggested} แต่ภาษาเป้าหมายถูกตั้งเป็น {current} เปลี่ยนเป็น {suggested}?',
+    mandarin:
+      '"{project}" 的名称看起来像 {suggested}，但其目标语言设置为 {current}。切换到 {suggested}?'
+  },
+  projectLanguageSuggestionSwitchTo: {
+    english: 'Switch to {language}',
+    french: 'Passer à {language}',
+    spanish: 'Cambiar a {language}',
+    brazilian_portuguese: 'Mudar para {language}',
+    tok_pisin: 'Senisim long {language}',
+    indonesian: 'Ganti ke {language}',
+    nepali: '{language} मा परिवर्तन गर्नुहोस्',
+    hindi: '{language} पर स्विच करें',
+    burmese: '{language} သို့ ပြောင်းပါ',
+    thai: 'เปลี่ยนเป็น {language}',
+    mandarin: '切换到 {language}'
+  },
+  projectLanguageSuggestionKeepCurrent: {
+    english: 'Keep current language',
+    french: 'Garder la langue actuelle',
+    spanish: 'Mantener idioma actual',
+    brazilian_portuguese: 'Manter idioma atual',
+    tok_pisin: 'Holim tok ples bilong nau',
+    indonesian: 'Pertahankan bahasa saat ini',
+    nepali: 'हालको भाषा राख्नुहोस्',
+    hindi: 'वर्तमान भाषा रखें',
+    burmese: 'လက်ရှိ ဘာသာစကားကို ထားပါ',
+    thai: 'เก็บภาษาปัจจุบัน',
+    mandarin: '保留当前语言'
+  },
+  projectLanguageSuggestionAcceptSuccess: {
+    english: 'Project language updated',
+    french: 'Langue du projet mise à jour',
+    spanish: 'Idioma del proyecto actualizado',
+    brazilian_portuguese: 'Idioma do projeto atualizado',
+    tok_pisin: 'Tok ples bilong projek i nupela',
+    indonesian: 'Bahasa proyek diperbarui',
+    nepali: 'परियोजना भाषा अद्यावधिक गरियो',
+    hindi: 'परियोजना की भाषा अपडेट की गई',
+    burmese: 'ပရောဂျက် ဘာသာစကားကို မွမ်းမံပြီးပါပြီ',
+    thai: 'อัปเดตภาษาของโปรเจกต์แล้ว',
+    mandarin: '项目语言已更新'
+  },
+  projectLanguageSuggestionAcceptError: {
+    english: 'Failed to update project language',
+    french: 'Échec de la mise à jour de la langue du projet',
+    spanish: 'Error al actualizar el idioma del proyecto',
+    brazilian_portuguese: 'Falha ao atualizar o idioma do projeto',
+    tok_pisin: 'No inap senisim tok ples bilong projek',
+    indonesian: 'Gagal memperbarui bahasa proyek',
+    nepali: 'परियोजना भाषा अद्यावधिक गर्न असफल',
+    hindi: 'परियोजना की भाषा अपडेट करने में विफल',
+    burmese: 'ပရောဂျက် ဘာသာစကားကို မွမ်းမံ၍ မရပါ',
+    thai: 'อัปเดตภาษาของโปรเจกต์ไม่สำเร็จ',
+    mandarin: '更新项目语言失败'
+  },
+  projectLanguageSuggestionDismissSuccess: {
+    english: 'Suggestion dismissed',
+    french: 'Suggestion ignorée',
+    spanish: 'Sugerencia descartada',
+    brazilian_portuguese: 'Sugestão descartada',
+    tok_pisin: 'Tok bilong helpim em pinis',
+    indonesian: 'Saran diabaikan',
+    nepali: 'सुझाव खारेज गरियो',
+    hindi: 'सुझाव खारिज किया गया',
+    burmese: 'အကြံပြုချက်ကို ပယ်ဖျက်ပြီးပါပြီ',
+    thai: 'ปฏิเสธคำแนะนำแล้ว',
+    mandarin: '已忽略建议'
+  },
+  enableProjectLanguageSuggestions: {
+    english: 'Project language suggestions',
+    french: 'Suggestions de langue de projet',
+    spanish: 'Sugerencias de idioma del proyecto',
+    brazilian_portuguese: 'Sugestões de idioma do projeto',
+    tok_pisin: 'Ol tok ples bilong projek',
+    indonesian: 'Saran bahasa proyek',
+    nepali: 'परियोजना भाषा सुझावहरू',
+    hindi: 'प्रोजेक्ट भाषा सुझाव',
+    burmese: 'ပရောဂျက် ဘာသာစကား အကြံပြုချက်များ',
+    thai: 'คำแนะนำภาษาโครงการ',
+    mandarin: '项目语言建议'
+  },
+  enableProjectLanguageSuggestionsDescription: {
+    english:
+      'Get suggestions to link custom languages and switch project target languages when better matches exist in the database',
+    french:
+      'Obtenez des suggestions pour lier des langues personnalisées et changer la langue cible d’un projet lorsqu’une meilleure correspondance existe dans la base de données',
+    spanish:
+      'Recibe sugerencias para vincular idiomas personalizados y cambiar el idioma objetivo del proyecto cuando exista una mejor coincidencia en la base de datos',
+    brazilian_portuguese:
+      'Receba sugestões para vincular idiomas personalizados e alterar o idioma alvo do projeto quando houver uma correspondência melhor no banco de dados',
+    tok_pisin:
+      'Kisim ol tok ples bilong joinim custom tok ples na senisim target tok ples bilong projek taim i gat gutpela match long database',
+    indonesian:
+      'Dapatkan saran untuk menghubungkan bahasa kustom dan mengganti bahasa target proyek ketika ada kecocokan yang lebih baik di database',
+    nepali:
+      'डाटाबेसमा राम्रो मिलान भएमा कस्टम भाषाहरू लिंक गर्न र परियोजनाको लक्ष्य भाषा बदल्न सुझावहरू प्राप्त गर्नुहोस्',
+    hindi:
+      'डेटाबेस में बेहतर मिलान होने पर कस्टम भाषाओं को लिंक करने और प्रोजेक्ट की लक्ष्य भाषा बदलने के लिए सुझाव प्राप्त करें',
+    burmese:
+      'ဒေတာဘေ့စ်တွင် ပိုကောင်းသော ကိုက်ညီမှု ရှိပါက စိတ်ကြိုက် ဘာသာစကားများကို ချိတ်ဆက်ရန်နှင့် ပရောဂျက်၏ ပစ်မှတ်ဘာသာစကားကို ပြောင်းရန် အကြံပြုချက်များ ရယူပါ',
+    thai: 'รับคำแนะนำเพื่อเชื่อมโยงภาษาที่กำหนดเองและเปลี่ยนภาษาเป้าหมายของโครงการเมื่อมีตัวเลือกที่ตรงกันมากกว่าในฐานข้อมูล',
+    mandarin:
+      '当数据库中存在更匹配的语言时，获取链接自定义语言和切换项目目标语言的建议'
   },
   enableMerge: {
     english: 'Merge assets',
@@ -12626,6 +13182,268 @@ export const localizations = {
       'FIA သည် တက်ကြွစွာ ဖွံ့ဖြိုးတိုးတက်နေသော စမ်းသပ်မှု စီမံကိန်း အမျိုးအစားတစ်ခု ဖြစ်သည်။ ၎င်းကို ဖွင့်လိုပါသလား?',
     thai: 'FIA เป็นประเภทโครงการทดลองที่อยู่ระหว่างการพัฒนาอย่างต่อเนื่อง คุณต้องการเปิดใช้งานหรือไม่?',
     mandarin: 'FIA是一个正在积极开发中的实验性项目类型。您想要启用它吗？'
+  },
+  // Feedback form localization
+  feedbackTitleRequired: {
+    english: 'Please enter a title',
+    french: 'Veuillez saisir un titre',
+    spanish: 'Por favor ingrese un título',
+    brazilian_portuguese: 'Por favor, insira um título',
+    tok_pisin: 'Plis putim wanpela title',
+    indonesian: 'Silakan masukkan judul',
+    nepali: 'कृपया शीर्षक प्रविष्ट गर्नुहोस्',
+    hindi: 'कृपया एक शीर्षक दर्ज करें',
+    burmese: 'ခေါင်းစဉ်ထည့်သွင်းပါ',
+    thai: 'กรุณาใส่หัวข้อ',
+    mandarin: '请输入标题'
+  },
+  feedbackTitleMaxLength: {
+    english: 'Title must be 100 characters or less',
+    french: 'Le titre doit contenir 100 caractères maximum',
+    spanish: 'El título debe tener 100 caracteres o menos',
+    brazilian_portuguese: 'O título deve ter 100 caracteres ou menos',
+    tok_pisin: 'Title i mas 100 character o les',
+    indonesian: 'Judul harus 100 karakter atau kurang',
+    nepali: 'शीर्षक 100 वर्ण वा कम हुनुपर्छ',
+    hindi: 'शीर्षक 100 अक्षरों या उससे कम का होना चाहिए',
+    burmese: 'ခေါင်းစဉ်သည် အက္ခရာ 100 လုံးထက်မပိုသင့်ပါ',
+    thai: 'หัวข้อต้องมีไม่เกิน 100 ตัวอักษร',
+    mandarin: '标题必须在100个字符以内'
+  },
+  feedbackTypeRequired: {
+    english: 'Please select a feedback type',
+    french: 'Veuillez sélectionner un type de retour',
+    spanish: 'Por favor seleccione un tipo de comentario',
+    brazilian_portuguese: 'Por favor, selecione um tipo de feedback',
+    tok_pisin: 'Plis selectim wanpela kain feedback',
+    indonesian: 'Silakan pilih jenis masukan',
+    nepali: 'कृपया प्रतिक्रिया प्रकार चयन गर्नुहोस्',
+    hindi: 'कृपया एक प्रतिक्रिया प्रकार चुनें',
+    burmese: 'အကြောင်း အမျိုးအစား ရွေးချယ်ပါ',
+    thai: 'กรุณาเลือกประเภทข้อเสนอแนะ',
+    mandarin: '请选择反馈类型'
+  },
+  feedbackDescriptionRequired: {
+    english: 'Please enter a description',
+    french: 'Veuillez saisir une description',
+    spanish: 'Por favor ingrese una descripción',
+    brazilian_portuguese: 'Por favor, insira uma descrição',
+    tok_pisin: 'Plis putim wanpela description',
+    indonesian: 'Silakan masukkan deskripsi',
+    nepali: 'कृपया विवरण प्रविष्ट गर्नुहोस्',
+    hindi: 'कृपया विवरण दर्ज करें',
+    burmese: 'ဖော်ပြချက်ထည့်သွင်းပါ',
+    thai: 'กรุณาใส่รายละเอียด',
+    mandarin: '请输入描述'
+  },
+  feedbackDescriptionMaxLength: {
+    english: 'Description must be 2000 characters or less',
+    french: 'La description doit contenir 2000 caractères maximum',
+    spanish: 'La descripción debe tener 2000 caracteres o menos',
+    brazilian_portuguese: 'A descrição deve ter 2000 caracteres ou menos',
+    tok_pisin: 'Description i mas 2000 character o les',
+    indonesian: 'Deskripsi harus 2000 karakter atau kurang',
+    nepali: 'विवरण 2000 वर्ण वा कम हुनुपर्छ',
+    hindi: 'विवरण 2000 अक्षरों या उससे कम का होना चाहिए',
+    burmese: 'ဖော်ပြချက်သည် အက္ခရာ 2000 လုံးထက်မပိုသင့်ပါ',
+    thai: 'รายละเอียดต้องมีไม่เกิน 2000 ตัวอักษร',
+    mandarin: '描述必须在2000个字符以内'
+  },
+  feedbackOrganizationNameLabel: {
+    english: 'Organization Name (optional)',
+    french: "Nom de l'organisation (facultatif)",
+    spanish: 'Nombre de la organización (opcional)',
+    brazilian_portuguese: 'Nome da organização (opcional)',
+    tok_pisin: 'Nem bilong organisen (opsenel)',
+    indonesian: 'Nama organisasi (opsional)',
+    nepali: 'संस्थाको नाम (वैकल्पिक)',
+    hindi: 'संगठन का नाम (वैकल्पिक)',
+    burmese: 'အဖွဲ့အစည်းအမည် (ချန်လှပ်နိုင်)',
+    thai: 'ชื่อองค์กร (ไม่บังคับ)',
+    mandarin: '组织名称（可选）'
+  },
+  feedbackOrganizationNamePlaceholder: {
+    english: 'Enter your organization name',
+    french: 'Entrez le nom de votre organisation',
+    spanish: 'Ingrese el nombre de su organización',
+    brazilian_portuguese: 'Digite o nome da sua organização',
+    tok_pisin: 'Putim nem bilong organisen bilong yu',
+    indonesian: 'Masukkan nama organisasi Anda',
+    nepali: 'तपाईंको संस्थाको नाम प्रविष्ट गर्नुहोस्',
+    hindi: 'अपने संगठन का नाम दर्ज करें',
+    burmese: 'သင့်အဖွဲ့အစည်းအမည် ထည့်ပါ',
+    thai: 'ใส่ชื่อองค์กรของคุณ',
+    mandarin: '输入您的组织名称'
+  },
+  feedbackTitleLabel: {
+    english: 'Title',
+    french: 'Titre',
+    spanish: 'Título',
+    brazilian_portuguese: 'Título',
+    tok_pisin: 'Title',
+    indonesian: 'Judul',
+    nepali: 'शीर्षक',
+    hindi: 'शीर्षक',
+    burmese: 'ခေါင်းစဉ်',
+    thai: 'หัวข้อ',
+    mandarin: '标题'
+  },
+  feedbackTitlePlaceholder: {
+    english: 'Brief summary of your feedback',
+    french: 'Résumé bref de votre retour',
+    spanish: 'Resumen breve de su comentario',
+    brazilian_portuguese: 'Resumo breve do seu feedback',
+    tok_pisin: 'Sotpela tok bilong feedback bilong yu',
+    indonesian: 'Ringkasan singkat masukan Anda',
+    nepali: 'तपाईंको प्रतिक्रियाको संक्षिप्त सारांश',
+    hindi: 'आपकी प्रतिक्रिया का संक्षिप्त सारांश',
+    burmese: 'သင့်အကြောင်းကို အကျဉ်းချုပ်ဖော်ပြပါ',
+    thai: 'สรุปโดยย่อของข้อเสนอแนะของคุณ',
+    mandarin: '您的反馈简要总结'
+  },
+  feedbackTypeLabel: {
+    english: 'Feedback Type',
+    french: 'Type de retour',
+    spanish: 'Tipo de comentario',
+    brazilian_portuguese: 'Tipo de feedback',
+    tok_pisin: 'Kain bilong feedback',
+    indonesian: 'Jenis Masukan',
+    nepali: 'प्रतिक्रिया प्रकार',
+    hindi: 'प्रतिक्रिया प्रकार',
+    burmese: 'အကြောင်း အမျိုးအစား',
+    thai: 'ประเภทข้อเสนอแนะ',
+    mandarin: '反馈类型'
+  },
+  feedbackTypeBug: {
+    english: 'Bug Report',
+    french: 'Signalement de bug',
+    spanish: 'Reporte de error',
+    brazilian_portuguese: 'Relatório de bug',
+    tok_pisin: 'Tok long bagarap',
+    indonesian: 'Laporan Bug',
+    nepali: 'बग रिपोर्ट',
+    hindi: 'बग रिपोर्ट',
+    burmese: 'ချို့ယွင်းချက် ရ포့်',
+    thai: 'รายงานบั๊ก',
+    mandarin: '错误报告'
+  },
+  feedbackTypeFeature: {
+    english: 'Feature Request',
+    french: 'Demande de fonctionnalité',
+    spanish: 'Solicitud de función',
+    brazilian_portuguese: 'Solicitação de recurso',
+    tok_pisin: 'Asking long wanpela samting',
+    indonesian: 'Permintaan Fitur',
+    nepali: 'सुविधा अनुरोध',
+    hindi: 'सुविधा अनुरोध',
+    burmese: 'လုပ်ဆောင်ချက် တောင်းဆိုမှု',
+    thai: 'คำขอฟีเจอร์',
+    mandarin: '功能请求'
+  },
+  feedbackTypeGeneral: {
+    english: 'General Feedback',
+    french: 'Retour général',
+    spanish: 'Comentario general',
+    brazilian_portuguese: 'Feedback geral',
+    tok_pisin: 'Ol tok bilong feedback',
+    indonesian: 'Masukan Umum',
+    nepali: 'सामान्य प्रतिक्रिया',
+    hindi: 'सामान्य प्रतिक्रिया',
+    burmese: 'အထွေထွေ အကြောင်း',
+    thai: 'ข้อเสนอแนะทั่วไป',
+    mandarin: '一般反馈'
+  },
+  feedbackTypeOther: {
+    english: 'Other',
+    french: 'Autre',
+    spanish: 'Otro',
+    brazilian_portuguese: 'Outro',
+    tok_pisin: 'Narapela',
+    indonesian: 'Lainnya',
+    nepali: 'अन्य',
+    hindi: 'अन्य',
+    burmese: 'အခြား',
+    thai: 'อื่นๆ',
+    mandarin: '其他'
+  },
+  feedbackDescriptionLabel: {
+    english: 'Description',
+    french: 'Description',
+    spanish: 'Descripción',
+    brazilian_portuguese: 'Descrição',
+    tok_pisin: 'Tok long samting',
+    indonesian: 'Deskripsi',
+    nepali: 'विवरण',
+    hindi: 'विवरण',
+    burmese: 'ဖော်ပြချက်',
+    thai: 'รายละเอียด',
+    mandarin: '描述'
+  },
+  feedbackDescriptionPlaceholder: {
+    english: 'Describe your feedback in detail...',
+    french: 'Décrivez votre retour en détail...',
+    spanish: 'Describa su comentario en detalle...',
+    brazilian_portuguese: 'Descreva seu feedback em detalhes...',
+    tok_pisin: 'Tok long feedback bilong yu long olgeta hap...',
+    indonesian: 'Jelaskan masukan Anda secara detail...',
+    nepali: 'आफ्नो प्रतिक्रिया विस्तृत रूपमा वर्णन गर्नुहोस्...',
+    hindi: 'अपनी प्रतिक्रिया का विस्तार से वर्णन करें...',
+    burmese: 'သင့်အကြောင်းကို အသေးစိတ် ဖော်ပြပါ...',
+    thai: 'อธิบายข้อเสนอแนะของคุณโดยละเอียด...',
+    mandarin: '详细描述您的反馈...'
+  },
+  feedbackSubmittedSuccess: {
+    english: 'Thank you for your feedback! We appreciate your input.',
+    french: 'Merci pour votre retour ! Nous apprécions votre contribution.',
+    spanish: '¡Gracias por su comentario! Agradecemos su aporte.',
+    brazilian_portuguese:
+      'Obrigado pelo seu feedback! Agradecemos sua contribuição.',
+    tok_pisin: 'Tenkyu long feedback bilong yu! Mi laikim tok bilong yu.',
+    indonesian:
+      'Terima kasih atas masukan Anda! Kami menghargai kontribusi Anda.',
+    nepali:
+      'तपाईंको प्रतिक्रियाको लागि धन्यवाद! हामी तपाईंको योगदानको कदर गर्छौं।',
+    hindi:
+      'आपकी प्रतिक्रिया के लिए धन्यवाद! हम आपके योगदान की सराहना करते हैं।',
+    burmese:
+      'သင့်အကြောင်းအကြာင်းများအတွက် ကျေးဇူးတင်ပါသည်! သင့်ပံ့ပိုးမှုကို တန်ဖိုးထားပါသည်။',
+    thai: 'ขอบคุณสำหรับข้อเสนอแนะของคุณ! เราขอบคุณสำหรับความคิดเห็นของคุณ',
+    mandarin: '感谢您的反馈！我们感谢您的意见。'
+  },
+  feedbackSubmitError: {
+    english: 'Failed to submit feedback. Please try again.',
+    french: 'Échec de la soumission du retour. Veuillez réessayer.',
+    spanish: 'Error al enviar el comentario. Por favor intente de nuevo.',
+    brazilian_portuguese:
+      'Falha ao enviar feedback. Por favor, tente novamente.',
+    tok_pisin: 'No inap submitim feedback. Plis traim agen.',
+    indonesian: 'Gagal mengirim masukan. Silakan coba lagi.',
+    nepali: 'प्रतिक्रिया पेस गर्न असफल भयो। कृपया फेरि प्रयास गर्नुहोस्।',
+    hindi: 'प्रतिक्रिया जमा करने में विफल। कृपया पुनः प्रयास करें।',
+    burmese: 'အကြောင်းတင်သွင်းရန် မအောင်မြင်ပါ။ ကျေးဇူးပြု၍ ထပ်မံလုပ်ဆောင်ပါ။',
+    thai: 'ส่งข้อเสนอแนะไม่สำเร็จ กรุณาลองอีกครั้ง',
+    mandarin: '提交反馈失败。请重试。'
+  },
+  feedbackOfflineWarning: {
+    english:
+      'You are offline. Your feedback will be submitted when you reconnect.',
+    french:
+      'Vous êtes hors ligne. Votre retour sera soumis lorsque vous vous reconnecterez.',
+    spanish: 'Está desconectado. Su comentario se enviará cuando se reconecte.',
+    brazilian_portuguese:
+      'Você está offline. Seu feedback será enviado quando você se reconectar.',
+    tok_pisin:
+      'Yu no i stap online. Feedback bilong yu bai i go taim yu kam bek.',
+    indonesian:
+      'Anda offline. Masukan Anda akan dikirim saat Anda terhubung kembali.',
+    nepali:
+      'तपाईं अफलाइन हुनुहुन्छ। तपाईं पुन: जडान हुँदा तपाईंको प्रतिक्रिया पेस गरिनेछ।',
+    hindi:
+      'आप ऑफ़लाइन हैं। पुनः कनेक्ट होने पर आपकी प्रतिक्रिया जमा कर दी जाएगी।',
+    burmese:
+      'သင်အော့ဖ်လိုင်းဖြစ်နေသည်။ ပြန်ချိတ်ဆက်သောအခါ သင့်အကြောင်းကို တင်သွင်းပါမည်။',
+    thai: 'คุณออฟไลน์อยู่ ข้อเสนอแนะของคุณจะถูกส่งเมื่อคุณเชื่อมต่ออีกครั้ง',
+    mandarin: '您处于离线状态。重新连接后，您的反馈将被提交。'
   }
 } as const;
 

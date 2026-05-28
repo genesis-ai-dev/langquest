@@ -9,8 +9,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { reasonOptions } from '@/db/constants';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useReports } from '@/hooks/useReports';
-import { useLocalStore } from '@/store/localStore';
 import RNAlert from '@blazejkustra/react-native-alert';
+import { useRouter } from 'expo-router';
 import { XIcon } from 'lucide-react-native';
 import React, { useMemo, useState } from 'react';
 import { Modal, Pressable, TouchableWithoutFeedback, View } from 'react-native';
@@ -40,7 +40,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
 }) => {
   const { t } = useLocalization();
   const { currentUser, isAuthenticated } = useAuth();
-  const setAuthView = useLocalStore((state) => state.setAuthView);
+  const router = useRouter();
   // const queryClient = useQueryClient();
   // const { db } = system; // Uncomment when implementing duplicate report checking
 
@@ -84,22 +84,17 @@ export const ReportModal: React.FC<ReportModalProps> = ({
 
   const handleSubmit = async () => {
     if (!currentUser || !isAuthenticated) {
-      RNAlert.alert(
-        t('signInRequired'),
-        t('blockContentLoginMessage') ||
-          'We store information about what to block on your account. Please register to ensure blocked content can be properly hidden.',
-        [
-          { text: t('cancel'), style: 'cancel' },
-          {
-            text: t('signIn') || 'Sign In',
-            isPreferred: true,
-            onPress: () => {
-              onClose();
-              setAuthView('sign-in');
-            }
+      RNAlert.alert(t('signInRequired'), t('blockContentLoginMessage'), [
+        { text: t('cancel'), style: 'cancel' },
+        {
+          text: t('signIn'),
+          isPreferred: true,
+          onPress: () => {
+            onClose();
+            router.push('/(auth)/sign-in');
           }
-        ]
-      );
+        }
+      ]);
       return;
     }
 
@@ -252,8 +247,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
                     ) : (
                       <View className="rounded-md bg-primary/10 p-4">
                         <Text variant="small" className="leading-5">
-                          {t('blockContentLoginMessage') ||
-                            'We store information about what to block on your account. Please register to ensure blocked content can be properly hidden.'}
+                          {t('blockContentLoginMessage')}
                         </Text>
                       </View>
                     )}

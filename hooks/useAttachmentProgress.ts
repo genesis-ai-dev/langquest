@@ -6,6 +6,8 @@ import { AttachmentState } from '@powersync/attachments';
 import { useMemo } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 
+const EMPTY_IDS: string[] = [];
+
 export interface AttachmentProgress {
   total: number;
   synced: number;
@@ -75,7 +77,7 @@ export function useAttachmentProgress(enabled = true): {
 
   // Get attachment states only when enabled
   const { attachmentStates, isLoading: attachmentStatesLoading } =
-    useAttachmentStates([], enabled && isAuthenticated);
+    useAttachmentStates(EMPTY_IDS, enabled && isAuthenticated);
 
   // Stable empty progress object for anonymous users (never changes)
   const emptySyncProgress = useMemo(

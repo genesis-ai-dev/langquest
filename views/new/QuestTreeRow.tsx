@@ -4,7 +4,7 @@ import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
 import type { quest as questTable } from '@/db/drizzleSchema';
-import { useAppNavigation } from '@/hooks/useAppNavigation';
+import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useQuestDownloadStatusLive } from '@/hooks/useQuestDownloadStatusLive';
 import type { WithSource } from '@/utils/dbUtils';
@@ -51,7 +51,7 @@ export const QuestTreeRow: React.FC<QuestTreeRowProps> = ({
   downloadingQuestId,
   downloadingQuestIds = new Set()
 }) => {
-  const { goToQuest, currentProjectId } = useAppNavigation();
+  const { goToQuest, projectId } = useNavigationHelpers();
   const { currentUser } = useAuth();
   const { t } = useLocalization();
 
@@ -87,7 +87,7 @@ export const QuestTreeRow: React.FC<QuestTreeRowProps> = ({
     // Quest is downloaded, local, or user is anonymous (cloud-only), navigate to it
     goToQuest({
       id: quest.id,
-      project_id: currentProjectId!,
+      project_id: projectId!,
       name: quest.name
     });
   };

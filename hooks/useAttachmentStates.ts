@@ -14,9 +14,7 @@ export function useAttachmentStates(
   attachmentIds: string[] = [],
   enabled = true
 ) {
-  const { isAuthenticated, isSystemReady } = useAuth();
-  // Use reactive isSystemReady from AuthContext instead of non-reactive isPowerSyncInitialized
-  const isPowerSyncReady = isSystemReady;
+  const { isAuthenticated } = useAuth();
   const [attachmentStates, setAttachmentStates] = useState<
     Map<string, AttachmentRecord>
   >(new Map());
@@ -37,13 +35,9 @@ export function useAttachmentStates(
       return;
     }
 
-    // For anonymous users or when PowerSync isn't initialized, skip local queries
-    // Audio will be loaded directly from Supabase storage URLs
-    if (!isAuthenticated || !isPowerSyncReady) {
-      // Use setTimeout to avoid calling setState synchronously in effect
+    if (!isAuthenticated) {
       setTimeout(() => {
         setIsLoading(false);
-        // Return empty map for anonymous users - audio will be handled via cloud URLs
         setAttachmentStates(new Map());
       }, 0);
       return;
@@ -113,7 +107,7 @@ export function useAttachmentStates(
         clearTimeout(debounceTimeoutRef.current);
       }
     };
-  }, [enabled, attachmentIds, isAuthenticated, isPowerSyncReady]);
+  }, [enabled, attachmentIds, isAuthenticated]);
 
   return { attachmentStates, isLoading };
 }

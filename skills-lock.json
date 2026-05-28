@@ -1,20 +1,73 @@
 {
   "version": 1,
   "skills": {
+    "android-aso": {
+      "source": "eronred/aso-skills",
+      "sourceType": "github",
+      "skillPath": "skills/android-aso/SKILL.md",
+      "computedHash": "f5402ea96ce5a41918382de166827a94a28cf6cc35ba29cebfbf811cd619f0b8"
+    },
+    "aso-audit": {
+      "source": "eronred/aso-skills",
+      "sourceType": "github",
+      "skillPath": "skills/aso-audit/SKILL.md",
+      "computedHash": "3d2eb475a58f5913bb78802491f6845f713da3bbf1d5581e2a2c54f0ae540941"
+    },
     "building-components": {
       "source": "vercel/components.build",
       "sourceType": "github",
       "computedHash": "ca96444b70257eb3f4f4c76dfdd4a32312c835fe3c8755d2e3d75ac78d384bfd"
+    },
+    "competitor-analysis": {
+      "source": "eronred/aso-skills",
+      "sourceType": "github",
+      "skillPath": "skills/competitor-analysis/SKILL.md",
+      "computedHash": "0cb970b55d107547a5edd9eb833d06644fd27f9c6aef6126b7c3fe5cd045ef0e"
     },
     "create-agent-skills": {
       "source": "glittercowboy/taches-cc-resources",
       "sourceType": "github",
       "computedHash": "d1c5f3261a5c1066ae94b8cf35f64aba43ee52f4e23c209b4eadfc5982019d60"
     },
+    "emil-design-eng": {
+      "source": "emilkowalski/skill",
+      "sourceType": "github",
+      "computedHash": "8bdf9e4e6de7a4969147bf4828a4ad2c5aacd9fba4b690b250a85e0467ca387d"
+    },
+    "grill-me": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/productivity/grill-me/SKILL.md",
+      "computedHash": "784f0dbb7403b0f00324bce9a112f715342777a0daee7bbb7385f9c6f0a170ea"
+    },
+    "improve-codebase-architecture": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/improve-codebase-architecture/SKILL.md",
+      "computedHash": "c77b86b4332919499608f9af1880074e1fec65a59b95c70c27a9f39cd137865e"
+    },
+    "keyword-research": {
+      "source": "eronred/aso-skills",
+      "sourceType": "github",
+      "skillPath": "skills/keyword-research/SKILL.md",
+      "computedHash": "16189d57cc4e195b71ddc82445b3a16e8b2f9090669e01fb39e8c8d094f6a06c"
+    },
+    "metadata-optimization": {
+      "source": "eronred/aso-skills",
+      "sourceType": "github",
+      "skillPath": "skills/metadata-optimization/SKILL.md",
+      "computedHash": "16ad5203b36914d9b19b46f67c394931c9c2eb82fa45c3d3d0f46c1c994c80fd"
+    },
     "refero-design": {
       "source": "referodesign/refero_skill",
       "sourceType": "github",
       "computedHash": "e65c46ee932c4d4a718f743b1c845b4e6b981ec71239e7ca2119ed7bea3a690a"
+    },
+    "seasonal-aso": {
+      "source": "eronred/aso-skills",
+      "sourceType": "github",
+      "skillPath": "skills/seasonal-aso/SKILL.md",
+      "computedHash": "9b3a8d8e23e9964ee0d9e91aa6fc8da5c97b29262169f44ed17335121f656a27"
     },
     "supabase-postgres-best-practices": {
       "source": "supabase/agent-skills",

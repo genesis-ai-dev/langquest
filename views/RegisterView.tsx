@@ -16,29 +16,25 @@ import { system } from '@/db/powersync/system';
 import type { Languoid } from '@/hooks/db/useLanguoids';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
-import type { SharedAuthInfo } from '@/navigators/AuthNavigator';
 import type { Language } from '@/store/localStore';
 import { useLocalStore } from '@/store/localStore';
-import { safeNavigate } from '@/utils/sharedUtils';
+
 import RNAlert from '@blazejkustra/react-native-alert';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { LockIcon, MailIcon, UserIcon } from 'lucide-react-native';
 import React, { useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { View } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { z } from 'zod';
 
 const { supabaseConnector } = system;
 
-export default function RegisterView({
-  onNavigate,
-  sharedAuthInfo
-}: {
-  onNavigate: (view: 'sign-in', sharedAuthInfo: SharedAuthInfo) => void;
-  sharedAuthInfo?: SharedAuthInfo;
-}) {
+export default function RegisterView() {
+  const { email: initialEmail } = useLocalSearchParams<{ email?: string }>();
+  const router = useRouter();
   const { t } = useLocalization();
   const isOnline = useNetworkStatus();
   const currentLanguage = useLocalStore((state) => state.uiLanguage);
@@ -46,22 +42,24 @@ export default function RegisterView({
   const formSchema = z
     .object({
       email: z
-        .string()
         .email(t('enterValidEmail'))
         .nonempty(t('emailRequired'))
         .toLowerCase()
         .trim(),
-      password: z.string(t('passwordRequired')).min(6, t('passwordMinLength')),
-      confirmPassword: z.string(t('confirmPassword')),
+      password: z
+        .string(t('passwordRequired'))
+        .nonempty(t('passwordRequired'))
+        .min(6, t('passwordMinLength')),
+      confirmPassword: z
+        .string(t('passwordRequired'))
+        .nonempty(t('passwordRequired')),
       username: z
         .string(t('usernameRequired'))
-        .min(
-          3,
-          t('usernameRequired') || 'Username must be at least 3 characters'
-        )
+        .nonempty(t('usernameRequired'))
+        .min(3, t('usernameRequired'))
     })
     .refine((data) => data.password === data.confirmPassword, {
-      message: t('passwordsNoMatch') || 'Passwords do not match',
+      message: t('passwordsNoMatch'),
       path: ['confirmPassword']
     });
 
@@ -89,36 +87,31 @@ export default function RegisterView({
             ui_language_id: currentLanguage?.id, // Keep for backward compatibility
             email_verified: false
           },
-          emailRedirectTo: `${process.env.EXPO_PUBLIC_SITE_URL}${
-            process.env.EXPO_PUBLIC_APP_VARIANT !== 'production'
-              ? `?env=${process.env.EXPO_PUBLIC_APP_VARIANT}`
-              : ''
-          }`
+          emailRedirectTo: process.env.EXPO_PUBLIC_SITE_URL
         }
       });
 
       if (error) throw error;
     },
     onSuccess: () => {
-      safeNavigate(() =>
-        onNavigate('sign-in', { email: form.getValues('email') })
-      );
+      router.dismissTo({
+        pathname: '/(auth)/sign-in',
+        params: { email }
+      });
     },
     onError: (error) => {
       RNAlert.alert(
-        t('error') || 'Error',
-        error instanceof Error
-          ? error.message
-          : t('registrationFail') || 'Registration failed'
+        t('error'),
+        error instanceof Error ? error.message : t('registrationFail')
       );
     }
   });
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    mode: 'onChange', // Validate as user types so isValid updates in real-time
+    mode: 'onChange',
     defaultValues: {
-      email: sharedAuthInfo?.email || '',
+      email: initialEmail || '',
       password: '',
       confirmPassword: '',
       username: ''
@@ -126,12 +119,12 @@ export default function RegisterView({
   });
 
   useEffect(() => {
-    if (sharedAuthInfo?.email) {
-      form.reset({
-        email: sharedAuthInfo.email
-      });
+    if (initialEmail) {
+      form.setValue('email', initialEmail);
     }
-  }, [form, sharedAuthInfo?.email]);
+  }, [form, initialEmail]);
+
+  const email = useWatch({ control: form.control, name: 'email' });
 
   const handleFormSubmit = form.handleSubmit((data) => register(data));
 
@@ -250,9 +243,10 @@ export default function RegisterView({
             </FormSubmit>
             <Button
               onPress={() =>
-                safeNavigate(() =>
-                  onNavigate('sign-in', { email: form.watch('email') })
-                )
+                router.dismissTo({
+                  pathname: '/(auth)/sign-in',
+                  params: { email }
+                })
               }
               variant="outline"
               className="border-border bg-input"

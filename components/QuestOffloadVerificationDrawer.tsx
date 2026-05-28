@@ -252,19 +252,17 @@ export function QuestOffloadVerificationDrawer({
         <DrawerHeader>
           <View className="flex-row items-center justify-between">
             <View className="flex-1">
-              <DrawerTitle>{t('offloadQuest') || 'Offload Quest'}</DrawerTitle>
+              <DrawerTitle>{t('offloadQuest')}</DrawerTitle>
               <Text className="text-sm text-muted-foreground">
                 {hasPendingUploads
-                  ? t('pendingUploadsDetected') || 'Pending uploads detected'
+                  ? t('pendingUploadsDetected')
                   : isVerifying
-                    ? t('verifyingCloudData') || 'Verifying data in cloud...'
+                    ? t('verifyingCloudData')
                     : isReadyToOffload
-                      ? t('readyToOffload') || 'Ready to offload'
+                      ? t('readyToOffload')
                       : hasError
-                        ? t('cannotOffloadErrors') ||
-                          'Cannot offload - errors detected'
-                        : t('checkingPendingChanges') ||
-                          'Checking for pending changes...'}
+                        ? t('cannotOffloadErrors')
+                        : t('checkingPendingChanges')}
               </Text>
             </View>
             <DrawerClose variant="ghost" size="icon" disabled={isOffloading}>
@@ -288,12 +286,11 @@ export function QuestOffloadVerificationDrawer({
                     className="text-yellow-600"
                   />
                   <Text className="font-semibold text-yellow-600">
-                    {t('pendingUploadsDetected') || 'Pending Uploads Detected'}
+                    {t('pendingUploadsDetected')}
                   </Text>
                 </View>
                 <Text className="text-sm text-muted-foreground">
-                  {t('pendingUploadsMessage') ||
-                    `You have ${pendingUploadCount} pending upload(s). Please wait for all changes to upload to the cloud before offloading. Connect to the internet and wait for sync to complete.`}
+                  {t('pendingUploadsMessage')}
                 </Text>
               </View>
             </View>
@@ -356,7 +353,7 @@ export function QuestOffloadVerificationDrawer({
               {/* Summary info */}
               <View className="mb-2 mt-4 flex-row items-center justify-between rounded-lg bg-muted p-3">
                 <Text className="text-sm font-semibold">
-                  {t('totalRecords') || 'Total Records'}:
+                  {t('totalRecords')}:
                 </Text>
                 <Text className="text-lg font-bold text-primary">
                   {totalRecords}
@@ -366,7 +363,7 @@ export function QuestOffloadVerificationDrawer({
               {estimatedStorageBytes > 0 && (
                 <View className="mb-2 flex-row items-center justify-between rounded-lg bg-muted p-3">
                   <Text className="text-sm font-semibold">
-                    {t('storageToFree') || 'Storage to Free'}:
+                    {t('storageToFree')}:
                   </Text>
                   <Text className="text-lg font-bold text-primary">
                     {formatStorageSize(estimatedStorageBytes)}
@@ -378,8 +375,7 @@ export function QuestOffloadVerificationDrawer({
               {isReadyToOffload && (
                 <View className="mb-2 rounded-lg bg-yellow-500/10 p-3">
                   <Text className="text-sm text-yellow-600">
-                    {t('offloadWarning') ||
-                      'This will delete local copies. Data will remain safely in the cloud and can be re-downloaded later.'}
+                    {t('offloadWarning')}
                   </Text>
                 </View>
               )}
@@ -393,12 +389,11 @@ export function QuestOffloadVerificationDrawer({
                       className="text-destructive"
                     />
                     <Text className="font-semibold text-destructive">
-                      {t('missingCloudData') || 'Missing Cloud Data'}
+                      {t('missingCloudData')}
                     </Text>
                   </View>
                   <Text className="text-sm text-destructive">
-                    {t('cannotOffloadErrors') ||
-                      'Some data has not been uploaded to the cloud yet. Check the list above for items marked in red - these need to sync before you can safely offload.'}
+                    {t('cannotOffloadErrors')}
                   </Text>
                   {progress.attachments.count >
                     progress.attachments.verified && (
@@ -448,12 +443,12 @@ export function QuestOffloadVerificationDrawer({
           >
             <Text className="font-bold">
               {isVerifying
-                ? t('verifyingCloudData') || 'Verifying...'
+                ? t('verifyingCloudData')
                 : hasPendingUploads
-                  ? t('waitingForUploads') || 'Waiting for Uploads'
+                  ? t('waitingForUploads')
                   : isReadyToOffload
-                    ? t('continueToOffload') || 'Offload from Device'
-                    : t('cannotOffload') || 'Cannot Offload'}
+                    ? t('continueToOffload')
+                    : t('cannotOffload')}
             </Text>
           </Button>
 

@@ -17,7 +17,7 @@ import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
 import { profileService } from '@/database_services/profileService';
 import { system } from '@/db/powersync/system';
-import { useAppNavigation } from '@/hooks/useAppNavigation';
+import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -29,7 +29,7 @@ import RNAlert from '@blazejkustra/react-native-alert';
 export function AccountDeletedOverlay() {
   const { t } = useLocalization();
   const { currentUser, signOut } = useAuth();
-  const { goToProjects } = useAppNavigation();
+  const { goToProjects } = useNavigationHelpers();
   const queryClient = useQueryClient();
   const setSystemReady = useLocalStore((state) => state.setSystemReady);
 
@@ -41,7 +41,6 @@ export function AccountDeletedOverlay() {
       await profileService.restoreAccount(currentUser.id);
     },
     onSuccess: async () => {
-      // Wait for PowerSync to sync the profile.active change
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
       // Reinitialize system to recreate views etc.

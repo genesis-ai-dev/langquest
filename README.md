@@ -72,11 +72,10 @@ adb logcat --pid=$(adb shell pidof -s com.etengenesis.langquest)
 [Expo environment setup guide for EAS builds](https://docs.expo.dev/get-started/set-up-your-environment/?mode=development-build&buildEnv=local)
 
 - Runs the app directly on your connected Android device/emulator
-- Enables real-time code updates (hot reload)
-- Requires USB connection or local network connection
-- Includes development tools and debugging features
-- Faster build times for testing changes
+- Quite faster build times on macbooks for testing changes
 - Requires local Android SDK setup
+
+> **Tip**: Before running `npm run android`, especially when pulling changes into your branch or checking out to `dev`, consider running `npx expo prebuild --clean` first to avoid any unnecessary issues. This ensures the native folders are regenerated from scratch, reflecting your current JS configuration accurately.
 
 ## Local Development Environment
 
@@ -86,6 +85,7 @@ adb logcat --pid=$(adb shell pidof -s com.etengenesis.langquest)
 
 - Download [Docker Desktop](https://www.docker.com/get-started) (docker compose version 4.24.0 or greater required)
 - Install [psql](https://www.tigerdata.com/blog/how-to-install-psql-on-mac-ubuntu-debian-windows)
+- Install [Deno](https://docs.deno.com/runtime/getting_started/installation/) for Supabase Edge Functions local development and editor IntelliSense
 
 ### Running Local Services
 
@@ -171,6 +171,40 @@ adb logcat --pid=$(adb shell pidof -s com.etengenesis.langquest)
 
 7. Commit the migration file to your repository to track database schema changes.
 
+#### Adding Environment Variables to Edge Functions
+
+When adding new environment variables that are accessed by Edge Functions via `Deno.env.get()`, you need to declare them in `supabase/config.toml` under the `[edge_runtime.secrets]` section:
+
+1. Open `supabase/config.toml` and locate the `[edge_runtime.secrets]` section.
+
+2. Add your new secret in this format:
+   ```toml
+   [edge_runtime.secrets]
+   YOUR_NEW_SECRET = "env(YOUR_NEW_SECRET)"
+   ```
+
+3. Add the actual value to your `supabase/.env` file (or `supabase/.env.local` for local development):
+   ```
+   YOUR_NEW_SECRET=your_actual_secret_value
+   ```
+
+4. For remote deployments (preview/production), set the secret via the Supabase CLI:
+   ```bash
+   supabase secrets set YOUR_NEW_SECRET=your_actual_secret_value --project-ref <project-ref>
+   ```
+
+   Or for linked projects:
+   ```bash
+   supabase secrets set YOUR_NEW_SECRET=your_actual_secret_value
+   ```
+
+5. Restart your local environment for changes to take effect:
+   ```bash
+   npm run env
+   ```
+
+> **Note**: Without declaring the secret in `config.toml`, local Edge Functions won't be able to access the environment variable even if it's present in your `.env` file.
+
 > **Note**: If you need to repair the migration history table to match local migration files (for example, if migrations appear as reverted when they shouldn't be), you can run the following:
 
 ensure you've linked your project to the cloud:
@@ -200,6 +234,29 @@ The applied command applies the local migration files into the remote.
 1. Edit the sync rules configuration in `/supabase/config/sync_rules.yml`.
 
 > If your local environment is running already, PowerSync will auto restart when you make changes to the sync rules. Otherwise just start the environment and changes will be reflected accordingly.
+
+### Testing Deep Linking Locally
+
+Deep links (password reset, email confirmation) require both the local Supabase environment and the [LangQuest website](https://github.com/genesis-ai-dev/langquest-website) running locally.
+
+#### How it works
+
+1. The app triggers an auth action (e.g., password reset)
+2. Local Supabase sends an email with a link pointing to `AUTH_SITE_URL` (the website)
+3. The website processes the link and redirects back to the app via the scheme set in the `NEXT_PUBLIC_APP_SCHEME` environment variable
+4. The app handles the deep link and completes the auth flow
+
+#### Setup
+
+1. Run the local Supabase environment (this also generates `supabase/.env.local` with your machine's local IP):
+
+   ```bash
+   npm run env
+   ```
+
+2. In a separate terminal, clone and run the [LangQuest website](https://github.com/genesis-ai-dev/langquest-website) locally on port 3000.
+
+5. Trigger a deep link action (e.g., request a password reset). View the sent email at [Inbucket](http://localhost:54324) and click the link — it should route through the local website back into the app.
 
 ### Common issue during setup:
 

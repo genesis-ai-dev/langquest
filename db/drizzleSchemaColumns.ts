@@ -18,9 +18,13 @@ import {
 import uuid from 'react-native-uuid';
 import {
   contentTypeOptions,
+  emailStatusOptions,
+  inviteBounceReasonOptions,
+  inviteBounceTypeOptions,
   matchedOnOptions,
   membershipOptions,
   reasonOptions,
+  requestTypeOptions,
   sourceOptions,
   statusOptions,
   templateOptions,
@@ -241,6 +245,7 @@ export function createProjectTable<
       target_language_id: text(), // Nullable - new projects use languoid_id via project_language_link instead
       creator_id: text().references(() => profile.id),
       priority: int().notNull().default(0),
+      uploaded_at: text(), // Nullable - set by server trigger when content is uploaded
       ...extraColumns
     },
     (table) => [
@@ -377,6 +382,7 @@ export function createAssetTable<
       creator_id: text().references(() => profile.id),
       order_index: int().notNull().default(0),
       metadata: text(), // JSON metadata for asset-specific data (e.g., verse range)
+      uploaded_at: text(), // Nullable - set by server trigger when content is uploaded
       ...extraColumns
     },
     (table) => {
@@ -425,6 +431,7 @@ export function createQuestTable<
         .references(() => project.id),
       parent_id: text().references((): AnySQLiteColumn => table.id),
       creator_id: text().references(() => profile.id),
+      uploaded_at: text(), // Nullable - set by server trigger when content is uploaded
       ...extraColumns
     },
     (table) => {
@@ -471,6 +478,7 @@ export function createVoteTable<
       creator_id: text()
         .notNull()
         .references(() => profile.id),
+      uploaded_at: text(), // Nullable - set by server trigger when content is uploaded
       ...extraColumns
     },
     (table) => {
@@ -517,6 +525,53 @@ export function createReportsTable<
           table.record_table
         ),
         index('reporter_id_idx').on(table.reporter_id),
+        ...normalizeParams(extraConfig, table)
+      ];
+    }
+  );
+
+  return table;
+}
+
+export function createFeedbackTable<
+  T extends TableSource,
+  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
+>(
+  source: T,
+  { profile }: { profile: typeof profile_synced | typeof profile_local },
+  columns?: TColumnsMap,
+  extraConfig?: (
+    self: BuildExtraConfigColumns<'feedback', TColumnsMap, 'sqlite'>
+  ) => SQLiteTableExtraConfigValue[]
+) {
+  const extraColumns = (columns ?? {}) as TColumnsMap;
+  const table = getTableCreator(source)(
+    'feedback',
+    {
+      // Minimal columns - no active, no last_updated
+      id: text()
+        .primaryKey()
+        .$defaultFn(() => uuid.v4()),
+      created_at: text().notNull().default(timestampDefault),
+      source: text({ enum: sourceOptions })
+        .default(source === 'local' ? 'local' : 'synced')
+        .notNull(),
+      // _metadata is required for PowerSync sync tracking
+      _metadata: text({ mode: 'json' }).$type<OpMetadata>(),
+      profile_id: text()
+        .notNull()
+        .references(() => profile.id),
+      organization_name: text(),
+      title: text().notNull(),
+      request_type: text({ enum: requestTypeOptions }).notNull(),
+      description: text().notNull(),
+      app_version: text(),
+      ...extraColumns
+    },
+    (table) => {
+      return [
+        index('feedback_profile_id_idx').on(table.profile_id),
+        index('feedback_request_type_idx').on(table.request_type),
         ...normalizeParams(extraConfig, table)
       ];
     }
@@ -625,6 +680,7 @@ export function createAssetContentLinkTable<
       source_language_id: text(), // FK to language dropped - migrating to languoid
       languoid_id: text(), // Reference to languoid table
       order_index: int().notNull().default(0),
+      uploaded_at: text(), // Nullable - set by server trigger when content is uploaded
       ...extraColumns
     },
     (table) => {
@@ -801,6 +857,7 @@ export function createQuestAssetLinkTable<
       asset_id: text()
         .notNull()
         .references(() => asset.id),
+      uploaded_at: text(), // Nullable - set by server trigger when content is uploaded
       ...extraColumns
     },
     (table) => [
@@ -866,6 +923,7 @@ export function createInviteTable<
   ) => SQLiteTableExtraConfigValue[]
 ) {
   const extraColumns = (columns ?? {}) as TColumnsMap;
+
   const table = getTableCreator(source)(
     'invite',
     {
@@ -881,10 +939,20 @@ export function createInviteTable<
       project_id: text()
         .notNull()
         .references(() => project.id),
+      // Email tracking columns
+      resend_email_id: text(),
+      email_status: text({ enum: emailStatusOptions }),
+      email_sent_at: text(), // ISO timestamp
+      email_delivered_at: text(), // ISO timestamp
+      email_bounced_at: text(), // ISO timestamp
+      bounce_type: text({ enum: inviteBounceTypeOptions }),
+      bounce_reason: text({ enum: inviteBounceReasonOptions }),
+      bounce_notice_dismissed_at: text(), // ISO timestamp — sender dismissed delivery notice
       ...extraColumns
     },
     (table) => [
       index('idx_invite_request_receiver_email').on(table.email),
+      index('idx_invite_resend_email_id').on(table.resend_email_id),
       ...normalizeParams(extraConfig, table)
     ]
   );
@@ -1562,6 +1630,58 @@ export function createLanguoidLinkSuggestionTable<
       index('languoid_link_suggestion_user_languoid_idx').on(table.languoid_id),
       index('languoid_link_suggestion_creator_idx').on(table.profile_id),
       index('languoid_link_suggestion_status_idx').on(table.status),
+      ...normalizeParams(extraConfig, table)
+    ]
+  );
+
+  return table;
+}
+
+export function createProjectLanguoidSuggestionTable<
+  T extends TableSource,
+  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
+>(
+  source: T,
+  {
+    project,
+    languoid
+  }: {
+    project: { id: AnySQLiteColumn };
+    languoid: { id: AnySQLiteColumn };
+  },
+  columns?: TColumnsMap,
+  extraConfig?: (
+    self: BuildExtraConfigColumns<
+      'project_languoid_suggestion',
+      TColumnsMap,
+      'sqlite'
+    >
+  ) => SQLiteTableExtraConfigValue[]
+) {
+  const extraColumns = (columns ?? {}) as TColumnsMap;
+  const table = getTableCreator(source)(
+    'project_languoid_suggestion',
+    {
+      ...getTableColumns(source),
+      project_id: text()
+        .notNull()
+        .references(() => project.id),
+      current_languoid_id: text()
+        .notNull()
+        .references(() => languoid.id),
+      suggested_languoid_id: text()
+        .notNull()
+        .references(() => languoid.id),
+      language_type: text({ enum: ['source', 'target'] })
+        .notNull()
+        .default('target'),
+      matched_value: text(),
+      status: text({ enum: statusOptions }).notNull().default('pending'),
+      ...extraColumns
+    },
+    (table) => [
+      index('project_languoid_suggestion_project_idx').on(table.project_id),
+      index('project_languoid_suggestion_status_idx').on(table.status),
       ...normalizeParams(extraConfig, table)
     ]
   );

@@ -176,13 +176,11 @@ export function QuestDownloadDiscoveryDrawer({
     >
       <DrawerContent className="pb-safe">
         <DrawerHeader>
-          <DrawerTitle>
-            {t('discoveringQuestData') || 'Discovering Quest Data'}
-          </DrawerTitle>
+          <DrawerTitle>{t('discoveringQuestData')}</DrawerTitle>
           <Text className="text-sm text-muted-foreground">
             {isDiscovering
-              ? t('analyzingRelatedRecords') || 'Analyzing related records...'
-              : t('discoveryComplete') || 'Discovery complete'}
+              ? t('analyzingRelatedRecords')
+              : t('discoveryComplete')}
           </Text>
         </DrawerHeader>
 
@@ -235,9 +233,7 @@ export function QuestDownloadDiscoveryDrawer({
 
         <DrawerFooter>
           <View className="flex-row items-center justify-between rounded-lg bg-muted p-3">
-            <Text className="text-sm font-semibold">
-              {t('totalRecords') || 'Total Records'}:
-            </Text>
+            <Text className="text-sm font-semibold">{t('totalRecords')}:</Text>
             <Text className="text-lg font-bold text-primary">
               {totalRecords}
             </Text>
@@ -247,10 +243,8 @@ export function QuestDownloadDiscoveryDrawer({
             <View className="rounded-lg bg-destructive/10 p-3">
               <Text className="text-sm text-destructive">
                 {totalRecords === 0
-                  ? t('questNotFoundInCloud') ||
-                    'Quest not found in cloud database. It may only exist locally or you may not have permission to access it. Try refreshing the page or contact support if this persists.'
-                  : t('discoveryErrorsOccurred') ||
-                    'Some errors occurred during discovery. You can still download the discovered records.'}
+                  ? t('questNotFoundInCloud')
+                  : t('discoveryErrorsOccurred')}
               </Text>
             </View>
           )}
@@ -260,9 +254,7 @@ export function QuestDownloadDiscoveryDrawer({
             disabled={isDiscovering || totalRecords === 0}
           >
             <Text className="font-bold">
-              {isDiscovering
-                ? t('discovering') || 'Discovering...'
-                : t('continueToDownload') || 'Continue to Download'}
+              {isDiscovering ? t('discovering') : t('continueToDownload')}
             </Text>
           </Button>
 

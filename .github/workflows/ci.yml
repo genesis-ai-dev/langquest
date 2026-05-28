@@ -74,6 +74,12 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Install cloud-services dependencies
+        run: npm ci --prefix cloud-services/resend-webhook-router
+
+      - name: Typecheck cloud-services
+        run: npm run typecheck --prefix cloud-services/resend-webhook-router
+
       - name: Notify Vercel
         uses: vercel/repository-dispatch/actions/status@v1
         with:

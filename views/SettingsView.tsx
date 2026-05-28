@@ -1,21 +1,17 @@
-import { Button } from '@/components/ui/button';
 import {
   Card,
   CardDescription,
   CardHeader,
   CardTitle
 } from '@/components/ui/card';
-import { Icon } from '@/components/ui/icon';
 import { Switch } from '@/components/ui/switch';
 import { Text } from '@/components/ui/text';
-import { useAppNavigation } from '@/hooks/useAppNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useLocalStore } from '@/store/localStore';
 import { cn } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import type { Href } from 'expo-router';
-import { HomeIcon } from 'lucide-react-native';
 import React from 'react';
 import { Pressable, ScrollView, TouchableOpacity, View } from 'react-native';
 
@@ -37,7 +33,6 @@ interface SettingsItem {
 
 export default function SettingsView() {
   const { t } = useLocalization();
-  const { goToProjects } = useAppNavigation();
   const isOnline = useNetworkStatus();
 
   // Centralized settings store (select individual slices to avoid broad subscriptions)
@@ -56,8 +51,8 @@ export default function SettingsView() {
   const enableTranscription = useLocalStore(
     (state) => state.enableTranscription
   );
-  const enableLanguoidLinkSuggestions = useLocalStore(
-    (state) => state.enableLanguoidLinkSuggestions
+  const enableProjectLanguageSuggestions = useLocalStore(
+    (state) => state.enableProjectLanguageSuggestions
   );
   const enableMerge = useLocalStore((state) => state.enableMerge);
   const enableFia = useLocalStore((state) => state.enableFia);
@@ -83,8 +78,8 @@ export default function SettingsView() {
   const setEnableTranscription = useLocalStore(
     (state) => state.setEnableTranscription
   );
-  const setEnableLanguoidLinkSuggestions = useLocalStore(
-    (state) => state.setEnableLanguoidLinkSuggestions
+  const setEnableProjectLanguageSuggestions = useLocalStore(
+    (state) => state.setEnableProjectLanguageSuggestions
   );
   const setEnableMerge = useLocalStore((state) => state.setEnableMerge);
   const setEnableFia = useLocalStore((state) => state.setEnableFia);
@@ -135,8 +130,8 @@ export default function SettingsView() {
     setEnableTranscription(value);
   };
 
-  const handleLanguoidLinkSuggestionsToggle = (value: boolean) => {
-    setEnableLanguoidLinkSuggestions(value);
+  const handleProjectLanguageSuggestionsToggle = (value: boolean) => {
+    setEnableProjectLanguageSuggestions(value);
   };
 
   const handleMergeToggle = (value: boolean) => {
@@ -311,13 +306,15 @@ export default function SettingsView() {
           onPress: () => handleTranscriptionToggle(!enableTranscription)
         },
         {
-          id: 'languoidLinkSuggestions',
-          title: t('enableLanguoidLinkSuggestions'),
-          description: t('enableLanguoidLinkSuggestionsDescription'),
+          id: 'projectLanguageSuggestions',
+          title: t('enableProjectLanguageSuggestions'),
+          description: t('enableProjectLanguageSuggestionsDescription'),
           type: 'toggle',
-          value: enableLanguoidLinkSuggestions,
+          value: enableProjectLanguageSuggestions,
           onPress: () =>
-            handleLanguoidLinkSuggestionsToggle(!enableLanguoidLinkSuggestions),
+            handleProjectLanguageSuggestionsToggle(
+              !enableProjectLanguageSuggestions
+            ),
           disabled: !isOnline
         },
         {
@@ -425,13 +422,13 @@ export default function SettingsView() {
   };
 
   return (
-    <ScrollView className="p-4">
+    <ScrollView
+      className="flex-1"
+      contentContainerClassName="p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]"
+    >
       <View className="gap-6">
         <View className="flex-row items-center justify-between">
           <Text className="text-2xl font-bold">{t('settings')}</Text>
-          <Button variant="default" size="icon-lg" onPress={goToProjects}>
-            <Icon as={HomeIcon} className="text-primary-foreground" />
-          </Button>
         </View>
 
         {!isOnline && (

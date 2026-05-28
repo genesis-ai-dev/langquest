@@ -4,7 +4,7 @@ import { cn } from '@/utils/styleUtils';
 import * as TooltipPrimitive from '@rn-primitives/tooltip';
 import { cva } from 'class-variance-authority';
 import * as React from 'react';
-import { Platform, StyleSheet } from 'react-native';
+import { Modal, Platform, StyleSheet, View } from 'react-native';
 import { Easing, Keyframe } from 'react-native-reanimated';
 import { FullWindowOverlay as RNFullWindowOverlay } from 'react-native-screens';
 
@@ -199,8 +199,16 @@ const Tooltip = ({
 
 const TooltipTrigger = TooltipPrimitive.Trigger;
 
+const AndroidOverlay = ({ children }: { children: React.ReactNode }) => (
+  <Modal transparent visible statusBarTranslucent animationType="none">
+    <View className="absolute inset-0" pointerEvents="box-none">
+      {children}
+    </View>
+  </Modal>
+);
+
 const FullWindowOverlay =
-  Platform.OS === 'ios' ? RNFullWindowOverlay : React.Fragment;
+  Platform.OS === 'ios' ? RNFullWindowOverlay : AndroidOverlay;
 
 const tooltipVariants = cva(
   'z-[6000] rounded-md border border-border bg-background px-3 py-2 shadow-lg sm:py-1.5'

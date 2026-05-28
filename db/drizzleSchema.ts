@@ -21,6 +21,7 @@ import {
   createProfileTable,
   createProjectClosureTable,
   createProjectLanguageLinkTable,
+  createProjectLanguoidSuggestionTable,
   createProjectTable,
   createQuestAssetLinkTable,
   createQuestClosureTable,
@@ -30,6 +31,7 @@ import {
   createRegionPropertyTable,
   createRegionSourceTable,
   createRegionTable,
+  createFeedbackTable,
   createReportsTable,
   createRequestTable,
   createSubscriptionTable,
@@ -59,7 +61,8 @@ export const userRelations = relations(profile, ({ many, one }) => ({
   }),
   sent_invites: many(invite, { relationName: 'invite_sender' }),
   received_invites: many(invite, { relationName: 'invite_receiver' }),
-  sent_requests: many(request, { relationName: 'request_sender' })
+  sent_requests: many(request, { relationName: 'request_sender' }),
+  feedback: many(feedback, { relationName: 'feedback' })
 }));
 
 export const language = createLanguageTable('merged', { profile });
@@ -412,6 +415,16 @@ export const project_language_linkRelations = relations(
 
 export const reports = createReportsTable('merged', { profile });
 
+export const feedback = createFeedbackTable('merged', { profile });
+
+export const feedbackRelations = relations(feedback, ({ one }) => ({
+  profile: one(profile, {
+    fields: [feedback.profile_id],
+    references: [profile.id],
+    relationName: 'feedback'
+  })
+}));
+
 export const blocked_users = createBlockedUsersTable('merged', { profile });
 
 export const blocked_usersRelations = relations(blocked_users, ({ one }) => ({
@@ -563,6 +576,36 @@ export const languoid_link_suggestionRelations = relations(
       fields: [languoid_link_suggestion.profile_id],
       references: [profile.id],
       relationName: 'suggestion_creator'
+    })
+  })
+);
+
+// Project languoid suggestion table - for suggesting a different languoid when a
+// project's name strongly matches a different language than the one currently linked.
+export const project_languoid_suggestion = createProjectLanguoidSuggestionTable(
+  'merged',
+  {
+    project,
+    languoid
+  }
+);
+
+export const project_languoid_suggestionRelations = relations(
+  project_languoid_suggestion,
+  ({ one }) => ({
+    project: one(project, {
+      fields: [project_languoid_suggestion.project_id],
+      references: [project.id]
+    }),
+    current_languoid: one(languoid, {
+      fields: [project_languoid_suggestion.current_languoid_id],
+      references: [languoid.id],
+      relationName: 'current_languoid'
+    }),
+    suggested_languoid: one(languoid, {
+      fields: [project_languoid_suggestion.suggested_languoid_id],
+      references: [languoid.id],
+      relationName: 'suggested_languoid_pls'
     })
   })
 );
