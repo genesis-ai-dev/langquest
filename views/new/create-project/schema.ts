@@ -57,10 +57,7 @@ function createProjectSubmitUnionMembers(t: Translate) {
   return {
     fia: z.object({
       template: z.literal('fia'),
-      source_languoid_id: z
-        .string()
-        .trim()
-        .min(1, t('fiaContentLanguage')),
+      source_languoid_id: z.string().trim().min(1, t('fiaContentLanguage')),
       ...shared
     }),
     unstructured: z.object({
@@ -155,5 +152,7 @@ export function getCreateProjectErrorStep(
   field: string | undefined
 ): 1 | 2 | 3 {
   if (!field) return 3;
-  return createProjectFieldStep[field as keyof typeof createProjectFieldStep] ?? 3;
+  return (
+    createProjectFieldStep[field as keyof typeof createProjectFieldStep] ?? 3
+  );
 }
