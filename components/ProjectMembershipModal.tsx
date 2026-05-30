@@ -36,6 +36,7 @@ import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useLocalStore } from '@/store/localStore';
 import {
   DEFAULT_INVITE_MAX_RESEND_ATTEMPTS,
+  type EmailSuppressionSnapshot,
   isEmailSuppressionActive,
   inviteMaySendAnotherOutboundEmail
 } from '@/utils/inviteBounceGuard';
@@ -605,34 +606,41 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
       return null;
     }
 
-    try {
-      // Find the invitation first
-      const invitation = invitations.find((i) => i.id === inviteId);
+    const invitation = invitations.find((i) => i.id === inviteId);
+    const receiverProfileId = invitation?.receiver_profile_id;
 
+    const reportWithdrawError = (error: unknown) => {
+      console.error('Error withdrawing invitation:', error);
+      RNAlert.alert(t('error'), t('failedToWithdrawInvitation'));
+    };
+
+    try {
       await db
         .update(invite_synced)
         .set({ status: 'withdrawn', last_updated: new Date().toISOString() })
         .where(eq(invite_synced.id, inviteId));
-
-      // Also deactivate any profile_project_link_synced if exists
-      if (invitation?.receiver_profile_id) {
-        await db
-          .update(profile_project_link_synced)
-          .set({ active: false, last_updated: new Date().toISOString() })
-          .where(
-            and(
-              eq(
-                profile_project_link_synced.profile_id,
-                invitation.receiver_profile_id
-              ),
-              eq(profile_project_link_synced.project_id, projectId)
-            )
-          );
-      }
       // void refetchInvitations(); // Removed refetch
     } catch (error) {
-      console.error('Error withdrawing invitation:', error);
-      RNAlert.alert(t('error'), t('failedToWithdrawInvitation'));
+      reportWithdrawError(error);
+      return;
+    }
+
+    if (!receiverProfileId) {
+      return;
+    }
+
+    try {
+      await db
+        .update(profile_project_link_synced)
+        .set({ active: false, last_updated: new Date().toISOString() })
+        .where(
+          and(
+            eq(profile_project_link_synced.profile_id, receiverProfileId),
+            eq(profile_project_link_synced.project_id, projectId)
+          )
+        );
+    } catch (error) {
+      reportWithdrawError(error);
     }
   };
 
@@ -642,87 +650,87 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
       return null;
     }
 
-    try {
-      // Find the invitation first
-      const invitation = invitations.find((i) => i.id === inviteId);
-      if (!invitation) return;
+    const invitation = invitations.find((i) => i.id === inviteId);
+    if (!invitation) return;
 
-      const normalized = invitation.email.trim().toLowerCase();
-      const { data: globalSupRow } = await system.supabaseConnector.client
-        .from('email_suppression')
-        .select('suppressed_at, soft_suppressed_at, expires_at, deactivated_at')
-        .eq('normalized_email', normalized)
-        .maybeSingle();
+    const normalized = invitation.email.trim().toLowerCase();
+    const { data: globalSupRow } = await system.supabaseConnector.client
+      .from('email_suppression')
+      .select('suppressed_at, soft_suppressed_at, expires_at, deactivated_at')
+      .eq('normalized_email', normalized)
+      .maybeSingle();
 
-      if (isEmailSuppressionActive(globalSupRow)) {
-        RNAlert.alert(
-          t('error'),
-          t(
-            getInviteSendBlockedMessageKey({
-              bounceType: invitation.bounce_type,
-              bounceReason: invitation.bounce_reason,
-              globallySuppressed: true
-            })
-          )
-        );
-        return;
-      }
-
-      if (
-        inviteBounceBlocksRetry(
-          invitation.email_status,
-          invitation.bounce_type,
-          invitation.bounce_reason
-        )
-      ) {
-        RNAlert.alert(
-          t('error'),
-          t(
-            getInviteSendBlockedMessageKey({
-              emailStatus: invitation.email_status,
-              bounceType: invitation.bounce_type,
-              bounceReason: invitation.bounce_reason
-            })
-          )
-        );
-        return;
-      }
-
-      if (!inviteMaySendAnotherOutboundEmail(invitation.count, false)) {
-        RNAlert.alert(t('error'), t('maxInviteAttemptsReached'));
-        return;
-      }
-
-      // Check if we can re-invite
-      if ((invitation.count || 0) < MAX_INVITE_ATTEMPTS) {
-        // Update existing invitation to pending and increment count
-        await db
-          .update(invite_synced)
-          .set({
-            status: 'pending',
-            count: (invitation.count || 0) + 1,
-            last_updated: new Date().toISOString(),
-            sender_profile_id: currentUser.id,
-            resend_email_id: null,
-            email_status: null,
-            email_sent_at: null,
-            email_delivered_at: null,
-            email_bounced_at: null,
-            bounce_type: null,
-            bounce_reason: null,
-            bounce_notice_dismissed_at: null
+    if (isEmailSuppressionActive(globalSupRow)) {
+      RNAlert.alert(
+        t('error'),
+        t(
+          getInviteSendBlockedMessageKey({
+            bounceType: invitation.bounce_type,
+            bounceReason: invitation.bounce_reason,
+            globallySuppressed: true
           })
-          .where(eq(invite_synced.id, inviteId));
+        )
+      );
+      return;
+    }
 
-        // void refetchInvitations(); // Removed refetch
-        RNAlert.alert(t('success'), t('invitationResent'));
-      } else {
-        RNAlert.alert(t('error'), t('maxInviteAttemptsReached'));
-      }
+    if (
+      inviteBounceBlocksRetry(
+        invitation.email_status,
+        invitation.bounce_type,
+        invitation.bounce_reason
+      )
+    ) {
+      RNAlert.alert(
+        t('error'),
+        t(
+          getInviteSendBlockedMessageKey({
+            emailStatus: invitation.email_status,
+            bounceType: invitation.bounce_type,
+            bounceReason: invitation.bounce_reason
+          })
+        )
+      );
+      return;
+    }
+
+    if (!inviteMaySendAnotherOutboundEmail(invitation.count, false)) {
+      RNAlert.alert(t('error'), t('maxInviteAttemptsReached'));
+      return;
+    }
+
+    const inviteCount = invitation.count || 0;
+    if (inviteCount >= MAX_INVITE_ATTEMPTS) {
+      RNAlert.alert(t('error'), t('maxInviteAttemptsReached'));
+      return;
+    }
+
+    try {
+      await db
+        .update(invite_synced)
+        .set({
+          status: 'pending',
+          count: inviteCount + 1,
+          last_updated: new Date().toISOString(),
+          sender_profile_id: currentUser.id,
+          resend_email_id: null,
+          email_status: null,
+          email_sent_at: null,
+          email_delivered_at: null,
+          email_bounced_at: null,
+          bounce_type: null,
+          bounce_reason: null,
+          bounce_notice_dismissed_at: null
+        })
+        .where(eq(invite_synced.id, inviteId));
+      // void refetchInvitations(); // Removed refetch
     } catch (error) {
       console.error('Error resending invitation:', error);
       RNAlert.alert(t('error'), t('failedToResendInvitation'));
+      return;
     }
+
+    RNAlert.alert(t('success'), t('invitationResent'));
   };
 
   const handleDismissInvitedFromList = async (invitation: Invitation) => {
@@ -834,9 +842,8 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
               } catch (error) {
                 console.error('Error approving request:', error);
                 RNAlert.alert(t('error'), t('failedToApproveRequest'));
-              } finally {
-                setIsSubmitting(false);
               }
+              setIsSubmitting(false);
             })();
           }
         }
@@ -870,9 +877,8 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
               } catch (error) {
                 console.error('Error denying request:', error);
                 RNAlert.alert(t('error'), t('failedToDenyRequest'));
-              } finally {
-                setIsSubmitting(false);
               }
+              setIsSubmitting(false);
             })();
           }
         }
@@ -892,24 +898,36 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
     }
 
     setIsSubmitting(true);
-    try {
-      // Check if the email belongs to an existing member/owner
-      const existingMember = sortedMembers.find(
-        (member) => member.email.toLowerCase() === inviteEmail.toLowerCase()
+
+    const reportSendInvitationError = (error: unknown) => {
+      console.error('Error sending invitation:', error);
+      RNAlert.alert(
+        t('error'),
+        error instanceof Error ? error.message : t('failedToSendInvitation')
       );
+      setIsSubmitting(false);
+    };
 
-      if (existingMember) {
-        RNAlert.alert(
-          t('error'),
-          t('emailAlreadyMemberMessage', { role: t(existingMember.role) })
-        );
-        setIsSubmitting(false);
-        return;
-      }
+    const existingMember = sortedMembers.find(
+      (member) => member.email.toLowerCase() === inviteEmail.toLowerCase()
+    );
 
-      const normalizedInput = inviteEmail.trim().toLowerCase();
+    if (existingMember) {
+      RNAlert.alert(
+        t('error'),
+        t('emailAlreadyMemberMessage', { role: t(existingMember.role) })
+      );
+      setIsSubmitting(false);
+      return;
+    }
 
-      // Check for any existing invitation (including declined, withdrawn, expired)
+    const normalizedInput = inviteEmail.trim().toLowerCase();
+
+    type InviteQueryRow = Awaited<
+      ReturnType<typeof db.query.invite.findMany>
+    >[number];
+    let existingInvite: InviteQueryRow | undefined;
+    try {
       const existingInvites = await db.query.invite.findMany({
         where: and(
           eq(invite.email, inviteEmail.trim()),
@@ -919,153 +937,175 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
           receiver: true
         }
       });
-      const existingInvite = existingInvites[0];
+      existingInvite = existingInvites[0];
+    } catch (error) {
+      reportSendInvitationError(error);
+      return;
+    }
 
-      const { data: globalSupOnSend } = await system.supabaseConnector.client
+    const existingInviteBounceType = existingInvite?.bounce_type;
+    const existingInviteBounceReason = existingInvite?.bounce_reason;
+
+    let globalSupOnSend: EmailSuppressionSnapshot | null | undefined;
+    try {
+      const { data } = await system.supabaseConnector.client
         .from('email_suppression')
         .select('suppressed_at, soft_suppressed_at, expires_at, deactivated_at')
         .eq('normalized_email', normalizedInput)
         .maybeSingle();
+      globalSupOnSend = data;
+    } catch (error) {
+      reportSendInvitationError(error);
+      return;
+    }
 
-      if (isEmailSuppressionActive(globalSupOnSend)) {
+    if (isEmailSuppressionActive(globalSupOnSend)) {
+      RNAlert.alert(
+        t('error'),
+        t(
+          getInviteSendBlockedMessageKey({
+            bounceType: existingInviteBounceType,
+            bounceReason: existingInviteBounceReason,
+            globallySuppressed: true
+          })
+        )
+      );
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (existingInvite) {
+      let hasInactiveLink = false;
+      const receiverProfileId = existingInvite.receiver_profile_id;
+      if (receiverProfileId) {
+        let profileLinks: Awaited<
+          ReturnType<typeof db.query.profile_project_link.findMany>
+        >;
+        try {
+          profileLinks = await db.query.profile_project_link.findMany({
+            where: (table) =>
+              and(
+                eq(table.profile_id, receiverProfileId),
+                eq(table.project_id, projectId)
+              )
+          });
+        } catch (error) {
+          reportSendInvitationError(error);
+          return;
+        }
+        const hasAnyInactiveLink = profileLinks.some((link) => !link.active);
+        const hasNoProfileLinks = profileLinks.length === 0;
+        hasInactiveLink = hasAnyInactiveLink || hasNoProfileLinks;
+      }
+
+      const canReinvite =
+        ['declined', 'withdrawn', 'expired'].includes(existingInvite.status) ||
+        (existingInvite.status === 'accepted' && hasInactiveLink);
+
+      if (canReinvite) {
+        if (
+          inviteBounceBlocksRetry(
+            existingInvite.email_status,
+            existingInvite.bounce_type,
+            existingInvite.bounce_reason
+          )
+        ) {
+          RNAlert.alert(
+            t('error'),
+            t(
+              getInviteSendBlockedMessageKey({
+                emailStatus: existingInvite.email_status,
+                bounceType: existingInvite.bounce_type,
+                bounceReason: existingInvite.bounce_reason
+              })
+            )
+          );
+          setIsSubmitting(false);
+          return;
+        }
+        if (!inviteMaySendAnotherOutboundEmail(existingInvite.count, false)) {
+          RNAlert.alert(t('error'), t('maxInviteAttemptsReached'));
+          setIsSubmitting(false);
+          return;
+        }
+
+        const inviteCount = existingInvite.count || 0;
+        if (inviteCount >= MAX_INVITE_ATTEMPTS) {
+          RNAlert.alert(t('error'), t('maxInviteAttemptsReached'));
+          setIsSubmitting(false);
+          return;
+        }
+
+        const newCount =
+          existingInvite.status === 'declined' ? inviteCount + 1 : inviteCount;
+
+        try {
+          await db
+            .update(invite_synced)
+            .set({
+              status: 'pending',
+              as_owner: inviteAsOwner,
+              count: newCount,
+              last_updated: new Date().toISOString(),
+              sender_profile_id: currentUser.id,
+              resend_email_id: null,
+              email_status: null,
+              email_sent_at: null,
+              email_delivered_at: null,
+              email_bounced_at: null,
+              bounce_type: null,
+              bounce_reason: null,
+              bounce_notice_dismissed_at: null
+            })
+            .where(eq(invite_synced.id, existingInvite.id));
+        } catch (error) {
+          reportSendInvitationError(error);
+          return;
+        }
+
+        setInviteEmail('');
+        setInviteAsOwner(false);
+        RNAlert.alert(t('success'), t('invitationResent'));
+        setIsSubmitting(false);
+        return;
+      }
+
+      const isPending = existingInvite.status === 'pending';
+      if (
+        isPending &&
+        inviteBounceBlocksRetry(
+          existingInvite.email_status,
+          existingInvite.bounce_type,
+          existingInvite.bounce_reason
+        )
+      ) {
         RNAlert.alert(
           t('error'),
           t(
             getInviteSendBlockedMessageKey({
-              bounceType: existingInvite?.bounce_type,
-              bounceReason: existingInvite?.bounce_reason,
-              globallySuppressed: true
+              emailStatus: existingInvite.email_status,
+              bounceType: existingInvite.bounce_type,
+              bounceReason: existingInvite.bounce_reason
             })
           )
         );
         setIsSubmitting(false);
         return;
       }
-
-      if (existingInvite) {
-        // Check if the invitee has an inactive profile_project_link_synced
-        let hasInactiveLink = false;
-        if (existingInvite.receiver_profile_id) {
-          const profileLinks = await db.query.profile_project_link.findMany({
-            where: (table) =>
-              and(
-                eq(table.profile_id, existingInvite.receiver_profile_id!),
-                eq(table.project_id, projectId)
-              )
-          });
-          hasInactiveLink =
-            profileLinks.some((link) => !link.active) ||
-            profileLinks.length === 0;
-        }
-
-        // Check if we can re-invite
-        if (
-          ['declined', 'withdrawn', 'expired'].includes(
-            existingInvite.status
-          ) ||
-          (existingInvite.status === 'accepted' && hasInactiveLink) // Allow reinvitation if user was removed after accepting
-        ) {
-          if (
-            inviteBounceBlocksRetry(
-              existingInvite.email_status,
-              existingInvite.bounce_type,
-              existingInvite.bounce_reason
-            )
-          ) {
-            RNAlert.alert(
-              t('error'),
-              t(
-                getInviteSendBlockedMessageKey({
-                  emailStatus: existingInvite.email_status,
-                  bounceType: existingInvite.bounce_type,
-                  bounceReason: existingInvite.bounce_reason
-                })
-              )
-            );
-            setIsSubmitting(false);
-            return;
-          }
-          if (!inviteMaySendAnotherOutboundEmail(existingInvite.count, false)) {
-            RNAlert.alert(t('error'), t('maxInviteAttemptsReached'));
-            setIsSubmitting(false);
-            return;
-          }
-          if ((existingInvite.count || 0) < MAX_INVITE_ATTEMPTS) {
-            // Update existing invitation
-            // Only increment count if previous invite was declined (user actively rejected)
-            // Don't count: accepted+inactive (successful then removed), withdrawn (sender cancelled), expired (timed out)
-            const newCount =
-              existingInvite.status === 'declined'
-                ? (existingInvite.count || 0) + 1
-                : existingInvite.count || 0;
-
-            await db
-              .update(invite_synced)
-              .set({
-                status: 'pending',
-                as_owner: inviteAsOwner,
-                count: newCount,
-                last_updated: new Date().toISOString(),
-                sender_profile_id: currentUser.id,
-                resend_email_id: null,
-                email_status: null,
-                email_sent_at: null,
-                email_delivered_at: null,
-                email_bounced_at: null,
-                bounce_type: null,
-                bounce_reason: null,
-                bounce_notice_dismissed_at: null
-              })
-              .where(eq(invite_synced.id, existingInvite.id));
-
-            setInviteEmail('');
-            setInviteAsOwner(false);
-            // void refetchInvitations(); // Removed refetch
-            RNAlert.alert(t('success'), t('invitationResent'));
-            return;
-          } else {
-            RNAlert.alert(t('error'), t('maxInviteAttemptsReached'));
-            setIsSubmitting(false);
-            return;
-          }
-        } else {
-          // Invitation is still pending or in another active state
-          if (
-            existingInvite.status === 'pending' &&
-            inviteBounceBlocksRetry(
-              existingInvite.email_status,
-              existingInvite.bounce_type,
-              existingInvite.bounce_reason
-            )
-          ) {
-            RNAlert.alert(
-              t('error'),
-              t(
-                getInviteSendBlockedMessageKey({
-                  emailStatus: existingInvite.email_status,
-                  bounceType: existingInvite.bounce_type,
-                  bounceReason: existingInvite.bounce_reason
-                })
-              )
-            );
-            setIsSubmitting(false);
-            return;
-          }
-          if (
-            existingInvite.status === 'pending' &&
-            !inviteMaySendAnotherOutboundEmail(existingInvite.count, false)
-          ) {
-            RNAlert.alert(t('error'), t('maxInviteAttemptsReached'));
-            setIsSubmitting(false);
-            return;
-          }
-          RNAlert.alert(t('error'), t('invitationAlreadySent'));
-          setIsSubmitting(false);
-          return;
-        }
+      if (
+        isPending &&
+        !inviteMaySendAnotherOutboundEmail(existingInvite.count, false)
+      ) {
+        RNAlert.alert(t('error'), t('maxInviteAttemptsReached'));
+        setIsSubmitting(false);
+        return;
       }
+      RNAlert.alert(t('error'), t('invitationAlreadySent'));
+      setIsSubmitting(false);
+      return;
+    }
 
-      // Create new invitation
+    try {
       await db.insert(invite_synced).values({
         sender_profile_id: currentUser.id,
         email: inviteEmail,
@@ -1074,20 +1114,15 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
         as_owner: inviteAsOwner,
         count: 1
       });
-
-      setInviteEmail('');
-      setInviteAsOwner(false);
-      // void refetchInvitations(); // Removed refetch
-      RNAlert.alert(t('success'), t('invitationSent'));
     } catch (error) {
-      console.error('Error sending invitation:', error);
-      RNAlert.alert(
-        t('error'),
-        error instanceof Error ? error.message : t('failedToSendInvitation')
-      );
-    } finally {
-      setIsSubmitting(false);
+      reportSendInvitationError(error);
+      return;
     }
+
+    setInviteEmail('');
+    setInviteAsOwner(false);
+    RNAlert.alert(t('success'), t('invitationSent'));
+    setIsSubmitting(false);
   };
 
   const renderMember = (member: Member) => {
