@@ -2,6 +2,7 @@ import {
   getCachedFiaPericope,
   useFiaAttachmentStatus
 } from '@/services/FiaAttachmentQueue';
+import { useProjectFiaLanguageCode } from '@/hooks/useProjectFiaLanguageCode';
 import { useQuery } from '@tanstack/react-query';
 
 // --- Types matching the edge function response ---
@@ -62,19 +63,21 @@ export function useFiaPericopeSteps(
   projectId: string | undefined,
   pericopeId: string | undefined
 ) {
-  const attachmentStatus = useFiaAttachmentStatus(pericopeId);
+  const { fiaLanguageCode } = useProjectFiaLanguageCode(projectId);
+
+  const attachmentStatus = useFiaAttachmentStatus(pericopeId, fiaLanguageCode);
 
   // completedAt changes when the queue finishes, causing the query to re-run
   // and pick up the freshly-cached file
   const cacheVersion = attachmentStatus?.completedAt ?? 0;
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['fia-pericope-steps', projectId, pericopeId, cacheVersion],
+    queryKey: ['fia-pericope-steps', fiaLanguageCode, pericopeId, cacheVersion],
     queryFn: (): FiaPericopeStepsResponse | null => {
-      if (!pericopeId) return null;
-      return getCachedFiaPericope(pericopeId);
+      if (!pericopeId || !fiaLanguageCode) return null;
+      return getCachedFiaPericope(fiaLanguageCode, pericopeId);
     },
-    enabled: !!projectId && !!pericopeId,
+    enabled: !!fiaLanguageCode && !!pericopeId,
     staleTime: Infinity,
     gcTime: 1000 * 60 * 60,
     refetchInterval: false,
