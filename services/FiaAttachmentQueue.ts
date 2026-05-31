@@ -9,9 +9,11 @@
 
 import { system } from '@/db/powersync/system';
 import type { FiaPericopeStepsResponse } from '@/hooks/useFiaPericopeSteps';
-import type { FiaAttachmentQueueItem } from '@/store/localStore';
+import type {
+  FiaAttachmentQueueItem,
+  FiaPericopeCacheKey
+} from '@/store/localStore';
 import { useLocalStore } from '@/store/localStore';
-import { useShallow } from 'zustand/react/shallow';
 import { getCachedAudioUri } from '@/utils/audioCache';
 import {
   downloadFile,
@@ -21,16 +23,17 @@ import {
   readFileText,
   writeFile
 } from '@/utils/fileUtils';
-import {
-  lookupFiaLanguageCode,
-  lookupSourceLanguoidId
-} from '@/utils/languoidLookups';
+import { lookupFiaLanguageCodeForProject } from '@/utils/languoidLookups';
+import { useShallow } from 'zustand/react/shallow';
 
 const FIA_DIR = 'fia_attachments';
 const IMAGES_DIR = `${FIA_DIR}/images`;
 
-function pericopeDataPath(pericopeId: string): string {
-  return `${getDocumentDirectory()}/${FIA_DIR}/${pericopeId}/response.json`;
+function pericopeDataPath(
+  fiaLanguageCode: string,
+  pericopeId: string
+): string {
+  return `${getDocumentDirectory()}/${FIA_DIR}/${fiaLanguageCode}/${pericopeId}/response.json`;
 }
 
 function imageCachePath(url: string): string {
@@ -79,18 +82,29 @@ function extractAudioUrls(data: FiaPericopeStepsResponse): string[] {
   return urls;
 }
 
+function queueKey(item: FiaPericopeCacheKey): FiaPericopeCacheKey {
+  return {
+    fiaLanguageCode: item.fiaLanguageCode,
+    pericopeId: item.pericopeId
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Public cache access (used by hooks and components)
 // ---------------------------------------------------------------------------
 
-export function isFiaPericopeCached(pericopeId: string): boolean {
-  return fileExists(pericopeDataPath(pericopeId));
+export function isFiaPericopeCached(
+  fiaLanguageCode: string,
+  pericopeId: string
+): boolean {
+  return fileExists(pericopeDataPath(fiaLanguageCode, pericopeId));
 }
 
 export function getCachedFiaPericope(
+  fiaLanguageCode: string,
   pericopeId: string
 ): FiaPericopeStepsResponse | null {
-  const path = pericopeDataPath(pericopeId);
+  const path = pericopeDataPath(fiaLanguageCode, pericopeId);
   if (!fileExists(path)) return null;
   try {
     return JSON.parse(readFileText(path)) as FiaPericopeStepsResponse;
@@ -134,7 +148,23 @@ function pendingItems(): FiaAttachmentQueueItem[] {
 }
 
 export function enqueue(pericopeId: string, projectId: string) {
-  getStore().enqueueFiaAttachment({ pericopeId, projectId });
+  void enqueueInternal(pericopeId, projectId);
+}
+
+async function enqueueInternal(pericopeId: string, projectId: string) {
+  const fiaLanguageCode = await lookupFiaLanguageCodeForProject(projectId);
+  if (!fiaLanguageCode) {
+    console.error(
+      `[FiaAttachmentQueue] Cannot enqueue ${pericopeId}: no FIA language code for project ${projectId}`
+    );
+    return;
+  }
+
+  getStore().enqueueFiaAttachment({
+    pericopeId,
+    projectId,
+    fiaLanguageCode
+  });
   void processQueue();
 }
 
@@ -144,7 +174,7 @@ export function initializeFiaQueue() {
     (i) => i.status === 'downloading'
   );
   for (const item of stuck) {
-    store.updateFiaAttachment(item.pericopeId, { status: 'pending' });
+    store.updateFiaAttachment(queueKey(item), { status: 'pending' });
   }
   if (pendingItems().length > 0) {
     console.log(
@@ -171,52 +201,61 @@ async function processQueue() {
 }
 
 async function processItem(item: FiaAttachmentQueueItem) {
-  const { pericopeId, projectId } = item;
+  const { pericopeId, fiaLanguageCode } = item;
+  const key = queueKey(item);
   const store = getStore();
 
-  if (isFiaPericopeCached(pericopeId)) {
-    store.updateFiaAttachment(pericopeId, {
+  if (isFiaPericopeCached(fiaLanguageCode, pericopeId)) {
+    store.updateFiaAttachment(key, {
       status: 'completed',
       completedAt: Date.now()
     });
     return;
   }
 
-  store.updateFiaAttachment(pericopeId, { status: 'downloading' });
-  console.log(`[FiaAttachmentQueue] Processing ${pericopeId}...`);
+  store.updateFiaAttachment(key, { status: 'downloading' });
+  console.log(
+    `[FiaAttachmentQueue] Processing ${fiaLanguageCode}/${pericopeId}...`
+  );
 
   try {
     ensureDir(`${getDocumentDirectory()}/${FIA_DIR}`);
+    ensureDir(`${getDocumentDirectory()}/${FIA_DIR}/${fiaLanguageCode}`);
 
-    const data = await fetchPericopeSteps(projectId, pericopeId);
+    const data = await fetchPericopeSteps(fiaLanguageCode, pericopeId);
     if (!data) throw new Error('Empty response from edge function');
 
     const imageUrls = extractImageUrls(data);
     console.log(
-      `[FiaAttachmentQueue] Downloading ${imageUrls.length} images for ${pericopeId}...`
+      `[FiaAttachmentQueue] Downloading ${imageUrls.length} images for ${fiaLanguageCode}/${pericopeId}...`
     );
     await downloadImages(imageUrls);
 
     const audioUrls = extractAudioUrls(data);
     console.log(
-      `[FiaAttachmentQueue] Downloading ${audioUrls.length} step audio files for ${pericopeId}...`
+      `[FiaAttachmentQueue] Downloading ${audioUrls.length} step audio files for ${fiaLanguageCode}/${pericopeId}...`
     );
     await downloadAudioFiles(audioUrls);
 
-    writeFile(pericopeDataPath(pericopeId), JSON.stringify(data));
+    writeFile(
+      pericopeDataPath(fiaLanguageCode, pericopeId),
+      JSON.stringify(data)
+    );
 
-    getStore().updateFiaAttachment(pericopeId, {
+    getStore().updateFiaAttachment(key, {
       status: 'completed',
       completedAt: Date.now()
     });
 
     console.log(
-      `[FiaAttachmentQueue] ✓ ${pericopeId} (${imageUrls.length} images, ${audioUrls.length} audio)`
+      `[FiaAttachmentQueue] ✓ ${fiaLanguageCode}/${pericopeId} (${imageUrls.length} images, ${audioUrls.length} audio)`
     );
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    console.error(`[FiaAttachmentQueue] ✗ ${pericopeId}: ${msg}`);
-    getStore().updateFiaAttachment(pericopeId, {
+    console.error(
+      `[FiaAttachmentQueue] ✗ ${fiaLanguageCode}/${pericopeId}: ${msg}`
+    );
+    getStore().updateFiaAttachment(key, {
       status: 'failed',
       error: msg
     });
@@ -237,23 +276,9 @@ function fetchWithTimeout(
 }
 
 async function fetchPericopeSteps(
-  projectId: string,
+  fiaLanguageCode: string,
   pericopeId: string
 ): Promise<FiaPericopeStepsResponse> {
-  console.log(
-    `[FiaAttachmentQueue] Looking up languoid for project ${projectId}...`
-  );
-  const sourceLanguoidId = await lookupSourceLanguoidId(projectId);
-  if (!sourceLanguoidId)
-    throw new Error('Could not find source languoid for project');
-
-  console.log(
-    `[FiaAttachmentQueue] Looking up FIA code for languoid ${sourceLanguoidId}...`
-  );
-  const fiaCode = await lookupFiaLanguageCode(sourceLanguoidId);
-  if (!fiaCode)
-    throw new Error(`No FIA language code for languoid ${sourceLanguoidId}`);
-
   const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
   if (!supabaseUrl)
     throw new Error('EXPO_PUBLIC_SUPABASE_URL is not configured');
@@ -268,7 +293,7 @@ async function fetchPericopeSteps(
 
   const url = `${supabaseUrl}/functions/v1/fia-pericope-steps`;
   console.log(
-    `[FiaAttachmentQueue] Fetching edge function: ${url} (fiaCode=${fiaCode}, pericopeId=${pericopeId})`
+    `[FiaAttachmentQueue] Fetching edge function: ${url} (fiaCode=${fiaLanguageCode}, pericopeId=${pericopeId})`
   );
 
   const res = await fetchWithTimeout(
@@ -279,7 +304,7 @@ async function fetchPericopeSteps(
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`
       },
-      body: JSON.stringify({ pericopeId, fiaLanguageCode: fiaCode })
+      body: JSON.stringify({ pericopeId, fiaLanguageCode })
     },
     FETCH_TIMEOUT_MS
   );
@@ -290,7 +315,7 @@ async function fetchPericopeSteps(
   }
 
   console.log(
-    `[FiaAttachmentQueue] Edge function responded OK for ${pericopeId}`
+    `[FiaAttachmentQueue] Edge function responded OK for ${fiaLanguageCode}/${pericopeId}`
   );
   return res.json();
 }
@@ -355,12 +380,17 @@ function scheduleRetry() {
 // Hook for components to observe a single pericope's status
 // ---------------------------------------------------------------------------
 
-export function useFiaAttachmentStatus(pericopeId: string | undefined) {
+export function useFiaAttachmentStatus(
+  pericopeId: string | undefined,
+  fiaLanguageCode: string | null | undefined
+) {
   const status = useLocalStore(
     useShallow((state) => {
-      if (!pericopeId) return undefined;
+      if (!pericopeId || !fiaLanguageCode) return undefined;
       const item = state.fiaAttachmentQueue.find(
-        (i) => i.pericopeId === pericopeId
+        (i) =>
+          i.pericopeId === pericopeId &&
+          i.fiaLanguageCode === fiaLanguageCode
       );
       if (!item) return undefined;
       return {
