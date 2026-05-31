@@ -825,8 +825,8 @@ export default function BibleAssetsView() {
 
   const needsFiaRecache = Boolean(
     fiaPericopeId &&
-      fiaLanguageCode &&
-      !isFiaPericopeCached(fiaLanguageCode, fiaPericopeId)
+    fiaLanguageCode &&
+    !isFiaPericopeCached(fiaLanguageCode, fiaPericopeId)
   );
 
   // Fetch all FIA steps (only for FIA pericope quests)
@@ -854,13 +854,7 @@ export default function BibleAssetsView() {
     if (fiaStepsData && !fiaStepsLoading) {
       setShowFiaTextDrawer(true);
     }
-  }, [
-    fiaPericopeId,
-    questId,
-    needsFiaRecache,
-    fiaStepsData,
-    fiaStepsLoading
-  ]);
+  }, [fiaPericopeId, questId, needsFiaRecache, fiaStepsData, fiaStepsLoading]);
 
   // Build the ordered verse sequence for FIA pericopes (null for standard chapters)
   const pericopeSequence = React.useMemo<ChapterVerse[] | null>(() => {
