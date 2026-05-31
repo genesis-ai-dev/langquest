@@ -65,22 +65,14 @@ export function useFiaPericopeSteps(
 ) {
   const { fiaLanguageCode } = useProjectFiaLanguageCode(projectId);
 
-  const attachmentStatus = useFiaAttachmentStatus(
-    pericopeId,
-    fiaLanguageCode
-  );
+  const attachmentStatus = useFiaAttachmentStatus(pericopeId, fiaLanguageCode);
 
   // completedAt changes when the queue finishes, causing the query to re-run
   // and pick up the freshly-cached file
   const cacheVersion = attachmentStatus?.completedAt ?? 0;
 
   const { data, isLoading, error } = useQuery({
-    queryKey: [
-      'fia-pericope-steps',
-      fiaLanguageCode,
-      pericopeId,
-      cacheVersion
-    ],
+    queryKey: ['fia-pericope-steps', fiaLanguageCode, pericopeId, cacheVersion],
     queryFn: (): FiaPericopeStepsResponse | null => {
       if (!pericopeId || !fiaLanguageCode) return null;
       return getCachedFiaPericope(fiaLanguageCode, pericopeId);

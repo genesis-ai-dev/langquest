@@ -29,10 +29,7 @@ import { useShallow } from 'zustand/react/shallow';
 const FIA_DIR = 'fia_attachments';
 const IMAGES_DIR = `${FIA_DIR}/images`;
 
-function pericopeDataPath(
-  fiaLanguageCode: string,
-  pericopeId: string
-): string {
+function pericopeDataPath(fiaLanguageCode: string, pericopeId: string): string {
   return `${getDocumentDirectory()}/${FIA_DIR}/${fiaLanguageCode}/${pericopeId}/response.json`;
 }
 
@@ -389,8 +386,7 @@ export function useFiaAttachmentStatus(
       if (!pericopeId || !fiaLanguageCode) return undefined;
       const item = state.fiaAttachmentQueue.find(
         (i) =>
-          i.pericopeId === pericopeId &&
-          i.fiaLanguageCode === fiaLanguageCode
+          i.pericopeId === pericopeId && i.fiaLanguageCode === fiaLanguageCode
       );
       if (!item) return undefined;
       return {
