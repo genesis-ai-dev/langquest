@@ -82,7 +82,7 @@ type AssetContent = typeof asset_content_link.$inferSelect;
 interface NextGenNewTranslationModalProps {
   visible: boolean;
   onClose: () => void;
-  onSuccess?: () => void;
+  onSuccess?: (newAssetId: string) => void;
   assetId: string;
   assetName?: string | null;
   assetContent?: AssetContent[];
@@ -506,7 +506,7 @@ export default function NextGenNewTranslationModal({
         console.log(
           `[CREATE ${contentType.toUpperCase()}] Starting transaction... (isLocalSource: ${isLocalSource})`
         );
-        await system.db.transaction(async (tx) => {
+        const newAssetId = await system.db.transaction(async (tx) => {
           const [newAsset] = await tx
             .insert(resolveTable('asset', tableOptions))
             .values({
@@ -552,12 +552,16 @@ export default function NextGenNewTranslationModal({
               asset_id: newAsset.id,
               download_profiles: [currentUser.id]
             });
+
+          return newAsset.id;
         });
+
+        return newAssetId;
       },
-      onSuccess: () => {
+      onSuccess: (newAssetId) => {
         Keyboard.dismiss();
         form.reset(defaultValues);
-        onSuccess?.();
+        onSuccess?.(newAssetId);
         onClose();
       },
       onError: (error) => {

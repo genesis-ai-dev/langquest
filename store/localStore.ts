@@ -335,6 +335,17 @@ export interface LocalState {
   /** Per-project invite rows hidden from the membership modal Invited list (local only). */
   dismissedInvitedRows: Record<string, string[]>;
   dismissInvitedRow: (projectId: string, inviteId: string) => void;
+
+  /**
+   * Ephemeral "NEW" labels for translation/transcription cards in asset detail.
+   * Keyed by source asset id; cleared when leaving asset detail (not persisted).
+   */
+  newChildAssetsInDetailView: Record<string, string[]>;
+  markNewChildAssetInDetailView: (
+    sourceAssetId: string,
+    childAssetId: string
+  ) => void;
+  clearNewChildAssetsInDetailView: (sourceAssetId: string) => void;
 }
 
 export const useLocalStore = create<LocalState>()(
@@ -777,6 +788,27 @@ export const useLocalStore = create<LocalState>()(
               [projectId]: [...existing, inviteId]
             }
           };
+        }),
+
+      newChildAssetsInDetailView: {},
+      markNewChildAssetInDetailView: (sourceAssetId, childAssetId) =>
+        set((state) => {
+          const existing =
+            state.newChildAssetsInDetailView[sourceAssetId] ?? [];
+          if (existing.includes(childAssetId)) return state;
+          return {
+            newChildAssetsInDetailView: {
+              ...state.newChildAssetsInDetailView,
+              [sourceAssetId]: [...existing, childAssetId]
+            }
+          };
+        }),
+      clearNewChildAssetsInDetailView: (sourceAssetId) =>
+        set((state) => {
+          if (!state.newChildAssetsInDetailView[sourceAssetId]) return state;
+          const next = { ...state.newChildAssetsInDetailView };
+          delete next[sourceAssetId];
+          return { newChildAssetsInDetailView: next };
         })
     }),
     {
@@ -853,7 +885,12 @@ export const useLocalStore = create<LocalState>()(
         Object.fromEntries(
           Object.entries(state).filter(
             ([key]) =>
-              !['_hasHydrated', 'systemReady', 'currentUser'].includes(key)
+              ![
+                '_hasHydrated',
+                'systemReady',
+                'currentUser',
+                'newChildAssetsInDetailView'
+              ].includes(key)
           )
         )
     }

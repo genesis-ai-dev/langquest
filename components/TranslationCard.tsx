@@ -11,6 +11,7 @@ import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import { cn } from '@/utils/styleUtils';
 import { ThumbsDownIcon, ThumbsUpIcon } from 'lucide-react-native';
 import { View } from 'react-native';
+import { NewHighlightBadge } from '@/components/NewHighlightBadge';
 import AudioPlayer from './AudioPlayer';
 import { Button } from './ui/button';
 
@@ -21,6 +22,7 @@ interface TranslationCardProps {
   handleTranslationPress: (id: string) => void;
   onTranscribe?: (uri: string) => void;
   isTranscribing?: boolean;
+  isHighlighted?: boolean;
 }
 
 export const TranslationCard = ({
@@ -29,7 +31,8 @@ export const TranslationCard = ({
   handleTranslationPress,
   previewText,
   onTranscribe,
-  isTranscribing = false
+  isTranscribing = false,
+  isHighlighted = false
 }: TranslationCardProps) => {
   const { t } = useLocalization();
   const currentLayer = useStatusContext();
@@ -41,6 +44,10 @@ export const TranslationCard = ({
 
   const hasAudio =
     asset.audio && asset.audio.length > 0 && audioSegments.length > 0;
+  const showText = Boolean(previewText || !hasAudio);
+  const isAudioOnlyCard = hasAudio && !showText;
+  const showBadgeAbove = isHighlighted && !isAudioOnlyCard;
+  const showBadgeWithVotes = isHighlighted && isAudioOnlyCard;
 
   const handleCardPress = () => {
     if (asset.id) {
@@ -62,20 +69,75 @@ export const TranslationCard = ({
           invisible && 'opacity-20'
         )}
       >
-        <CardHeader className="flex-row items-start justify-between gap-4">
-          {/* Left side: Content */}
-          <View className="flex-1 flex-col gap-3">
-            {/* Text preview — hidden for audio-only cards; shown for text cards and truly empty cards */}
-            {(previewText || !hasAudio) && (
-              <Text
-                numberOfLines={2}
-                className="text-base leading-relaxed text-foreground"
-              >
-                {previewText || t('noText')}
-              </Text>
+        <CardHeader className="flex-col gap-3">
+          <View className="flex-col gap-2">
+            {showBadgeAbove && (
+              <View className="w-full flex-row justify-start">
+                <NewHighlightBadge />
+              </View>
             )}
 
-            {/* Audio Player */}
+            <View
+              className={cn(
+                'w-full flex-row gap-3',
+                isAudioOnlyCard
+                  ? cn(
+                      'items-center',
+                      showBadgeWithVotes ? 'justify-between' : 'justify-end'
+                    )
+                  : 'items-start'
+              )}
+            >
+              {showBadgeWithVotes && <NewHighlightBadge />}
+
+              {showText && (
+                <Text
+                  numberOfLines={2}
+                  className="min-w-0 flex-1 text-base leading-relaxed text-foreground"
+                >
+                  {previewText || t('noText')}
+                </Text>
+              )}
+
+              <View className="shrink-0 flex-col items-end gap-1">
+                <View className="flex-row items-center gap-2">
+                  <Icon
+                    as={ThumbsUpIcon}
+                    size={16}
+                    className={cn(
+                      'text-muted-foreground/40',
+                      asset.up_votes > 0 && 'text-green-700 dark:text-green-400'
+                    )}
+                  />
+                  <Text
+                    className={cn(
+                      'min-w-[28px] text-center text-lg font-bold tabular-nums',
+                      asset.net_votes > 0 &&
+                        'text-green-700 dark:text-green-400',
+                      asset.net_votes < 0 && 'text-red-700 dark:text-red-400',
+                      asset.net_votes === 0 && 'text-muted-foreground'
+                    )}
+                  >
+                    {asset.net_votes > 0 ? '+' : ''}
+                    {asset.net_votes}
+                  </Text>
+                  <Icon
+                    as={ThumbsDownIcon}
+                    size={16}
+                    className={cn(
+                      'text-muted-foreground/40',
+                      asset.down_votes > 0 && 'text-red-700 dark:text-red-400'
+                    )}
+                  />
+                </View>
+                {SHOW_DEV_ELEMENTS && (
+                  <Text className="text-xs text-muted-foreground/70">
+                    {asset.up_votes}↑ {asset.down_votes}↓
+                  </Text>
+                )}
+              </View>
+            </View>
+
             {hasAudio && (
               <View className="w-full rounded-md border border-border bg-muted/30 p-3">
                 <AudioPlayer
@@ -87,65 +149,23 @@ export const TranslationCard = ({
                 />
               </View>
             )}
-
-            {/* Dev info */}
-            {SHOW_DEV_ELEMENTS && (
-              <View className="flex-row items-center gap-2">
-                <Text className="text-xs text-muted-foreground">
-                  {asset.source === 'cloud' ? '🌐' : '💾'}
-                </Text>
-                <View className="h-1 w-1 rounded-full bg-muted-foreground/30" />
-                <Text className="text-xs text-muted-foreground">
-                  V: {asset.visible ? '🟢' : '🔴'}
-                </Text>
-                <View className="h-1 w-1 rounded-full bg-muted-foreground/30" />
-                <Text className="text-xs text-muted-foreground">
-                  A: {asset.active ? '🟢' : '🔴'}
-                </Text>
-              </View>
-            )}
           </View>
 
-          {/* Right side: Votes */}
-          <View className="flex-col items-end justify-start gap-2">
-            {/* Vote display */}
-            <View className="flex-row items-center gap-1.5">
-              <Icon
-                as={ThumbsUpIcon}
-                size={16}
-                className={cn(
-                  'text-muted-foreground/40',
-                  asset.up_votes > 0 && 'text-green-700 dark:text-green-400'
-                )}
-              />
-              <Text
-                className={cn(
-                  'min-w-[28px] text-center text-lg font-bold tabular-nums',
-                  asset.net_votes > 0 && 'text-green-700 dark:text-green-400',
-                  asset.net_votes < 0 && 'text-red-700 dark:text-red-400',
-                  asset.net_votes === 0 && 'text-muted-foreground'
-                )}
-              >
-                {asset.net_votes > 0 ? '+' : ''}
-                {asset.net_votes}
+          {SHOW_DEV_ELEMENTS && (
+            <View className="flex-row items-center gap-2">
+              <Text className="text-xs text-muted-foreground">
+                {asset.source === 'cloud' ? '🌐' : '💾'}
               </Text>
-              <Icon
-                as={ThumbsDownIcon}
-                size={16}
-                className={cn(
-                  'text-muted-foreground/40',
-                  asset.down_votes > 0 && 'text-red-700 dark:text-red-400'
-                )}
-              />
+              <View className="h-1 w-1 rounded-full bg-muted-foreground/30" />
+              <Text className="text-xs text-muted-foreground">
+                V: {asset.visible ? '🟢' : '🔴'}
+              </Text>
+              <View className="h-1 w-1 rounded-full bg-muted-foreground/30" />
+              <Text className="text-xs text-muted-foreground">
+                A: {asset.active ? '🟢' : '🔴'}
+              </Text>
             </View>
-
-            {/* Dev vote breakdown */}
-            {SHOW_DEV_ELEMENTS && (
-              <Text className="text-xs text-muted-foreground/70">
-                {asset.up_votes}↑ {asset.down_votes}↓
-              </Text>
-            )}
-          </View>
+          )}
         </CardHeader>
       </Card>
     </Button>

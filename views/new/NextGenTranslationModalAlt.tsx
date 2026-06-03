@@ -60,6 +60,8 @@ interface NextGenTranslationModalProps {
   onOpenChange: (open: boolean) => void;
   assetId: string;
   onVoteSuccess?: () => void;
+  /** Called when edit-submit creates a new translation/transcription (duplicate). */
+  onChildAssetCreated?: (newAssetId: string) => void;
   canVote?: boolean;
   isPrivateProject?: boolean;
   projectId?: string;
@@ -162,6 +164,7 @@ export default function NextGenTranslationModal({
   onOpenChange,
   assetId,
   onVoteSuccess,
+  onChildAssetCreated,
   isPrivateProject = false,
   projectId,
   projectName
@@ -334,7 +337,7 @@ export default function NextGenTranslationModal({
           `[CREATE ${contentTypeToCreate.toUpperCase()}] Starting transaction... (isLocalSource: ${isLocalSource})`
         );
 
-        await system.db.transaction(async (tx) => {
+        const newAssetId = await system.db.transaction(async (tx) => {
           // Create a new asset that points to the original source asset
           const [newAsset] = await tx
             .insert(resolveTable('asset', tableOptions))
@@ -391,10 +394,15 @@ export default function NextGenTranslationModal({
               asset_id: newAsset.id,
               download_profiles: [currentUser.id]
             });
+
+          return newAsset.id;
         });
+
+        return newAssetId;
       },
-      onSuccess: () => {
+      onSuccess: (newAssetId) => {
         setIsEditing(false);
+        onChildAssetCreated?.(newAssetId);
         onVoteSuccess?.(); // Refresh the list
         onOpenChange(false);
       },
