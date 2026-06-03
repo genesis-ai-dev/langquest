@@ -43,13 +43,30 @@ export type FiaAttachmentStatus =
   | 'completed'
   | 'failed';
 
-export interface FiaAttachmentQueueItem {
+export interface FiaPericopeCacheKey {
+  fiaLanguageCode: string;
   pericopeId: string;
+}
+
+export interface FiaAttachmentQueueItem extends FiaPericopeCacheKey {
   projectId: string;
   status: FiaAttachmentStatus;
   error?: string;
   enqueuedAt: number;
   completedAt?: number;
+}
+
+/** Drops pre-LQ-17 queue rows that lack fiaLanguageCode (pericope-only dedupe era). */
+function sanitizeFiaAttachmentQueue(queue: unknown): FiaAttachmentQueueItem[] {
+  if (!Array.isArray(queue)) return [];
+  return queue.filter(
+    (item): item is FiaAttachmentQueueItem =>
+      !!item &&
+      typeof item === 'object' &&
+      typeof (item as FiaAttachmentQueueItem).pericopeId === 'string' &&
+      typeof (item as FiaAttachmentQueueItem).fiaLanguageCode === 'string' &&
+      typeof (item as FiaAttachmentQueueItem).projectId === 'string'
+  );
 }
 
 // AsyncStorage keys for user preferences
@@ -301,12 +318,13 @@ export interface LocalState {
   enqueueFiaAttachment: (item: {
     pericopeId: string;
     projectId: string;
+    fiaLanguageCode: string;
   }) => void;
   updateFiaAttachment: (
-    pericopeId: string,
+    key: FiaPericopeCacheKey,
     update: Partial<FiaAttachmentQueueItem>
   ) => void;
-  removeFiaAttachment: (pericopeId: string) => void;
+  removeFiaAttachment: (key: FiaPericopeCacheKey) => void;
   clearCompletedFiaAttachments: () => void;
 
   // Invite members banner dismissal tracking (projectId -> timestamp)
@@ -317,6 +335,17 @@ export interface LocalState {
   /** Per-project invite rows hidden from the membership modal Invited list (local only). */
   dismissedInvitedRows: Record<string, string[]>;
   dismissInvitedRow: (projectId: string, inviteId: string) => void;
+
+  /**
+   * Ephemeral "NEW" labels for translation/transcription cards in asset detail.
+   * Keyed by source asset id; cleared when leaving asset detail (not persisted).
+   */
+  newChildAssetsInDetailView: Record<string, string[]>;
+  markNewChildAssetInDetailView: (
+    sourceAssetId: string,
+    childAssetId: string
+  ) => void;
+  clearNewChildAssetsInDetailView: (sourceAssetId: string) => void;
 }
 
 export const useLocalStore = create<LocalState>()(
@@ -682,32 +711,47 @@ export const useLocalStore = create<LocalState>()(
 
       // FIA attachment queue
       fiaAttachmentQueue: [],
-      enqueueFiaAttachment: ({ pericopeId, projectId }) =>
+      enqueueFiaAttachment: ({ pericopeId, projectId, fiaLanguageCode }) =>
         set((state) => {
-          if (state.fiaAttachmentQueue.some((i) => i.pericopeId === pericopeId))
+          if (
+            state.fiaAttachmentQueue.some(
+              (i) =>
+                i.pericopeId === pericopeId &&
+                i.fiaLanguageCode === fiaLanguageCode
+            )
+          ) {
             return state;
+          }
           return {
             fiaAttachmentQueue: [
               ...state.fiaAttachmentQueue,
               {
                 pericopeId,
                 projectId,
+                fiaLanguageCode,
                 status: 'pending' as const,
                 enqueuedAt: Date.now()
               }
             ]
           };
         }),
-      updateFiaAttachment: (pericopeId, update) =>
+      updateFiaAttachment: (key, update) =>
         set((state) => ({
           fiaAttachmentQueue: state.fiaAttachmentQueue.map((item) =>
-            item.pericopeId === pericopeId ? { ...item, ...update } : item
+            item.pericopeId === key.pericopeId &&
+            item.fiaLanguageCode === key.fiaLanguageCode
+              ? { ...item, ...update }
+              : item
           )
         })),
-      removeFiaAttachment: (pericopeId) =>
+      removeFiaAttachment: (key) =>
         set((state) => ({
           fiaAttachmentQueue: state.fiaAttachmentQueue.filter(
-            (i) => i.pericopeId !== pericopeId
+            (i) =>
+              !(
+                i.pericopeId === key.pericopeId &&
+                i.fiaLanguageCode === key.fiaLanguageCode
+              )
           )
         })),
       clearCompletedFiaAttachments: () =>
@@ -744,6 +788,27 @@ export const useLocalStore = create<LocalState>()(
               [projectId]: [...existing, inviteId]
             }
           };
+        }),
+
+      newChildAssetsInDetailView: {},
+      markNewChildAssetInDetailView: (sourceAssetId, childAssetId) =>
+        set((state) => {
+          const existing =
+            state.newChildAssetsInDetailView[sourceAssetId] ?? [];
+          if (existing.includes(childAssetId)) return state;
+          return {
+            newChildAssetsInDetailView: {
+              ...state.newChildAssetsInDetailView,
+              [sourceAssetId]: [...existing, childAssetId]
+            }
+          };
+        }),
+      clearNewChildAssetsInDetailView: (sourceAssetId) =>
+        set((state) => {
+          if (!state.newChildAssetsInDetailView[sourceAssetId]) return state;
+          const next = { ...state.newChildAssetsInDetailView };
+          delete next[sourceAssetId];
+          return { newChildAssetsInDetailView: next };
         })
     }),
     {
@@ -762,11 +827,23 @@ export const useLocalStore = create<LocalState>()(
           delete state.enableLanguoidLinkSuggestions;
           delete state.enableProjectLanguoidSuggestions;
         }
+        if ('fiaAttachmentQueue' in state) {
+          state.fiaAttachmentQueue = sanitizeFiaAttachmentQueue(
+            state.fiaAttachmentQueue
+          );
+        }
         return persistedState as LocalState;
       },
       onRehydrateStorage: () => async (state) => {
         console.log('rehydrating local store', state);
         if (state) {
+          const sanitizedQueue = sanitizeFiaAttachmentQueue(
+            state.fiaAttachmentQueue
+          );
+          if (sanitizedQueue.length !== state.fiaAttachmentQueue.length) {
+            useLocalStore.setState({ fiaAttachmentQueue: sanitizedQueue });
+          }
+
           state.setTheme(state.theme);
           // Validate and clamp VAD threshold if invalid
           if (
@@ -808,7 +885,12 @@ export const useLocalStore = create<LocalState>()(
         Object.fromEntries(
           Object.entries(state).filter(
             ([key]) =>
-              !['_hasHydrated', 'systemReady', 'currentUser'].includes(key)
+              ![
+                '_hasHydrated',
+                'systemReady',
+                'currentUser',
+                'newChildAssetsInDetailView'
+              ].includes(key)
           )
         )
     }

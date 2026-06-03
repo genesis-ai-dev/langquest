@@ -124,6 +124,8 @@ import { AppConfig } from '@/db/supabase/AppConfig';
 import { useAssetsByQuest, useLocalAssetsByQuest } from '@/hooks/db/useAssets';
 import { useBlockedAssetsCount } from '@/hooks/useBlockedCount';
 import { useFiaPericopeSteps } from '@/hooks/useFiaPericopeSteps';
+import { useProjectFiaLanguageCode } from '@/hooks/useProjectFiaLanguageCode';
+import { isFiaPericopeCached } from '@/services/FiaAttachmentQueue';
 import { useQuestOffloadVerification } from '@/hooks/useQuestOffloadVerification';
 import { useHasUserReported } from '@/hooks/useReports';
 import { useUndoHistory } from '@/hooks/useUndoHistory';
@@ -817,6 +819,16 @@ export default function BibleAssetsView() {
     ? (fiaMetaExtracted?.pericopeId ?? null)
     : null;
 
+  const { fiaLanguageCode } = useProjectFiaLanguageCode(
+    fiaPericopeId ? projectId : undefined
+  );
+
+  const needsFiaRecache = Boolean(
+    fiaPericopeId &&
+    fiaLanguageCode &&
+    !isFiaPericopeCached(fiaLanguageCode, fiaPericopeId)
+  );
+
   // Fetch all FIA steps (only for FIA pericope quests)
   const { data: fiaStepsData, isLoading: fiaStepsLoading } =
     useFiaPericopeSteps(
@@ -825,18 +837,24 @@ export default function BibleAssetsView() {
     );
 
   // Auto-open FIA steps drawer once per quest per session.
-  // Once the user closes it, don't reopen (even after navigating to recording and back).
+  // Open immediately when guide content must be downloaded (e.g. post LQ-17 recache).
+  // When cached, open after data is ready. If the user dismissed the drawer, don't reopen
+  // unless content is missing and needs a fresh download.
   React.useEffect(() => {
-    if (
-      fiaPericopeId &&
-      questId &&
-      fiaStepsData &&
-      !fiaStepsLoading &&
-      !fiaDrawerDismissedQuests.has(questId)
-    ) {
+    if (!fiaPericopeId || !questId) return;
+
+    const dismissed = fiaDrawerDismissedQuests.has(questId);
+    if (dismissed && !needsFiaRecache) return;
+
+    if (needsFiaRecache) {
+      setShowFiaTextDrawer(true);
+      return;
+    }
+
+    if (fiaStepsData && !fiaStepsLoading) {
       setShowFiaTextDrawer(true);
     }
-  }, [fiaPericopeId, questId, fiaStepsData, fiaStepsLoading]);
+  }, [fiaPericopeId, questId, needsFiaRecache, fiaStepsData, fiaStepsLoading]);
 
   // Build the ordered verse sequence for FIA pericopes (null for standard chapters)
   const pericopeSequence = React.useMemo<ChapterVerse[] | null>(() => {
