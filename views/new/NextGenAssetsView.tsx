@@ -1343,10 +1343,15 @@ export default function NextGenAssetsView() {
       return;
     }
 
+    if (audioContext.isPlaying || audioContext.isPaused) {
+      await audioContext.stopCurrentSound();
+    }
+
     setShowPlayAllControls(true);
     await togglePlayAll({ playlist });
   }, [
     assets,
+    audioContext,
     getAssetAudioUris,
     isIndividualPlayerActive,
     selectedAssetIds,

@@ -3564,10 +3564,15 @@ export default function BibleAssetsView() {
         return;
       }
 
+      if (audioContext.isPlaying || audioContext.isPaused) {
+        await audioContext.stopCurrentSound();
+      }
+
       await togglePlayAll({ playlist });
     },
     [
       assets,
+      audioContext,
       getAssetAudioUris,
       isIndividualPlayerActive,
       selectedAssetIds,

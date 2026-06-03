@@ -1,4 +1,5 @@
-import { createAudioPlayer, type AudioPlayer } from 'expo-audio';
+import { getCachedAudioUri } from '@/utils/audioCache';
+import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from 'expo-audio';
 import React from 'react';
 import type { PlayAllCheckpoint } from './useAudioPlaybackCheckpoint';
 
@@ -81,6 +82,14 @@ const PLAYER_LOAD_TIMEOUT_MS = 2500;
 const PLAYER_LOAD_POLL_INTERVAL_MS = 20;
 /** Tolerance when inferring segment end from position (iOS can miss didJustFinish). */
 const SEGMENT_END_TOLERANCE_SECONDS = 0.25;
+
+async function ensureAudioPlaybackMode(): Promise<void> {
+  await setAudioModeAsync({
+    allowsRecording: false,
+    playsInSilentMode: true,
+    shouldPlayInBackground: true
+  });
+}
 
 function isSegmentPlaybackComplete(status: PlaybackStatus): boolean {
   if (status.didJustFinish) {
@@ -628,6 +637,8 @@ export function usePlayAllAudioController({
       let shouldUseInitialCheckpoint = shouldResume;
 
       try {
+        await ensureAudioPlaybackMode();
+
         const waitForPlayerLoaded = async (player: AudioPlayer) => {
           return await new Promise<boolean>((resolve) => {
             if (player.isLoaded) {
@@ -673,7 +684,8 @@ export function usePlayAllAudioController({
             }
             let tempPlayer: AudioPlayer | null = null;
             try {
-              tempPlayer = createAudioPlayer(uri, {
+              const resolvedUri = await getCachedAudioUri(uri);
+              tempPlayer = createAudioPlayer(resolvedUri, {
                 keepAudioSessionActive: true
               });
               const isLoaded = await waitForPlayerLoaded(tempPlayer);
@@ -713,7 +725,7 @@ export function usePlayAllAudioController({
             continue;
           }
 
-          await preloadItemDurations(item, itemIndex);
+          void preloadItemDurations(item, itemIndex);
 
           notifyCurrentAssetChange({
             assetId: item.assetId,
@@ -791,150 +803,168 @@ export function usePlayAllAudioController({
 
               currentSegmentResolveRef.current = settle;
 
-              try {
-                const player = createAudioPlayer(uri, {
-                  updateInterval: 100,
-                  keepAudioSessionActive: true
-                });
-                currentPlayerRef.current = player;
-                let segmentCompletionHandled = false;
+              void (async () => {
+                try {
+                  const resolvedUri = await getCachedAudioUri(uri);
+                  const player = createAudioPlayer(resolvedUri, {
+                    updateInterval: 100,
+                    keepAudioSessionActive: true
+                  });
+                  currentPlayerRef.current = player;
+                  let segmentCompletionHandled = false;
 
-                const handleSegmentPlaybackStatus = (
-                  playbackStatus: PlaybackStatus
-                ) => {
-                  lastStatusItemIndexRef.current = itemIndex;
-                  lastStatusUriIndexRef.current = uriIndex;
-                  const statusCurrentTimeMs = playbackStatus.currentTime * 1000;
-                  if (
-                    Number.isFinite(statusCurrentTimeMs) &&
-                    statusCurrentTimeMs >= 0
-                  ) {
-                    lastSegmentPositionMsRef.current = statusCurrentTimeMs;
-                  }
-                  const statusDurationMs = playbackStatus.duration * 1000;
-                  if (
-                    Number.isFinite(statusDurationMs) &&
-                    statusDurationMs > 0
-                  ) {
-                    lastSegmentDurationMsRef.current = statusDurationMs;
-                    segmentDurationMsMapRef.current.set(
-                      `${itemIndex}:${uriIndex}`,
-                      statusDurationMs
-                    );
-                    const existingDurations =
+                  const handleSegmentPlaybackStatus = (
+                    playbackStatus: PlaybackStatus
+                  ) => {
+                    lastStatusItemIndexRef.current = itemIndex;
+                    lastStatusUriIndexRef.current = uriIndex;
+                    const statusCurrentTimeMs =
+                      playbackStatus.currentTime * 1000;
+                    if (
+                      Number.isFinite(statusCurrentTimeMs) &&
+                      statusCurrentTimeMs >= 0
+                    ) {
+                      lastSegmentPositionMsRef.current = statusCurrentTimeMs;
+                    }
+                    const statusDurationMs = playbackStatus.duration * 1000;
+                    if (
+                      Number.isFinite(statusDurationMs) &&
+                      statusDurationMs > 0
+                    ) {
+                      lastSegmentDurationMsRef.current = statusDurationMs;
+                      segmentDurationMsMapRef.current.set(
+                        `${itemIndex}:${uriIndex}`,
+                        statusDurationMs
+                      );
+                      const existingDurations =
+                        itemSegmentDurationsRef.current.get(itemIndex) ??
+                        new Array<number>(item.uris.length).fill(0);
+                      existingDurations[uriIndex] = Math.max(
+                        existingDurations[uriIndex] ?? 0,
+                        statusDurationMs
+                      );
+                      itemSegmentDurationsRef.current.set(
+                        itemIndex,
+                        existingDurations
+                      );
+                    }
+
+                    const itemDurations =
                       itemSegmentDurationsRef.current.get(itemIndex) ??
                       new Array<number>(item.uris.length).fill(0);
-                    existingDurations[uriIndex] = Math.max(
-                      existingDurations[uriIndex] ?? 0,
-                      statusDurationMs
+                    const elapsedBeforeCurrentSegment = itemDurations
+                      .slice(0, uriIndex)
+                      .reduce(
+                        (sum, duration) => sum + Math.max(0, duration),
+                        0
+                      );
+                    const currentSegmentPositionMs = Number.isFinite(
+                      statusCurrentTimeMs
+                    )
+                      ? Math.max(0, statusCurrentTimeMs)
+                      : 0;
+                    const assetPositionMs =
+                      elapsedBeforeCurrentSegment + currentSegmentPositionMs;
+                    const assetDurationMs = itemDurations.reduce(
+                      (sum, duration) => sum + Math.max(0, duration),
+                      0
                     );
-                    itemSegmentDurationsRef.current.set(
-                      itemIndex,
-                      existingDurations
-                    );
-                  }
 
-                  const itemDurations =
-                    itemSegmentDurationsRef.current.get(itemIndex) ??
-                    new Array<number>(item.uris.length).fill(0);
-                  const elapsedBeforeCurrentSegment = itemDurations
-                    .slice(0, uriIndex)
-                    .reduce((sum, duration) => sum + Math.max(0, duration), 0);
-                  const currentSegmentPositionMs = Number.isFinite(
-                    statusCurrentTimeMs
-                  )
-                    ? Math.max(0, statusCurrentTimeMs)
-                    : 0;
-                  const assetPositionMs =
-                    elapsedBeforeCurrentSegment + currentSegmentPositionMs;
-                  const assetDurationMs = itemDurations.reduce(
-                    (sum, duration) => sum + Math.max(0, duration),
-                    0
-                  );
-
-                  onPlaybackStatusUpdateRef.current?.(playbackStatus, {
-                    item,
-                    itemIndex,
-                    uriIndex,
-                    playlistLength: playlist.length,
-                    assetPositionMs,
-                    assetDurationMs
-                  });
-
-                  if (playbackStatus.playing) {
-                    checkpointStore.savePlayAllCheckpoint({
-                      playlistKey: effectivePlaylistKey,
+                    onPlaybackStatusUpdateRef.current?.(playbackStatus, {
+                      item,
                       itemIndex,
                       uriIndex,
-                      positionMs: playbackStatus.currentTime * 1000
+                      playlistLength: playlist.length,
+                      assetPositionMs,
+                      assetDurationMs
                     });
-                  }
 
-                  if (!isSegmentPlaybackComplete(playbackStatus)) {
-                    return;
-                  }
-
-                  if (segmentCompletionHandled) {
-                    return;
-                  }
-                  segmentCompletionHandled = true;
-
-                  const isLastUriInItem = uriIndex >= item.uris.length - 1;
-                  const nextItemIndex = isLastUriInItem
-                    ? itemIndex + 1
-                    : itemIndex;
-                  const nextUriIndex = isLastUriInItem ? 0 : uriIndex + 1;
-
-                  if (nextItemIndex < playlist.length) {
-                    checkpointStore.savePlayAllCheckpoint(
-                      {
+                    if (playbackStatus.playing) {
+                      checkpointStore.savePlayAllCheckpoint({
                         playlistKey: effectivePlaylistKey,
-                        itemIndex: nextItemIndex,
-                        uriIndex: nextUriIndex,
-                        positionMs: 0
-                      },
-                      { force: true }
-                    );
-                  } else {
-                    checkpointStore.clearPlayAllCheckpoint();
-                  }
+                        itemIndex,
+                        uriIndex,
+                        positionMs: playbackStatus.currentTime * 1000
+                      });
+                    }
 
-                  releaseCurrentPlayer();
-                  settle();
-                };
-
-                currentPlayerSubscriptionRef.current = player.addListener(
-                  'playbackStatusUpdate',
-                  (status) => {
-                    handleSegmentPlaybackStatus(status as PlaybackStatus);
-                  }
-                );
-
-                player.play();
-
-                if (resumePositionMs > 0) {
-                  const seekInterval = setInterval(() => {
-                    if (!player.isLoaded) {
+                    if (!isSegmentPlaybackComplete(playbackStatus)) {
                       return;
                     }
-                    clearInterval(seekInterval);
-                    player.seekTo(resumePositionMs / 1000);
-                  }, 20);
 
-                  const seekTimeoutId = setTimeout(() => {
-                    clearInterval(seekInterval);
-                    seekTimeoutIdsRef.current.delete(seekTimeoutId);
-                  }, 2000);
-                  seekTimeoutIdsRef.current.add(seekTimeoutId);
+                    if (segmentCompletionHandled) {
+                      return;
+                    }
+                    segmentCompletionHandled = true;
+
+                    const isLastUriInItem = uriIndex >= item.uris.length - 1;
+                    const nextItemIndex = isLastUriInItem
+                      ? itemIndex + 1
+                      : itemIndex;
+                    const nextUriIndex = isLastUriInItem ? 0 : uriIndex + 1;
+
+                    if (nextItemIndex < playlist.length) {
+                      checkpointStore.savePlayAllCheckpoint(
+                        {
+                          playlistKey: effectivePlaylistKey,
+                          itemIndex: nextItemIndex,
+                          uriIndex: nextUriIndex,
+                          positionMs: 0
+                        },
+                        { force: true }
+                      );
+                    } else {
+                      checkpointStore.clearPlayAllCheckpoint();
+                    }
+
+                    releaseCurrentPlayer();
+                    settle();
+                  };
+
+                  currentPlayerSubscriptionRef.current = player.addListener(
+                    'playbackStatusUpdate',
+                    (status) => {
+                      handleSegmentPlaybackStatus(status as PlaybackStatus);
+                    }
+                  );
+
+                  const isLoaded = await waitForPlayerLoaded(player);
+                  if (!isLoaded) {
+                    console.warn(
+                      '[PlayAll] Segment failed to load before playback:',
+                      uri.slice(0, 80)
+                    );
+                    releaseCurrentPlayer();
+                    settle();
+                    return;
+                  }
+
+                  player.play();
+
+                  if (resumePositionMs > 0) {
+                    const seekInterval = setInterval(() => {
+                      if (!player.isLoaded) {
+                        return;
+                      }
+                      clearInterval(seekInterval);
+                      player.seekTo(resumePositionMs / 1000);
+                    }, 20);
+
+                    const seekTimeoutId = setTimeout(() => {
+                      clearInterval(seekInterval);
+                      seekTimeoutIdsRef.current.delete(seekTimeoutId);
+                    }, 2000);
+                    seekTimeoutIdsRef.current.add(seekTimeoutId);
+                  }
+
+                  handleSegmentPlaybackStatus(
+                    player.currentStatus as PlaybackStatus
+                  );
+                } catch {
+                  releaseCurrentPlayer();
+                  settle();
                 }
-
-                handleSegmentPlaybackStatus(
-                  player.currentStatus as PlaybackStatus
-                );
-              } catch {
-                releaseCurrentPlayer();
-                settle();
-              }
+              })();
             });
 
             const jumpTarget =
