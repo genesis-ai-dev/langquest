@@ -793,7 +793,8 @@ export const useLocalStore = create<LocalState>()(
       newChildAssetsInDetailView: {},
       markNewChildAssetInDetailView: (sourceAssetId, childAssetId) =>
         set((state) => {
-          const existing = state.newChildAssetsInDetailView[sourceAssetId] ?? [];
+          const existing =
+            state.newChildAssetsInDetailView[sourceAssetId] ?? [];
           if (existing.includes(childAssetId)) return state;
           return {
             newChildAssetsInDetailView: {

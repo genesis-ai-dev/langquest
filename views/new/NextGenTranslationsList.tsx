@@ -77,9 +77,7 @@ export default function NextGenTranslationsList({
   const blockedCount = useBlockedTranslationsCount(assetId);
 
   const newChildAssetIds = useLocalStore(
-    useShallow(
-      (state) => state.newChildAssetsInDetailView[assetId] ?? []
-    )
+    useShallow((state) => state.newChildAssetsInDetailView[assetId] ?? [])
   );
   const newChildAssetIdSet = useMemo(
     () => new Set(newChildAssetIds),
