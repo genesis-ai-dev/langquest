@@ -1,5 +1,9 @@
 import { getCachedAudioUri } from '@/utils/audioCache';
-import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from 'expo-audio';
+import {
+  createAudioPlayer,
+  setAudioModeAsync,
+  type AudioPlayer
+} from 'expo-audio';
 import React from 'react';
 import type { PlayAllCheckpoint } from './useAudioPlaybackCheckpoint';
 
