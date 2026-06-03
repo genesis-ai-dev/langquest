@@ -22,7 +22,9 @@ import {
   ShieldOffIcon,
   ThumbsUpIcon
 } from 'lucide-react-native';
-import React, { useState } from 'react';
+import { useLocalStore } from '@/store/localStore';
+import React, { useMemo, useState } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { ActivityIndicator, View } from 'react-native';
 import NextGenTranslationModal from './NextGenTranslationModalAlt';
 
@@ -74,6 +76,26 @@ export default function NextGenTranslationsList({
   // Count blocked translations
   const blockedCount = useBlockedTranslationsCount(assetId);
 
+  const newChildAssetIds = useLocalStore(
+    useShallow(
+      (state) => state.newChildAssetsInDetailView[assetId] ?? []
+    )
+  );
+  const newChildAssetIdSet = useMemo(
+    () => new Set(newChildAssetIds),
+    [newChildAssetIds]
+  );
+  const markNewChildAssetInDetailView = useLocalStore(
+    (state) => state.markNewChildAssetInDetailView
+  );
+
+  const handleChildAssetCreated = React.useCallback(
+    (newAssetId: string) => {
+      markNewChildAssetInDetailView(assetId, newAssetId);
+    },
+    [assetId, markNewChildAssetInDetailView]
+  );
+
   const isPrivateProject = projectData?.private || false;
   const canVote = canVoteProp !== undefined ? canVoteProp : !isPrivateProject;
 
@@ -111,6 +133,24 @@ export default function NextGenTranslationsList({
   const toggleSortOrder = () => {
     setSortOrder((prev) => (prev === 'desc' ? 'asc' : 'desc'));
   };
+
+  const renderTranslationItem = React.useCallback(
+    ({ item }: { item: WithSource<AssetWithVoteCount> }) => (
+      <TranslationCard
+        asset={item}
+        previewText={getPreviewText(item.text || '')}
+        handleTranslationPress={handleTranslationPress}
+        audioSegments={getAudioSegments(item)}
+        isHighlighted={newChildAssetIdSet.has(item.id)}
+      />
+    ),
+    [
+      getAudioSegments,
+      getPreviewText,
+      handleTranslationPress,
+      newChildAssetIdSet
+    ]
+  );
 
   return (
     <View className="flex-1">
@@ -223,18 +263,12 @@ export default function NextGenTranslationsList({
           data={assets}
           key={`${assets.length}-${sortOption}-${sortOrder}`}
           keyExtractor={(item) => item.id}
+          extraData={newChildAssetIds}
           recycleItems
           estimatedItemSize={120}
           maintainVisibleContentPosition
           contentContainerStyle={{ gap: 12 }}
-          renderItem={({ item }) => (
-            <TranslationCard
-              asset={item}
-              previewText={getPreviewText(item.text || '')}
-              handleTranslationPress={handleTranslationPress}
-              audioSegments={getAudioSegments(item)}
-            />
-          )}
+          renderItem={renderTranslationItem}
           ListEmptyComponent={() => (
             <View className="flex-1 items-center justify-center gap-4 px-8 py-16">
               <Icon
@@ -283,6 +317,7 @@ export default function NextGenTranslationsList({
           }}
           assetId={selectedTranslationId}
           onVoteSuccess={handleVoteSuccess}
+          onChildAssetCreated={handleChildAssetCreated}
           canVote={canVote}
           isPrivateProject={isPrivateProject}
           projectId={projectData?.id}
