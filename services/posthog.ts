@@ -6,8 +6,7 @@ import PostHog from 'posthog-react-native';
 
 function isPostHogDisabled() {
   return (
-    __DEV__ || // comment out when you want to test analytics locally (with eas env:pull <environment>)
-    process.env.EXPO_PUBLIC_POSTHOG_DISABLED === 'true' ||
+    __DEV__ || // comment out when you want to test analytics locally (with preview environment eas env:pull <environment>)
     !process.env.EXPO_PUBLIC_POSTHOG_HOST ||
     !process.env.EXPO_PUBLIC_POSTHOG_KEY
   );
