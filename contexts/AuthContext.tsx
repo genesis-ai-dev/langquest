@@ -1,4 +1,5 @@
 import { system } from '@/db/powersync/system';
+import { setPostHogUserId } from '@/services/posthog';
 import { useLocalStore } from '@/store/localStore';
 import { getSupabaseAuthKey } from '@/utils/supabaseUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
@@ -390,6 +391,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             // Now update session state (only after we've determined effectiveSession)
             setSession(effectiveSession);
             system.supabaseConnector.updateSession(effectiveSession);
+            setPostHogUserId(effectiveSession?.user.id ?? null);
 
             if (effectiveSession) {
               console.log(
@@ -426,6 +428,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             // Update session for sign in events
             setSession(session);
             system.supabaseConnector.updateSession(session);
+            setPostHogUserId(session?.user.id ?? null);
 
             console.log('[AuthContext] User signed in');
             const detectedSessionType = getSessionType(session);
@@ -451,6 +454,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             // Update session for password recovery
             setSession(session);
             system.supabaseConnector.updateSession(session);
+            setPostHogUserId(session?.user.id ?? null);
 
             console.log('[AuthContext] Password recovery session');
             setSessionType('password-reset');
@@ -464,6 +468,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               console.log('[AuthContext] User signed out (dev mode)');
               setSession(null);
               system.supabaseConnector.updateSession(null);
+              setPostHogUserId(null);
               setSessionType(null);
               await cleanupSystem();
               // Set system ready for anonymous browsing after sign out

@@ -4,6 +4,15 @@ import * as Device from 'expo-device';
 import * as Updates from 'expo-updates';
 import PostHog from 'posthog-react-native';
 
+function isPostHogDisabled() {
+  return (
+    __DEV__ || // comment out when you want to test analytics locally (with eas env:pull <environment>)
+    process.env.EXPO_PUBLIC_POSTHOG_DISABLED === 'true' ||
+    !process.env.EXPO_PUBLIC_POSTHOG_HOST ||
+    !process.env.EXPO_PUBLIC_POSTHOG_KEY
+  );
+}
+
 // Simple initialization without circular dependency
 const createPostHogInstance = (optIn = false) => {
   return new PostHog(process.env.EXPO_PUBLIC_POSTHOG_KEY ?? 'phc_', {
@@ -15,16 +24,51 @@ const createPostHogInstance = (optIn = false) => {
     },
     enablePersistSessionIdAcrossRestart: true,
     defaultOptIn: optIn,
-    disabled:
-      __DEV__ ||
-      !process.env.EXPO_PUBLIC_POSTHOG_HOST ||
-      !process.env.EXPO_PUBLIC_POSTHOG_KEY,
+    disabled: isPostHogDisabled(),
     customStorage: AsyncStorage
   });
 };
 
 // Initialize PostHog with basic settings immediately (no circular dependency)
 const posthog = createPostHogInstance();
+
+let pendingPostHogUserId: string | null = null;
+let lastIdentifiedPostHogUserId: string | null = null;
+
+function getAnalyticsOptIn() {
+  const { dateTermsAccepted, analyticsOptOut } = useLocalStore.getState();
+  return !analyticsOptOut && !!dateTermsAccepted;
+}
+
+/**
+ * Links PostHog persons to Supabase auth user ids for field troubleshooting.
+ * Call from AuthContext when session changes; identity is applied only when analytics is opted in.
+ */
+export const syncPostHogIdentity = async () => {
+  if (isPostHogDisabled()) {
+    return;
+  }
+
+  const shouldOptIn = getAnalyticsOptIn();
+
+  try {
+    if (shouldOptIn && pendingPostHogUserId) {
+      await posthog.identify(pendingPostHogUserId);
+      lastIdentifiedPostHogUserId = pendingPostHogUserId;
+    } else if (lastIdentifiedPostHogUserId !== null) {
+      posthog.reset();
+      lastIdentifiedPostHogUserId = null;
+    }
+  } catch (error) {
+    console.warn('Failed to sync PostHog identity:', error);
+  }
+};
+
+/** Set the authenticated user id (or null). Re-syncs identity when consent allows. */
+export const setPostHogUserId = (userId: string | null) => {
+  pendingPostHogUserId = userId;
+  void syncPostHogIdentity();
+};
 
 const changeAnalyticsState = async (newState: boolean) => {
   if (newState) {
@@ -34,6 +78,8 @@ const changeAnalyticsState = async (newState: boolean) => {
   } else {
     await posthog.optOut();
   }
+
+  await syncPostHogIdentity();
 };
 
 /**

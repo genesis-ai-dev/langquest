@@ -59,6 +59,8 @@ jobs:
     type: repack
     environment: production
     runs_on: linux-medium
+    env:
+      EXPO_PUBLIC_POSTHOG_DISABLED: 'true'
     params:
       build_id: ${{ needs.android_get_build.outputs.build_id }}
 
@@ -69,6 +71,8 @@ jobs:
     type: build
     environment: production
     runs_on: linux-medium
+    env:
+      EXPO_PUBLIC_POSTHOG_DISABLED: 'true'
     params:
       platform: android
       profile: production-simulator
@@ -80,6 +84,8 @@ jobs:
     type: repack
     environment: production
     runs_on: macos-medium
+    env:
+      EXPO_PUBLIC_POSTHOG_DISABLED: 'true'
     params:
       build_id: ${{ needs.ios_get_build.outputs.build_id }}
 
@@ -90,6 +96,8 @@ jobs:
     type: build
     environment: production
     runs_on: macos-medium
+    env:
+      EXPO_PUBLIC_POSTHOG_DISABLED: 'true'
     params:
       platform: ios
       profile: production-simulator
