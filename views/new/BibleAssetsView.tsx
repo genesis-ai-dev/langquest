@@ -71,6 +71,7 @@ import { useHybridData } from './useHybridData';
 
 import { AssetListSkeleton } from '@/components/AssetListSkeleton';
 import { ExportButton } from '@/components/ExportButton';
+import { PublishQuestButton } from '@/components/PublishQuestButton';
 import type { FiaDrawerState } from '@/components/FiaStepDrawer';
 import {
   FiaStepDrawer,
@@ -4030,67 +4031,15 @@ export default function BibleAssetsView() {
               // Only show publish/export buttons for authenticated users
               currentUser && (
                 <>
-                  <Button
-                    variant="outline"
-                    size="icon"
+                  <PublishQuestButton
+                    questName={selectedQuest?.name}
                     disabled={isPublishing || !isOnline || !isMember}
-                    className="text-xs"
-                    onPress={() => {
-                      if (!isOnline) {
-                        RNAlert.alert(
-                          t('error'),
-                          t('cannotPublishWhileOffline')
-                        );
-                        return;
-                      }
-
-                      if (!isMember) {
-                        RNAlert.alert(t('error'), t('membersOnlyPublish'));
-                        return;
-                      }
-
-                      if (!questId) {
-                        console.error('No current quest id');
-                        return;
-                      }
-
-                      // Use quest name if available, otherwise generic message
-                      const questName = selectedQuest?.name || 'this chapter';
-
-                      RNAlert.alert(
-                        t('publishChapter'),
-                        t('publishChapterMessage').replace(
-                          '{questName}',
-                          questName
-                        ),
-                        [
-                          {
-                            text: t('cancel'),
-                            style: 'cancel'
-                          },
-                          {
-                            text: t('publish'),
-                            style: 'default',
-                            isPreferred: true,
-                            onPress: () => {
-                              publishQuest();
-                            }
-                          }
-                        ]
-                      );
-                    }}
-                  >
-                    {isPublishing ? (
-                      <ActivityIndicator
-                        size="small"
-                        color={getThemeColor('primary')}
-                      />
-                    ) : (
-                      <>
-                        <Icon as={CloudUpload} />
-                      </>
-                    )}
-                  </Button>
+                    isPublishing={isPublishing}
+                    isOnline={isOnline}
+                    isMember={isMember}
+                    hasLocalAssets={assets.length > 0}
+                    onPublish={() => publishQuest()}
+                  />
                   {questId && projectId && (
                     <ExportButton
                       questId={questId}
@@ -4192,7 +4141,7 @@ export default function BibleAssetsView() {
           {assets.length > 0 && (
             <Button
               variant="default"
-              size="default"
+              size="icon"
               disabled={isIndividualPlayerActive && !isPlayAllPlayerActive}
               onPress={() => {
                 if (isPlayAllPlayerActive) {
@@ -4205,16 +4154,13 @@ export default function BibleAssetsView() {
                   void handlePlayAll(selectedForRecording);
                 }
               }}
-              className="h-10 w-10 flex-row items-center rounded-full bg-primary"
+              className="rounded-full"
             >
               <Icon
                 as={PlayIcon}
                 size={16}
                 className="text-primary-foreground"
               />
-              {/* <Text className="p-0 text-sm font-semibold text-primary-foreground">
-              </Text> */}
-              {/* <Text className="-p-safe-or-1 px-2">Play All</Text> */}
             </Button>
           )}
         </View>
