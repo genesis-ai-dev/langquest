@@ -1794,7 +1794,7 @@ export default function NextGenAssetsView() {
           <View className="flex-1 flex-row items-center justify-end gap-1">
             {assets.length > 0 && (
               <Button
-                variant="default"
+                variant="secondary"
                 size="icon"
                 disabled={isIndividualPlayerActive && !isPlayAllPlayerActive}
                 onPress={() => {
@@ -1810,7 +1810,7 @@ export default function NextGenAssetsView() {
                 <Icon
                   as={PlayIcon}
                   size={16}
-                  className="text-primary-foreground"
+                  className="text-secondary-foreground"
                 />
               </Button>
             )}
