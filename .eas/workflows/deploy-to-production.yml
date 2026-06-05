@@ -90,29 +90,17 @@ jobs:
     name: Publish Android update
     needs: [get_android_build]
     if: ${{ needs.get_android_build.outputs.build_id }}
+    type: update
     environment: production
-    env:
-      POSTHOG_CLI_PROJECT_ID: ${{ env.POSTHOG_CLI_PROJECT_ID }}
-      POSTHOG_CLI_API_KEY: ${{ env.POSTHOG_CLI_API_KEY }}
-    steps:
-      - uses: eas/checkout
-      - uses: eas/install_node_modules
-      - name: Publish OTA update
-        run: eas update --branch production --platform android --non-interactive
-      - name: Upload PostHog source maps
-        run: npm run posthog:upload-sourcemaps
+    params:
+      branch: production
+      platform: android
   publish_ios_update:
     name: Publish iOS update
     needs: [get_ios_build]
     if: ${{ needs.get_ios_build.outputs.build_id }}
+    type: update
     environment: production
-    env:
-      POSTHOG_CLI_PROJECT_ID: ${{ env.POSTHOG_CLI_PROJECT_ID }}
-      POSTHOG_CLI_API_KEY: ${{ env.POSTHOG_CLI_API_KEY }}
-    steps:
-      - uses: eas/checkout
-      - uses: eas/install_node_modules
-      - name: Publish OTA update
-        run: eas update --branch production --platform ios --non-interactive
-      - name: Upload PostHog source maps
-        run: npm run posthog:upload-sourcemaps
+    params:
+      branch: production
+      platform: ios
