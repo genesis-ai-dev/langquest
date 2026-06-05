@@ -335,6 +335,7 @@ export interface LocalState {
   /** Per-project invite rows hidden from the membership modal Invited list (local only). */
   dismissedInvitedRows: Record<string, string[]>;
   dismissInvitedRow: (projectId: string, inviteId: string) => void;
+  undismissInvitedRow: (projectId: string, inviteId: string) => void;
 
   /**
    * Ephemeral "NEW" labels for translation/transcription cards in asset detail.
@@ -788,6 +789,19 @@ export const useLocalStore = create<LocalState>()(
               [projectId]: [...existing, inviteId]
             }
           };
+        }),
+      undismissInvitedRow: (projectId, inviteId) =>
+        set((state) => {
+          const existing = state.dismissedInvitedRows[projectId];
+          if (!existing?.includes(inviteId)) return state;
+          const nextIds = existing.filter((id) => id !== inviteId);
+          const nextDismissed = { ...state.dismissedInvitedRows };
+          if (nextIds.length === 0) {
+            delete nextDismissed[projectId];
+          } else {
+            nextDismissed[projectId] = nextIds;
+          }
+          return { dismissedInvitedRows: nextDismissed };
         }),
 
       newChildAssetsInDetailView: {},

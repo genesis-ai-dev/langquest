@@ -427,11 +427,17 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
       state.dismissedInvitedRows[projectId] ?? EMPTY_DISMISSED_INVITE_IDS
   );
   const dismissInvitedRow = useLocalStore((state) => state.dismissInvitedRow);
+  const undismissInvitedRow = useLocalStore((state) => state.undismissInvitedRow);
 
   const visibleInvitations = React.useMemo(() => {
     if (dismissedInvitedRowIds.length === 0) return invitations;
     const hidden = new Set(dismissedInvitedRowIds);
-    return invitations.filter((inv) => !hidden.has(inv.id));
+    return invitations.filter(
+      (inv) =>
+        !hidden.has(inv.id) ||
+        // Re-invited rows reuse the same id; show again once active.
+        inv.status === 'pending'
+    );
   }, [invitations, dismissedInvitedRowIds]);
 
   const senderProfileIds = React.useMemo(() => {
@@ -821,6 +827,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
       return;
     }
 
+    undismissInvitedRow(projectId, inviteId);
     RNAlert.alert(t('success'), t('invitationResent'));
   };
 
@@ -1160,6 +1167,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
             return false;
           }
 
+          undismissInvitedRow(projectId, existingInvite.id);
           RNAlert.alert(t('success'), t('invitationResent'));
           setIsSubmitting(false);
           return true;
