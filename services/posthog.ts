@@ -2,7 +2,7 @@ import { useLocalStore } from '@/store/localStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Device from 'expo-device';
 import * as Updates from 'expo-updates';
-import PostHog from 'posthog-react-native';
+import PostHog, { PostHogOptions } from 'posthog-react-native';
 
 function isPostHogDisabled() {
   return (
@@ -11,6 +11,14 @@ function isPostHogDisabled() {
     !process.env.EXPO_PUBLIC_POSTHOG_KEY
   );
 }
+
+const posthogErrorTracking = {
+  autocapture: {
+    uncaughtExceptions: true,
+    unhandledRejections: true,
+    console: ['error', 'warn']
+  }
+} satisfies PostHogOptions['errorTracking'];
 
 // Simple initialization without circular dependency
 const createPostHogInstance = (optIn = false) => {
@@ -21,6 +29,7 @@ const createPostHogInstance = (optIn = false) => {
       maskAllImages: false,
       maskAllTextInputs: true
     },
+    errorTracking: posthogErrorTracking,
     enablePersistSessionIdAcrossRestart: true,
     defaultOptIn: optIn,
     disabled: isPostHogDisabled(),
