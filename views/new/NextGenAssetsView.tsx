@@ -1348,12 +1348,16 @@ export default function NextGenAssetsView() {
     }
 
     setShowPlayAllControls(true);
-    await togglePlayAll({ playlist });
+    await togglePlayAll({
+      playlist,
+      playlistKey: questId ? `nextgen-assets:${questId}` : undefined
+    });
   }, [
     assets,
     audioContext,
     getAssetAudioUris,
     isIndividualPlayerActive,
+    questId,
     selectedAssetIds,
     togglePlayAll
   ]);
@@ -1864,6 +1868,7 @@ export default function NextGenAssetsView() {
                     setShowPlayAllControls(false);
                     return;
                   }
+                  playbackCheckpoint.clearPlayAllCheckpoint();
                   void handlePlayAll();
                 }}
                 className="h-10 w-10 flex-row items-center rounded-full bg-primary"

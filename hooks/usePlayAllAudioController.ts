@@ -82,7 +82,7 @@ type PlayAllJumpTarget = {
 
 const DEFAULT_SEEK_STEP_MS = 5000;
 const SEEK_DEBOUNCE_MS = 500;
-const PLAYER_LOAD_TIMEOUT_MS = 2500;
+const PLAYER_LOAD_TIMEOUT_MS = 5000;
 const PLAYER_LOAD_POLL_INTERVAL_MS = 20;
 /** Tolerance when inferring segment end from position (iOS can miss didJustFinish). */
 const SEGMENT_END_TOLERANCE_SECONDS = 0.25;
@@ -95,7 +95,14 @@ async function ensureAudioPlaybackMode(): Promise<void> {
   });
 }
 
-function isSegmentPlaybackComplete(status: PlaybackStatus): boolean {
+function isSegmentPlaybackComplete(
+  status: PlaybackStatus,
+  hasStartedPlaying: boolean
+): boolean {
+  if (!hasStartedPlaying) {
+    return false;
+  }
+
   if (status.didJustFinish) {
     return true;
   }
@@ -113,6 +120,23 @@ function isSegmentPlaybackComplete(status: PlaybackStatus): boolean {
   }
 
   return false;
+}
+
+async function resolvePlaylistUris(
+  playlist: PlayAllPlaylistItem[]
+): Promise<PlayAllPlaylistItem[]> {
+  const resolved: PlayAllPlaylistItem[] = [];
+  for (const item of playlist) {
+    const uris: string[] = [];
+    for (const uri of item.uris) {
+      if (!uri) {
+        continue;
+      }
+      uris.push(await getCachedAudioUri(uri));
+    }
+    resolved.push({ ...item, uris });
+  }
+  return resolved;
 }
 
 export function usePlayAllAudioController({
@@ -642,6 +666,8 @@ export function usePlayAllAudioController({
 
       try {
         await ensureAudioPlaybackMode();
+        const resolvedPlaylist = await resolvePlaylistUris(playlist);
+        currentPlaylistRef.current = resolvedPlaylist;
 
         const waitForPlayerLoaded = async (player: AudioPlayer) => {
           return await new Promise<boolean>((resolve) => {
@@ -666,70 +692,19 @@ export function usePlayAllAudioController({
           });
         };
 
-        const preloadItemDurations = async (
-          item: PlayAllPlaylistItem,
-          itemIndex: number
-        ) => {
-          const cachedDurations =
-            itemSegmentDurationsRef.current.get(itemIndex);
-          if (
-            cachedDurations &&
-            cachedDurations.length === item.uris.length &&
-            cachedDurations.every((duration) => duration > 0)
-          ) {
-            return;
-          }
-
-          const resolvedDurations = new Array<number>(item.uris.length).fill(0);
-          for (let idx = 0; idx < item.uris.length; idx++) {
-            const uri = item.uris[idx];
-            if (!uri) {
-              continue;
-            }
-            let tempPlayer: AudioPlayer | null = null;
-            try {
-              const resolvedUri = await getCachedAudioUri(uri);
-              tempPlayer = createAudioPlayer(resolvedUri, {
-                keepAudioSessionActive: true
-              });
-              const isLoaded = await waitForPlayerLoaded(tempPlayer);
-              if (isLoaded && tempPlayer.isLoaded && tempPlayer.duration > 0) {
-                const durationMs = tempPlayer.duration * 1000;
-                resolvedDurations[idx] = durationMs;
-                segmentDurationMsMapRef.current.set(
-                  `${itemIndex}:${idx}`,
-                  durationMs
-                );
-              }
-            } catch {
-              // Ignore preload failure, runtime playback status can still fill duration.
-            } finally {
-              try {
-                tempPlayer?.release();
-              } catch {
-                // Ignore release failures for temporary preloading players.
-              }
-            }
-          }
-
-          itemSegmentDurationsRef.current.set(itemIndex, resolvedDurations);
-        };
-
         for (
           let itemIndex = resolvedStartItemIndex;
-          itemIndex < playlist.length;
+          itemIndex < resolvedPlaylist.length;
         ) {
           if (!isPlayAllRunningRef.current) {
             stopPlayAll('cancelled');
             return;
           }
 
-          const item = playlist[itemIndex];
+          const item = resolvedPlaylist[itemIndex];
           if (!item || item.uris.length === 0) {
             continue;
           }
-
-          void preloadItemDurations(item, itemIndex);
 
           notifyCurrentAssetChange({
             assetId: item.assetId,
@@ -809,17 +784,21 @@ export function usePlayAllAudioController({
 
               void (async () => {
                 try {
-                  const resolvedUri = await getCachedAudioUri(uri);
-                  const player = createAudioPlayer(resolvedUri, {
+                  const player = createAudioPlayer(uri, {
                     updateInterval: 100,
                     keepAudioSessionActive: true
                   });
                   currentPlayerRef.current = player;
                   let segmentCompletionHandled = false;
+                  let segmentHasStartedPlaying = false;
 
                   const handleSegmentPlaybackStatus = (
                     playbackStatus: PlaybackStatus
                   ) => {
+                    if (playbackStatus.playing) {
+                      segmentHasStartedPlaying = true;
+                    }
+
                     lastStatusItemIndexRef.current = itemIndex;
                     lastStatusUriIndexRef.current = uriIndex;
                     const statusCurrentTimeMs =
@@ -878,7 +857,7 @@ export function usePlayAllAudioController({
                       item,
                       itemIndex,
                       uriIndex,
-                      playlistLength: playlist.length,
+                      playlistLength: resolvedPlaylist.length,
                       assetPositionMs,
                       assetDurationMs
                     });
@@ -892,7 +871,12 @@ export function usePlayAllAudioController({
                       });
                     }
 
-                    if (!isSegmentPlaybackComplete(playbackStatus)) {
+                    if (
+                      !isSegmentPlaybackComplete(
+                        playbackStatus,
+                        segmentHasStartedPlaying
+                      )
+                    ) {
                       return;
                     }
 
@@ -907,7 +891,7 @@ export function usePlayAllAudioController({
                       : itemIndex;
                     const nextUriIndex = isLastUriInItem ? 0 : uriIndex + 1;
 
-                    if (nextItemIndex < playlist.length) {
+                    if (nextItemIndex < resolvedPlaylist.length) {
                       checkpointStore.savePlayAllCheckpoint(
                         {
                           playlistKey: effectivePlaylistKey,
@@ -932,8 +916,10 @@ export function usePlayAllAudioController({
                     }
                   );
 
+                  player.play();
+
                   const isLoaded = await waitForPlayerLoaded(player);
-                  if (!isLoaded) {
+                  if (!isLoaded && !player.isLoaded) {
                     console.warn(
                       '[PlayAll] Segment failed to load before playback:',
                       uri.slice(0, 80)
@@ -943,7 +929,9 @@ export function usePlayAllAudioController({
                     return;
                   }
 
-                  player.play();
+                  if (!segmentHasStartedPlaying && !player.playing) {
+                    player.play();
+                  }
 
                   if (resumePositionMs > 0) {
                     const seekInterval = setInterval(() => {
@@ -961,9 +949,11 @@ export function usePlayAllAudioController({
                     seekTimeoutIdsRef.current.add(seekTimeoutId);
                   }
 
-                  handleSegmentPlaybackStatus(
-                    player.currentStatus as PlaybackStatus
-                  );
+                  if (player.isLoaded) {
+                    handleSegmentPlaybackStatus(
+                      player.currentStatus as PlaybackStatus
+                    );
+                  }
                 } catch {
                   releaseCurrentPlayer();
                   settle();
@@ -977,7 +967,7 @@ export function usePlayAllAudioController({
               shouldUseInitialCheckpoint = false;
               itemIndex = Math.max(
                 0,
-                Math.min(jumpTarget.itemIndex, playlist.length - 1)
+                Math.min(jumpTarget.itemIndex, resolvedPlaylist.length - 1)
               );
               jumpedToAnotherItem = true;
               break;

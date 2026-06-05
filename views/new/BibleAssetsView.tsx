@@ -3568,13 +3568,17 @@ export default function BibleAssetsView() {
         await audioContext.stopCurrentSound();
       }
 
-      await togglePlayAll({ playlist });
+      await togglePlayAll({
+        playlist,
+        playlistKey: questId ? `bible-assets:${questId}` : undefined
+      });
     },
     [
       assets,
       audioContext,
       getAssetAudioUris,
       isIndividualPlayerActive,
+      questId,
       selectedAssetIds,
       togglePlayAll
     ]
@@ -4206,6 +4210,7 @@ export default function BibleAssetsView() {
                   return;
                 }
                 if (!isPlayAllRunning) {
+                  playbackCheckpoint.clearPlayAllCheckpoint();
                   setShowPlayAllControls(true);
                   void handlePlayAll(selectedForRecording);
                 }
