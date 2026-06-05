@@ -162,7 +162,8 @@ export default ({ config }: ConfigContext): ExpoConfig =>
       'expo-dev-client',
       'expo-sharing',
       'expo-sqlite',
-      ['testflight-dev-deploy', { enabled: appVariant === 'development' }]
+      ['testflight-dev-deploy', { enabled: appVariant === 'development' }],
+      'posthog-react-native/expo'
     ],
     experiments: {
       typedRoutes: true,

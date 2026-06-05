@@ -19,7 +19,12 @@ function createPostHogInstance(optIn = false) {
   try {
     posthog.init(process.env.EXPO_PUBLIC_POSTHOG_KEY ?? 'phc_', {
       api_host: `${process.env.EXPO_PUBLIC_POSTHOG_HOST}/relay-Mx9k`,
-      opt_out_capturing_by_default: isDisabled()
+      opt_out_capturing_by_default: isDisabled(),
+      capture_exceptions: {
+        capture_unhandled_errors: true,
+        capture_unhandled_rejections: true,
+        capture_console_errors: true
+      }
     });
 
     if (optIn) {
