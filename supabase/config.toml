@@ -323,6 +323,7 @@ policy = "oneshot"
 inspector_port = 8083
 
 [edge_runtime.secrets]
+AUTH_SITE_URL = "env(AUTH_SITE_URL)"
 SEND_EMAIL_HOOK_SECRET = "env(SEND_EMAIL_HOOK_SECRET)"
 RESEND_API_KEY = "env(RESEND_API_KEY)"
 RESEND_WEBHOOK_SECRET = "env(RESEND_WEBHOOK_SECRET)"
