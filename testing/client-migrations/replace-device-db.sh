@@ -2,9 +2,10 @@
 
 # Script to find and replace the SQLite database in iOS Simulator or Android Emulator
 # Auto-detects platform and uses appropriate commands
-# Usage: ./testing/client-migrations/replace-device-db.sh [test-db-file] [platform]
+# Usage: ./testing/client-migrations/replace-device-db.sh [test-db-file] [platform] [--keep-storage]
 #   platform: Optional override ("ios" or "android"). If not provided, auto-detects.
 #             iOS is checked first, then Android if iOS not available.
+#   --keep-storage: Replace sqlite.db only; do not clear AsyncStorage / local prefs.
 
 set -e
 
@@ -17,6 +18,12 @@ NC='\033[0m' # No Color
 # Parse arguments
 TEST_DB="${1:-testing/client-migrations/1.0-test.db}"
 PLATFORM_OVERRIDE="${2:-}"  # Optional platform override
+KEEP_STORAGE=false
+for arg in "$@"; do
+    if [ "$arg" = "--keep-storage" ]; then
+        KEEP_STORAGE=true
+    fi
+done
 BASE_BUNDLE_ID="com.etengenesis.langquest"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Go up two levels: testing/client-migrations -> testing -> project root
@@ -195,7 +202,10 @@ if [ "$PLATFORM" = "ios" ]; then
     echo -e "${GREEN}✓ Database replaced successfully!${NC}"
     echo -e "${GREEN}Database location: $DB_PATH${NC}"
     
-    # Clear degraded mode keys from AsyncStorage
+    # Clear degraded mode keys from AsyncStorage (optional)
+    if [ "$KEEP_STORAGE" = true ]; then
+        echo -e "${YELLOW}Keeping AsyncStorage / local storage (--keep-storage)${NC}"
+    else
     echo -e "${YELLOW}Clearing degraded mode keys from AsyncStorage...${NC}"
     APP_SUPPORT_DIR="$DB_DIR/../Application Support/$APP_BUNDLE_ID"
     ASYNC_STORAGE_V1="$APP_SUPPORT_DIR/RCTAsyncLocalStorage_V1"
@@ -228,6 +238,7 @@ if [ "$PLATFORM" = "ios" ]; then
         echo -e "${YELLOW}AsyncStorage directory not found (may not exist yet, which is fine)${NC}"
     else
         echo -e "${GREEN}✓ Degraded mode keys cleared from AsyncStorage${NC}"
+    fi
     fi
 
 elif [ "$PLATFORM" = "android" ]; then
@@ -381,7 +392,10 @@ elif [ "$PLATFORM" = "android" ]; then
     echo -e "${GREEN}✓ Database replaced successfully!${NC}"
     echo -e "${GREEN}Database location: $DB_PATH${NC}"
     
-    # Clear degraded mode keys from AsyncStorage
+    # Clear degraded mode keys from AsyncStorage (optional)
+    if [ "$KEEP_STORAGE" = true ]; then
+        echo -e "${YELLOW}Keeping AsyncStorage / local storage (--keep-storage)${NC}"
+    else
     echo -e "${YELLOW}Clearing degraded mode keys from AsyncStorage...${NC}"
     
     # AsyncStorage on Android is typically stored in files/AsyncStorage/ directory (RocksDB)
@@ -409,5 +423,6 @@ elif [ "$PLATFORM" = "android" ]; then
     adb shell "rm -f $ASYNC_PREFS_FILE $ASYNC_PREFS_FILE2" 2>/dev/null || true
     
     echo -e "${GREEN}✓ Degraded mode keys cleared from AsyncStorage${NC}"
+    fi
 fi
 
