@@ -1,23 +1,29 @@
 import {
   Body,
+  Column,
   Container,
   Head,
   Heading,
   Html,
+  Img,
   Link,
   Preview,
+  Row,
   Tailwind,
   Text
 } from '@react-email/components';
+import { UrlCopyBox } from '../_components/url-copy-box.tsx';
 
-interface ResetPasswordProps {
+export interface ResetPasswordProps {
   confirmation_url: string;
   locale?: string;
+  logoUrl?: string;
 }
 
 export const ResetPassword = ({
   confirmation_url,
-  locale = 'en'
+  locale = 'en',
+  logoUrl = 'https://langquest.org/langquest-logo-light.png'
 }: ResetPasswordProps) => {
   // Translations
   const translations = {
@@ -156,31 +162,65 @@ export const ResetPassword = ({
       <Head />
       <Preview>{t.preview}</Preview>
       <Tailwind>
-        <Body className="bg-white">
-          <Container className="mx-auto px-3">
-            <Heading className="my-10 text-2xl font-bold text-gray-800">
+        <Body className="bg-[#fbfbfb] font-sans">
+          <Container className="mx-auto my-10 max-w-[602px] overflow-hidden rounded-lg border border-solid border-[#e5e7eb] bg-white px-8 py-8">
+            <Row className="mb-6">
+              <Column className="w-[32px] align-middle">
+                <Img
+                  src={logoUrl}
+                  width={32}
+                  height={32}
+                  alt="LangQuest"
+                  className="block rounded-lg"
+                />
+              </Column>
+              <Column className="pl-1 align-middle">
+                <Text className="m-0 text-[15px] leading-none text-[#111827]">
+                  LangQuest
+                </Text>
+              </Column>
+            </Row>
+
+            <Heading className="m-0 mb-8 text-2xl leading-[1.3] font-semibold tracking-[-0.3px] text-[#111827]">
               {t.title}
             </Heading>
-            <Text className="my-6 text-sm text-gray-800">{t.greeting}</Text>
-            <Text className="my-6 text-sm text-gray-800">{t.description}</Text>
-            <Text className="my-6 text-sm text-gray-800">{t.instruction}</Text>
+
+            <Text className="m-0 mb-4 text-[15px] leading-[1.5] text-[#3c4149]">
+              {t.greeting}
+            </Text>
+            <Text className="m-0 mb-4 text-[15px] leading-[1.5] text-[#3c4149]">
+              {t.description}
+            </Text>
+            <Text className="m-0 mb-6 text-[15px] leading-[1.5] text-[#3c4149]">
+              {t.instruction}
+            </Text>
+
             <Link
               href={confirmation_url}
               target="_blank"
-              className="mb-4 inline-block rounded bg-green-500 px-5 py-3.5 text-center text-sm text-white no-underline"
+              className="mb-6 inline-block rounded bg-[#6D55CE] px-5 py-3 text-center text-[15px] font-medium text-white no-underline"
             >
               {t.button}
             </Link>
-            <Text className="mb-3.5 text-sm text-gray-800">{t.orCopy}</Text>
-            <Text className="inline-block w-[90.5%] break-all rounded border border-gray-200 bg-gray-100 p-4 font-mono text-sm text-gray-800">
-              {confirmation_url}
+
+            <Text className="m-0 mb-4 text-[15px] leading-[1.5] text-[#3c4149]">
+              {t.orCopy}
             </Text>
-            <Text className="mt-3.5 text-sm text-gray-400">{t.expiry}</Text>
+            <UrlCopyBox url={confirmation_url} />
+
+            <Text className="m-0 text-[15px] leading-[1.5] text-[#6b7280]">
+              {t.expiry}
+            </Text>
           </Container>
         </Body>
       </Tailwind>
     </Html>
   );
 };
+
+ResetPassword.PreviewProps = {
+  confirmation_url: 'https://langquest.org/auth/reset?token=example',
+  locale: 'en'
+} satisfies ResetPasswordProps;
 
 export default ResetPassword;
