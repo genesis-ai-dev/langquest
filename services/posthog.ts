@@ -1,3 +1,4 @@
+import { hasAcceptedCurrentPrivacyPolicyVersion } from '@/constants/legalVersions';
 import { useLocalStore } from '@/store/localStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Device from 'expo-device';
@@ -44,8 +45,15 @@ let pendingPostHogUserId: string | null = null;
 let lastIdentifiedPostHogUserId: string | null = null;
 
 function getAnalyticsOptIn() {
-  const { dateTermsAccepted, analyticsOptOut } = useLocalStore.getState();
-  return !analyticsOptOut && !!dateTermsAccepted;
+  const { dateTermsAccepted, acceptedPrivacyPolicyVersion, analyticsOptOut } =
+    useLocalStore.getState();
+  return (
+    !analyticsOptOut &&
+    hasAcceptedCurrentPrivacyPolicyVersion(
+      dateTermsAccepted,
+      acceptedPrivacyPolicyVersion
+    )
+  );
 }
 
 /**
@@ -131,27 +139,47 @@ const setDeviceInfo = async () => {
 // Function to update PostHog settings once store is available
 // This will be called from the app initialization, not during module import
 export const initializePostHogWithStore = () => {
-  const { dateTermsAccepted, analyticsOptOut } = useLocalStore.getState();
+  const { dateTermsAccepted, acceptedPrivacyPolicyVersion, analyticsOptOut } =
+    useLocalStore.getState();
   try {
     // Update PostHog opt-in status based on store
-    const shouldOptIn = !analyticsOptOut && !!dateTermsAccepted;
+    const shouldOptIn =
+      !analyticsOptOut &&
+      hasAcceptedCurrentPrivacyPolicyVersion(
+        dateTermsAccepted,
+        acceptedPrivacyPolicyVersion
+      );
 
     void changeAnalyticsState(shouldOptIn);
 
     // Subscribe to future changes
     let previousOptOut = analyticsOptOut;
     let previousTermsDate = dateTermsAccepted;
+    let previousPrivacyPolicyVersion = acceptedPrivacyPolicyVersion;
 
     const unsubscribe = useLocalStore.subscribe((state) => {
-      const { analyticsOptOut: newOptOut, dateTermsAccepted: newTermsDate } =
-        state;
+      const {
+        analyticsOptOut: newOptOut,
+        dateTermsAccepted: newTermsDate,
+        acceptedPrivacyPolicyVersion: newPrivacyPolicyVersion
+      } = state;
 
       // Only update if the relevant values actually changed
-      if (newOptOut !== previousOptOut || newTermsDate !== previousTermsDate) {
+      if (
+        newOptOut !== previousOptOut ||
+        newTermsDate !== previousTermsDate ||
+        newPrivacyPolicyVersion !== previousPrivacyPolicyVersion
+      ) {
         previousOptOut = newOptOut;
         previousTermsDate = newTermsDate;
+        previousPrivacyPolicyVersion = newPrivacyPolicyVersion;
 
-        const newShouldOptIn = !newOptOut && !!newTermsDate;
+        const newShouldOptIn =
+          !newOptOut &&
+          hasAcceptedCurrentPrivacyPolicyVersion(
+            newTermsDate,
+            newPrivacyPolicyVersion
+          );
         void changeAnalyticsState(newShouldOptIn);
       }
     });

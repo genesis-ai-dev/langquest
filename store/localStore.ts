@@ -1,3 +1,7 @@
+import {
+  CURRENT_LEGAL_VERSION,
+  LEGACY_LEGAL_VERSION
+} from '@/constants/legalVersions';
 import type { language, profile } from '@/db/drizzleSchema';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colorScheme } from 'nativewind';
@@ -129,6 +133,8 @@ export interface LocalState {
   uiLanguage: Language | null;
   savedLanguage: Language | null;
   dateTermsAccepted: Date | null;
+  acceptedPrivacyPolicyVersion: string | null;
+  analyticsConsentAt: Date | null;
   analyticsOptOut: boolean;
   projectSourceFilter: string;
   projectTargetFilter: string;
@@ -249,6 +255,7 @@ export interface LocalState {
   setProjectSourceFilter: (filter: string) => void;
   setProjectTargetFilter: (filter: string) => void;
   setAnalyticsOptOut: (optOut: boolean) => void;
+  setAnalyticsConsent: (optIn: boolean) => void;
   acceptTerms: () => void;
   setUILanguage: (lang: Language) => void;
   setSavedLanguage: (lang: Language) => void;
@@ -360,7 +367,9 @@ export const useLocalStore = create<LocalState>()(
       uiLanguage: null,
       savedLanguage: null,
       dateTermsAccepted: null,
-      analyticsOptOut: false,
+      acceptedPrivacyPolicyVersion: null,
+      analyticsConsentAt: null,
+      analyticsOptOut: true,
       theme: 'system',
 
       // App settings (defaults)
@@ -461,6 +470,11 @@ export const useLocalStore = create<LocalState>()(
       setOnboardingIsOpen: (isOpen) => set({ onboardingIsOpen: isOpen }),
 
       setAnalyticsOptOut: (optOut) => set({ analyticsOptOut: optOut }),
+      setAnalyticsConsent: (optIn) =>
+        set({
+          analyticsConsentAt: new Date(),
+          analyticsOptOut: !optIn
+        }),
       setTheme: (theme) => {
         set({ theme });
         // Only set colorScheme if NativeWind is initialized and theme is not 'system'
@@ -471,7 +485,11 @@ export const useLocalStore = create<LocalState>()(
       },
       setUILanguage: (lang) => set({ uiLanguage: lang }),
       setSavedLanguage: (lang) => set({ savedLanguage: lang }),
-      acceptTerms: () => set({ dateTermsAccepted: new Date() }),
+      acceptTerms: () =>
+        set({
+          dateTermsAccepted: new Date(),
+          acceptedPrivacyPolicyVersion: CURRENT_LEGAL_VERSION
+        }),
       projectSourceFilter: 'All',
       projectTargetFilter: 'All',
       setProjectSourceFilter: (filter) => set({ projectSourceFilter: filter }),
@@ -827,9 +845,9 @@ export const useLocalStore = create<LocalState>()(
     }),
     {
       name: 'local-store',
-      version: 1,
+      version: 2,
       storage: createJSONStorage(() => AsyncStorage),
-      migrate: (persistedState) => {
+      migrate: (persistedState, version) => {
         const state = persistedState as Record<string, unknown>;
         if (
           'enableLanguoidLinkSuggestions' in state ||
@@ -846,11 +864,24 @@ export const useLocalStore = create<LocalState>()(
             state.fiaAttachmentQueue
           );
         }
+        if (version < 2) {
+          state.analyticsOptOut = true;
+        }
+        if ('acceptedLegalVersion' in state) {
+          state.acceptedPrivacyPolicyVersion = state.acceptedLegalVersion;
+          delete state.acceptedLegalVersion;
+        }
         return persistedState as LocalState;
       },
       onRehydrateStorage: () => async (state) => {
         console.log('rehydrating local store', state);
         if (state) {
+          if (state.dateTermsAccepted && !state.acceptedPrivacyPolicyVersion) {
+            useLocalStore.setState({
+              acceptedPrivacyPolicyVersion: LEGACY_LEGAL_VERSION
+            });
+          }
+
           const sanitizedQueue = sanitizeFiaAttachmentQueue(
             state.fiaAttachmentQueue
           );

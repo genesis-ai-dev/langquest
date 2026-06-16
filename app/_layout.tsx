@@ -8,6 +8,8 @@ import { UpdateBanner } from '@/components/UpdateBanner';
 import { AudioProvider } from '@/contexts/AudioContext';
 import { AuthProvider } from '@/contexts/AuthContext';
 import PostHogProvider from '@/contexts/PostHogProvider';
+import { AnalyticsConsentGate } from '@/components/AnalyticsConsentGate';
+import { LegalUpdateGate } from '@/components/LegalUpdateGate';
 import { system } from '@/db/powersync/system';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useExpoDb } from '@/hooks/useExpoDb';
@@ -35,10 +37,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { cssTokens } from '@/generated-tokens';
 import { useDrizzleStudio } from '@/hooks/useDrizzleStudio';
 import { initializePostHogWithStore } from '@/services/posthog';
-import { useHasHydrated, useLocalStore } from '@/store/localStore';
+import { useHasHydrated } from '@/store/localStore';
 import { initializeNetwork } from '@/store/networkStore';
 import { toNavTheme } from '@/utils/styleUtils';
-import { TermsGateView } from '@/views/TermsGateView';
 import { DarkTheme, DefaultTheme } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 
@@ -79,6 +80,31 @@ export const FORM_SHEET_OPTIONS = {
   presentation: 'formSheet',
   sheetCornerRadius: Platform.OS === 'android' ? 24 : undefined
 } as const;
+
+/**
+ * Legal/analytics gates only run when the app is ready for normal use.
+ * Migration and upgrade screens must block these gates entirely.
+ */
+function GatedAppContent() {
+  const { isLoading, isAuthenticated, migrationNeeded, appUpgradeNeeded } =
+    useAuth();
+
+  const needsMigration = isAuthenticated && !!migrationNeeded;
+  const needsUpgrade = isAuthenticated && !!appUpgradeNeeded;
+  const appReady = !needsMigration && !needsUpgrade && !isLoading;
+
+  const navigator = <RootNavigator />;
+
+  if (!appReady) {
+    return navigator;
+  }
+
+  return (
+    <LegalUpdateGate>
+      <AnalyticsConsentGate>{navigator}</AnalyticsConsentGate>
+    </LegalUpdateGate>
+  );
+}
 
 /**
  * Root navigator with Stack.Protected guards.
@@ -200,7 +226,12 @@ export default function RootLayout() {
   }, []);
 
   const hasHydrated = useHasHydrated();
-  const termsAccepted = useLocalStore((s) => !!s.dateTermsAccepted);
+
+  useEffect(() => {
+    if (isColorSchemeLoaded && fontsLoaded && hasHydrated) {
+      void SplashScreen.hideAsync();
+    }
+  }, [isColorSchemeLoaded, fontsLoaded, hasHydrated]);
 
   if (!isColorSchemeLoaded || !fontsLoaded || !hasHydrated) {
     return null;
@@ -208,14 +239,6 @@ export default function RootLayout() {
 
   const scheme: 'light' | 'dark' = colorScheme === 'dark' ? 'dark' : 'light';
   const systemBarsStyle = scheme === 'dark' ? 'light' : 'dark';
-
-  if (!termsAccepted) {
-    return (
-      <ThemeProvider value={NAV_THEME[scheme]}>
-        <TermsGateView systemBarsStyle={systemBarsStyle} />
-      </ThemeProvider>
-    );
-  }
 
   return (
     <PowerSyncContext.Provider value={system.powersync}>
@@ -232,7 +255,7 @@ export default function RootLayout() {
                         <UpdateBanner />
                         <BottomSheetModalProvider>
                           <ThemeProvider value={NAV_THEME[scheme]}>
-                            <RootNavigator />
+                            <GatedAppContent />
                             <PortalHost />
                           </ThemeProvider>
                         </BottomSheetModalProvider>

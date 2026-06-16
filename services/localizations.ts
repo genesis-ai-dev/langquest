@@ -3037,6 +3037,171 @@ export const localizations = {
     thai: 'ข้อกำหนดและความเป็นส่วนตัว',
     mandarin: '条款和隐私'
   },
+  legalUpdateTitle: {
+    english: "We've updated our legal documents",
+    french: 'Nous avons mis à jour nos documents juridiques',
+    spanish: 'Hemos actualizado nuestros documentos legales',
+    brazilian_portuguese: 'Atualizamos nossos documentos legais',
+    tok_pisin: 'Mipela update ol legal document',
+    indonesian: 'Kami memperbarui dokumen hukum kami',
+    nepali: 'हामीले हाम्रा कानूनी कागजातहरू अद्यावधिक गरेका छौं',
+    hindi: 'हमने अपने कानूनी दस्तावेज़ अपडेट किए हैं',
+    burmese:
+      'ကျွန်ုပ်တို့၏ ဥပဒေဆိုင်ရာ စာရွက်စာတမ်းများကို အပ်ဒိတ်လုပ်ထားပါသည်',
+    thai: 'เราได้อัปเดตเอกสารทางกฎหมายของเราแล้ว',
+    mandarin: '我们已更新法律文件'
+  },
+  legalUpdateAlertTitle: {
+    english: 'Privacy Policy update',
+    french: 'Mise à jour de la politique de confidentialité',
+    spanish: 'Actualización de la Política de privacidad',
+    brazilian_portuguese: 'Atualização da Política de Privacidade',
+    tok_pisin: 'Privacy Policy i bin update',
+    indonesian: 'Pembaruan Kebijakan Privasi',
+    nepali: 'गोपनीयता नीति अद्यावधिक',
+    hindi: 'गोपनीयता नीति अपडेट',
+    burmese: 'ကိုယ်ရေးလုံခြုံမှုမူဝါဒ အပ်ဒိတ်',
+    thai: 'อัปเดตนโยบายความเป็นส่วนตัว',
+    mandarin: '隐私政策更新'
+  },
+  legalUpdateIntro: {
+    english: 'Effective {effectiveDate}, our Privacy Policy has been updated.',
+    french:
+      'À compter du {effectiveDate}, notre politique de confidentialité a été mise à jour.',
+    spanish:
+      'A partir del {effectiveDate}, hemos actualizado nuestra Política de privacidad.',
+    brazilian_portuguese:
+      'A partir de {effectiveDate}, nossa Política de Privacidade foi atualizada.',
+    tok_pisin:
+      'Stat long {effectiveDate}, Privacy Policy bilong mipela i bin update.',
+    indonesian:
+      'Mulai {effectiveDate}, Kebijakan Privasi kami telah diperbarui.',
+    nepali:
+      '{effectiveDate} देखि लागू हुने गरी हाम्रो गोपनीयता नीति अद्यावधिक गरिएको छ।',
+    hindi: '{effectiveDate} से प्रभावी, हमारी गोपनीयता नीति अपडेट की गई है।',
+    burmese:
+      '{effectiveDate} မှစတင်၍ ကျွန်ုပ်တို့၏ ကိုယ်ရေးလုံခြုံမှုမူဝါဒကို အပ်ဒိတ်လုပ်ထားပါသည်။',
+    thai: 'มีผลตั้งแต่ {effectiveDate} เราได้อัปเดตนโยบายความเป็นส่วนตัวแล้ว',
+    mandarin: '自{effectiveDate}起，我们的隐私政策已更新。'
+  },
+  legalUpdateSummary: {
+    english:
+      'We updated our Privacy Policy to be clearer about optional usage analytics. Analytics are off by default, and turning them on is always your choice.',
+    french:
+      "Nous avons mis à jour notre politique de confidentialité pour clarifier les analyses d'utilisation facultatives. Les analyses sont désactivées par défaut, et vous choisissez toujours de les activer.",
+    spanish:
+      'Actualizamos nuestra Política de privacidad para aclarar el análisis de uso opcional. El análisis está desactivado por defecto y activarlo siempre es su elección.',
+    brazilian_portuguese:
+      'Atualizamos nossa Política de Privacidade para esclarecer a análise de uso opcional. A análise fica desativada por padrão, e ativá-la é sempre sua escolha.',
+    tok_pisin:
+      'Mipela update Privacy Policy bilong klia long optional analytics. Analytics i off long default, na yu yet i save makim taim yu laik onim.',
+    indonesian:
+      'Kami memperbarui Kebijakan Privasi agar lebih jelas tentang analitik penggunaan opsional. Analitik nonaktif secara default, dan mengaktifkannya selalu menjadi pilihan Anda.',
+    nepali:
+      'हामीले वैकल्पिक प्रयोग विश्लेषणबारे स्पष्ट पार्न गोपनीयता नीति अद्यावधिक गरेका छौं। विश्लेषण पूर्वनिर्धारित रूपमा बन्द हुन्छ, र सुचारु गर्नु सधैं तपाईंको छनोट हो।',
+    hindi:
+      'हमने वैकल्पिक उपयोग विश्लेषण के बारे में स्पष्टता के लिए अपनी गोपनीयता नीति अपडेट की है। विश्लेषण डिफ़ॉल्ट रूप से बंद है, और इसे चालू करना हमेशा आपका विकल्प है।',
+    burmese:
+      'ရွေးချယ်နိုင်သော analytics အကြောင်း ပိုရှင်းလင်းစေရန် ကျွန်ုပ်တို့၏ ကိုယ်ရေးလုံခြုံမှုမူဝါဒကို အပ်ဒိတ်လုပ်ထားသည်။ analytics သည် ပုံသေအားဖြင့် ပိတ်ထားပြီး ဖွင့်ခြင်းသည် သင့်ရွေးချယ်မှုသာ ဖြစ်သည်။',
+    thai: 'เราอัปเดตนโยบายความเป็นส่วนตัวเพื่อให้ชัดเจนขึ้นเกี่ยวกับการวิเคราะห์การใช้งานแบบเลือกได้ การวิเคราะห์ปิดอยู่โดยค่าเริ่มต้น และการเปิดใช้งานเป็นทางเลือกของคุณเสมอ',
+    mandarin:
+      '我们更新了隐私政策，以更清楚地说明可选的使用分析。分析默认关闭，是否开启始终由您选择。'
+  },
+  legalUpdateAnalytics: {
+    english:
+      'If you opt in while signed in, we may link usage to your account, use device or session identifiers, and record limited session replays. Text you type into forms is masked. You can change this anytime in Profile settings.',
+    french:
+      "Si vous optez pour l'activation lorsque vous êtes connecté, nous pouvons associer l'utilisation à votre compte, utiliser des identifiants d'appareil ou de session et enregistrer des relectures de session limitées. Le texte saisi dans les formulaires est masqué. Vous pouvez modifier ce choix à tout moment dans les paramètres du profil.",
+    spanish:
+      'Si opta por activarlo mientras ha iniciado sesión, podemos vincular el uso a su cuenta, usar identificadores de dispositivo o sesión y registrar repeticiones de sesión limitadas. El texto que escribe en formularios está enmascarado. Puede cambiar esto en cualquier momento en la configuración del perfil.',
+    brazilian_portuguese:
+      'Se você optar por ativar enquanto estiver conectado, podemos vincular o uso à sua conta, usar identificadores de dispositivo ou sessão e registrar replays de sessão limitados. O texto digitado em formulários é mascarado. Você pode alterar isso a qualquer momento nas configurações do perfil.',
+    tok_pisin:
+      'Sapos yu laik onim analytics na yu login, mipela inap joinim usage long account bilong yu, yusim device o session identifiers, na record liklik session replays. Text yu raite long forms i mask. Yu ken senisim dispela long wanem taim long Profile settings.',
+    indonesian:
+      'Jika Anda memilih untuk mengaktifkan saat masuk, kami dapat menautkan penggunaan ke akun Anda, menggunakan pengenal perangkat atau sesi, dan merekam replay sesi terbatas. Teks yang Anda ketik di formulir disamarkan. Anda dapat mengubah ini kapan saja di pengaturan Profil.',
+    nepali:
+      'साइन इन भएको बेला opt in गर्नुभयो भने, हामी प्रयोगलाई तपाईंको खातासँग जोड्न, उपकरण वा सत्र पहिचानकर्ता प्रयोग गर्न, र सीमित session replay रेकर्ड गर्न सक्छौं। फारममा टाइप गर्ने पाठ मास्क गरिन्छ। तपाईं प्रोफाइल सेटिङहरूमा जुनसुकै समय परिवर्तन गर्न सक्नुहुन्छ।',
+    hindi:
+      'साइन इन होने पर यदि आप ऑप्ट इन करते हैं, तो हम उपयोग को आपके खाते से जोड़ सकते हैं, डिवाइस या सत्र पहचानकर्ता उपयोग कर सकते हैं, और सीमित सत्र रीप्ले रिकॉर्ड कर सकते हैं। फ़ॉर्म में टाइप किया गया टेक्स्ट मास्क किया जाता है। आप प्रोफ़ाइल सेटिंग्स में कभी भी इसे बदल सकते हैं।',
+    burmese:
+      'sign in ထားပြီး opt in လုပ်ပါက အသုံးပြုမှုကို အကောင့်နှင့် ချိတ်ဆက်ပြီး device/session identifiers သုံးကာ session replay အကန့်အသတ်ဖြင့် မှတ်တမ်းတင်နိုင်သည်။ form ထဲရိုက်သော text ကို mask လုပ်ထားသည်။ profile settings တွင် မည်သည့်အချိန်မဆို ပြောင်းနိုင်သည်။',
+    thai: 'หากคุณเลือกเปิดใช้งานขณะลงชื่อเข้าใช้ เราอาจเชื่อมการใช้งานกับบัญชีของคุณ ใช้ตัวระบุอุปกรณ์หรือเซสชัน และบันทึก session replay แบบจำกัด ข้อความที่คุณพิมพ์ในฟอร์มจะถูกปิดบัง คุณสามารถเปลี่ยนได้ตลอดเวลาในการตั้งค่าโปรไฟล์',
+    mandarin:
+      '如果您在登录后选择启用，我们可能会将使用情况与您的账户关联，使用设备或会话标识符，并记录有限的会话回放。您在表单中输入的文字会被屏蔽。您可随时在个人资料设置中更改。'
+  },
+  legalUpdateAnalyticsNext: {
+    english:
+      'On the next screen, we will ask whether you want to enable optional analytics. Accepting this privacy update does not turn analytics on.',
+    french:
+      "À l'écran suivant, nous vous demanderons si vous souhaitez activer les analyses facultatives. Accepter cette mise à jour de confidentialité n'active pas les analyses.",
+    spanish:
+      'En la siguiente pantalla, le preguntaremos si desea habilitar el análisis opcional. Aceptar esta actualización de privacidad no activa el análisis.',
+    brazilian_portuguese:
+      'Na próxima tela, perguntaremos se você deseja ativar a análise opcional. Aceitar esta atualização de privacidade não ativa a análise.',
+    tok_pisin:
+      'Long narapela skrin, mipela bai askim yu laik onim optional analytics o nogat. Agri long dispela privacy update i no inap onim analytics.',
+    indonesian:
+      'Di layar berikutnya, kami akan menanyakan apakah Anda ingin mengaktifkan analitik opsional. Menerima pembaruan privasi ini tidak mengaktifkan analitik.',
+    nepali:
+      'अर्को स्क्रिनमा, हामी तपाईंलाई वैकल्पिक विश्लेषण सक्षम गर्न चाहनुहुन्छ कि भनेर सोध्नेछौं। यो गोपनीयता अद्यावधिक स्वीकार गर्दा विश्लेषण सुचारु हुँदैन।',
+    hindi:
+      'अगली स्क्रीन पर, हम पूछेंगे कि क्या आप वैकल्पिक विश्लेषण सक्षम करना चाहते हैं। इस गोपनीयता अपडेट को स्वीकार करने से विश्लेषण चालू नहीं होता।',
+    burmese:
+      'နောက်စာမျက်နှာတွင် optional analytics ဖွင့်လိုပါသလား ဟု မေးမည်ဖြစ်သည်။ ဤကိုယ်ရေးလုံခြုံမှု အပ်ဒိတ်ကို လက်ခံခြင်းသည် analytics ကို မဖွင့်ပါ။',
+    thai: 'ในหน้าถัดไป เราจะถามว่าคุณต้องการเปิดการวิเคราะห์แบบเลือกได้หรือไม่ การยอมรับการอัปเดตความเป็นส่วนตัวนี้ไม่ได้เปิดการวิเคราะห์',
+    mandarin:
+      '在下一屏，我们将询问您是否希望启用可选分析。接受此隐私更新不会开启分析。'
+  },
+  legalUpdateAcknowledgement: {
+    english:
+      'Please review the updated Privacy Policy below. By pressing {agreeButton}, you agree to the updated Privacy Policy.',
+    french:
+      'Veuillez consulter la politique de confidentialité mise à jour ci-dessous. En appuyant sur {agreeButton}, vous acceptez la politique de confidentialité mise à jour.',
+    spanish:
+      'Revise la Política de privacidad actualizada a continuación. Al pulsar {agreeButton}, acepta la Política de privacidad actualizada.',
+    brazilian_portuguese:
+      'Revise a Política de Privacidade atualizada abaixo. Ao pressionar {agreeButton}, você concorda com a Política de Privacidade atualizada.',
+    tok_pisin:
+      'Plis ritim update Privacy Policy aninit. Long paitim {agreeButton}, yu agri long update Privacy Policy.',
+    indonesian:
+      'Harap tinjau Kebijakan Privasi yang diperbarui di bawah. Dengan menekan {agreeButton}, Anda menyetujui Kebijakan Privasi yang diperbarui.',
+    nepali:
+      'कृपया तलको अद्यावधिक गोपनीयता नीति समीक्षा गर्नुहोस्। {agreeButton} थिचेर, तपाईं अद्यावधिक गोपनीयता नीतिमा सहमत हुनुहुन्छ।',
+    hindi:
+      'कृपया नीचे अपडेट की गई गोपनीयता नीति की समीक्षा करें। {agreeButton} दबाकर, आप अपडेट की गई गोपनीयता नीति से सहमत होते हैं।',
+    burmese:
+      'အောက်ပါ အပ်ဒိတ်လုပ်ထားသော ကိုယ်ရေးလုံခြုံမှုမူဝါဒကို ပြန်လည်ကြည့်ရှုပါ။ {agreeButton} ကို နှိပ်ခြင်းဖြင့် အပ်ဒိတ်လုပ်ထားသော ကိုယ်ရေးလုံခြုံမှုမူဝါဒကို သဘောတူပါသည်။',
+    thai: 'โปรดตรวจสอบนโยบายความเป็นส่วนตัวที่อัปเดตด้านล่าง การกด{agreeButton}ถือว่าคุณยอมรับนโยบายความเป็นส่วนตัวที่อัปเดตแล้ว',
+    mandarin:
+      '请查阅下方更新后的隐私政策。按下{agreeButton}即表示您同意更新后的隐私政策。'
+  },
+  legalUpdateAgree: {
+    english: 'I agree and continue',
+    french: "J'accepte et continue",
+    spanish: 'Acepto y continúo',
+    brazilian_portuguese: 'Concordo e continuo',
+    tok_pisin: 'Mi agri na go yet',
+    indonesian: 'Saya setuju dan lanjutkan',
+    nepali: 'म सहमत छु र जारी राख्छु',
+    hindi: 'मैं सहमत हूं और जारी रखता/रखती हूं',
+    burmese: 'သဘောတူပြီး ဆက်လက်အသုံးပြုမည်',
+    thai: 'ฉันยอมรับและดำเนินการต่อ',
+    mandarin: '我同意并继续'
+  },
+  viewPrivacyArchive: {
+    english: 'View archived Privacy Policies',
+    french: 'Voir les politiques de confidentialité archivées',
+    spanish: 'Ver políticas de privacidad archivadas',
+    brazilian_portuguese: 'Ver políticas de privacidade arquivadas',
+    tok_pisin: 'Lukim ol arkaiv Privacy Policy',
+    indonesian: 'Lihat arsip Kebijakan Privasi',
+    nepali: 'संग्रहित गोपनीयता नीतिहरू हेर्नुहोस्',
+    hindi: 'संग्रहीत गोपनीयता नीतियां देखें',
+    burmese: 'သိမ်းဆည်းထားသော ကိုယ်ရေးလုံခြုံမှုမူဝါဒများကို ကြည့်ရှုပါ',
+    thai: 'ดูนโยบายความเป็นส่วนตัวที่เก็บถาวร',
+    mandarin: '查看历史隐私政策'
+  },
   verificationRequired: {
     english: 'Verification Required',
     french: 'Vérification requise',
@@ -3102,6 +3267,285 @@ export const localizations = {
     thai: 'คุณต้องยอมรับข้อกำหนดและความเป็นส่วนตัว',
     mandarin: '您必须同意条款和隐私'
   },
+  termsOfService: {
+    english: 'Terms of Service',
+    french: "Conditions d'utilisation",
+    spanish: 'Términos de servicio',
+    brazilian_portuguese: 'Termos de Serviço',
+    tok_pisin: 'Terms bilong Sevis',
+    indonesian: 'Ketentuan Layanan',
+    nepali: 'सेवाका सर्तहरू',
+    hindi: 'सेवा की शर्तें',
+    burmese: 'ဝန်ဆောင်မှု စည်းမျဉ်းများ',
+    thai: 'ข้อกำหนดการให้บริการ',
+    mandarin: '服务条款'
+  },
+  privacyPolicy: {
+    english: 'Privacy Policy',
+    french: 'Politique de confidentialité',
+    spanish: 'Política de privacidad',
+    brazilian_portuguese: 'Política de Privacidade',
+    tok_pisin: 'Privacy Policy',
+    indonesian: 'Kebijakan Privasi',
+    nepali: 'गोपनीयता नीति',
+    hindi: 'गोपनीयता नीति',
+    burmese: 'ကိုယ်ရေးလုံခြုံမှု မူဝါဒ',
+    thai: 'นโยบายความเป็นส่วนตัว',
+    mandarin: '隐私政策'
+  },
+  cc0PublicDomainDedication: {
+    english: 'CC0 1.0 Public Domain Dedication',
+    french: 'Dédicace au domaine public CC0 1.0',
+    spanish: 'Dedicación de dominio público CC0 1.0',
+    brazilian_portuguese: 'Dedicação ao Domínio Público CC0 1.0',
+    tok_pisin: 'CC0 1.0 Public Domain Dedication',
+    indonesian: 'Dedikasi Domain Publik CC0 1.0',
+    nepali: 'CC0 1.0 Public Domain Dedication',
+    hindi: 'CC0 1.0 Public Domain Dedication',
+    burmese: 'CC0 1.0 Public Domain Dedication',
+    thai: 'CC0 1.0 Public Domain Dedication',
+    mandarin: 'CC0 1.0 公共领域贡献'
+  },
+  registerLegalConsentPart1: {
+    english: 'I agree to the ',
+    french: "J'accepte les ",
+    spanish: 'Acepto los ',
+    brazilian_portuguese: 'Eu concordo com os ',
+    tok_pisin: 'Mi agri long ',
+    indonesian: 'Saya setuju dengan ',
+    nepali: 'म सहमत छु ',
+    hindi: 'मैं सहमत हूं ',
+    burmese: 'ကျွန်ုပ် သဘောတူသည် ',
+    thai: 'ฉันยอมรับ',
+    mandarin: '我同意'
+  },
+  registerLegalConsentPart2: {
+    english: " and acknowledge LangQuest's ",
+    french: ' et je reconnais la ',
+    spanish: ' y reconozco la ',
+    brazilian_portuguese: ' e reconheço a ',
+    tok_pisin: ' na tokaut long ',
+    indonesian: ' dan mengakui ',
+    nepali: ' र LangQuest को ',
+    hindi: ' और LangQuest की ',
+    burmese: ' နှင့် LangQuest ၏ ',
+    thai: ' และรับทราบ',
+    mandarin: '并确认 LangQuest 的'
+  },
+  registerLegalConsentPart3: {
+    english:
+      ', and agree that all content I contribute will be made available worldwide under the ',
+    french:
+      ", et j'accepte que tout le contenu que je contribue sera disponible dans le monde entier sous la ",
+    spanish:
+      ', y acepto que todo el contenido que aporte estará disponible en todo el mundo bajo la ',
+    brazilian_portuguese:
+      ', e concordo que todo o conteúdo que eu contribuir estará disponível em todo o mundo sob a ',
+    tok_pisin:
+      ', na mi agri olgeta content mi contributim bai stap fri long olgeta hap long ',
+    indonesian:
+      ', dan setuju bahwa semua konten yang saya kontribusikan akan tersedia di seluruh dunia di bawah ',
+    nepali: ', र म योगदान गर्ने सबै सामग्री विश्वव्यापी रूपमा उपलब्ध हुनेछ ',
+    hindi: ', और सहमत हूं कि मेरा सारा योगदान विश्वव्यापी रूप से उपलब्ध होगा ',
+    burmese: ', နှင့် ကျွန်ုပ် ပံ့ပိုးသော အကြောင်းအရာအားလုံးကို ကမ္ဘာတစ်ဝှမ်း ',
+    thai: ' และยอมรับว่าเนื้อหาที่ฉันมีส่วนร่วมทั้งหมดจะเปิดใช้ได้ทั่วโลกภายใต้',
+    mandarin: '，并同意我贡献的所有内容将在全球范围内根据'
+  },
+  registerLegalConsentPart4: {
+    english:
+      ' for use by anyone for any purpose without attribution. LangQuest collects and uses account data in accordance with its ',
+    french:
+      ' pour être utilisé par quiconque à toute fin sans attribution. LangQuest collecte et utilise les données de compte conformément à sa ',
+    spanish:
+      ' para que cualquier persona la use con cualquier fin sin atribución. LangQuest recopila y usa datos de cuenta de acuerdo con su ',
+    brazilian_portuguese:
+      ' para uso por qualquer pessoa para qualquer finalidade sem atribuição. O LangQuest coleta e usa dados da conta de acordo com sua ',
+    tok_pisin:
+      ' long ol man i ken usim long wanem samting tasol na no nid long tokaut nem. LangQuest i kisim na yusim account data long bihainim bilong em ',
+    indonesian:
+      ' untuk digunakan siapa saja untuk tujuan apa pun tanpa atribusi. LangQuest mengumpulkan dan menggunakan data akun sesuai dengan ',
+    nepali:
+      ' कसैले पनि श्रेय बिना कुनै पनि उद्देश्यका लागि प्रयोग गर्न सक्छ। LangQuest ले यसको अनुसार खाता डाटा सङ्कलन र प्रयोग गर्छ ',
+    hindi:
+      ' किसी भी उद्देश्य के लिए बिना श्रेय के उपयोग हेतु। LangQuest अपनी के अनुसार खाता डेटा एकत्र और उपयोग करता है ',
+    burmese: ' အောက်တွင် လွတ်လပ်စွာ အသုံးပြုနိုင်သည်။ LangQuest ၏ ',
+    thai: ' เพื่อให้ใครก็ได้ใช้เพื่อวัตถุประสงค์ใดก็ได้โดยไม่ต้องระบุที่มา LangQuest เก็บรวบรวมและใช้ข้อมูลบัญชีตาม',
+    mandarin: '供任何人出于任何目的使用且无需署名。LangQuest根据其'
+  },
+  registerLegalConsentPart5: {
+    english: '.',
+    french: '.',
+    spanish: '.',
+    brazilian_portuguese: '.',
+    tok_pisin: '.',
+    indonesian: '.',
+    nepali: '।',
+    hindi: '।',
+    burmese: '။',
+    thai: '.',
+    mandarin: '。'
+  },
+  analyticsConsentTitle: {
+    english: 'Share how you use LangQuest',
+    french: 'Partagez comment vous utilisez LangQuest',
+    spanish: 'Comparta cómo usa LangQuest',
+    brazilian_portuguese: 'Compartilhe como você usa o LangQuest',
+    tok_pisin: 'Tokaut olsem yu yusim LangQuest',
+    indonesian: 'Bagikan cara Anda menggunakan LangQuest',
+    nepali: 'तपाईं LangQuest कसरी प्रयोग गर्नुहुन्छ भन्ने साझा गर्नुहोस्',
+    hindi: 'बताएं कि आप LangQuest कैसे उपयोग करते हैं',
+    burmese: 'LangQuest ကို သင် မည်သို့ အသုံးပြုသည်ကို မျှဝေပါ',
+    thai: 'แบ่งปันว่าคุณใช้ LangQuest อย่างไร',
+    mandarin: '分享您如何使用 LangQuest'
+  },
+  analyticsConsentMission: {
+    english:
+      "This is optional. Turn it on and you'll show us how LangQuest works on your device, including limited session replays on supported devices (form text is masked).",
+    french:
+      "C'est facultatif. Activez-le et vous nous montrerez comment LangQuest fonctionne sur votre appareil, y compris des relectures de session limitées sur les appareils pris en charge (le texte des formulaires est masqué).",
+    spanish:
+      'Es opcional. Actívelo y nos mostrará cómo funciona LangQuest en su dispositivo, incluidas repeticiones de sesión limitadas en dispositivos compatibles (el texto de los formularios está enmascarado).',
+    brazilian_portuguese:
+      'É opcional. Ative e você nos mostrará como o LangQuest funciona no seu dispositivo, incluindo replays de sessão limitados em dispositivos compatíveis (o texto dos formulários fica mascarado).',
+    tok_pisin:
+      'Dispela i optional. Yu onim na bai yu soim mipela olsem LangQuest i wok long device bilong yu, inklusim liklik session replays long ol device we i sapot (form text i mask).',
+    indonesian:
+      'Ini opsional. Aktifkan dan Anda akan menunjukkan kepada kami bagaimana LangQuest bekerja di perangkat Anda, termasuk replay sesi terbatas di perangkat yang didukung (teks formulir disamarkan).',
+    nepali:
+      'यो वैकल्पिक हो। सक्रिय गर्नुहोस् र तपाईंले LangQuest तपाईंको उपकरणमा कसरी काम गर्छ भन्ने देखाउनुहुनेछ, समर्थित उपकरणहरूमा सीमित session replay सहित (फारम पाठ मास्क गरिन्छ)।',
+    hindi:
+      'यह वैकल्पिक है। इसे चालू करें और आप हमें दिखाएंगे कि LangQuest आपके डिवाइस पर कैसे काम करता है, समर्थित डिवाइसों पर सीमित सत्र रीप्ले सहित (फ़ॉर्म टेक्स्ट मास्क किया जाता है)।',
+    burmese:
+      'ဤသည်မှာ ရွေးချယ်နိုင်သည်။ ဖွင့်လိုက်ပါက LangQuest သည် သင့်စက်ပစ္စည်းတွင် မည်သို့ အလုပ်လုပ်သည်ကို သင်ပြသပေးမည်၊ ပံ့ပိုးထားသော စက်ပစ္စည်းများတွင် session replay အကန့်အသတ်ဖြင့် (form စာသားကို mask လုပ်ထားသည်)။',
+    thai: 'นี่ไม่บังคับ เปิดใช้งานแล้วคุณจะแสดงให้เราเห็นว่า LangQuest ทำงานอย่างไรบนอุปกรณ์ของคุณ รวมถึง session replay แบบจำกัดบนอุปกรณ์ที่รองรับ (ข้อความในฟอร์มถูกปิดบัง)',
+    mandarin:
+      '这是可选的。开启后，您将向我们展示 LangQuest 在您的设备上如何运行，包括在受支持设备上的有限会话回放（表单文字会被屏蔽）。'
+  },
+  analyticsConsentBenefit1: {
+    english:
+      "When the app breaks, you'll help us see the steps right before the error. We can trace the cause from there and fix it sooner.",
+    french:
+      "Quand l'app plante, vous nous aidez à voir les étapes juste avant l'erreur. Nous pouvons retrouver la cause à partir de là et livrer un correctif plus tôt.",
+    spanish:
+      'Cuando la app falla, nos ayuda a ver los pasos justo antes del error. Podemos rastrear la causa a partir de ahí y publicar una corrección antes.',
+    brazilian_portuguese:
+      'Quando o app quebra, você nos ajuda a ver os passos logo antes do erro. Podemos rastrear a causa a partir daí e lançar uma correção mais cedo.',
+    tok_pisin:
+      'Taim app i bagarap, yu helpim mipela lukim ol step bipo long error. Mipela inap painim as long dispela na inap salim fix hariap.',
+    indonesian:
+      'Saat aplikasi rusak, Anda membantu kami melihat langkah-langkah tepat sebelum error. Kami dapat melacak penyebabnya dari sana dan mungkin mengirim perbaikan lebih cepat.',
+    nepali:
+      'एप बिग्रँदा, तपाईंले error अघिका चरणहरू हेर्न मद्दत गर्नुहुन्छ। हामी त्यहाँबाट कारण पत्ता लगाउन सक्छौं र छिटो समाधान पठाउन सक्छौं।',
+    hindi:
+      'जब ऐप टूटता है, आप error से ठीक पहले के चरण देखने में मदद करते हैं। हम वहाँ से कारण पता लगा सकते हैं और जल्दी सुधार भेज सकते हैं।',
+    burmese:
+      'အက်ပ် ချို့ယွင်းသောအခါ error မတိုင်မီ အဆင့်များကို သင်ကူညီပြသပေးသည်။ ထိုနေရာမှ အကြောင်းရင်းကို ခြေရာခံနိုင်ပြီး ပိုမြန်ဆန်စွာ ပြင်ဆင်ချက် ပို့နိုင်သည်။',
+    thai: 'เมื่อแอปพัง คุณช่วยให้เราเห็นขั้นตอนก่อนเกิดข้อผิดพลาด เราสามารถติดตามสาเหตุจากจุดนั้นและอาจส่งการแก้ไขได้เร็วขึ้น',
+    mandarin:
+      '当应用出问题时，您帮助我们查看错误发生前的步骤。我们可以从中追踪原因，并可能更快发布修复。'
+  },
+  analyticsConsentBenefit2: {
+    english:
+      "You'll show us which screens and features you use. That gives us a clearer picture of how LangQuest fits into everyday use.",
+    french:
+      'Vous nous montrez quels écrans et fonctionnalités vous utilisez. Cela nous donne une image plus claire de la place de LangQuest au quotidien.',
+    spanish:
+      'Nos muestra qué pantallas y funciones usa. Eso nos da una imagen más clara de cómo encaja LangQuest en el uso diario.',
+    brazilian_portuguese:
+      'Você nos mostra quais telas e recursos usa. Isso nos dá uma imagem mais clara de como o LangQuest se encaixa no uso do dia a dia.',
+    tok_pisin:
+      'Yu soim mipela wanem ol screen na feature yu yusim. Dispela i givim mipela klia piksa long olsem LangQuest i wok long ol de.',
+    indonesian:
+      'Anda menunjukkan layar dan fitur mana yang Anda gunakan. Itu memberi kami gambaran yang lebih jelas tentang bagaimana LangQuest dipakai sehari-hari.',
+    nepali:
+      'तपाईंले कुन स्क्रिन र सुविधाहरू प्रयोग गर्नुहुन्छ भन्ने देखाउनुहुन्छ। यसले LangQuest दैनिक प्रयोगमा कसरी फिट हुन्छ भन्ने स्पष्ट तस्वीर दिन्छ।',
+    hindi:
+      'आप दिखाते हैं कि आप कौन सी स्क्रीन और सुविधाएँ उपयोग करते हैं। इससे हमें स्पष्ट तस्वीर मिलती है कि LangQuest रोज़मर्रा के उपयोग में कैसे फिट होता है।',
+    burmese:
+      'သင် အသုံးပြုသော မျက်နှာပြင်နှင့် လုပ်ဆောင်ချက်များကို သင်ပြသပေးသည်။ LangQuest သည် နေ့စဉ်အသုံးပြုမှုတွင် မည်သို့ ကိုက်ညီသည်ကို ပိုမိုရှင်းလင်းစွာ နားလည်နိုင်သည်။',
+    thai: 'คุณแสดงให้เราเห็นว่าคุณใช้หน้าจอและฟีเจอร์ใด สิ่งนี้ช่วยให้เราเห็นภาพที่ชัดขึ้นว่า LangQuest เข้ากับการใช้งานในชีวิตประจำวันอย่างไร',
+    mandarin:
+      '您向我们展示使用了哪些页面和功能。这让我们更清楚地了解 LangQuest 在日常使用中是怎样的。'
+  },
+  analyticsConsentTransparency: {
+    english:
+      'Signed in? Your usage links to your account. We use device identifiers and record limited session replays. Form text stays masked. See our ',
+    french:
+      "Connecté ? Votre utilisation est liée à votre compte. Nous utilisons des identifiants d'appareil et enregistrons des relectures de session limitées. Le texte des formulaires reste masqué. Consultez notre ",
+    spanish:
+      '¿Ha iniciado sesión? Su uso se vincula a su cuenta. Usamos identificadores de dispositivo y grabamos repeticiones de sesión limitadas. El texto de formularios permanece enmascarado. Consulte nuestra ',
+    brazilian_portuguese:
+      'Conectado? Seu uso é vinculado à sua conta. Usamos identificadores de dispositivo e gravamos replays de sessão limitados. O texto de formulários permanece mascarado. Veja nossa ',
+    tok_pisin:
+      'Yu login? Usage bilong yu i join long account. Mipela yusim device identifiers na record liklik session replays. Form text i mask yet. Lukim ',
+    indonesian:
+      'Sudah masuk? Penggunaan Anda tertaut ke akun Anda. Kami menggunakan pengenal perangkat dan merekam replay sesi terbatas. Teks formulir tetap disamarkan. Lihat ',
+    nepali:
+      'साइन इन गर्नुभयो? तपाईंको प्रयोग तपाईंको खातासँग जोडिन्छ। हामी उपकरण पहिचानकर्ता प्रयोग गर्छौं र सीमित session replay रेकर्ड गर्छौं। फारम पाठ मास्क गरिएको रहन्छ। हेर्नुहोस् हाम्रो ',
+    hindi:
+      'साइन इन हैं? आपका उपयोग आपके खाते से जुड़ता है। हम डिवाइस पहचानकर्ता उपयोग करते हैं और सीमित सत्र रीप्ले रिकॉर्ड करते हैं। फ़ॉर्म टेक्स्ट मास्क रहता है। देखें हमारी ',
+    burmese:
+      'Sign in ထားပြီလား? သင်၏ အသုံးပြုမှုကို အကောင့်နှင့် ချိတ်ဆက်ထားသည်။ ကျွန်ုပ်တို့ စက်ပစ္စည်း ခွဲခြားသတ်မှတ်ချက်များကို အသုံးပြုပြီး session replay အကန့်အသတ်ဖြင့် မှတ်တမ်းတင်သည်။ ဖောင်စာသားကို ဖုံးကွယ်ထားသည်။ ကြည့်ရှုပါ ',
+    thai: 'ลงชื่อเข้าใช้แล้วหรือยัง? การใช้งานของคุณเชื่อมกับบัญชีของคุณ เราใช้ตัวระบุอุปกรณ์และบันทึก session replay แบบจำกัด ข้อความในฟอร์มยังคงถูกปิดบัง ดู',
+    mandarin:
+      '已登录？您的使用情况与账户关联。我们使用设备标识符并记录有限的会话回放。表单文字保持屏蔽。请参阅我们的'
+  },
+  analyticsConsentFooter: {
+    english: 'You can change this anytime in Profile settings.',
+    french:
+      'Vous pouvez modifier cela à tout moment dans les paramètres du profil.',
+    spanish:
+      'Puede cambiar esto en cualquier momento en la configuración del perfil.',
+    brazilian_portuguese:
+      'Você pode alterar isso a qualquer momento nas configurações do perfil.',
+    tok_pisin: 'Yu ken senisim dispela long wanem taim long Profile settings.',
+    indonesian: 'Anda dapat mengubah ini kapan saja di pengaturan Profil.',
+    nepali:
+      'तपाईं प्रोफाइल सेटिङहरूमा जुनसुकै समय यो परिवर्तन गर्न सक्नुहुन्छ।',
+    hindi: 'आप प्रोफ़ाइल सेटिंग्स में कभी भी इसे बदल सकते हैं।',
+    burmese: 'profile settings တွင် မည်သည့်အချိန်မဆို ပြောင်းနိုင်သည်။',
+    thai: 'คุณสามารถเปลี่ยนได้ตลอดเวลาในการตั้งค่าโปรไฟล์',
+    mandarin: '您可以随时在个人资料设置中更改。'
+  },
+  analyticsConsentContinue: {
+    english: 'Continue',
+    french: 'Continuer',
+    spanish: 'Continuar',
+    brazilian_portuguese: 'Continuar',
+    tok_pisin: 'Go het',
+    indonesian: 'Lanjutkan',
+    nepali: 'जारी राख्नुहोस्',
+    hindi: 'जारी रखें',
+    burmese: 'ရှေ့ဆက်ရန်',
+    thai: 'ดำเนินการต่อ',
+    mandarin: '继续'
+  },
+  analyticsLearnMore: {
+    english: 'How this helps us',
+    french: 'Comment cela nous aide',
+    spanish: 'Cómo nos ayuda esto',
+    brazilian_portuguese: 'Como isso nos ajuda',
+    tok_pisin: 'Olsem dispela i helpim mipela',
+    indonesian: 'Bagaimana ini membantu kami',
+    nepali: 'यसले हामीलाई कसरी मद्दत गर्छ',
+    hindi: 'यह हमारी कैसे मदद करता है',
+    burmese: 'ဤက ကျွန်ုပ်တို့ကို မည်သို့ ကူညီသည်',
+    thai: 'สิ่งนี้ช่วยเราอย่างไร',
+    mandarin: '这如何帮助我们'
+  },
+  analyticsLearnMoreTitle: {
+    english: 'How this helps us',
+    french: 'Comment cela nous aide',
+    spanish: 'Cómo nos ayuda esto',
+    brazilian_portuguese: 'Como isso nos ajuda',
+    tok_pisin: 'Olsem dispela i helpim mipela',
+    indonesian: 'Bagaimana ini membantu kami',
+    nepali: 'यसले हामीलाई कसरी मद्दत गर्छ',
+    hindi: 'यह हमारी कैसे मदद करता है',
+    burmese: 'ဤက ကျွန်ုပ်တို့ကို မည်သို့ ကူညီသည်',
+    thai: 'สิ่งนี้ช่วยเราอย่างไร',
+    mandarin: '这如何帮助我们'
+  },
   processing: {
     english: 'Processing...',
     french: 'Traitement...',
@@ -3163,26 +3607,26 @@ export const localizations = {
   },
   analyticsInfo: {
     english:
-      'We collect analytics and diagnostic data to improve the app and your experience. You can opt out of analytics at any time in your profile settings. Your data is processed and stored in the United States.',
+      'If you turn this on, we collect usage and diagnostic data. Change your mind anytime in Profile settings. Your data is stored in the United States.',
     french:
-      "Nous collectons des données d'analyse et de diagnostic pour améliorer l'application et votre expérience. Vous pouvez vous désinscrire des analyses à tout moment dans les paramètres de votre profil. Vos données sont traitées et stockées aux États-Unis.",
+      "Si vous l'activez, nous collectons des données d'utilisation et de diagnostic. Changez d'avis à tout moment dans les paramètres du profil. Vos données sont stockées aux États-Unis.",
     spanish:
-      'Recopilamos datos de análisis y diagnóstico para mejorar la aplicación y su experiencia. Puede optar por no participar en el análisis en cualquier momento en sus ajustes. Sus datos se procesan y almacenan en los Estados Unidos.',
+      'Si lo activa, recopilamos datos de uso y diagnóstico. Cambie de opinión en cualquier momento en la configuración del perfil. Sus datos se almacenan en los Estados Unidos.',
     brazilian_portuguese:
-      'Coletamos dados analíticos e de diagnóstico para melhorar o aplicativo e sua experiência. Você pode optar por não participar da análise a qualquer momento nas configurações do seu perfil. Seus dados são processados e armazenados nos Estados Unidos.',
+      'Se você ativar, coletamos dados de uso e diagnóstico. Mude de ideia a qualquer momento nas configurações do perfil. Seus dados ficam armazenados nos Estados Unidos.',
     tok_pisin:
-      'Mipela kisim analytics na diagnostic data long mekim app na experience bilong yu i gutpela moa. Yu ken stopim analytics long wanem taim long profile settings bilong yu. Data bilong yu i go long United States.',
+      'Sapos yu onim, mipela kisim usage na diagnostic data. Yu ken senisim tingting long wanem taim long Profile settings. Data bilong yu i stap long United States.',
     indonesian:
-      'Kami mengumpulkan data analitik dan diagnostik untuk meningkatkan aplikasi dan pengalaman Anda. Anda dapat memilih keluar dari analitik kapan saja di pengaturan profil Anda. Data Anda diproses dan disimpan di Amerika Serikat.',
+      'Jika Anda mengaktifkannya, kami mengumpulkan data penggunaan dan diagnostik. Ubah pilihan Anda kapan saja di pengaturan Profil. Data Anda disimpan di Amerika Serikat.',
     nepali:
-      'हामी एप र तपाईंको अनुभव सुधार गर्न विश्लेषण र निदान डाटा सङ्कलन गर्छौं। तपाईं आफ्नो प्रोफाइल सेटिङहरूमा जुनसुकै समय विश्लेषणबाट अप्ट आउट गर्न सक्नुहुन्छ। तपाईंको डाटा संयुक्त राज्य अमेरिकामा प्रशोधन र भण्डारण गरिन्छ।',
+      'तपाईंले सक्रिय गर्नुभयो भने, हामी प्रयोग र निदान डाटा सङ्कलन गर्छौं। प्रोफाइल सेटिङहरूमा जुनसुकै समय परिवर्तन गर्नुहोस्। तपाईंको डाटा संयुक्त राज्य अमेरिकामा भण्डारण गरिन्छ।',
     hindi:
-      'हम एप और आपके अनुभव को बेहतर बनाने के लिए विश्लेषण और नैदानिक डेटा एकत्र करते हैं। आप अपनी प्रोफ़ाइल सेटिंग्स में किसी भी समय विश्लेषण से बाहर निकल सकते हैं। आपका डेटा संयुक्त राज्य अमेरिका में संसाधित और संग्रहीत किया जाता है।',
+      'यदि आप इसे चालू करते हैं, हम उपयोग और नैदानिक डेटा एकत्र करते हैं। प्रोफ़ाइल सेटिंग्स में कभी भी बदलें। आपका डेटा संयुक्त राज्य अमेरिका में संग्रहीत है।',
     burmese:
-      'ကျွန်ုပ်တို့သည် အပ်ကို နှင့် သင်၏ အတွေ့အကြုံကို မြှင့်တင်ရန် ခွဲခြမ်းစိတ်ဖြာမှုနှင့် ရောဂါရှာဖွေရေး ဒေတာများကို စုဆောင်းပါသည်။ သင်သည် သင်၏ ကိုယ်ရေးအကျဉ်း ဆက်တင်များတွင် မည်သည့်အချိန်တွင်မဆို ခွဲခြမ်းစိတ်ဖြာမှုမှ ထွက်နိုင်သည်။ သင်၏ ဒေတာကို အမေရိကန်ပြည်ထောင်စုတွင် လုပ်ဆောင်ပြီး သိမ်းဆည်းပါသည်။',
-    thai: 'เรารวบรวมข้อมูลการวิเคราะห์และการวินิจฉัยเพื่อปรับปรุงแอปและประสบการณ์ของคุณ คุณสามารถเลือกไม่ใช้การวิเคราะห์ได้ตลอดเวลาในการตั้งค่าโปรไฟล์ของคุณ ข้อมูลของคุณถูกประมวลผลและจัดเก็บในสหรัฐอเมริกา',
+      'သင်ဖွင့်လိုက်ပါက အသုံးပြုမှုနှင့် ရောဂါရှာဖွေရေး ဒေတာကို စုဆောင်းသည်။ Profile settings တွင် မည်သည့်အချိန်မဆို ပြောင်းနိုင်သည်။ သင်၏ ဒေတာကို အမေရိကန်ပြည်ထောင်စုတွင် သိမ်းဆည်းထားသည်။',
+    thai: 'หากคุณเปิดใช้งาน เราจะรวบรวมข้อมูลการใช้งานและการวินิจฉัย เปลี่ยนใจได้ตลอดเวลาในการตั้งค่าโปรไฟล์ ข้อมูลของคุณจัดเก็บในสหรัฐอเมริกา',
     mandarin:
-      '我们收集分析和诊断数据以改进应用程序和您的体验。您可以随时在个人资料设置中选择退出分析。您的数据在美国处理和存储。'
+      '如果您开启，我们会收集使用和诊断数据。您可以随时在个人资料设置中更改。您的数据存储在美国。'
   },
   viewFullTerms: {
     english: 'View Full Terms',
@@ -3432,26 +3876,17 @@ export const localizations = {
     mandarin: '启用分析'
   },
   analyticsDescription: {
-    english:
-      'When disabled, we will not collect usage data to improve the app.',
-    french:
-      "Lorsqu'elle est désactivée, nous ne collecterons pas de données d'utilisation pour améliorer l'application.",
-    spanish:
-      'Cuando está deshabilitado, no recopilaremos datos de uso para mejorar la aplicación.',
-    brazilian_portuguese:
-      'Quando desativado, não coletaremos dados de uso para melhorar o aplicativo.',
-    tok_pisin:
-      'Sapos yu ofim, mipela no bai kisim usage data long mekim app i gutpela.',
-    indonesian:
-      'Ketika dinonaktifkan, kami tidak akan mengumpulkan data penggunaan untuk meningkatkan aplikasi.',
-    nepali:
-      'असक्षम गरिएको बेला, हामी एप सुधार गर्न प्रयोग डाटा सङ्कलन गर्ने छैनौं।',
-    hindi:
-      'अक्षम होने पर, हम एप को बेहतर बनाने के लिए उपयोग डेटा एकत्र नहीं करेंगे।',
-    burmese:
-      'ပိတ်ထားသောအခါ၊ ကျွန်ုပ်တို့သည် အပ်ကို မြှင့်တင်ရန် အသုံးပြုမှု ဒေတာကို စုဆောင်းမည်မဟုတ်ပါ။',
-    thai: 'เมื่อปิดใช้งาน เราจะไม่รวบรวมข้อมูลการใช้งานเพื่อปรับปรุงแอป',
-    mandarin: '禁用后，我们将不会收集使用数据来改进应用程序。'
+    english: 'Optional. Off until you turn it on.',
+    french: "Facultatif. Désactivé jusqu'à ce que vous l'activiez.",
+    spanish: 'Opcional. Desactivado hasta que lo active.',
+    brazilian_portuguese: 'Opcional. Desativado até você ativar.',
+    tok_pisin: 'Optional. I off inap yu onim.',
+    indonesian: 'Opsional. Mati sampai Anda mengaktifkannya.',
+    nepali: 'वैकल्पिक। तपाईंले सक्रिय नगरेसम्म बन्द।',
+    hindi: 'वैकल्पिक। जब तक आप इसे चालू न करें, बंद रहता है।',
+    burmese: 'ရွေးချယ်နိုင်သည်။ သင်မဖွင့်မချင်း ပိတ်ထားသည်။',
+    thai: 'ไม่บังคับ ปิดอยู่จนกว่าคุณจะเปิดใช้งาน',
+    mandarin: '可选。在您开启之前保持关闭。'
   },
   sessionExpired: {
     english: 'Session expired',
