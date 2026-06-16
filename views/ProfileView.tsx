@@ -1,3 +1,5 @@
+import { AnalyticsConsentCard } from '@/components/AnalyticsConsentCard';
+import { Drawer, DrawerContent } from '@/components/ui/drawer';
 import { LanguageSelect } from '@/components/language-select';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Alert, AlertTitle } from '@/components/ui/alert';
@@ -13,7 +15,6 @@ import {
 } from '@/components/ui/form';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
-import { Switch } from '@/components/ui/switch';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
 import { profileService } from '@/database_services/profileService';
@@ -63,20 +64,19 @@ export default function ProfileView() {
   const { router } = useNavigationHelpers();
   const isOnline = useNetworkStatus();
   const posthog = usePostHog();
-  const setAnalyticsOptOut = useLocalStore((state) => state.setAnalyticsOptOut);
   const analyticsOptOut = useLocalStore((state) => state.analyticsOptOut);
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
+  const [analyticsLearnMoreOpen, setAnalyticsLearnMoreOpen] = useState(false);
   const [isDegraded, setIsDegraded] = useState(false);
 
   // Derive analytics enabled state (opposite of opt-out)
   const analyticsEnabled = !analyticsOptOut;
 
-  // Handle analytics toggle - now toggles "enabled" instead of "opt-out"
-  const handleAnalyticsToggle = (optedIn: boolean) => {
+  const handleAnalyticsToggle = async (optedIn: boolean) => {
     try {
-      // Convert "enabled" to "opt-out" for storage
-      setAnalyticsOptOut(!optedIn);
-      console.log('optedOut', posthog.optedOut);
+      const { saveAnalyticsPreference } =
+        await import('@/services/accountPreferences');
+      await saveAnalyticsPreference(optedIn);
     } catch (error) {
       console.error('Error saving analytics preference:', error);
       RNAlert.alert(t('error'), t('failedSaveAnalyticsPreference'));
@@ -370,21 +370,31 @@ export default function ProfileView() {
           </View>
         )}
 
-        {/* Analytics Toggle - Now shows "Enable Analytics" */}
-        <View className="flex flex-col gap-1 rounded-lg bg-card p-4">
-          <View className="flex flex-row items-center">
-            <Text className="flex-1 text-base font-medium text-foreground">
-              {t('enableAnalytics')}
-            </Text>
-            <Switch
-              checked={analyticsEnabled}
-              onCheckedChange={handleAnalyticsToggle}
-            />
-          </View>
-          <Text className="text-sm leading-5 text-muted-foreground">
-            {t('analyticsDescription')}
-          </Text>
+        <View className="rounded-lg bg-card p-4">
+          <AnalyticsConsentCard
+            compact
+            showLearnMore
+            optedIn={analyticsEnabled}
+            onOptedInChange={(optedIn) => void handleAnalyticsToggle(optedIn)}
+            onLearnMorePress={() => setAnalyticsLearnMoreOpen(true)}
+          />
         </View>
+
+        <Drawer
+          open={analyticsLearnMoreOpen}
+          onOpenChange={setAnalyticsLearnMoreOpen}
+          snapPoints={['60%']}
+          enableDynamicSizing={false}
+        >
+          <DrawerContent>
+            <AnalyticsConsentCard
+              variant="learnMore"
+              showControls={false}
+              optedIn={analyticsEnabled}
+              onOptedInChange={(optedIn) => void handleAnalyticsToggle(optedIn)}
+            />
+          </DrawerContent>
+        </Drawer>
 
         <ThemeToggle />
 
@@ -536,7 +546,7 @@ export default function ProfileView() {
           </View>
         )}
         <Link
-          href="/terms"
+          href="/(app)/terms"
           style={[
             sharedStyles.link,
             { fontSize: 14, textAlign: 'center', marginTop: spacing.medium }

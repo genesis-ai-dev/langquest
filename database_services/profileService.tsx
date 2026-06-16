@@ -63,7 +63,7 @@ export class ProfileService {
     ui_language_id?: string; // Deprecated, use ui_languoid_id
     ui_languoid_id?: string;
     terms_accepted?: boolean;
-    terms_version?: string;
+    privacy_policy_version?: string;
   }) {
     try {
       // Update the anonymous user with email and password
@@ -79,7 +79,7 @@ export class ProfileService {
       const profileUpdate: Record<string, unknown> = {
         username: input.credentials.username,
         terms_accepted: input.terms_accepted ?? false,
-        terms_version: input.terms_version ?? null
+        privacy_policy_version: input.privacy_policy_version ?? null
       };
 
       if (input.ui_languoid_id) {
@@ -130,6 +130,7 @@ export class ProfileService {
     password?: string;
     terms_accepted?: boolean;
     terms_accepted_at?: string;
+    privacy_policy_version?: string;
   }): Promise<Profile | null> {
     try {
       // Update auth if password is changing
@@ -149,6 +150,9 @@ export class ProfileService {
         }),
         ...(data.terms_accepted_at && {
           terms_accepted_at: data.terms_accepted_at
+        }),
+        ...(data.privacy_policy_version && {
+          privacy_policy_version: data.privacy_policy_version
         })
       };
 

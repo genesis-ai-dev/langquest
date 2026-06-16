@@ -36,7 +36,6 @@ function AppContent() {
   const { isAuthenticated, currentUser } = useAuth();
   const { profile } = useProfileByUserId(currentUser?.id || '');
   const setTriggerOnboarding = useLocalStore((s) => s.setTriggerOnboarding);
-  const dateTermsAccepted = useLocalStore((s) => s.dateTermsAccepted);
   const triggerOnboarding = useLocalStore((s) => s.triggerOnboarding);
   const onboardingIsOpen = useLocalStore((s) => s.onboardingIsOpen);
   const setOnboardingIsOpen = useLocalStore((s) => s.setOnboardingIsOpen);
@@ -55,15 +54,10 @@ function AppContent() {
   }, [isProjectsView, setTriggerOnboarding]);
 
   useEffect(() => {
-    if (dateTermsAccepted && !onboardingCompleted && !onboardingIsOpen) {
+    if (!onboardingCompleted && !onboardingIsOpen) {
       setOnboardingIsOpen(true);
     }
-  }, [
-    dateTermsAccepted,
-    onboardingCompleted,
-    onboardingIsOpen,
-    setOnboardingIsOpen
-  ]);
+  }, [onboardingCompleted, onboardingIsOpen, setOnboardingIsOpen]);
 
   useEffect(() => {
     if (triggerOnboarding && !onboardingIsOpen) {

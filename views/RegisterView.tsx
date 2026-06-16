@@ -1,3 +1,4 @@
+import { RegisterLegalConsent } from '@/components/RegisterLegalConsent';
 import { LanguageCombobox } from '@/components/language-combobox';
 import { OfflineAlert } from '@/components/offline-alert';
 import { Button } from '@/components/ui/button';
@@ -12,6 +13,7 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
+import { CURRENT_LEGAL_VERSION } from '@/constants/legalVersions';
 import { system } from '@/db/powersync/system';
 import type { Languoid } from '@/hooks/db/useLanguoids';
 import { useLocalization } from '@/hooks/useLocalization';
@@ -38,9 +40,10 @@ export default function RegisterView() {
   const { t } = useLocalization();
   const isOnline = useNetworkStatus();
   const currentLanguage = useLocalStore((state) => state.uiLanguage);
-  const dateTermsAccepted = useLocalStore((state) => state.dateTermsAccepted);
+  const acceptTerms = useLocalStore((state) => state.acceptTerms);
   const formSchema = z
     .object({
+      legalConsent: z.literal(true, t('termsRequired')),
       email: z
         .email(t('enterValidEmail'))
         .nonempty(t('emailRequired'))
@@ -74,6 +77,9 @@ export default function RegisterView() {
         (currentLanguage as unknown as Language | undefined)?.english_name ||
         'english';
 
+      const acceptedAt = new Date().toISOString();
+      acceptTerms();
+
       const { error } = await supabaseConnector.client.auth.signUp({
         email: data.email.toLowerCase().trim(),
         password: data.password.trim(),
@@ -81,7 +87,8 @@ export default function RegisterView() {
           data: {
             username: data.username.trim(),
             terms_accepted: true,
-            terms_accepted_at: dateTermsAccepted || new Date().toISOString(),
+            terms_accepted_at: acceptedAt,
+            privacy_policy_version: CURRENT_LEGAL_VERSION,
             ui_language: languoidName.toLowerCase(),
             ui_languoid_id: currentLanguage?.id, // New languoid reference
             ui_language_id: currentLanguage?.id, // Keep for backward compatibility
@@ -111,6 +118,7 @@ export default function RegisterView() {
     resolver: zodResolver(formSchema),
     mode: 'onChange',
     defaultValues: {
+      legalConsent: false as unknown as true,
       email: initialEmail || '',
       password: '',
       confirmPassword: '',
@@ -132,13 +140,13 @@ export default function RegisterView() {
     <>
       <KeyboardAwareScrollView
         className="flex-1"
-        contentContainerClassName="m-safe flex flex-col gap-4 p-6"
+        contentContainerClassName="flex flex-col gap-2.5 px-6 pt-4 pb-6"
         bottomOffset={96}
         extraKeyboardSpace={20}
         showsVerticalScrollIndicator={false}
       >
         <Form {...form}>
-          <View className="flex flex-col items-center justify-center gap-4 text-center">
+          <View className="mb-1 flex flex-col items-center text-center">
             <Text className="text-6xl font-semibold text-primary">
               LangQuest
             </Text>
@@ -149,7 +157,7 @@ export default function RegisterView() {
             control={form.control}
             name="username"
             render={({ field }) => (
-              <FormItem>
+              <FormItem className="gap-1">
                 <FormControl>
                   <Input
                     {...transformInputProps(field)}
@@ -172,7 +180,7 @@ export default function RegisterView() {
             control={form.control}
             name="email"
             render={({ field }) => (
-              <FormItem>
+              <FormItem className="gap-1">
                 <FormControl>
                   <Input
                     {...transformInputProps(field)}
@@ -194,7 +202,7 @@ export default function RegisterView() {
             control={form.control}
             name="password"
             render={({ field }) => (
-              <FormItem>
+              <FormItem className="gap-1">
                 <FormControl>
                   <Input
                     {...transformInputProps(field)}
@@ -217,7 +225,7 @@ export default function RegisterView() {
             control={form.control}
             name="confirmPassword"
             render={({ field }) => (
-              <FormItem>
+              <FormItem className="gap-1">
                 <FormControl>
                   <Input
                     {...transformInputProps(field)}
@@ -237,8 +245,28 @@ export default function RegisterView() {
             )}
           />
           <OfflineAlert />
+          <FormField
+            control={form.control}
+            name="legalConsent"
+            render={({ field }) => (
+              <FormItem className="gap-1">
+                <FormControl>
+                  <RegisterLegalConsent
+                    checked={field.value === true}
+                    onCheckedChange={(checked) =>
+                      field.onChange(
+                        checked ? true : (false as unknown as true)
+                      )
+                    }
+                    disabled={isPending}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
           <View className="flex flex-col gap-2">
-            <FormSubmit onPress={handleFormSubmit} disabled={!isOnline}>
+            <FormSubmit onPress={handleFormSubmit}>
               <Text>{t('register')}</Text>
             </FormSubmit>
             <Button

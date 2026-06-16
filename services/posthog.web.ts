@@ -1,3 +1,4 @@
+import { hasAcceptedCurrentPrivacyPolicyVersion } from '@/constants/legalVersions';
 import { useLocalStore } from '@/store/localStore';
 import posthog from 'posthog-js';
 
@@ -46,8 +47,15 @@ let pendingPostHogUserId: string | null = null;
 let lastIdentifiedPostHogUserId: string | null = null;
 
 function getAnalyticsOptIn() {
-  const { dateTermsAccepted, analyticsOptOut } = useLocalStore.getState();
-  return !analyticsOptOut && !!dateTermsAccepted;
+  const { dateTermsAccepted, acceptedPrivacyPolicyVersion, analyticsOptOut } =
+    useLocalStore.getState();
+  return (
+    !analyticsOptOut &&
+    hasAcceptedCurrentPrivacyPolicyVersion(
+      dateTermsAccepted,
+      acceptedPrivacyPolicyVersion
+    )
+  );
 }
 
 export const syncPostHogIdentity = () => {
@@ -87,25 +95,45 @@ function changeAnalyticsState(newState: boolean) {
 }
 
 export const initializePostHogWithStore = () => {
-  const { dateTermsAccepted, analyticsOptOut } = useLocalStore.getState();
+  const { dateTermsAccepted, acceptedPrivacyPolicyVersion, analyticsOptOut } =
+    useLocalStore.getState();
 
   try {
-    const shouldOptIn = !analyticsOptOut && !!dateTermsAccepted;
+    const shouldOptIn =
+      !analyticsOptOut &&
+      hasAcceptedCurrentPrivacyPolicyVersion(
+        dateTermsAccepted,
+        acceptedPrivacyPolicyVersion
+      );
 
     changeAnalyticsState(shouldOptIn);
 
     let previousOptOut = analyticsOptOut;
     let previousTermsDate = dateTermsAccepted;
+    let previousPrivacyPolicyVersion = acceptedPrivacyPolicyVersion;
 
     const unsubscribe = useLocalStore.subscribe((state) => {
-      const { analyticsOptOut: newOptOut, dateTermsAccepted: newTermsDate } =
-        state;
+      const {
+        analyticsOptOut: newOptOut,
+        dateTermsAccepted: newTermsDate,
+        acceptedPrivacyPolicyVersion: newPrivacyPolicyVersion
+      } = state;
 
-      if (newOptOut !== previousOptOut || newTermsDate !== previousTermsDate) {
+      if (
+        newOptOut !== previousOptOut ||
+        newTermsDate !== previousTermsDate ||
+        newPrivacyPolicyVersion !== previousPrivacyPolicyVersion
+      ) {
         previousOptOut = newOptOut;
         previousTermsDate = newTermsDate;
+        previousPrivacyPolicyVersion = newPrivacyPolicyVersion;
 
-        const newShouldOptIn = !newOptOut && !!newTermsDate;
+        const newShouldOptIn =
+          !newOptOut &&
+          hasAcceptedCurrentPrivacyPolicyVersion(
+            newTermsDate,
+            newPrivacyPolicyVersion
+          );
         changeAnalyticsState(newShouldOptIn);
       }
     });
