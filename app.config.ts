@@ -137,7 +137,7 @@ export default ({ config }: ConfigContext): ExpoConfig =>
       // TODO: migrate existing localization to expo-localization
       'expo-localization',
       'expo-asset',
-      'expo-audio',
+      ['expo-audio', { enableBackgroundPlayback: false }],
       'expo-image',
       [
         'expo-build-properties',
