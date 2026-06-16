@@ -91,7 +91,7 @@ async function ensureAudioPlaybackMode(): Promise<void> {
   await setAudioModeAsync({
     allowsRecording: false,
     playsInSilentMode: true,
-    shouldPlayInBackground: true
+    shouldPlayInBackground: false
   });
 }
 
