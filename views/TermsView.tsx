@@ -1,10 +1,12 @@
 import { Button, OpacityPressable } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
+import { isLegalUpdateRequired } from '@/constants/legalVersions';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
 import { useRouter } from 'expo-router';
 import React, { useCallback } from 'react';
 import { Linking, ScrollView, View } from 'react-native';
+import { LegalUpdateView } from './LegalUpdateView';
 
 interface TermsViewProps {
   onAccept?: () => void;
@@ -43,6 +45,14 @@ export function RoutedTermsView({
   languageSelect
 }: Pick<TermsViewProps, 'languageSelect'> = {}) {
   const router = useRouter();
+  const dateTermsAccepted = useLocalStore((state) => state.dateTermsAccepted);
+  const acceptedPrivacyPolicyVersion = useLocalStore(
+    (state) => state.acceptedPrivacyPolicyVersion
+  );
+  const showLegalUpdate = isLegalUpdateRequired(
+    dateTermsAccepted,
+    acceptedPrivacyPolicyVersion
+  );
 
   const handleAccept = useCallback(() => {
     router.replace('/');
@@ -51,6 +61,10 @@ export function RoutedTermsView({
   const handleDismiss = useCallback(() => {
     router.dismiss();
   }, [router]);
+
+  if (showLegalUpdate) {
+    return <LegalUpdateView onAccept={handleAccept} />;
+  }
 
   return (
     <TermsView
@@ -124,7 +138,6 @@ function TermsViewInner({
           })()}
         </Text>
         <Text variant="p">{t('termsDataInfo')}</Text>
-        <Text variant="p">{t('analyticsInfo')}</Text>
 
         <OpacityPressable
           onPress={() =>
