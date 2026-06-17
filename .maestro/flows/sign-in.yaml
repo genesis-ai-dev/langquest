@@ -17,6 +17,18 @@ appId: ${MAESTRO_APP_ID}
 - tapOn:
     text: Sign In
     below: I forgot my password
+- runFlow:
+    when:
+      visible: We've updated our legal documents
+    commands:
+      - scrollUntilVisible:
+          element: I agree and continue
+      - tapOn: I agree and continue
+- runFlow:
+    when:
+      visible: Enable Analytics
+    commands:
+      - tapOn: Continue
 - tapOn:
     id: app-drawer-menu-button
 - tapOn: Profile
