@@ -38,6 +38,7 @@ export function RegisterLegalConsent({
       onPress={() => !disabled && onCheckedChange(!checked)}
       accessibilityRole="checkbox"
       accessibilityState={{ checked, disabled }}
+      testID="register-legal-consent"
     >
       <Checkbox
         checked={checked}

@@ -42,7 +42,11 @@ export function AnalyticsConsentControls({
         <Text className="flex-1 text-base font-medium text-foreground">
           {t('enableAnalytics')}
         </Text>
-        <Switch checked={optedIn} onCheckedChange={onOptedInChange} />
+        <Switch
+          testID="analytics-opt-in-switch"
+          checked={optedIn}
+          onCheckedChange={onOptedInChange}
+        />
       </View>
 
       {compact && !embedded && (

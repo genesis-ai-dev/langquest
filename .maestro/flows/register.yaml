@@ -19,10 +19,14 @@ onFlowStart:
 - tapOn: Confirm Password
 - inputText: password
 - scrollUntilVisible:
-    element: I agree to the
-- tapOn: I agree to the
+    id: register-legal-consent
+- tapOn:
+    id: register-legal-consent
+- scrollUntilVisible:
+    element: Register
 - tapOn: Register
 - tapOn: Register
+- runFlow: _dismiss-auth-consent-gates.yaml
 - assertVisible: Projects
 - tapOn:
     id: app-drawer-menu-button
