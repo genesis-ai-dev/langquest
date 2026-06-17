@@ -258,7 +258,9 @@ export interface LocalState {
   setProjectTargetFilter: (filter: string) => void;
   setAnalyticsOptOut: (optOut: boolean) => void;
   setAnalyticsConsent: (optIn: boolean) => void;
-  acceptTerms: (options?: { subjectToLegalEffectiveDateWait?: boolean }) => void;
+  acceptTerms: (options?: {
+    subjectToLegalEffectiveDateWait?: boolean;
+  }) => void;
   setUILanguage: (lang: Language) => void;
   setSavedLanguage: (lang: Language) => void;
 

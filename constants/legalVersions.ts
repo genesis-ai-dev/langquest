@@ -25,7 +25,10 @@ export function inferSubjectToLegalEffectiveDateWait(profile: {
     return true;
   }
 
-  if (profile.privacy_policy_version === CURRENT_LEGAL_VERSION && profile.created_at) {
+  if (
+    profile.privacy_policy_version === CURRENT_LEGAL_VERSION &&
+    profile.created_at
+  ) {
     const createdAt = new Date(profile.created_at).getTime();
     const termsAt = new Date(profile.terms_accepted_at).getTime();
     return termsAt - createdAt > 60 * 60 * 1000;

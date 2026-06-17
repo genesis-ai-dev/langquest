@@ -172,7 +172,7 @@ export const ResetPassword = ({
               {t.button}
             </Link>
             <Text className="mb-3.5 text-sm text-gray-800">{t.orCopy}</Text>
-            <Text className="inline-block w-[90.5%] break-all rounded border border-gray-200 bg-gray-100 p-4 font-mono text-sm text-gray-800">
+            <Text className="inline-block w-[90.5%] rounded border border-gray-200 bg-gray-100 p-4 font-mono text-sm break-all text-gray-800">
               {confirmation_url}
             </Text>
             <Text className="mt-3.5 text-sm text-gray-400">{t.expiry}</Text>
