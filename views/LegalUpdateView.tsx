@@ -24,7 +24,7 @@ export function LegalUpdateView({ onAccept }: LegalUpdateViewProps) {
 
   const handleAccept = useCallback(() => {
     const acceptedAt = new Date();
-    acceptTerms();
+    acceptTerms({ subjectToLegalEffectiveDateWait: true });
     void syncLegalAcceptanceToAccount(acceptedAt.toISOString());
     onAccept?.();
   }, [acceptTerms, onAccept]);

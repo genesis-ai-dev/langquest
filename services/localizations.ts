@@ -3109,26 +3109,26 @@ export const localizations = {
   },
   legalUpdateAnalytics: {
     english:
-      'If you opt in while signed in, we may link usage to your account, use device or session identifiers, and record limited session replays. Text you type into forms is masked. You can change this anytime in Profile settings.',
+      'If you opt in while signed in, we will link usage to your account and record limited session replays on supported devices. Form text is masked. You can turn it off anytime with the switch.',
     french:
-      "Si vous optez pour l'activation lorsque vous êtes connecté, nous pouvons associer l'utilisation à votre compte, utiliser des identifiants d'appareil ou de session et enregistrer des relectures de session limitées. Le texte saisi dans les formulaires est masqué. Vous pouvez modifier ce choix à tout moment dans les paramètres du profil.",
+      "Si vous optez pour l'activation lorsque vous êtes connecté, nous associerons l'utilisation à votre compte et enregistrerons des relectures de session limitées sur les appareils pris en charge. Le texte des formulaires est masqué. Vous pouvez le désactiver à tout moment avec l'interrupteur.",
     spanish:
-      'Si opta por activarlo mientras ha iniciado sesión, podemos vincular el uso a su cuenta, usar identificadores de dispositivo o sesión y registrar repeticiones de sesión limitadas. El texto que escribe en formularios está enmascarado. Puede cambiar esto en cualquier momento en la configuración del perfil.',
+      'Si opta por activarlo mientras ha iniciado sesión, vincularemos el uso a su cuenta y registraremos repeticiones de sesión limitadas en dispositivos compatibles. El texto de los formularios está enmascarado. Puede desactivarlo en cualquier momento con el interruptor.',
     brazilian_portuguese:
-      'Se você optar por ativar enquanto estiver conectado, podemos vincular o uso à sua conta, usar identificadores de dispositivo ou sessão e registrar replays de sessão limitados. O texto digitado em formulários é mascarado. Você pode alterar isso a qualquer momento nas configurações do perfil.',
+      'Se você optar por ativar enquanto estiver conectado, vincularemos o uso à sua conta e registraremos replays de sessão limitados em dispositivos compatíveis. O texto dos formulários é mascarado. Você pode desativar a qualquer momento com o interruptor.',
     tok_pisin:
-      'Sapos yu laik onim analytics na yu login, mipela inap joinim usage long account bilong yu, yusim device o session identifiers, na record liklik session replays. Text yu raite long forms i mask. Yu ken senisim dispela long wanem taim long Profile settings.',
+      'Sapos yu laik onim analytics na yu login, mipela bai joinim usage long account bilong yu na record liklik session replays long ol device we i sapot. Form text i mask. Yu ken offim long wanem taim long switch.',
     indonesian:
-      'Jika Anda memilih untuk mengaktifkan saat masuk, kami dapat menautkan penggunaan ke akun Anda, menggunakan pengenal perangkat atau sesi, dan merekam replay sesi terbatas. Teks yang Anda ketik di formulir disamarkan. Anda dapat mengubah ini kapan saja di pengaturan Profil.',
+      'Jika Anda memilih untuk mengaktifkan saat masuk, kami akan menautkan penggunaan ke akun Anda dan merekam replay sesi terbatas di perangkat yang didukung. Teks formulir disamarkan. Anda dapat mematikannya kapan saja dengan sakelar.',
     nepali:
-      'साइन इन भएको बेला opt in गर्नुभयो भने, हामी प्रयोगलाई तपाईंको खातासँग जोड्न, उपकरण वा सत्र पहिचानकर्ता प्रयोग गर्न, र सीमित session replay रेकर्ड गर्न सक्छौं। फारममा टाइप गर्ने पाठ मास्क गरिन्छ। तपाईं प्रोफाइल सेटिङहरूमा जुनसुकै समय परिवर्तन गर्न सक्नुहुन्छ।',
+      'साइन इन भएको बेला opt in गर्नुभयो भने, हामी प्रयोगलाई तपाईंको खातासँग जोड्नेछौं र समर्थित उपकरणहरूमा सीमित session replay रेकर्ड गर्नेछौं। फारम पाठ मास्क गरिन्छ। तपाईं स्विच प्रयोग गरेर जुनसुकै समय बन्द गर्न सक्नुहुन्छ।',
     hindi:
-      'साइन इन होने पर यदि आप ऑप्ट इन करते हैं, तो हम उपयोग को आपके खाते से जोड़ सकते हैं, डिवाइस या सत्र पहचानकर्ता उपयोग कर सकते हैं, और सीमित सत्र रीप्ले रिकॉर्ड कर सकते हैं। फ़ॉर्म में टाइप किया गया टेक्स्ट मास्क किया जाता है। आप प्रोफ़ाइल सेटिंग्स में कभी भी इसे बदल सकते हैं।',
+      'साइन इन होने पर यदि आप ऑप्ट इन करते हैं, तो हम उपयोग को आपके खाते से जोड़ेंगे और समर्थित डिवाइसों पर सीमित सत्र रीप्ले रिकॉर्ड करेंगे। फ़ॉर्म टेक्स्ट मास्क किया जाता है। आप स्विच से इसे कभी भी बंद कर सकते हैं।',
     burmese:
-      'sign in ထားပြီး opt in လုပ်ပါက အသုံးပြုမှုကို အကောင့်နှင့် ချိတ်ဆက်ပြီး device/session identifiers သုံးကာ session replay အကန့်အသတ်ဖြင့် မှတ်တမ်းတင်နိုင်သည်။ form ထဲရိုက်သော text ကို mask လုပ်ထားသည်။ profile settings တွင် မည်သည့်အချိန်မဆို ပြောင်းနိုင်သည်။',
-    thai: 'หากคุณเลือกเปิดใช้งานขณะลงชื่อเข้าใช้ เราอาจเชื่อมการใช้งานกับบัญชีของคุณ ใช้ตัวระบุอุปกรณ์หรือเซสชัน และบันทึก session replay แบบจำกัด ข้อความที่คุณพิมพ์ในฟอร์มจะถูกปิดบัง คุณสามารถเปลี่ยนได้ตลอดเวลาในการตั้งค่าโปรไฟล์',
+      'sign in ထားပြီး opt in လုပ်ပါက အသုံးပြုမှုကို အကောင့်နှင့် ချိတ်ဆက်ပြီး ပံ့ပိုးထားသော စက်ပစ္စည်းများတွင် session replay အကန့်အသတ်ဖြင့် မှတ်တမ်းတင်မည်။ form စာသားကို mask လုပ်ထားသည်။ switch ဖြင့် မည်သည့်အချိန်မဆို ပိတ်နိုင်သည်။',
+    thai: 'หากคุณเลือกเปิดใช้งานขณะลงชื่อเข้าใช้ เราจะเชื่อมการใช้งานกับบัญชีของคุณและบันทึก session replay แบบจำกัดบนอุปกรณ์ที่รองรับ ข้อความในฟอร์มถูกปิดบัง คุณสามารถปิดได้ตลอดเวลาด้วยสวิตช์',
     mandarin:
-      '如果您在登录后选择启用，我们可能会将使用情况与您的账户关联，使用设备或会话标识符，并记录有限的会话回放。您在表单中输入的文字会被屏蔽。您可随时在个人资料设置中更改。'
+      '如果您在登录后选择启用，我们会将使用情况与您的账户关联，并在受支持设备上记录有限的会话回放。表单文字会被屏蔽。您可随时通过开关关闭。'
   },
   legalUpdateAnalyticsNext: {
     english:
@@ -3400,26 +3400,26 @@ export const localizations = {
   },
   analyticsConsentMission: {
     english:
-      "This is optional. Turn it on and you'll show us how LangQuest works on your device, including limited session replays on supported devices (form text is masked).",
+      'If you opt in, we will link usage to your account and record limited session replays on supported devices. Form text is masked. You can turn it off anytime with the switch.',
     french:
-      "C'est facultatif. Activez-le et vous nous montrerez comment LangQuest fonctionne sur votre appareil, y compris des relectures de session limitées sur les appareils pris en charge (le texte des formulaires est masqué).",
+      "Si vous optez pour l'activation, nous associerons l'utilisation à votre compte et enregistrerons des relectures de session limitées sur les appareils pris en charge. Le texte des formulaires est masqué. Vous pouvez le désactiver à tout moment avec l'interrupteur.",
     spanish:
-      'Es opcional. Actívelo y nos mostrará cómo funciona LangQuest en su dispositivo, incluidas repeticiones de sesión limitadas en dispositivos compatibles (el texto de los formularios está enmascarado).',
+      'Si opta por activarlo, vincularemos el uso a su cuenta y registraremos repeticiones de sesión limitadas en dispositivos compatibles. El texto de los formularios está enmascarado. Puede desactivarlo en cualquier momento con el interruptor.',
     brazilian_portuguese:
-      'É opcional. Ative e você nos mostrará como o LangQuest funciona no seu dispositivo, incluindo replays de sessão limitados em dispositivos compatíveis (o texto dos formulários fica mascarado).',
+      'Se você optar por ativar, vincularemos o uso à sua conta e registraremos replays de sessão limitados em dispositivos compatíveis. O texto dos formulários é mascarado. Você pode desativar a qualquer momento com o interruptor.',
     tok_pisin:
-      'Dispela i optional. Yu onim na bai yu soim mipela olsem LangQuest i wok long device bilong yu, inklusim liklik session replays long ol device we i sapot (form text i mask).',
+      'Sapos yu laik onim analytics, mipela bai joinim usage long account bilong yu na record liklik session replays long ol device we i sapot. Form text i mask. Yu ken offim long wanem taim long switch.',
     indonesian:
-      'Ini opsional. Aktifkan dan Anda akan menunjukkan kepada kami bagaimana LangQuest bekerja di perangkat Anda, termasuk replay sesi terbatas di perangkat yang didukung (teks formulir disamarkan).',
+      'Jika Anda memilih untuk mengaktifkan, kami akan menautkan penggunaan ke akun Anda dan merekam replay sesi terbatas di perangkat yang didukung. Teks formulir disamarkan. Anda dapat mematikannya kapan saja dengan sakelar.',
     nepali:
-      'यो वैकल्पिक हो। सक्रिय गर्नुहोस् र तपाईंले LangQuest तपाईंको उपकरणमा कसरी काम गर्छ भन्ने देखाउनुहुनेछ, समर्थित उपकरणहरूमा सीमित session replay सहित (फारम पाठ मास्क गरिन्छ)।',
+      'opt in गर्नुभयो भने, हामी प्रयोगलाई तपाईंको खातासँग जोड्नेछौं र समर्थित उपकरणहरूमा सीमित session replay रेकर्ड गर्नेछौं। फारम पाठ मास्क गरिन्छ। तपाईं स्विच प्रयोग गरेर जुनसुकै समय बन्द गर्न सक्नुहुन्छ।',
     hindi:
-      'यह वैकल्पिक है। इसे चालू करें और आप हमें दिखाएंगे कि LangQuest आपके डिवाइस पर कैसे काम करता है, समर्थित डिवाइसों पर सीमित सत्र रीप्ले सहित (फ़ॉर्म टेक्स्ट मास्क किया जाता है)।',
+      'यदि आप ऑप्ट इन करते हैं, तो हम उपयोग को आपके खाते से जोड़ेंगे और समर्थित डिवाइसों पर सीमित सत्र रीप्ले रिकॉर्ड करेंगे। फ़ॉर्म टेक्स्ट मास्क किया जाता है। आप स्विच से इसे कभी भी बंद कर सकते हैं।',
     burmese:
-      'ဤသည်မှာ ရွေးချယ်နိုင်သည်။ ဖွင့်လိုက်ပါက LangQuest သည် သင့်စက်ပစ္စည်းတွင် မည်သို့ အလုပ်လုပ်သည်ကို သင်ပြသပေးမည်၊ ပံ့ပိုးထားသော စက်ပစ္စည်းများတွင် session replay အကန့်အသတ်ဖြင့် (form စာသားကို mask လုပ်ထားသည်)။',
-    thai: 'นี่ไม่บังคับ เปิดใช้งานแล้วคุณจะแสดงให้เราเห็นว่า LangQuest ทำงานอย่างไรบนอุปกรณ์ของคุณ รวมถึง session replay แบบจำกัดบนอุปกรณ์ที่รองรับ (ข้อความในฟอร์มถูกปิดบัง)',
+      'opt in လုပ်ပါက အသုံးပြုမှုကို အကောင့်နှင့် ချိတ်ဆက်ပြီး ပံ့ပိုးထားသော စက်ပစ္စည်းများတွင် session replay အကန့်အသတ်ဖြင့် မှတ်တမ်းတင်မည်။ form စာသားကို mask လုပ်ထားသည်။ switch ဖြင့် မည်သည့်အချိန်မဆို ပိတ်နိုင်သည်။',
+    thai: 'หากคุณเลือกเปิดใช้งาน เราจะเชื่อมการใช้งานกับบัญชีของคุณและบันทึก session replay แบบจำกัดบนอุปกรณ์ที่รองรับ ข้อความในฟอร์มถูกปิดบัง คุณสามารถปิดได้ตลอดเวลาด้วยสวิตช์',
     mandarin:
-      '这是可选的。开启后，您将向我们展示 LangQuest 在您的设备上如何运行，包括在受支持设备上的有限会话回放（表单文字会被屏蔽）。'
+      '如果您选择启用，我们会将使用情况与您的账户关联，并在受支持设备上记录有限的会话回放。表单文字会被屏蔽。您可随时通过开关关闭。'
   },
   analyticsConsentBenefit1: {
     english:
@@ -3468,44 +3468,17 @@ export const localizations = {
       '您向我们展示使用了哪些页面和功能。这让我们更清楚地了解 LangQuest 在日常使用中是怎样的。'
   },
   analyticsConsentTransparency: {
-    english:
-      'Signed in? Your usage links to your account. We use device identifiers and record limited session replays. Form text stays masked. See our ',
-    french:
-      "Connecté ? Votre utilisation est liée à votre compte. Nous utilisons des identifiants d'appareil et enregistrons des relectures de session limitées. Le texte des formulaires reste masqué. Consultez notre ",
-    spanish:
-      '¿Ha iniciado sesión? Su uso se vincula a su cuenta. Usamos identificadores de dispositivo y grabamos repeticiones de sesión limitadas. El texto de formularios permanece enmascarado. Consulte nuestra ',
-    brazilian_portuguese:
-      'Conectado? Seu uso é vinculado à sua conta. Usamos identificadores de dispositivo e gravamos replays de sessão limitados. O texto de formulários permanece mascarado. Veja nossa ',
-    tok_pisin:
-      'Yu login? Usage bilong yu i join long account. Mipela yusim device identifiers na record liklik session replays. Form text i mask yet. Lukim ',
-    indonesian:
-      'Sudah masuk? Penggunaan Anda tertaut ke akun Anda. Kami menggunakan pengenal perangkat dan merekam replay sesi terbatas. Teks formulir tetap disamarkan. Lihat ',
-    nepali:
-      'साइन इन गर्नुभयो? तपाईंको प्रयोग तपाईंको खातासँग जोडिन्छ। हामी उपकरण पहिचानकर्ता प्रयोग गर्छौं र सीमित session replay रेकर्ड गर्छौं। फारम पाठ मास्क गरिएको रहन्छ। हेर्नुहोस् हाम्रो ',
-    hindi:
-      'साइन इन हैं? आपका उपयोग आपके खाते से जुड़ता है। हम डिवाइस पहचानकर्ता उपयोग करते हैं और सीमित सत्र रीप्ले रिकॉर्ड करते हैं। फ़ॉर्म टेक्स्ट मास्क रहता है। देखें हमारी ',
-    burmese:
-      'Sign in ထားပြီလား? သင်၏ အသုံးပြုမှုကို အကောင့်နှင့် ချိတ်ဆက်ထားသည်။ ကျွန်ုပ်တို့ စက်ပစ္စည်း ခွဲခြားသတ်မှတ်ချက်များကို အသုံးပြုပြီး session replay အကန့်အသတ်ဖြင့် မှတ်တမ်းတင်သည်။ ဖောင်စာသားကို ဖုံးကွယ်ထားသည်။ ကြည့်ရှုပါ ',
-    thai: 'ลงชื่อเข้าใช้แล้วหรือยัง? การใช้งานของคุณเชื่อมกับบัญชีของคุณ เราใช้ตัวระบุอุปกรณ์และบันทึก session replay แบบจำกัด ข้อความในฟอร์มยังคงถูกปิดบัง ดู',
-    mandarin:
-      '已登录？您的使用情况与账户关联。我们使用设备标识符并记录有限的会话回放。表单文字保持屏蔽。请参阅我们的'
-  },
-  analyticsConsentFooter: {
-    english: 'You can change this anytime in Profile settings.',
-    french:
-      'Vous pouvez modifier cela à tout moment dans les paramètres du profil.',
-    spanish:
-      'Puede cambiar esto en cualquier momento en la configuración del perfil.',
-    brazilian_portuguese:
-      'Você pode alterar isso a qualquer momento nas configurações do perfil.',
-    tok_pisin: 'Yu ken senisim dispela long wanem taim long Profile settings.',
-    indonesian: 'Anda dapat mengubah ini kapan saja di pengaturan Profil.',
-    nepali:
-      'तपाईं प्रोफाइल सेटिङहरूमा जुनसुकै समय यो परिवर्तन गर्न सक्नुहुन्छ।',
-    hindi: 'आप प्रोफ़ाइल सेटिंग्स में कभी भी इसे बदल सकते हैं।',
-    burmese: 'profile settings တွင် မည်သည့်အချိန်မဆို ပြောင်းနိုင်သည်။',
-    thai: 'คุณสามารถเปลี่ยนได้ตลอดเวลาในการตั้งค่าโปรไฟล์',
-    mandarin: '您可以随时在个人资料设置中更改。'
+    english: 'See our ',
+    french: 'Consultez notre ',
+    spanish: 'Consulte nuestra ',
+    brazilian_portuguese: 'Veja nossa ',
+    tok_pisin: 'Lukim ',
+    indonesian: 'Lihat ',
+    nepali: 'हेर्नुहोस् हाम्रो ',
+    hindi: 'देखें हमारी ',
+    burmese: 'ကြည့်ရှုပါ ',
+    thai: 'ดู',
+    mandarin: '请参阅我们的'
   },
   analyticsConsentContinue: {
     english: 'Continue',
@@ -3876,17 +3849,35 @@ export const localizations = {
     mandarin: '启用分析'
   },
   analyticsDescription: {
-    english: 'Optional. Off until you turn it on.',
-    french: "Facultatif. Désactivé jusqu'à ce que vous l'activiez.",
-    spanish: 'Opcional. Desactivado hasta que lo active.',
-    brazilian_portuguese: 'Opcional. Desativado até você ativar.',
-    tok_pisin: 'Optional. I off inap yu onim.',
-    indonesian: 'Opsional. Mati sampai Anda mengaktifkannya.',
-    nepali: 'वैकल्पिक। तपाईंले सक्रिय नगरेसम्म बन्द।',
-    hindi: 'वैकल्पिक। जब तक आप इसे चालू न करें, बंद रहता है।',
-    burmese: 'ရွေးချယ်နိုင်သည်။ သင်မဖွင့်မချင်း ပိတ်ထားသည်။',
-    thai: 'ไม่บังคับ ปิดอยู่จนกว่าคุณจะเปิดใช้งาน',
-    mandarin: '可选。在您开启之前保持关闭。'
+    english: 'Form text is masked in session replays.',
+    french:
+      'Le texte des formulaires est masqué dans les relectures de session.',
+    spanish:
+      'El texto de los formularios está enmascarado en las repeticiones de sesión.',
+    brazilian_portuguese:
+      'O texto dos formulários é mascarado em replays de sessão.',
+    tok_pisin: 'Form text i mask long session replays.',
+    indonesian: 'Teks formulir disamarkan dalam replay sesi.',
+    nepali: 'session replay मा फारम पाठ मास्क गरिन्छ।',
+    hindi: 'सत्र रीप्ले में फ़ॉर्म टेक्स्ट मास्क किया जाता है।',
+    burmese: 'session replay များတွင် form စာသားကို mask လုပ်ထားသည်။',
+    thai: 'ข้อความในฟอร์มถูกปิดบังใน session replay',
+    mandarin: '会话回放中的表单文字会被屏蔽。'
+  },
+  analyticsDeferredStartDate: {
+    english: 'Account-linked analytics starts {effectiveDate}.',
+    french: 'Les analyses liées au compte commencent le {effectiveDate}.',
+    spanish: 'El análisis vinculado a la cuenta comienza el {effectiveDate}.',
+    brazilian_portuguese:
+      'A análise vinculada à conta começa em {effectiveDate}.',
+    tok_pisin: 'Account-linked analytics bai stat long {effectiveDate}.',
+    indonesian: 'Analitik tertaut akun dimulai pada {effectiveDate}.',
+    nepali: 'खाता-लिङ्क गरिएको विश्लेषण {effectiveDate} देखि सुरु हुन्छ।',
+    hindi: 'खाता-लिंक्ड विश्लेषण {effectiveDate} से शुरू होगा।',
+    burmese:
+      'အကောင့်နှင့် ချိတ်ဆက်ထားသော analytics သည် {effectiveDate} တွင် စတင်မည်။',
+    thai: 'การวิเคราะห์ที่เชื่อมกับบัญชีจะเริ่มในวันที่ {effectiveDate}',
+    mandarin: '账户关联分析将于{effectiveDate}开始。'
   },
   sessionExpired: {
     english: 'Session expired',

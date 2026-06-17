@@ -23,6 +23,7 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { usePostHog } from '@/hooks/usePostHog';
+import { shouldShowAnalyticsDeferredStartDate } from '@/constants/legalVersions';
 import {
   clearDegradedMode,
   isDegradedMode
@@ -65,12 +66,24 @@ export default function ProfileView() {
   const isOnline = useNetworkStatus();
   const posthog = usePostHog();
   const analyticsOptOut = useLocalStore((state) => state.analyticsOptOut);
+  const dateTermsAccepted = useLocalStore((state) => state.dateTermsAccepted);
+  const acceptedPrivacyPolicyVersion = useLocalStore(
+    (state) => state.acceptedPrivacyPolicyVersion
+  );
+  const subjectToLegalEffectiveDateWait = useLocalStore(
+    (state) => state.subjectToLegalEffectiveDateWait
+  );
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
   const [analyticsLearnMoreOpen, setAnalyticsLearnMoreOpen] = useState(false);
   const [isDegraded, setIsDegraded] = useState(false);
 
   // Derive analytics enabled state (opposite of opt-out)
   const analyticsEnabled = !analyticsOptOut;
+  const showDeferredStartDate = shouldShowAnalyticsDeferredStartDate({
+    dateTermsAccepted,
+    acceptedPrivacyPolicyVersion,
+    subjectToLegalEffectiveDateWait
+  });
 
   const handleAnalyticsToggle = async (optedIn: boolean) => {
     try {
@@ -374,6 +387,7 @@ export default function ProfileView() {
           <AnalyticsConsentCard
             compact
             showLearnMore
+            showDeferredStartDate={showDeferredStartDate}
             optedIn={analyticsEnabled}
             onOptedInChange={(optedIn) => void handleAnalyticsToggle(optedIn)}
             onLearnMorePress={() => setAnalyticsLearnMoreOpen(true)}
@@ -386,12 +400,13 @@ export default function ProfileView() {
           snapPoints={['60%']}
           enableDynamicSizing={false}
         >
-          <DrawerContent>
+          <DrawerContent className="pb-safe">
             <AnalyticsConsentCard
               variant="learnMore"
               showControls={false}
               optedIn={analyticsEnabled}
               onOptedInChange={(optedIn) => void handleAnalyticsToggle(optedIn)}
+              className="py-4"
             />
           </DrawerContent>
         </Drawer>

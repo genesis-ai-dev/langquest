@@ -1,5 +1,6 @@
 import {
   CURRENT_LEGAL_VERSION,
+  inferSubjectToLegalEffectiveDateWait,
   resolveAcceptedPrivacyPolicyVersion
 } from '@/constants/legalVersions';
 import { getProfileByUserId } from '@/hooks/db/useProfiles';
@@ -20,18 +21,37 @@ export async function syncAccountPreferencesFromProfile(userId: string) {
       profile.privacy_policy_version
     );
 
+    const subjectToLegalEffectiveDateWait =
+      inferSubjectToLegalEffectiveDateWait(profile);
+
     if (
       profile.terms_accepted &&
       profilePrivacyPolicyVersion === CURRENT_LEGAL_VERSION
     ) {
-      const { dateTermsAccepted, acceptedPrivacyPolicyVersion } =
-        useLocalStore.getState();
+      const {
+        dateTermsAccepted,
+        acceptedPrivacyPolicyVersion,
+        subjectToLegalEffectiveDateWait: localSubjectToLegalEffectiveDateWait
+      } = useLocalStore.getState();
       if (
         !dateTermsAccepted ||
         acceptedPrivacyPolicyVersion !== CURRENT_LEGAL_VERSION
       ) {
-        useLocalStore.getState().acceptTerms();
+        useLocalStore
+          .getState()
+          .acceptTerms(
+            subjectToLegalEffectiveDateWait
+              ? { subjectToLegalEffectiveDateWait: true }
+              : undefined
+          );
+      } else if (
+        subjectToLegalEffectiveDateWait &&
+        !localSubjectToLegalEffectiveDateWait
+      ) {
+        useLocalStore.setState({ subjectToLegalEffectiveDateWait: true });
       }
+    } else if (subjectToLegalEffectiveDateWait) {
+      useLocalStore.setState({ subjectToLegalEffectiveDateWait: true });
     }
 
     applyAnalyticsPreferenceFromProfile(

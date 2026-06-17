@@ -10,8 +10,9 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useLocalStore } from '@/store/localStore';
 import { cn } from '@/utils/styleUtils';
+import { openLegalUrl } from '@/utils/openLegalUrl';
 import RNAlert from '@blazejkustra/react-native-alert';
-import { useRouter, type Href } from 'expo-router';
+import { type Href } from 'expo-router';
 import React from 'react';
 import { Pressable, ScrollView, TouchableOpacity, View } from 'react-native';
 
@@ -32,7 +33,6 @@ interface SettingsItem {
 }
 
 export default function SettingsView() {
-  const router = useRouter();
   const { t } = useLocalization();
   const isOnline = useNetworkStatus();
 
@@ -255,7 +255,7 @@ export default function SettingsView() {
           id: 'terms',
           title: t('termsAndPrivacyTitle'),
           type: 'link',
-          onPress: () => router.push('/(app)/terms')
+          onPress: () => void openLegalUrl('privacy')
         }
       ]
     },

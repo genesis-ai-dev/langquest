@@ -1,6 +1,10 @@
 import { OpacityPressable } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Text } from '@/components/ui/text';
+import {
+  CURRENT_LEGAL_VERSION,
+  formatLegalVersionDate
+} from '@/constants/legalVersions';
 import { useLocalization } from '@/hooks/useLocalization';
 import { openLegalUrl } from '@/utils/openLegalUrl';
 import { cn } from '@/utils/styleUtils';
@@ -12,7 +16,6 @@ interface AnalyticsConsentControlsProps {
   onOptedInChange: (optedIn: boolean) => void;
   compact?: boolean;
   embedded?: boolean;
-  showDescription?: boolean;
   className?: string;
 }
 
@@ -21,7 +24,6 @@ export function AnalyticsConsentControls({
   onOptedInChange,
   compact = false,
   embedded = false,
-  showDescription = true,
   className
 }: AnalyticsConsentControlsProps) {
   const { t } = useLocalization();
@@ -43,15 +45,9 @@ export function AnalyticsConsentControls({
         <Switch checked={optedIn} onCheckedChange={onOptedInChange} />
       </View>
 
-      {compact ? (
-        showDescription && (
-          <Text className="text-sm leading-5 text-muted-foreground">
-            {t('analyticsDescription')}
-          </Text>
-        )
-      ) : (
-        <Text className="text-sm leading-6 text-muted-foreground">
-          {t('analyticsConsentFooter')}
+      {compact && !embedded && (
+        <Text className="text-sm leading-5 text-muted-foreground">
+          {t('analyticsDescription')}
         </Text>
       )}
     </View>
@@ -65,6 +61,7 @@ interface AnalyticsConsentCardProps {
   variant?: 'consent' | 'learnMore';
   showControls?: boolean;
   showLearnMore?: boolean;
+  showDeferredStartDate?: boolean;
   onLearnMorePress?: () => void;
   className?: string;
 }
@@ -76,10 +73,12 @@ export function AnalyticsConsentCard({
   variant = 'consent',
   showControls = true,
   showLearnMore = false,
+  showDeferredStartDate = false,
   onLearnMorePress,
   className
 }: AnalyticsConsentCardProps) {
   const { t } = useLocalization();
+  const effectiveDate = formatLegalVersionDate(CURRENT_LEGAL_VERSION);
 
   return (
     <View
@@ -117,6 +116,7 @@ export function AnalyticsConsentCard({
 
       {!compact && (
         <Text className="text-sm leading-6 text-muted-foreground">
+          {variant === 'learnMore' ? `${t('analyticsConsentMission')} ` : null}
           {t('analyticsConsentTransparency')}
           <Text
             className="text-sm font-medium leading-6 text-primary underline"
@@ -134,8 +134,13 @@ export function AnalyticsConsentCard({
           onOptedInChange={onOptedInChange}
           compact={compact}
           embedded={compact && showLearnMore}
-          showDescription={!showLearnMore}
         />
+      )}
+
+      {compact && showDeferredStartDate && (
+        <Text className="text-sm leading-5 text-muted-foreground">
+          {t('analyticsDeferredStartDate', { effectiveDate })}
+        </Text>
       )}
 
       {compact && showLearnMore && onLearnMorePress && (

@@ -1,4 +1,4 @@
-import { hasAcceptedCurrentPrivacyPolicyVersion } from '@/constants/legalVersions';
+import { canCaptureAccountLinkedAnalytics } from '@/constants/legalVersions';
 import { useLocalStore } from '@/store/localStore';
 import posthog from 'posthog-js';
 
@@ -47,15 +47,18 @@ let pendingPostHogUserId: string | null = null;
 let lastIdentifiedPostHogUserId: string | null = null;
 
 function getAnalyticsOptIn() {
-  const { dateTermsAccepted, acceptedPrivacyPolicyVersion, analyticsOptOut } =
-    useLocalStore.getState();
-  return (
-    !analyticsOptOut &&
-    hasAcceptedCurrentPrivacyPolicyVersion(
-      dateTermsAccepted,
-      acceptedPrivacyPolicyVersion
-    )
-  );
+  const {
+    dateTermsAccepted,
+    acceptedPrivacyPolicyVersion,
+    analyticsOptOut,
+    subjectToLegalEffectiveDateWait
+  } = useLocalStore.getState();
+  return canCaptureAccountLinkedAnalytics({
+    dateTermsAccepted,
+    acceptedPrivacyPolicyVersion,
+    analyticsOptOut,
+    subjectToLegalEffectiveDateWait
+  });
 }
 
 export const syncPostHogIdentity = () => {
@@ -95,45 +98,56 @@ function changeAnalyticsState(newState: boolean) {
 }
 
 export const initializePostHogWithStore = () => {
-  const { dateTermsAccepted, acceptedPrivacyPolicyVersion, analyticsOptOut } =
-    useLocalStore.getState();
+  const {
+    dateTermsAccepted,
+    acceptedPrivacyPolicyVersion,
+    analyticsOptOut,
+    subjectToLegalEffectiveDateWait
+  } = useLocalStore.getState();
 
   try {
-    const shouldOptIn =
-      !analyticsOptOut &&
-      hasAcceptedCurrentPrivacyPolicyVersion(
-        dateTermsAccepted,
-        acceptedPrivacyPolicyVersion
-      );
+    const shouldOptIn = canCaptureAccountLinkedAnalytics({
+      dateTermsAccepted,
+      acceptedPrivacyPolicyVersion,
+      analyticsOptOut,
+      subjectToLegalEffectiveDateWait
+    });
 
     changeAnalyticsState(shouldOptIn);
 
     let previousOptOut = analyticsOptOut;
     let previousTermsDate = dateTermsAccepted;
     let previousPrivacyPolicyVersion = acceptedPrivacyPolicyVersion;
+    let previousSubjectToLegalEffectiveDateWait =
+      subjectToLegalEffectiveDateWait;
 
     const unsubscribe = useLocalStore.subscribe((state) => {
       const {
         analyticsOptOut: newOptOut,
         dateTermsAccepted: newTermsDate,
-        acceptedPrivacyPolicyVersion: newPrivacyPolicyVersion
+        acceptedPrivacyPolicyVersion: newPrivacyPolicyVersion,
+        subjectToLegalEffectiveDateWait: newSubjectToLegalEffectiveDateWait
       } = state;
 
       if (
         newOptOut !== previousOptOut ||
         newTermsDate !== previousTermsDate ||
-        newPrivacyPolicyVersion !== previousPrivacyPolicyVersion
+        newPrivacyPolicyVersion !== previousPrivacyPolicyVersion ||
+        newSubjectToLegalEffectiveDateWait !==
+          previousSubjectToLegalEffectiveDateWait
       ) {
         previousOptOut = newOptOut;
         previousTermsDate = newTermsDate;
         previousPrivacyPolicyVersion = newPrivacyPolicyVersion;
+        previousSubjectToLegalEffectiveDateWait =
+          newSubjectToLegalEffectiveDateWait;
 
-        const newShouldOptIn =
-          !newOptOut &&
-          hasAcceptedCurrentPrivacyPolicyVersion(
-            newTermsDate,
-            newPrivacyPolicyVersion
-          );
+        const newShouldOptIn = canCaptureAccountLinkedAnalytics({
+          dateTermsAccepted: newTermsDate,
+          acceptedPrivacyPolicyVersion: newPrivacyPolicyVersion,
+          analyticsOptOut: newOptOut,
+          subjectToLegalEffectiveDateWait: newSubjectToLegalEffectiveDateWait
+        });
         changeAnalyticsState(newShouldOptIn);
       }
     });

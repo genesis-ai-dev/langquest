@@ -134,6 +134,8 @@ export interface LocalState {
   savedLanguage: Language | null;
   dateTermsAccepted: Date | null;
   acceptedPrivacyPolicyVersion: string | null;
+  /** Existing users on the legacy policy wait until CURRENT_LEGAL_EFFECTIVE_AT. */
+  subjectToLegalEffectiveDateWait: boolean;
   analyticsConsentAt: Date | null;
   analyticsOptOut: boolean;
   projectSourceFilter: string;
@@ -256,7 +258,7 @@ export interface LocalState {
   setProjectTargetFilter: (filter: string) => void;
   setAnalyticsOptOut: (optOut: boolean) => void;
   setAnalyticsConsent: (optIn: boolean) => void;
-  acceptTerms: () => void;
+  acceptTerms: (options?: { subjectToLegalEffectiveDateWait?: boolean }) => void;
   setUILanguage: (lang: Language) => void;
   setSavedLanguage: (lang: Language) => void;
 
@@ -368,6 +370,7 @@ export const useLocalStore = create<LocalState>()(
       savedLanguage: null,
       dateTermsAccepted: null,
       acceptedPrivacyPolicyVersion: null,
+      subjectToLegalEffectiveDateWait: false,
       analyticsConsentAt: null,
       analyticsOptOut: true,
       theme: 'system',
@@ -485,11 +488,14 @@ export const useLocalStore = create<LocalState>()(
       },
       setUILanguage: (lang) => set({ uiLanguage: lang }),
       setSavedLanguage: (lang) => set({ savedLanguage: lang }),
-      acceptTerms: () =>
-        set({
-          dateTermsAccepted: new Date(),
-          acceptedPrivacyPolicyVersion: CURRENT_LEGAL_VERSION
-        }),
+      acceptTerms: (options) =>
+        set((state) => ({
+          dateTermsAccepted: state.dateTermsAccepted ?? new Date(),
+          acceptedPrivacyPolicyVersion: CURRENT_LEGAL_VERSION,
+          ...(options?.subjectToLegalEffectiveDateWait === true && {
+            subjectToLegalEffectiveDateWait: true
+          })
+        })),
       projectSourceFilter: 'All',
       projectTargetFilter: 'All',
       setProjectSourceFilter: (filter) => set({ projectSourceFilter: filter }),
@@ -845,7 +851,7 @@ export const useLocalStore = create<LocalState>()(
     }),
     {
       name: 'local-store',
-      version: 2,
+      version: 3,
       storage: createJSONStorage(() => AsyncStorage),
       migrate: (persistedState, version) => {
         const state = persistedState as Record<string, unknown>;
@@ -871,6 +877,23 @@ export const useLocalStore = create<LocalState>()(
           state.acceptedPrivacyPolicyVersion = state.acceptedLegalVersion;
           delete state.acceptedLegalVersion;
         }
+        if (version < 3) {
+          const dateTermsAccepted = state.dateTermsAccepted;
+          const acceptedPrivacyPolicyVersion =
+            state.acceptedPrivacyPolicyVersion;
+          if (
+            dateTermsAccepted &&
+            (!acceptedPrivacyPolicyVersion ||
+              acceptedPrivacyPolicyVersion === LEGACY_LEGAL_VERSION)
+          ) {
+            state.subjectToLegalEffectiveDateWait = true;
+            if (!acceptedPrivacyPolicyVersion) {
+              state.acceptedPrivacyPolicyVersion = LEGACY_LEGAL_VERSION;
+            }
+          } else if (state.subjectToLegalEffectiveDateWait === undefined) {
+            state.subjectToLegalEffectiveDateWait = false;
+          }
+        }
         return persistedState as LocalState;
       },
       onRehydrateStorage: () => async (state) => {
@@ -878,7 +901,8 @@ export const useLocalStore = create<LocalState>()(
         if (state) {
           if (state.dateTermsAccepted && !state.acceptedPrivacyPolicyVersion) {
             useLocalStore.setState({
-              acceptedPrivacyPolicyVersion: LEGACY_LEGAL_VERSION
+              acceptedPrivacyPolicyVersion: LEGACY_LEGAL_VERSION,
+              subjectToLegalEffectiveDateWait: true
             });
           }
 

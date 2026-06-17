@@ -1,4 +1,4 @@
-import { hasAcceptedCurrentPrivacyPolicyVersion } from '@/constants/legalVersions';
+import { canCaptureAccountLinkedAnalytics } from '@/constants/legalVersions';
 import { useLocalStore } from '@/store/localStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Device from 'expo-device';
@@ -45,15 +45,18 @@ let pendingPostHogUserId: string | null = null;
 let lastIdentifiedPostHogUserId: string | null = null;
 
 function getAnalyticsOptIn() {
-  const { dateTermsAccepted, acceptedPrivacyPolicyVersion, analyticsOptOut } =
-    useLocalStore.getState();
-  return (
-    !analyticsOptOut &&
-    hasAcceptedCurrentPrivacyPolicyVersion(
-      dateTermsAccepted,
-      acceptedPrivacyPolicyVersion
-    )
-  );
+  const {
+    dateTermsAccepted,
+    acceptedPrivacyPolicyVersion,
+    analyticsOptOut,
+    subjectToLegalEffectiveDateWait
+  } = useLocalStore.getState();
+  return canCaptureAccountLinkedAnalytics({
+    dateTermsAccepted,
+    acceptedPrivacyPolicyVersion,
+    analyticsOptOut,
+    subjectToLegalEffectiveDateWait
+  });
 }
 
 /**
@@ -139,16 +142,19 @@ const setDeviceInfo = async () => {
 // Function to update PostHog settings once store is available
 // This will be called from the app initialization, not during module import
 export const initializePostHogWithStore = () => {
-  const { dateTermsAccepted, acceptedPrivacyPolicyVersion, analyticsOptOut } =
-    useLocalStore.getState();
+  const {
+    dateTermsAccepted,
+    acceptedPrivacyPolicyVersion,
+    analyticsOptOut,
+    subjectToLegalEffectiveDateWait
+  } = useLocalStore.getState();
   try {
-    // Update PostHog opt-in status based on store
-    const shouldOptIn =
-      !analyticsOptOut &&
-      hasAcceptedCurrentPrivacyPolicyVersion(
-        dateTermsAccepted,
-        acceptedPrivacyPolicyVersion
-      );
+    const shouldOptIn = canCaptureAccountLinkedAnalytics({
+      dateTermsAccepted,
+      acceptedPrivacyPolicyVersion,
+      analyticsOptOut,
+      subjectToLegalEffectiveDateWait
+    });
 
     void changeAnalyticsState(shouldOptIn);
 
@@ -156,30 +162,37 @@ export const initializePostHogWithStore = () => {
     let previousOptOut = analyticsOptOut;
     let previousTermsDate = dateTermsAccepted;
     let previousPrivacyPolicyVersion = acceptedPrivacyPolicyVersion;
+    let previousSubjectToLegalEffectiveDateWait =
+      subjectToLegalEffectiveDateWait;
 
     const unsubscribe = useLocalStore.subscribe((state) => {
       const {
         analyticsOptOut: newOptOut,
         dateTermsAccepted: newTermsDate,
-        acceptedPrivacyPolicyVersion: newPrivacyPolicyVersion
+        acceptedPrivacyPolicyVersion: newPrivacyPolicyVersion,
+        subjectToLegalEffectiveDateWait: newSubjectToLegalEffectiveDateWait
       } = state;
 
       // Only update if the relevant values actually changed
       if (
         newOptOut !== previousOptOut ||
         newTermsDate !== previousTermsDate ||
-        newPrivacyPolicyVersion !== previousPrivacyPolicyVersion
+        newPrivacyPolicyVersion !== previousPrivacyPolicyVersion ||
+        newSubjectToLegalEffectiveDateWait !==
+          previousSubjectToLegalEffectiveDateWait
       ) {
         previousOptOut = newOptOut;
         previousTermsDate = newTermsDate;
         previousPrivacyPolicyVersion = newPrivacyPolicyVersion;
+        previousSubjectToLegalEffectiveDateWait =
+          newSubjectToLegalEffectiveDateWait;
 
-        const newShouldOptIn =
-          !newOptOut &&
-          hasAcceptedCurrentPrivacyPolicyVersion(
-            newTermsDate,
-            newPrivacyPolicyVersion
-          );
+        const newShouldOptIn = canCaptureAccountLinkedAnalytics({
+          dateTermsAccepted: newTermsDate,
+          acceptedPrivacyPolicyVersion: newPrivacyPolicyVersion,
+          analyticsOptOut: newOptOut,
+          subjectToLegalEffectiveDateWait: newSubjectToLegalEffectiveDateWait
+        });
         void changeAnalyticsState(newShouldOptIn);
       }
     });
