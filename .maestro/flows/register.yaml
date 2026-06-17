@@ -18,6 +18,9 @@ onFlowStart:
 - inputText: password
 - tapOn: Confirm Password
 - inputText: password
+- scrollUntilVisible:
+    element: I agree to the
+- tapOn: I agree to the
 - tapOn: Register
 - tapOn: Register
 - assertVisible: Projects
