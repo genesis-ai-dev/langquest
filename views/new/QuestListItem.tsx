@@ -17,6 +17,8 @@ import { quest as questTable } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
+import { SessionReplayMask } from '@/components/SessionReplayMask';
+import { isUnpublishedSource } from '@/utils/sessionReplayMask';
 import { cn } from '@/utils/styleUtils';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { and, eq } from 'drizzle-orm';
@@ -75,6 +77,7 @@ export const QuestListItem: React.FC<QuestListItemProps> = ({
   const { goToQuest } = useNavigationHelpers();
   const { currentUser } = useAuth();
   const { t } = useLocalization();
+  const maskQuestName = isUnpublishedSource(quest.source);
   const isDownloaded = useItemDownloadStatus(quest, currentUser?.id);
 
   // Fetch quest closure data for download stats
@@ -172,9 +175,11 @@ export const QuestListItem: React.FC<QuestListItemProps> = ({
                     />
                   )}
                 </View>
-                <CardTitle numberOfLines={2} className="flex flex-1">
-                  {quest.name}
-                </CardTitle>
+                <SessionReplayMask when={maskQuestName} className="flex flex-1">
+                  <CardTitle numberOfLines={2} className="flex flex-1">
+                    {quest.name}
+                  </CardTitle>
+                </SessionReplayMask>
               </View>
               <DownloadIndicator
                 isFlaggedForDownload={isDownloaded}
@@ -199,7 +204,11 @@ export const QuestListItem: React.FC<QuestListItemProps> = ({
           </View>
         </CardHeader>
         <CardContent>
-          <Text numberOfLines={4}>{quest.description}</Text>
+          {quest.description ? (
+            <SessionReplayMask when={maskQuestName}>
+              <Text numberOfLines={4}>{quest.description}</Text>
+            </SessionReplayMask>
+          ) : null}
           <View className="mt-2 flex flex-col gap-2">
             {!!childQuests.length && (
               <View className="flex flex-col gap-1">
@@ -217,7 +226,14 @@ export const QuestListItem: React.FC<QuestListItemProps> = ({
                       })
                     }
                   >
-                    <Text className="text-sm">• {child.name}</Text>
+                    <SessionReplayMask
+                      when={
+                        isUnpublishedSource(child.source) || maskQuestName
+                      }
+                      className="flex-1"
+                    >
+                      <Text className="text-sm">• {child.name}</Text>
+                    </SessionReplayMask>
                   </Pressable>
                 ))}
               </View>

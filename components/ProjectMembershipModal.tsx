@@ -1,4 +1,5 @@
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
+import { SessionReplayMask } from '@/components/SessionReplayMask';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -1245,30 +1246,33 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
         className="flex-row items-center justify-between py-3"
       >
         <View className="flex-1 flex-row items-center">
-          <View className="mr-3 h-10 w-10 items-center justify-center rounded-full bg-primary">
-            <Text className="font-semibold text-primary-foreground">
-              {(member.name || member.email).charAt(0).toUpperCase()}
-            </Text>
-          </View>
-          <View className="flex-1">
-            <View className="flex-row items-center gap-1">
-              <Text variant="large" className="font-semibold">
-                {member.name || member.email} {isCurrentUser && `(${t('you')})`}
+          <SessionReplayMask className="flex-1 flex-row items-center">
+            <View className="mr-3 h-10 w-10 items-center justify-center rounded-full bg-primary">
+              <Text className="font-semibold text-primary-foreground">
+                {(member.name || member.email).charAt(0).toUpperCase()}
               </Text>
-              {member.role === 'owner' ? (
-                <Icon as={CrownIcon} size={16} className="text-primary" />
-              ) : (
-                <Icon
-                  as={UserIcon}
-                  size={16}
-                  className="text-muted-foreground"
-                />
-              )}
             </View>
-            <Text variant="small" className="mt-0.5 text-muted-foreground">
-              {member.email}
-            </Text>
-          </View>
+            <View className="flex-1">
+              <View className="flex-row items-center gap-1">
+                <Text variant="large" className="font-semibold">
+                  {member.name || member.email}{' '}
+                  {isCurrentUser && `(${t('you')})`}
+                </Text>
+                {member.role === 'owner' ? (
+                  <Icon as={CrownIcon} size={16} className="text-primary" />
+                ) : (
+                  <Icon
+                    as={UserIcon}
+                    size={16}
+                    className="text-muted-foreground"
+                  />
+                )}
+              </View>
+              <Text variant="small" className="mt-0.5 text-muted-foreground">
+                {member.email}
+              </Text>
+            </View>
+          </SessionReplayMask>
         </View>
 
         <View className="flex-row gap-1">
@@ -1379,47 +1383,49 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
         className="flex-row items-center justify-between border-b border-border py-3"
       >
         <View className="flex-1 flex-row items-center">
-          <View className="mr-3 h-10 w-10 items-center justify-center rounded-full bg-primary">
-            <Text className="font-semibold text-primary-foreground">
-              {invitation.email.charAt(0).toUpperCase()}
-            </Text>
-          </View>
-          <View className="flex-1">
-            <View className="flex-row items-center gap-1">
-              <Text variant="large" className="font-semibold">
-                {invitation.email}
+          <SessionReplayMask className="flex-1 flex-row items-center">
+            <View className="mr-3 h-10 w-10 items-center justify-center rounded-full bg-primary">
+              <Text className="font-semibold text-primary-foreground">
+                {invitation.email.charAt(0).toUpperCase()}
               </Text>
-              {invitation.role === 'owner' && (
-                <Icon as={CrownIcon} size={16} className="text-primary" />
-              )}
             </View>
-            <View className="mt-1 flex-col gap-2">
-              {showInvitedBy && (
-                <Text variant="small" className="text-muted-foreground">
-                  {t('invitedBy', { name: senderDisplayName })}
+            <View className="flex-1">
+              <View className="flex-row items-center gap-1">
+                <Text variant="large" className="font-semibold">
+                  {invitation.email}
                 </Text>
-              )}
-              <View className="flex-row flex-wrap items-center gap-1">
-                <Badge variant={getStatusVariant(invitation.status)}>
-                  <Text variant="small">
-                    {getStatusDisplay(invitation.status)}
-                  </Text>
-                </Badge>
-                {isSuppressed && !isBounced && (
-                  <Badge variant="outline">
-                    <Text variant="small">{t('deliveryBlocked')}</Text>
-                  </Badge>
+                {invitation.role === 'owner' && (
+                  <Icon as={CrownIcon} size={16} className="text-primary" />
                 )}
               </View>
-              {isBounced && (
-                <Text variant="small" className="text-muted-foreground">
-                  {bounceReason === 'user_not_found'
-                    ? t('inviteEmailNotFound')
-                    : t('inviteDeliveryFailed')}
-                </Text>
-              )}
+              <View className="mt-1 flex-col gap-2">
+                {showInvitedBy && (
+                  <Text variant="small" className="text-muted-foreground">
+                    {t('invitedBy', { name: senderDisplayName })}
+                  </Text>
+                )}
+                <View className="flex-row flex-wrap items-center gap-1">
+                  <Badge variant={getStatusVariant(invitation.status)}>
+                    <Text variant="small">
+                      {getStatusDisplay(invitation.status)}
+                    </Text>
+                  </Badge>
+                  {isSuppressed && !isBounced && (
+                    <Badge variant="outline">
+                      <Text variant="small">{t('deliveryBlocked')}</Text>
+                    </Badge>
+                  )}
+                </View>
+                {isBounced && (
+                  <Text variant="small" className="text-muted-foreground">
+                    {bounceReason === 'user_not_found'
+                      ? t('inviteEmailNotFound')
+                      : t('inviteDeliveryFailed')}
+                  </Text>
+                )}
+              </View>
             </View>
-          </View>
+          </SessionReplayMask>
         </View>
 
         <View className="flex-row gap-1">

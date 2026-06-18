@@ -4,6 +4,7 @@ import { cva } from 'class-variance-authority';
 import * as React from 'react';
 import type { TextInputProps } from 'react-native';
 import { Platform, TextInput } from 'react-native';
+import { SessionReplayMask } from '@/components/SessionReplayMask';
 import { DrawerInput } from './drawer';
 
 const textareaVariants = cva(
@@ -45,10 +46,11 @@ const Textarea = React.forwardRef<
     const primaryColor = useThemeColor('primary');
     const Component = drawerInput ? DrawerInput : TextInput;
     return (
-      <Component
-        // @ts-expect-error - ref is not passed the same type as TextInput
-        ref={ref}
-        className={cn(
+      <SessionReplayMask>
+        <Component
+          // @ts-expect-error - ref is not passed the same type as TextInput
+          ref={ref}
+          className={cn(
           textareaVariants({ size }),
           'placeholder:text-muted-foreground',
           Platform.select({
@@ -63,7 +65,8 @@ const Textarea = React.forwardRef<
         numberOfLines={numberOfLines}
         textAlignVertical="top"
         {...props}
-      />
+        />
+      </SessionReplayMask>
     );
   }
 );

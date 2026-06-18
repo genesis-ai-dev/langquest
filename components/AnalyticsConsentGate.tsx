@@ -4,12 +4,17 @@ import {
   hasCompletedAnalyticsConsent,
   profileNeedsAnalyticsConsent
 } from '@/services/analyticsConsent';
+import { isPostHogRegionBlocked } from '@/services/postHogAvailability';
 import { useLocalStore } from '@/store/localStore';
 import { AnalyticsConsentView } from '@/views/AnalyticsConsentView';
 import React from 'react';
 import { View } from 'react-native';
 
 function useRequiresAnalyticsConsent(): boolean {
+  if (isPostHogRegionBlocked()) {
+    return false;
+  }
+
   const analyticsConsentAt = useLocalStore((s) => s.analyticsConsentAt);
   const { isAuthenticated, currentUser, isLoading: authLoading } = useAuth();
   const { profile, isProfileLoading } = useProfileByUserId(

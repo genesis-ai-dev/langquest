@@ -1,7 +1,12 @@
+import { isPostHogAvailable } from '@/services/postHogAvailability';
 import posthog from '@/services/posthog';
 import { PostHogProvider as PostHogProviderBase } from 'posthog-react-native';
 
 function PostHogProvider({ children }: { children: React.ReactNode }) {
+  if (!isPostHogAvailable()) {
+    return children;
+  }
+
   return (
     <PostHogProviderBase
       client={posthog}

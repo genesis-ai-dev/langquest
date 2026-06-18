@@ -19,6 +19,7 @@
  */
 
 import { Icon } from '@/components/ui/icon';
+import { SessionReplayMask } from '@/components/SessionReplayMask';
 import { Text } from '@/components/ui/text';
 import { useAudio } from '@/contexts/AudioContext';
 import type { Asset } from '@/hooks/db/useAssets';
@@ -189,11 +190,13 @@ function AssetCardInternal({
               disabled={isSelectionMode || !isRenameable || !onRename}
               activeOpacity={0.7}
             >
-              <Text
-                className={`text-base font-medium ${isRenameable && !isSelectionMode && onRename ? 'text-foreground underline' : 'text-foreground'}`}
-              >
-                {asset.name || t('unnamedAsset')}
-              </Text>
+              <SessionReplayMask>
+                <Text
+                  className={`text-base font-medium ${isRenameable && !isSelectionMode && onRename ? 'text-foreground underline' : 'text-foreground'}`}
+                >
+                  {asset.name || t('unnamedAsset')}
+                </Text>
+              </SessionReplayMask>
             </TouchableOpacity>
             {segmentCount && segmentCount > 1 && (
               <View className="rounded bg-primary/20 px-1.5 py-0.5">

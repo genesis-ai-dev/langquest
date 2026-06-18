@@ -1,19 +1,10 @@
 import { canCaptureAccountLinkedAnalytics } from '@/constants/legalVersions';
+import { isPostHogAvailable } from '@/services/postHogAvailability';
 import { useLocalStore } from '@/store/localStore';
 import posthog from 'posthog-js';
 
-function isDevEnvironment() {
-  // __DEV__ may or may not exist on web
-  const isDevFlag = typeof __DEV__ !== 'undefined' ? __DEV__ : false;
-  return isDevFlag;
-}
-
 function isDisabled(): boolean {
-  return (
-    isDevEnvironment() ||
-    !process.env.EXPO_PUBLIC_POSTHOG_HOST ||
-    !process.env.EXPO_PUBLIC_POSTHOG_KEY
-  );
+  return !isPostHogAvailable();
 }
 
 function createPostHogInstance(optIn = false) {

@@ -1,4 +1,5 @@
 import { canCaptureAccountLinkedAnalytics } from '@/constants/legalVersions';
+import { isPostHogAvailable } from '@/services/postHogAvailability';
 import { useLocalStore } from '@/store/localStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Device from 'expo-device';
@@ -6,11 +7,8 @@ import * as Updates from 'expo-updates';
 import PostHog, { PostHogOptions } from 'posthog-react-native';
 
 function isPostHogDisabled() {
-  return (
-    __DEV__ || // comment out when you want to test analytics locally (with preview environment eas env:pull <environment>)
-    !process.env.EXPO_PUBLIC_POSTHOG_HOST ||
-    !process.env.EXPO_PUBLIC_POSTHOG_KEY
-  );
+  // comment out __DEV__ check in postHogAvailability when testing analytics locally
+  return !isPostHogAvailable();
 }
 
 const posthogErrorTracking = {
@@ -27,8 +25,9 @@ const createPostHogInstance = (optIn = false) => {
     host: `${process.env.EXPO_PUBLIC_POSTHOG_HOST}/ingest`,
     enableSessionReplay: true,
     sessionReplayConfig: {
-      maskAllImages: false,
-      maskAllTextInputs: true
+      maskAllImages: true,
+      maskAllSandboxedViews: true,
+      maskAllTextInputs: false
     },
     errorTracking: posthogErrorTracking,
     enablePersistSessionIdAcrossRestart: true,

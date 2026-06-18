@@ -15,6 +15,7 @@ import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 // import { useTagStore } from '@/hooks/useTagStore';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
+import { SessionReplayMask } from '@/components/SessionReplayMask';
 import { cn } from '@/utils/styleUtils';
 import type { AttachmentRecord } from '@powersync/attachments';
 import {
@@ -199,9 +200,11 @@ export const AssetListItem: React.FC<AssetListItemProps> = ({
                 )}
                 <View className="flex flex-row items-center gap-2">
                   {asset.source === 'local' && <Icon as={HardDriveIcon} />}
-                  <CardTitle numberOfLines={2}>
-                    {asset.name || t('unnamedAsset')}
-                  </CardTitle>
+                  <SessionReplayMask when={!isPublished} className="flex-1">
+                    <CardTitle numberOfLines={2}>
+                      {asset.name || t('unnamedAsset')}
+                    </CardTitle>
+                  </SessionReplayMask>
                 </View>
               </View>
               {/* Tags temporarily disabled */}

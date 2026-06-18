@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unnecessary-condition */
 import { AudioPlayerControls } from '@/components/AudioPlayerControls';
 import { QuestSettingsModal } from '@/components/QuestSettingsModal';
+import { SessionReplayMask } from '@/components/SessionReplayMask';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
@@ -1669,7 +1670,20 @@ export default function NextGenAssetsView() {
   return (
     <View className="flex flex-1 flex-col gap-4 p-6 pt-0">
       {selectedQuest?.name && (
-        <Stack.Screen options={{ title: selectedQuest.name }} />
+        <Stack.Screen
+          options={{
+            headerTitle: () => (
+              <SessionReplayMask when={!isPublished}>
+                <Text
+                  className="text-lg font-semibold text-foreground"
+                  numberOfLines={1}
+                >
+                  {selectedQuest.name}
+                </Text>
+              </SessionReplayMask>
+            )
+          }}
+        />
       )}
       {isPlayAllPlayerActive && <KeepAwakeGuard />}
       <View className="flex flex-col gap-2">
@@ -2018,16 +2032,18 @@ export default function NextGenAssetsView() {
                 <Text className="text-center text-base font-semibold text-secondary">
                   {t('startRecordingSession')}
                 </Text>
-                <Text className="w-full text-left text-sm text-secondary">
-                  {selectedAssetForRecording?.name
-                    ? `${t('after')} ${selectedAssetForRecording.name}`.slice(
-                        0,
-                        30
-                      )
-                    : selectedQuest?.name
-                      ? selectedQuest.name.slice(0, 30)
-                      : t('doRecord')}
-                </Text>
+                <SessionReplayMask when={!isPublished}>
+                  <Text className="w-full text-left text-sm text-secondary">
+                    {selectedAssetForRecording?.name
+                      ? `${t('after')} ${selectedAssetForRecording.name}`.slice(
+                          0,
+                          30
+                        )
+                      : selectedQuest?.name
+                        ? selectedQuest.name.slice(0, 30)
+                        : t('doRecord')}
+                  </Text>
+                </SessionReplayMask>
               </View>
               <Icon as={ChevronRight} size={24} className="text-secondary" />
             </Pressable>

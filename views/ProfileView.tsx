@@ -1,4 +1,6 @@
 import { AnalyticsConsentCard } from '@/components/AnalyticsConsentCard';
+import { SessionReplayMask } from '@/components/SessionReplayMask';
+import { isPostHogRegionBlocked } from '@/services/postHogAvailability';
 import { Drawer, DrawerContent } from '@/components/ui/drawer';
 import { LanguageSelect } from '@/components/language-select';
 import { ThemeToggle } from '@/components/theme-toggle';
@@ -84,6 +86,7 @@ export default function ProfileView() {
     acceptedPrivacyPolicyVersion,
     subjectToLegalEffectiveDateWait
   });
+  const showAnalyticsSettings = !isPostHogRegionBlocked();
 
   const handleAnalyticsToggle = async (optedIn: boolean) => {
     try {
@@ -365,51 +368,59 @@ export default function ProfileView() {
         </Button>
         {/* User Profile Information */}
         {currentUser && (
-          <View className="flex flex-col rounded-lg bg-card p-4" ph-no-capture>
+          <SessionReplayMask className="flex flex-col rounded-lg bg-card p-4">
             <View className="flex flex-row items-center gap-2">
               <Icon as={MailIcon} className="text-muted-foreground" />
-              <Text className="flex-1 text-foreground" ph-no-capture>
+              <Text className="flex-1 text-foreground">
                 {currentUser.email}
               </Text>
             </View>
             {currentUser.user_metadata.username && (
               <View className="flex-row items-center gap-2">
                 <Icon as={UserIcon} className="text-muted-foreground" />
-                <Text className="flex-1 text-foreground" ph-no-capture>
+                <Text className="flex-1 text-foreground">
                   {currentUser.user_metadata.username}
                 </Text>
               </View>
             )}
-          </View>
+          </SessionReplayMask>
         )}
 
-        <View className="rounded-lg bg-card p-4">
-          <AnalyticsConsentCard
-            compact
-            showLearnMore
-            showDeferredStartDate={showDeferredStartDate}
-            optedIn={analyticsEnabled}
-            onOptedInChange={(optedIn) => void handleAnalyticsToggle(optedIn)}
-            onLearnMorePress={() => setAnalyticsLearnMoreOpen(true)}
-          />
-        </View>
+        {showAnalyticsSettings ? (
+          <>
+            <View className="rounded-lg bg-card p-4">
+              <AnalyticsConsentCard
+                compact
+                showLearnMore
+                showDeferredStartDate={showDeferredStartDate}
+                optedIn={analyticsEnabled}
+                onOptedInChange={(optedIn) =>
+                  void handleAnalyticsToggle(optedIn)
+                }
+                onLearnMorePress={() => setAnalyticsLearnMoreOpen(true)}
+              />
+            </View>
 
-        <Drawer
-          open={analyticsLearnMoreOpen}
-          onOpenChange={setAnalyticsLearnMoreOpen}
-          snapPoints={['60%']}
-          enableDynamicSizing={false}
-        >
-          <DrawerContent className="pb-safe">
-            <AnalyticsConsentCard
-              variant="learnMore"
-              showControls={false}
-              optedIn={analyticsEnabled}
-              onOptedInChange={(optedIn) => void handleAnalyticsToggle(optedIn)}
-              className="py-4"
-            />
-          </DrawerContent>
-        </Drawer>
+            <Drawer
+              open={analyticsLearnMoreOpen}
+              onOpenChange={setAnalyticsLearnMoreOpen}
+              snapPoints={['60%']}
+              enableDynamicSizing={false}
+            >
+              <DrawerContent className="pb-safe">
+                <AnalyticsConsentCard
+                  variant="learnMore"
+                  showControls={false}
+                  optedIn={analyticsEnabled}
+                  onOptedInChange={(optedIn) =>
+                    void handleAnalyticsToggle(optedIn)
+                  }
+                  className="py-4"
+                />
+              </DrawerContent>
+            </Drawer>
+          </>
+        ) : null}
 
         <ThemeToggle />
 

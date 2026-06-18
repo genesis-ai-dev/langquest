@@ -20,6 +20,7 @@
  */
 
 import { ButtonNewAssetAction } from '@/components/ButtonNewAssetAction';
+import { SessionReplayMask } from '@/components/SessionReplayMask';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useAudio } from '@/contexts/AudioContext';
@@ -319,11 +320,13 @@ function RecordAssetCardInternal({
                 disabled={isSelectionMode || !isRenameable || !onRename}
                 activeOpacity={0.7}
               >
-                <Text
-                  className={`text-sm font-medium ${isRenameable && !isSelectionMode && onRename ? 'text-foreground underline' : 'text-foreground'}`}
-                >
-                  {asset.name || t('unnamedAsset')}
-                </Text>
+                <SessionReplayMask>
+                  <Text
+                    className={`text-sm font-medium ${isRenameable && !isSelectionMode && onRename ? 'text-foreground underline' : 'text-foreground'}`}
+                  >
+                    {asset.name || t('unnamedAsset')}
+                  </Text>
+                </SessionReplayMask>
               </TouchableOpacity>
               {segmentCount && segmentCount > 1 && (
                 <View

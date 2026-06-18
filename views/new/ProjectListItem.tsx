@@ -1,6 +1,7 @@
 import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { FiaIcon } from '@/components/icons/FiaIcon';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
+import { SessionReplayMask } from '@/components/SessionReplayMask';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -22,6 +23,7 @@ import { useLanguoidNames } from '@/hooks/db/useLanguoids';
 import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
+import { isUnpublishedSource } from '@/utils/sessionReplayMask';
 import { cn } from '@/utils/styleUtils';
 import type { HybridDataSource } from '@/views/new/useHybridData';
 import {
@@ -66,6 +68,7 @@ export function ProjectListItem({
     'open_project',
     project.private
   );
+  const maskUnpublishedContent = isUnpublishedSource(project.source);
 
   const { allowEditing: _allowEditing, invisible: _invisible } =
     layerStatus.getStatusParams(
@@ -207,7 +210,9 @@ export function ProjectListItem({
         >
           <CardHeader className="flex flex-row items-start justify-between gap-2">
             <View className="flex flex-1 gap-1">
-              <CardTitle numberOfLines={2}>{project.name}</CardTitle>
+              <SessionReplayMask when={maskUnpublishedContent}>
+                <CardTitle numberOfLines={2}>{project.name}</CardTitle>
+              </SessionReplayMask>
               <CardDescription>
                 <Text>
                   {sourceLanguoids.length > 0
@@ -281,7 +286,9 @@ export function ProjectListItem({
           {(project.description || isInvited) && (
             <CardContent>
               {project.description && (
-                <Text numberOfLines={4}>{project.description}</Text>
+                <SessionReplayMask when={maskUnpublishedContent}>
+                  <Text numberOfLines={4}>{project.description}</Text>
+                </SessionReplayMask>
               )}
               {isInvited && (
                 <View

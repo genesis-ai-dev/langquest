@@ -2,6 +2,7 @@
 import { AssetsDeletionDrawer } from '@/components/AssetsDeletionDrawer';
 import { AudioPlayerControls } from '@/components/AudioPlayerControls';
 import { QuestSettingsModal } from '@/components/QuestSettingsModal';
+import { SessionReplayMask } from '@/components/SessionReplayMask';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
@@ -3984,7 +3985,20 @@ export default function BibleAssetsView() {
   return (
     <View className="flex flex-1 flex-col gap-4 px-6 pb-6 pt-1">
       {selectedQuest?.name && (
-        <Stack.Screen options={{ title: selectedQuest.name }} />
+        <Stack.Screen
+          options={{
+            headerTitle: () => (
+              <SessionReplayMask when={!isPublished}>
+                <Text
+                  className="text-lg font-semibold text-foreground"
+                  numberOfLines={1}
+                >
+                  {selectedQuest.name}
+                </Text>
+              </SessionReplayMask>
+            )
+          }}
+        />
       )}
       {isPlayAllPlayerActive && <KeepAwakeGuard />}
       <View className="flex flex-row items-center justify-between">

@@ -1,4 +1,5 @@
 import { Alert, AlertTitle } from '@/components/ui/alert';
+import { SessionReplayMask } from '@/components/SessionReplayMask';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -303,13 +304,15 @@ function ProjectLanguoidSuggestionItem({
                 {t('projectLanguageSuggestionTitle')}
               </Text>
             </View>
-            <Text className="text-sm text-muted-foreground" ph-no-capture>
-              {t('projectLanguageSuggestionDescription', {
-                project: projectName,
-                current: currentName,
-                suggested: suggestedName
-              })}
-            </Text>
+            <SessionReplayMask>
+              <Text className="text-sm text-muted-foreground">
+                {t('projectLanguageSuggestionDescription', {
+                  project: projectName,
+                  current: currentName,
+                  suggested: suggestedName
+                })}
+              </Text>
+            </SessionReplayMask>
           </View>
 
           <View className="flex gap-2">
@@ -1035,12 +1038,14 @@ export default function NotificationsView() {
                 {t('inviteDeliveryFailedTitle')}
               </Text>
             </View>
-            <Text className="text-sm leading-5 text-foreground" ph-no-capture>
-              {t('inviteDeliveryFailedMessage', {
-                email: row.email,
-                project: projectData?.name || t('unknownProject')
-              })}
-            </Text>
+            <SessionReplayMask>
+              <Text className="text-sm leading-5 text-foreground">
+                {t('inviteDeliveryFailedMessage', {
+                  email: row.email,
+                  project: projectData?.name || t('unknownProject')
+                })}
+              </Text>
+            </SessionReplayMask>
             <Text className="text-xs text-muted-foreground">
               {new Date(row.created_at).toLocaleDateString()}
             </Text>
@@ -1098,19 +1103,21 @@ export default function NotificationsView() {
                 </Text>
               </View>
 
-              <Text className="text-sm leading-5 text-foreground" ph-no-capture>
-                {item.type === 'invite'
-                  ? t('invitedYouToJoin', {
-                      sender: `${item.sender_name}${item.sender_email ? ` (${item.sender_email})` : ''}`,
-                      project: item.project_name,
-                      role: roleText
-                    })
+              <SessionReplayMask>
+                <Text className="text-sm leading-5 text-foreground">
+                  {item.type === 'invite'
+                    ? t('invitedYouToJoin', {
+                        sender: `${item.sender_name}${item.sender_email ? ` (${item.sender_email})` : ''}`,
+                        project: item.project_name,
+                        role: roleText
+                      })
                   : t('requestedToJoin', {
                       sender: `${item.sender_name}${item.sender_email ? ` (${item.sender_email})` : ''}`,
                       project: item.project_name,
                       role: roleText
                     })}
-              </Text>
+                </Text>
+              </SessionReplayMask>
 
               <Text className="text-xs text-muted-foreground">
                 {new Date(item.created_at).toLocaleDateString()}

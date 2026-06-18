@@ -17,6 +17,7 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { useNavigationHelpers } from '@/hooks/useNavigation';
 // import { useTagStore } from '@/hooks/useTagStore';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
+import { SessionReplayMask } from '@/components/SessionReplayMask';
 import type { AttachmentRecord } from '@powersync/attachments';
 import {
   CheckSquareIcon,
@@ -337,12 +338,14 @@ const AssetCardItemComponent: React.FC<AssetCardItemProps> = ({
                       />
                     </Pressable>
                   )}
-                  <CardTitle
-                    numberOfLines={2}
-                    className="text-sm leading-tight"
-                  >
-                    {asset.name || t('unnamedAsset')}
-                  </CardTitle>
+                  <SessionReplayMask when={!isPublished} className="flex-1">
+                    <CardTitle
+                      numberOfLines={2}
+                      className="text-sm leading-tight"
+                    >
+                      {asset.name || t('unnamedAsset')}
+                    </CardTitle>
+                  </SessionReplayMask>
                 </View>
               </View>
               {/* Tags UI - commented out */}

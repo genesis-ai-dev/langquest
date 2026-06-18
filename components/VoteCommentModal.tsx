@@ -13,6 +13,7 @@ import {
   TouchableWithoutFeedback,
   View
 } from 'react-native';
+import { SessionReplayMask } from '@/components/SessionReplayMask';
 import RNAlert from '@blazejkustra/react-native-alert';
 
 interface VoteCommentModalProps {
@@ -75,14 +76,16 @@ export const VoteCommentModal: React.FC<VoteCommentModalProps> = ({
                   className="text-primary"
                   style={styles.icon}
                 />
-                <TextInput
-                  style={styles.textInput}
-                  multiline
-                  placeholder={t('enterCommentOptional')}
-                  placeholderTextColor={colors.textSecondary}
-                  value={comment}
-                  onChangeText={setComment}
-                />
+                <SessionReplayMask>
+                  <TextInput
+                    style={styles.textInput}
+                    multiline
+                    placeholder={t('enterCommentOptional')}
+                    placeholderTextColor={colors.textSecondary}
+                    value={comment}
+                    onChangeText={setComment}
+                  />
+                </SessionReplayMask>
                 <View style={styles.buttonContainer}>
                   <TouchableOpacity
                     style={styles.button}

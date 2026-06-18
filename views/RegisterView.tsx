@@ -162,7 +162,6 @@ export default function RegisterView() {
                   <Input
                     {...transformInputProps(field)}
                     type="next"
-                    mask
                     autoComplete="username-new"
                     returnKeyType="next"
                     submitBehavior="submit"
@@ -184,7 +183,6 @@ export default function RegisterView() {
                 <FormControl>
                   <Input
                     {...transformInputProps(field)}
-                    mask
                     type="next"
                     submitBehavior="submit"
                     autoCapitalize="none"

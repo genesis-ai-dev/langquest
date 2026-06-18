@@ -3,7 +3,8 @@ import { Icon } from '@/components/ui/icon';
 import { Eye, EyeOff } from 'lucide-react-native';
 import React, { useState } from 'react';
 import type { StyleProp, ViewStyle } from 'react-native';
-import { StyleSheet, TextInput, View } from 'react-native';
+import { StyleSheet, TextInput } from 'react-native';
+import { SessionReplayMask } from '@/components/SessionReplayMask';
 
 interface PasswordInputProps {
   value: string;
@@ -22,7 +23,7 @@ export const PasswordInput = ({
 }: PasswordInputProps) => {
   const [showPassword, setShowPassword] = useState(false);
   return (
-    <View style={[styles.container, style]} accessibilityLabel="ph-no-capture">
+    <SessionReplayMask style={[styles.container, style]}>
       <TextInput
         value={value}
         onChangeText={onChangeText}
@@ -46,7 +47,7 @@ export const PasswordInput = ({
           style={{ opacity: 0.7 }}
         />
       </Button>
-    </View>
+    </SessionReplayMask>
   );
 };
 

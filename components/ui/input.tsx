@@ -6,6 +6,7 @@ import { EyeIcon, EyeOffIcon } from 'lucide-react-native';
 import * as React from 'react';
 import type { TextInputProps } from 'react-native';
 import { Platform, TextInput, View } from 'react-native';
+import { SessionReplayMask } from '@/components/SessionReplayMask';
 import { KeyboardController } from 'react-native-keyboard-controller';
 import { ButtonPressable } from './button';
 import { DrawerInput } from './drawer';
@@ -119,7 +120,6 @@ interface InputProps
   suffixStyling?: boolean;
   drawerInput?: boolean;
   hideEye?: boolean;
-  mask?: boolean;
   type?: 'next';
 }
 
@@ -140,7 +140,6 @@ const Input = React.forwardRef<
       onSubmitEditing,
       hideEye,
       secureTextEntry,
-      mask,
       size,
       ...props
     },
@@ -151,7 +150,7 @@ const Input = React.forwardRef<
 
     const Component = drawerInput ? DrawerInput : TextInput;
     return (
-      <View
+      <SessionReplayMask
         className={cn(
           inputVariants({ size }),
           props.editable === false &&
@@ -165,9 +164,6 @@ const Input = React.forwardRef<
           !suffix && 'pr-3',
           className
         )}
-        accessibilityLabel={
-          mask || secureTextEntry ? 'ph-no-capture' : undefined
-        }
       >
         {prefix && (
           <View
@@ -251,7 +247,7 @@ const Input = React.forwardRef<
             )}
           </View>
         )}
-      </View>
+      </SessionReplayMask>
     );
   }
 );
