@@ -227,9 +227,7 @@ export const QuestListItem: React.FC<QuestListItemProps> = ({
                     }
                   >
                     <SessionReplayMask
-                      when={
-                        isUnpublishedSource(child.source) || maskQuestName
-                      }
+                      when={isUnpublishedSource(child.source) || maskQuestName}
                       className="flex-1"
                     >
                       <Text className="text-sm">• {child.name}</Text>

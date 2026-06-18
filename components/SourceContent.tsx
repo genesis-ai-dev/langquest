@@ -37,7 +37,10 @@ export const SourceContent: React.FC<SourceContentProps> = ({
       )}
 
       {/* Text content - scrollable */}
-      <SessionReplayMask when={maskContent} className="w-full flex-1 rounded bg-primary-foreground p-3">
+      <SessionReplayMask
+        when={maskContent}
+        className="w-full flex-1 rounded bg-primary-foreground p-3"
+      >
         <ScrollView
           showsVerticalScrollIndicator={true}
           contentContainerStyle={{ flexGrow: 1 }}
@@ -55,23 +58,25 @@ export const SourceContent: React.FC<SourceContentProps> = ({
           className="w-full items-center justify-center"
         >
           <View className="w-full items-center justify-center">
-          {audioSegments ? (
-            <MiniAudioPlayer
-              audioSegments={audioSegments}
-              id={content.id}
-              title={content.text ?? ''}
-              onTranscribe={onTranscribe}
-              isTranscribing={isTranscribing}
-            />
-          ) : (
-            <View className="flex-row items-center justify-center gap-2 py-2">
-              <ActivityIndicator
-                size="small"
-                color={getThemeColor('primary')}
+            {audioSegments ? (
+              <MiniAudioPlayer
+                audioSegments={audioSegments}
+                id={content.id}
+                title={content.text ?? ''}
+                onTranscribe={onTranscribe}
+                isTranscribing={isTranscribing}
               />
-              <Text className="text-muted-foreground">{t('loadingAudio')}</Text>
-            </View>
-          )}
+            ) : (
+              <View className="flex-row items-center justify-center gap-2 py-2">
+                <ActivityIndicator
+                  size="small"
+                  color={getThemeColor('primary')}
+                />
+                <Text className="text-muted-foreground">
+                  {t('loadingAudio')}
+                </Text>
+              </View>
+            )}
           </View>
         </SessionReplayMask>
       ) : null}

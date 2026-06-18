@@ -152,7 +152,10 @@ export const QuestTreeRow: React.FC<QuestTreeRowProps> = ({
           {quest.description && (
             <View className="flex-1 truncate">
               <SessionReplayMask when={maskQuestName}>
-                <Text className="text-sm text-muted-foreground" numberOfLines={1}>
+                <Text
+                  className="text-sm text-muted-foreground"
+                  numberOfLines={1}
+                >
                   {quest.description}
                 </Text>
               </SessionReplayMask>

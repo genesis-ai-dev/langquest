@@ -51,20 +51,23 @@ const Textarea = React.forwardRef<
           // @ts-expect-error - ref is not passed the same type as TextInput
           ref={ref}
           className={cn(
-          textareaVariants({ size }),
-          'placeholder:text-muted-foreground',
-          Platform.select({
-            web: 'aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive field-sizing-content resize-y outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed'
-          }),
-          props.editable === false && 'opacity-50',
-          className
-        )}
-        placeholderClassName={cn('text-muted-foreground', placeholderClassName)}
-        selectionColor={primaryColor}
-        multiline={multiline}
-        numberOfLines={numberOfLines}
-        textAlignVertical="top"
-        {...props}
+            textareaVariants({ size }),
+            'placeholder:text-muted-foreground',
+            Platform.select({
+              web: 'aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive field-sizing-content resize-y outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed'
+            }),
+            props.editable === false && 'opacity-50',
+            className
+          )}
+          placeholderClassName={cn(
+            'text-muted-foreground',
+            placeholderClassName
+          )}
+          selectionColor={primaryColor}
+          multiline={multiline}
+          numberOfLines={numberOfLines}
+          textAlignVertical="top"
+          {...props}
         />
       </SessionReplayMask>
     );

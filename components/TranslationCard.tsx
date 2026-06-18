@@ -52,8 +52,7 @@ export const TranslationCard = ({
   const isAudioOnlyCard = hasAudio && !showText;
   const showBadgeAbove = isHighlighted && !isAudioOnlyCard;
   const showBadgeWithVotes = isHighlighted && isAudioOnlyCard;
-  const maskContentInReplay =
-    maskContent || isUnpublishedSource(asset.source);
+  const maskContentInReplay = maskContent || isUnpublishedSource(asset.source);
 
   const handleCardPress = () => {
     if (asset.id) {
@@ -97,7 +96,10 @@ export const TranslationCard = ({
               {showBadgeWithVotes && <NewHighlightBadge />}
 
               {showText && (
-                <SessionReplayMask when={maskContentInReplay} className="min-w-0 flex-1">
+                <SessionReplayMask
+                  when={maskContentInReplay}
+                  className="min-w-0 flex-1"
+                >
                   <Text
                     numberOfLines={2}
                     className="text-base leading-relaxed text-foreground"

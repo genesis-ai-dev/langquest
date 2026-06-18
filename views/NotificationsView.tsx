@@ -1111,11 +1111,11 @@ export default function NotificationsView() {
                         project: item.project_name,
                         role: roleText
                       })
-                  : t('requestedToJoin', {
-                      sender: `${item.sender_name}${item.sender_email ? ` (${item.sender_email})` : ''}`,
-                      project: item.project_name,
-                      role: roleText
-                    })}
+                    : t('requestedToJoin', {
+                        sender: `${item.sender_name}${item.sender_email ? ` (${item.sender_email})` : ''}`,
+                        project: item.project_name,
+                        role: roleText
+                      })}
                 </Text>
               </SessionReplayMask>
 

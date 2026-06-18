@@ -1070,39 +1070,40 @@ export default function NextGenAssetDetailView() {
                             selectTextOnFocus
                             returnKeyType="done"
                             onSubmitEditing={async () => {
-                            const newPos = parseInt(reorderValue, 10);
-                            const content = activeAsset.content;
-                            if (
-                              !content ||
-                              isNaN(newPos) ||
-                              newPos < 1 ||
-                              newPos > content.length
-                            ) {
+                              const newPos = parseInt(reorderValue, 10);
+                              const content = activeAsset.content;
+                              if (
+                                !content ||
+                                isNaN(newPos) ||
+                                newPos < 1 ||
+                                newPos > content.length
+                              ) {
+                                setShowReorderInput(false);
+                                return;
+                              }
+                              const targetIndex = newPos - 1;
+                              if (targetIndex !== currentContentIndex) {
+                                // Build new order: move current item to target position
+                                const ids = content.map((c) => c.id);
+                                const movedId = ids.splice(
+                                  currentContentIndex,
+                                  1
+                                )[0]!;
+                                ids.splice(targetIndex, 0, movedId);
+                                await updateContentLinkOrder(
+                                  activeAsset.id,
+                                  ids,
+                                  {
+                                    localOverride:
+                                      activeAsset.source === 'local'
+                                  }
+                                );
+                                setCurrentContentIndex(targetIndex);
+                              }
                               setShowReorderInput(false);
-                              return;
-                            }
-                            const targetIndex = newPos - 1;
-                            if (targetIndex !== currentContentIndex) {
-                              // Build new order: move current item to target position
-                              const ids = content.map((c) => c.id);
-                              const movedId = ids.splice(
-                                currentContentIndex,
-                                1
-                              )[0]!;
-                              ids.splice(targetIndex, 0, movedId);
-                              await updateContentLinkOrder(
-                                activeAsset.id,
-                                ids,
-                                {
-                                  localOverride: activeAsset.source === 'local'
-                                }
-                              );
-                              setCurrentContentIndex(targetIndex);
-                            }
-                            setShowReorderInput(false);
-                          }}
-                          onBlur={() => setShowReorderInput(false)}
-                        />
+                            }}
+                            onBlur={() => setShowReorderInput(false)}
+                          />
                         </SessionReplayMask>
                         <Text className="text-sm text-muted-foreground">
                           of {activeAsset.content.length}
