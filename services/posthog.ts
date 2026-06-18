@@ -25,9 +25,9 @@ const createPostHogInstance = (optIn = false) => {
     host: `${process.env.EXPO_PUBLIC_POSTHOG_HOST}/ingest`,
     enableSessionReplay: true,
     sessionReplayConfig: {
-      maskAllImages: true,
-      maskAllSandboxedViews: true,
-      maskAllTextInputs: false
+      maskAllImages: false,
+      maskAllTextInputs: false,
+      maskAllSandboxedViews: true
     },
     errorTracking: posthogErrorTracking,
     enablePersistSessionIdAcrossRestart: true,

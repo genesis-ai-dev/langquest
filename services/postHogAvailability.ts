@@ -1,4 +1,5 @@
 import { isEuDeviceRegion } from '@/utils/euRegion';
+import { Platform } from 'react-native';
 
 export function isPostHogEnvConfigured(): boolean {
   return Boolean(
@@ -17,6 +18,7 @@ export function isPostHogDevEnvironment(): boolean {
 
 export function isPostHogAvailable(): boolean {
   return (
+    Platform.OS !== 'web' &&
     !isPostHogDevEnvironment() &&
     isPostHogEnvConfigured() &&
     !isPostHogRegionBlocked()

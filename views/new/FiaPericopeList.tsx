@@ -7,6 +7,7 @@
 
 import { DownloadConfirmationModal } from '@/components/DownloadConfirmationModal';
 import { DownloadIndicator } from '@/components/DownloadIndicator';
+import { SessionReplayMask } from '@/components/SessionReplayMask';
 import { QuestDownloadDiscoveryDrawer } from '@/components/QuestDownloadDiscoveryDrawer';
 import { Button } from '@/components/ui/button';
 import {
@@ -83,36 +84,38 @@ function VersionCard({
         !version.visible && 'opacity-50'
       )}
     >
-      <View
-        className={cn(
-          'h-10 w-10 items-center justify-center rounded-full',
-          isLocal ? 'bg-chart-2' : needsDownload ? 'bg-muted' : 'bg-primary'
-        )}
-      >
-        <Text
+      <SessionReplayMask className="flex-1 flex-row items-center gap-3">
+        <View
           className={cn(
-            'font-semibold',
-            isLocal || needsDownload
-              ? 'text-secondary-foreground'
-              : 'text-primary-foreground'
+            'h-10 w-10 items-center justify-center rounded-full',
+            isLocal ? 'bg-chart-2' : needsDownload ? 'bg-muted' : 'bg-primary'
           )}
         >
-          {initial}
-        </Text>
-      </View>
-      <View className="flex-1">
-        <View className="flex-row items-center gap-1.5">
-          <Text className="font-semibold">
-            {displayName}
-            {isCurrentUser ? ' (you)' : ''}
+          <Text
+            className={cn(
+              'font-semibold',
+              isLocal || needsDownload
+                ? 'text-secondary-foreground'
+                : 'text-primary-foreground'
+            )}
+          >
+            {initial}
           </Text>
         </View>
-        <Text className="text-sm text-muted-foreground">
-          {isCurrentUser && isLocal
-            ? `Draft - ${formatRelativeDate(version.created_at)}`
-            : formatRelativeDate(version.created_at)}
-        </Text>
-      </View>
+        <View className="flex-1">
+          <View className="flex-row items-center gap-1.5">
+            <Text className="font-semibold">
+              {displayName}
+              {isCurrentUser ? ' (you)' : ''}
+            </Text>
+          </View>
+          <Text className="text-sm text-muted-foreground">
+            {isCurrentUser && isLocal
+              ? `Draft - ${formatRelativeDate(version.created_at)}`
+              : formatRelativeDate(version.created_at)}
+          </Text>
+        </View>
+      </SessionReplayMask>
       <View className="items-center justify-center">
         {isLocal && (
           <Icon as={HardDriveIcon} size={18} className="text-chart-2" />

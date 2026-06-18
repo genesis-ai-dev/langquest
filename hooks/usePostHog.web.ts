@@ -1,1 +1,3 @@
-export { usePostHog } from 'posthog-js/react';
+export function usePostHog() {
+  return null;
+}

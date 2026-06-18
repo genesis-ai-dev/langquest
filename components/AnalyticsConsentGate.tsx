@@ -4,14 +4,14 @@ import {
   hasCompletedAnalyticsConsent,
   profileNeedsAnalyticsConsent
 } from '@/services/analyticsConsent';
-import { isPostHogRegionBlocked } from '@/services/postHogAvailability';
+import { isPostHogAvailable } from '@/services/postHogAvailability';
 import { useLocalStore } from '@/store/localStore';
 import { AnalyticsConsentView } from '@/views/AnalyticsConsentView';
 import React from 'react';
 import { View } from 'react-native';
 
 function useRequiresAnalyticsConsent(): boolean {
-  if (isPostHogRegionBlocked()) {
+  if (!isPostHogAvailable()) {
     return false;
   }
 

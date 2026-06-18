@@ -1,6 +1,6 @@
 import { AnalyticsConsentCard } from '@/components/AnalyticsConsentCard';
 import { SessionReplayMask } from '@/components/SessionReplayMask';
-import { isPostHogRegionBlocked } from '@/services/postHogAvailability';
+import { isPostHogAvailable } from '@/services/postHogAvailability';
 import { Drawer, DrawerContent } from '@/components/ui/drawer';
 import { LanguageSelect } from '@/components/language-select';
 import { ThemeToggle } from '@/components/theme-toggle';
@@ -86,7 +86,7 @@ export default function ProfileView() {
     acceptedPrivacyPolicyVersion,
     subjectToLegalEffectiveDateWait
   });
-  const showAnalyticsSettings = !isPostHogRegionBlocked();
+  const showAnalyticsSettings = isPostHogAvailable();
 
   const handleAnalyticsToggle = async (optedIn: boolean) => {
     try {
