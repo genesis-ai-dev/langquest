@@ -35,4 +35,8 @@ onFlowStart:
     text: Profile
     above:
       text: ${output.email}
+- assertVisible:
+    id: analytics-opt-in-switch
+    checked: true
+    rightOf: Enable Analytics
 - evalScript: ${output.api.deleteUser(output.email)}

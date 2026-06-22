@@ -86,7 +86,7 @@ export function isPostHogDevEnvironment(): boolean {
 export function isPostHogAvailable(): boolean {
   return (
     Platform.OS !== 'web' &&
-    // !isPostHogDevEnvironment() && // re-enable before release
+    !isPostHogDevEnvironment() &&
     isPostHogEnvConfigured() &&
     !isPostHogRegionBlocked()
   );
