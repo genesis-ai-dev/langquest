@@ -19,7 +19,8 @@ onFlowStart:
 - tapOn: Confirm Password
 - inputText: password
 - scrollUntilVisible:
-    id: register-legal-consent
+    element:
+      id: register-legal-consent
 - tapOn:
     id: register-legal-consent
 - scrollUntilVisible:
