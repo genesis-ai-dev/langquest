@@ -1,7 +1,7 @@
 import { getLocales } from 'expo-localization';
 
 /** EU member states, EEA (IS, LI, NO), and GB (UK GDPR). */
-const EU_EEA_GB_COUNTRY_CODES = new Set([
+export const EU_EEA_GB_COUNTRY_CODES = new Set([
   'AT',
   'BE',
   'BG',
@@ -46,11 +46,16 @@ export function getDeviceRegionCode(): string | null {
   return null;
 }
 
-export function isEuDeviceRegion(): boolean {
-  const regionCode = getDeviceRegionCode();
-  if (!regionCode) {
+export function isEuEeaGbCountryCode(
+  countryCode: string | null | undefined
+): boolean {
+  if (!countryCode) {
     return false;
   }
 
-  return EU_EEA_GB_COUNTRY_CODES.has(regionCode);
+  return EU_EEA_GB_COUNTRY_CODES.has(countryCode.trim().toUpperCase());
+}
+
+export function isEuDeviceRegion(): boolean {
+  return isEuEeaGbCountryCode(getDeviceRegionCode());
 }

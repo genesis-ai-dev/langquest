@@ -7,6 +7,45 @@ export function hasCompletedAnalyticsConsent(
   return analyticsConsentAt != null;
 }
 
+export function profileNeedsAnalyticsConsent(
+  analyticsOptIn: boolean | null | undefined
+): boolean {
+  return analyticsOptIn === null || analyticsOptIn === undefined;
+}
+
+export function shouldShowAnalyticsConsentGate(params: {
+  postHogAvailable: boolean;
+  analyticsConsentAt: Date | null;
+  profileAnalyticsOptIn: boolean | null | undefined;
+  isAuthenticated: boolean;
+  profileLoaded: boolean;
+}): boolean {
+  if (
+    !params.postHogAvailable ||
+    !params.isAuthenticated ||
+    !params.profileLoaded
+  ) {
+    return false;
+  }
+
+  if (!profileNeedsAnalyticsConsent(params.profileAnalyticsOptIn)) {
+    return false;
+  }
+
+  if (hasCompletedAnalyticsConsent(params.analyticsConsentAt)) {
+    return false;
+  }
+
+  return true;
+}
+
+export function resetLocalAnalyticsConsentOnSignOut() {
+  useLocalStore.setState({
+    analyticsConsentAt: null,
+    analyticsOptOut: true
+  });
+}
+
 export async function syncAnalyticsPreferenceToProfile(optIn: boolean) {
   try {
     const {
@@ -35,32 +74,35 @@ export async function syncAnalyticsPreferenceToProfile(optIn: boolean) {
   }
 }
 
+export type ProfileAnalyticsPreference = {
+  analytics_opt_in?: boolean | null;
+  analytics_consent_at?: string | null;
+};
+
 export function applyAnalyticsPreferenceFromProfile(
-  analyticsOptIn: boolean | null | undefined,
-  analyticsConsentAt?: string | null
+  profile: ProfileAnalyticsPreference
 ) {
+  const {
+    analytics_opt_in: analyticsOptIn,
+    analytics_consent_at: analyticsConsentAt
+  } = profile;
+
+  if (profileNeedsAnalyticsConsent(analyticsOptIn)) {
+    return;
+  }
+
   if (analyticsOptIn === true) {
     useLocalStore.getState().setAnalyticsOptOut(false);
   } else if (analyticsOptIn === false) {
     useLocalStore.getState().setAnalyticsOptOut(true);
   }
 
-  // Hydrate local consent timestamp when the account already has a choice
-  // (e.g. user accepted on another device).
-  if (!profileNeedsAnalyticsConsent(analyticsOptIn)) {
-    const { analyticsConsentAt: localConsentAt } = useLocalStore.getState();
-    if (!localConsentAt) {
-      useLocalStore.setState({
-        analyticsConsentAt: analyticsConsentAt
-          ? new Date(analyticsConsentAt)
-          : new Date()
-      });
-    }
+  const { analyticsConsentAt: localConsentAt } = useLocalStore.getState();
+  if (!localConsentAt) {
+    useLocalStore.setState({
+      analyticsConsentAt: analyticsConsentAt
+        ? new Date(analyticsConsentAt)
+        : new Date()
+    });
   }
-}
-
-export function profileNeedsAnalyticsConsent(
-  analyticsOptIn: boolean | null | undefined
-): boolean {
-  return analyticsOptIn === null || analyticsOptIn === undefined;
 }

@@ -1,13 +1,26 @@
 import { canCaptureAccountLinkedAnalytics } from '@/constants/legalVersions';
-import { isPostHogAvailable } from '@/services/postHogAvailability';
+import {
+  isPostHogAvailable,
+  isPostHogEnvConfigured,
+  isPostHogRegionBlocked,
+  initPostHogRegionOnNetworkReconnect,
+  setPostHogRelayIngestRegionBlocked
+} from '@/services/postHogAvailability';
+import { subscribeIpRegion } from '@/services/ipRegion';
 import { useLocalStore } from '@/store/localStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import type { PostHogFetchOptions, PostHogFetchResponse } from '@posthog/core';
 import * as Device from 'expo-device';
 import * as Updates from 'expo-updates';
 import PostHog, { PostHogOptions } from 'posthog-react-native';
 
+function isPostHogStaticallyDisabled() {
+  // Region gating is handled by isPostHogAvailable(); do not bake it into disabled
+  // because edge geolocation resolves asynchronously after module import.
+  return !isPostHogEnvConfigured();
+}
+
 function isPostHogDisabled() {
-  // comment out __DEV__ check in postHogAvailability when testing analytics locally
   return !isPostHogAvailable();
 }
 
@@ -19,9 +32,47 @@ const posthogErrorTracking = {
   }
 } satisfies PostHogOptions['errorTracking'];
 
+function createDiscardedPostHogFetchResponse(): PostHogFetchResponse {
+  return {
+    status: 200,
+    text: async () => '',
+    json: async () => ({ status: 'ok' })
+  };
+}
+
+function isPostHogRelayIngestRequest(url: string): boolean {
+  const relayHost = process.env.EXPO_PUBLIC_POSTHOG_HOST?.trim();
+  if (!relayHost) {
+    return false;
+  }
+
+  return url.startsWith(relayHost) && url.includes('/ingest');
+}
+
+class LangQuestPostHog extends PostHog {
+  async fetch(
+    url: string,
+    options: PostHogFetchOptions
+  ): Promise<PostHogFetchResponse> {
+    if (isPostHogRegionBlocked()) {
+      return createDiscardedPostHogFetchResponse();
+    }
+
+    const response = await super.fetch(url, options);
+
+    if (isPostHogRelayIngestRequest(url) && response.status === 403) {
+      setPostHogRelayIngestRegionBlocked(true);
+      void applyPostHogCaptureState();
+      return createDiscardedPostHogFetchResponse();
+    }
+
+    return response;
+  }
+}
+
 // Simple initialization without circular dependency
 const createPostHogInstance = (optIn = false) => {
-  return new PostHog(process.env.EXPO_PUBLIC_POSTHOG_KEY ?? 'phc_', {
+  return new LangQuestPostHog(process.env.EXPO_PUBLIC_POSTHOG_KEY ?? 'phc_', {
     host: `${process.env.EXPO_PUBLIC_POSTHOG_HOST}/ingest`,
     enableSessionReplay: true,
     sessionReplayConfig: {
@@ -32,13 +83,13 @@ const createPostHogInstance = (optIn = false) => {
     errorTracking: posthogErrorTracking,
     enablePersistSessionIdAcrossRestart: true,
     defaultOptIn: optIn,
-    disabled: isPostHogDisabled(),
+    disabled: isPostHogStaticallyDisabled(),
     customStorage: AsyncStorage
   });
 };
 
 // Initialize PostHog with basic settings immediately (no circular dependency)
-const posthog = createPostHogInstance();
+let posthog = createPostHogInstance();
 
 let pendingPostHogUserId: string | null = null;
 let lastIdentifiedPostHogUserId: string | null = null;
@@ -50,12 +101,24 @@ function getAnalyticsOptIn() {
     analyticsOptOut,
     subjectToLegalEffectiveDateWait
   } = useLocalStore.getState();
+
   return canCaptureAccountLinkedAnalytics({
     dateTermsAccepted,
     acceptedPrivacyPolicyVersion,
     analyticsOptOut,
     subjectToLegalEffectiveDateWait
   });
+}
+
+/** Keeps the SDK opt-in state aligned with region gating and local consent. */
+export async function applyPostHogCaptureState() {
+  if (isPostHogDisabled()) {
+    await posthog.optOut();
+    return;
+  }
+
+  const shouldOptIn = getAnalyticsOptIn();
+  await changeAnalyticsState(shouldOptIn);
 }
 
 /**
@@ -148,14 +211,15 @@ export const initializePostHogWithStore = () => {
     subjectToLegalEffectiveDateWait
   } = useLocalStore.getState();
   try {
-    const shouldOptIn = canCaptureAccountLinkedAnalytics({
-      dateTermsAccepted,
-      acceptedPrivacyPolicyVersion,
-      analyticsOptOut,
-      subjectToLegalEffectiveDateWait
+    void applyPostHogCaptureState();
+
+    const unsubscribeIpRegion = subscribeIpRegion(() => {
+      void applyPostHogCaptureState();
     });
 
-    void changeAnalyticsState(shouldOptIn);
+    const unsubscribeNetwork = initPostHogRegionOnNetworkReconnect(() =>
+      applyPostHogCaptureState()
+    );
 
     // Subscribe to future changes
     let previousOptOut = analyticsOptOut;
@@ -186,17 +250,15 @@ export const initializePostHogWithStore = () => {
         previousSubjectToLegalEffectiveDateWait =
           newSubjectToLegalEffectiveDateWait;
 
-        const newShouldOptIn = canCaptureAccountLinkedAnalytics({
-          dateTermsAccepted: newTermsDate,
-          acceptedPrivacyPolicyVersion: newPrivacyPolicyVersion,
-          analyticsOptOut: newOptOut,
-          subjectToLegalEffectiveDateWait: newSubjectToLegalEffectiveDateWait
-        });
-        void changeAnalyticsState(newShouldOptIn);
+        void applyPostHogCaptureState();
       }
     });
 
-    return unsubscribe;
+    return () => {
+      unsubscribe();
+      unsubscribeIpRegion();
+      unsubscribeNetwork();
+    };
   } catch (error) {
     console.warn('Failed to initialize PostHog with store:', error);
   }

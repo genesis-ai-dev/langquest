@@ -1,5 +1,6 @@
 import { system } from '@/db/powersync/system';
 import { syncAccountPreferencesFromProfile } from '@/services/accountPreferences';
+import { resetLocalAnalyticsConsentOnSignOut } from '@/services/analyticsConsent';
 import { setPostHogUserId } from '@/services/posthog';
 import { useLocalStore } from '@/store/localStore';
 import { getSupabaseAuthKey } from '@/utils/supabaseUtils';
@@ -473,6 +474,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               setSession(null);
               system.supabaseConnector.updateSession(null);
               setPostHogUserId(null);
+              resetLocalAnalyticsConsentOnSignOut();
               setSessionType(null);
               await cleanupSystem();
               // Set system ready for anonymous browsing after sign out
@@ -546,6 +548,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signOut = async () => {
+    resetLocalAnalyticsConsentOnSignOut();
     await system.supabaseConnector.signOut();
   };
 

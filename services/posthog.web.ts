@@ -15,5 +15,7 @@ export const setPostHogUserId = (_userId: string | null) => undefined;
 
 export const initializePostHogWithStore = () => undefined;
 
+export const applyPostHogCaptureState = async () => undefined;
+
 export { noopPostHog as posthog };
 export default noopPostHog;

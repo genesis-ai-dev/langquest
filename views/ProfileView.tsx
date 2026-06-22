@@ -1,6 +1,6 @@
 import { AnalyticsConsentCard } from '@/components/AnalyticsConsentCard';
 import { SessionReplayMask } from '@/components/SessionReplayMask';
-import { isPostHogAvailable } from '@/services/postHogAvailability';
+import { usePostHogAvailable } from '@/services/postHogAvailability';
 import { Drawer, DrawerContent } from '@/components/ui/drawer';
 import { LanguageSelect } from '@/components/language-select';
 import { ThemeToggle } from '@/components/theme-toggle';
@@ -25,7 +25,10 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { usePostHog } from '@/hooks/usePostHog';
-import { shouldShowAnalyticsDeferredStartDate } from '@/constants/legalVersions';
+import {
+  canCaptureAccountLinkedAnalytics,
+  shouldShowAnalyticsDeferredStartDate
+} from '@/constants/legalVersions';
 import {
   clearDegradedMode,
   isDegradedMode
@@ -79,14 +82,18 @@ export default function ProfileView() {
   const [analyticsLearnMoreOpen, setAnalyticsLearnMoreOpen] = useState(false);
   const [isDegraded, setIsDegraded] = useState(false);
 
-  // Derive analytics enabled state (opposite of opt-out)
-  const analyticsEnabled = !analyticsOptOut;
+  const analyticsEnabled = canCaptureAccountLinkedAnalytics({
+    dateTermsAccepted,
+    acceptedPrivacyPolicyVersion,
+    analyticsOptOut,
+    subjectToLegalEffectiveDateWait
+  });
   const showDeferredStartDate = shouldShowAnalyticsDeferredStartDate({
     dateTermsAccepted,
     acceptedPrivacyPolicyVersion,
     subjectToLegalEffectiveDateWait
   });
-  const showAnalyticsSettings = isPostHogAvailable();
+  const showAnalyticsSettings = usePostHogAvailable();
 
   const handleAnalyticsToggle = async (optedIn: boolean) => {
     try {

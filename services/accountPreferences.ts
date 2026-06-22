@@ -8,6 +8,7 @@ import {
   applyAnalyticsPreferenceFromProfile,
   syncAnalyticsPreferenceToProfile
 } from '@/services/analyticsConsent';
+import { applyPostHogCaptureState } from '@/services/posthog';
 import { useLocalStore } from '@/store/localStore';
 
 export async function syncAccountPreferencesFromProfile(userId: string) {
@@ -54,10 +55,7 @@ export async function syncAccountPreferencesFromProfile(userId: string) {
       useLocalStore.setState({ subjectToLegalEffectiveDateWait: true });
     }
 
-    applyAnalyticsPreferenceFromProfile(
-      profile.analytics_opt_in,
-      profile.analytics_consent_at
-    );
+    applyAnalyticsPreferenceFromProfile(profile);
   } catch (error) {
     console.warn('Failed to sync account preferences from profile:', error);
   }
@@ -65,5 +63,6 @@ export async function syncAccountPreferencesFromProfile(userId: string) {
 
 export function saveAnalyticsPreference(optIn: boolean) {
   useLocalStore.getState().setAnalyticsConsent(optIn);
+  void applyPostHogCaptureState();
   void syncAnalyticsPreferenceToProfile(optIn);
 }

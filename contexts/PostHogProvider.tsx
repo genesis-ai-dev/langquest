@@ -1,9 +1,11 @@
-import { isPostHogAvailable } from '@/services/postHogAvailability';
+import { usePostHogAvailable } from '@/services/postHogAvailability';
 import posthog from '@/services/posthog';
 import { PostHogProvider as PostHogProviderBase } from 'posthog-react-native';
 
 function PostHogProvider({ children }: { children: React.ReactNode }) {
-  if (!isPostHogAvailable()) {
+  const postHogAvailable = usePostHogAvailable();
+
+  if (!postHogAvailable) {
     return children;
   }
 
