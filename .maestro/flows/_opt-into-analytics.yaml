@@ -2,13 +2,6 @@ appId: ${MAESTRO_APP_ID}
 ---
 - runFlow:
     when:
-      visible: We've updated our legal documents
-    commands:
-      - scrollUntilVisible:
-          element: I agree and continue
-      - tapOn: I agree and continue
-- runFlow:
-    when:
       visible: Share how you use LangQuest
     commands:
       - tapOn:

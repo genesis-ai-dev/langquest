@@ -18,6 +18,7 @@ onFlowStart:
 - inputText: password
 - tapOn: Confirm Password
 - inputText: password
+- hideKeyboard
 - scrollUntilVisible:
     element:
       id: register-legal-consent
@@ -26,11 +27,12 @@ onFlowStart:
 - scrollUntilVisible:
     element: Register
 - tapOn: Register
-- tapOn: Register
-- runFlow: _dismiss-auth-consent-gates.yaml
-- assertVisible: Projects
+- runFlow: _opt-into-analytics.yaml
 - tapOn:
     id: app-drawer-menu-button
 - tapOn: Profile
-- assertVisible: Profile
+- assertVisible:
+    text: Profile
+    above:
+      text: ${output.email}
 - evalScript: ${output.api.deleteUser(output.email)}

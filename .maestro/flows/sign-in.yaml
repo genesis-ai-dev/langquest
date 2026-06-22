@@ -17,7 +17,14 @@ appId: ${MAESTRO_APP_ID}
 - tapOn:
     text: Sign In
     below: I forgot my password
-- runFlow: _dismiss-auth-consent-gates.yaml
+- runFlow:
+    when:
+      visible: We've updated our legal documents
+    commands:
+      - scrollUntilVisible:
+          element: I agree and continue
+      - tapOn: I agree and continue
+- runFlow: _opt-into-analytics.yaml
 - tapOn:
     id: app-drawer-menu-button
 - tapOn: Profile
