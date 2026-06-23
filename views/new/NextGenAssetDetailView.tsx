@@ -394,8 +394,9 @@ export default function NextGenAssetDetailView() {
   // useUserPermissions may initially return false for private projects because its
   // internal query for creator_id hasn't resolved yet (race condition on first mount).
   const isLocalContent = activeAsset?.source === 'local';
-  const isUnpublishedQuest = isUnpublishedSource(questData?.source);
-  const maskUnpublishedContent = isLocalContent || isUnpublishedQuest;
+  const maskUnpublishedContent =
+    isUnpublishedSource(activeAsset?.source) ||
+    isUnpublishedSource(questData?.source);
   const canTranslate = canTranslateFromPermissions || isLocalContent;
 
   // Highlight assets from the last recording session (only for unpublished content)
