@@ -23,6 +23,9 @@ export interface RecordingData {
 export type Language = typeof language.$inferSelect;
 export type Theme = 'light' | 'dark' | 'system';
 
+/** Entry-surface family paired with the selected icon theme. */
+export type EntryGuardMode = 'A' | 'B';
+
 export type Testament = 'OT' | 'NT';
 
 export interface BibleDownloadTranslation {
@@ -132,6 +135,14 @@ export interface LocalState {
   analyticsOptOut: boolean;
   projectSourceFilter: string;
   projectTargetFilter: string;
+
+  // Appearance / icon theme (see features/appearance)
+  appearanceThemeId: string | null;
+  setAppearanceThemeId: (id: string | null) => void;
+  entryGuardEnabled: boolean;
+  setEntryGuardEnabled: (enabled: boolean) => void;
+  entryGuardMode: EntryGuardMode;
+  setEntryGuardMode: (mode: EntryGuardMode) => void;
 
   // App settings
   notificationsEnabled: boolean;
@@ -362,6 +373,14 @@ export const useLocalStore = create<LocalState>()(
       dateTermsAccepted: null,
       analyticsOptOut: false,
       theme: 'system',
+
+      // Appearance / icon theme (defaults)
+      appearanceThemeId: null,
+      setAppearanceThemeId: (id) => set({ appearanceThemeId: id }),
+      entryGuardEnabled: false,
+      setEntryGuardEnabled: (enabled) => set({ entryGuardEnabled: enabled }),
+      entryGuardMode: 'A',
+      setEntryGuardMode: (mode) => set({ entryGuardMode: mode }),
 
       // App settings (defaults)
       notificationsEnabled: true,
@@ -919,3 +938,18 @@ export const useLocalStore = create<LocalState>()(
 export function useHasHydrated() {
   return useLocalStore((s) => s._hasHydrated);
 }
+
+/**
+ * Session-only unlock flag for the entry guard. Deliberately NOT persisted, so
+ * the guard re-engages on every cold start. Kept in a separate store from the
+ * AsyncStorage-backed one so it can never be accidentally written to disk.
+ */
+interface SessionState {
+  unlocked: boolean;
+  unlock: () => void;
+}
+
+export const useSessionStore = create<SessionState>((set) => ({
+  unlocked: false,
+  unlock: () => set({ unlocked: true })
+}));

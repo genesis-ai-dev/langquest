@@ -1,0 +1,13 @@
+diff --git a/node_modules/@praneeth26/expo-dynamic-app-identity/plugin/build/index.js b/node_modules/@praneeth26/expo-dynamic-app-identity/plugin/build/index.js
+index 5a33ce3..11e67c1 100644
+--- a/node_modules/@praneeth26/expo-dynamic-app-identity/plugin/build/index.js
++++ b/node_modules/@praneeth26/expo-dynamic-app-identity/plugin/build/index.js
+@@ -268,7 +268,7 @@ const withAndroidManifestMod = (config, pluginConfig) => {
+                     'android:exported': 'true',
+                     'android:icon': iconResource,
+                     'android:roundIcon': roundIconResource,
+-                    'android:label': defaultLabel,
++                    'android:label': resolved.label || defaultLabel,
+                     'android:targetActivity': '.MainActivity',
+                 },
+                 'intent-filter': aliasIntentFilters,

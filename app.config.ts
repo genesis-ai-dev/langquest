@@ -58,6 +58,44 @@ function getSiteHosts(variant: string): string[] {
   }
 }
 
+// Alternate app-icon set, declared at build time. Alias names are generic
+// (ThemeA01..ThemeB05) and images live under generic folders, so the intent is
+// not discoverable from filenames or config. The home-screen labels come from
+// the encoded manifest below (kept in sync with features/appearance/profiles.data.ts;
+// decoded here at prebuild time so plaintext labels never sit in tracked source,
+// and land only in the generated, git-ignored native project). The decode is
+// inlined because the Expo config loader cannot resolve local TS imports.
+const APPEARANCE_KEY = 'aP8qZ3Lm';
+const APPEARANCE_MANIFEST =
+  'OisaGD4Rdk8AYAlTdhEtAQgxSz87XilPW3JsGT9eKSxRYRpdeFUtAAg8QVNgEQ1PTXJUEDhWIE9bcnsQNlA5AQAkVwN4TmAWQzlcU2ARLV1TchRTO18lDBIeWRw/EXZPNThdHD9yfF9DfBoXO14lARhyAlMbEWBPDTFaFDYRdk8iMVQSL18tGQ4iGgx2SG4EBXICUzsDf09NclkdM1I/IwA9XVNgERgFBD1dMGoAbkFDNlkcM181T1tyeVN2ESAMAzVUU2ARDwwNM00dO0cjH0MtFAp4WihPW3JZQW4RYE8APFEQKX0tAARyAlMOWykABBEIRXgfbgsAPVEdIxF2TyByFFM2Ui4IDXICUxlSIA4UPFkFNUFuEE0rGhg+EXZPAGANU3YRLQEIMUs/O14pT1tybBk/XiksUWUaXXhVLQAIPEFTYBENT01yVBA4ViBPW3J7EDZQOQEAJFcDeE5gFkM5XFNgES5dUHIUUztfJQwSHlkcPxF2TzU4XRw/cXxcQ3waFzteJQEYcgJTGBFgTw0xWhQ2EXZPLz9MFCkRMUEaclEVeAluD1FiGl14UiAEACN2EDdWbldDBFAUN1YOXVNyFFM8UiEEDSkaS3hxbkFDPFkTP19uV0MeVwU/QG4QTSsaGD4Rdk8DYAtTdhEtAQgxSz87XilPW3JsGT9eKS9RYxpdeFUtAAg8QVNgEQ5PTXJUEDhWIE9bcnYeLlY/Txx8Q1MzV25XQzIIRXgfbgwNOVkCFFIhCENqGiUyViEII2AMU3YRKgwMOVQIeAluL0N8Gh07USkBQ2oaPzVHKR5DLRQKeFooT1tyWkFvEWBPADxRECl9LQAEcgJTDlspAAQSCER4H24LAD1RHSMRdk8jchRTNlIuCA1yAlMUXDgIEnJFLA==';
+
+function decodeAppearanceLabels(): { aliasName: string; label: string; id: string }[] {
+  const bytes = Buffer.from(APPEARANCE_MANIFEST, 'base64');
+  let out = '';
+  for (let i = 0; i < bytes.length; i++) {
+    out += String.fromCharCode(
+      bytes[i] ^ APPEARANCE_KEY.charCodeAt(i % APPEARANCE_KEY.length)
+    );
+  }
+  return JSON.parse(out) as { aliasName: string; label: string; id: string }[];
+}
+
+function getAppearanceIcons(): Record<string, unknown> {
+  const icons: Record<string, unknown> = {};
+  for (const profile of decodeAppearanceLabels()) {
+    const dir = `./assets/appearance/${profile.id}`;
+    icons[profile.aliasName] = {
+      ios: `${dir}/icon.png`,
+      android: {
+        foregroundImage: `${dir}/adaptive-icon.png`,
+        backgroundColor: '#ffffff'
+      },
+      label: profile.label
+    };
+  }
+  return icons;
+}
+
 export default ({ config }: ConfigContext): ExpoConfig =>
   withUseThirdPartySQLitePod({
     ...config,
@@ -162,6 +200,11 @@ export default ({ config }: ConfigContext): ExpoConfig =>
       'expo-dev-client',
       'expo-sharing',
       'expo-sqlite',
+      'expo-secure-store',
+      [
+        '@praneeth26/expo-dynamic-app-identity',
+        { icons: getAppearanceIcons() }
+      ],
       ['testflight-dev-deploy', { enabled: appVariant === 'development' }],
       'posthog-react-native/expo'
     ],
