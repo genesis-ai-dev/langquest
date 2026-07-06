@@ -15,10 +15,9 @@ export interface PostHogPurgeResult {
 function getPostHogConfig() {
   const apiKey = Deno.env.get('POSTHOG_PERSONAL_API_KEY');
   const projectId = Deno.env.get('POSTHOG_PROJECT_ID');
-  const host = (Deno.env.get('POSTHOG_API_HOST') ?? 'https://us.posthog.com').replace(
-    /\/$/,
-    ''
-  );
+  const host = (
+    Deno.env.get('POSTHOG_API_HOST') ?? 'https://us.posthog.com'
+  ).replace(/\/$/, '');
   const projectApiKey = Deno.env.get('POSTHOG_PROJECT_API_KEY');
   const ingestHost = (
     Deno.env.get('POSTHOG_INGEST_HOST') ?? 'https://us.i.posthog.com'
@@ -188,7 +187,9 @@ async function waitForDeleteStatus(
 
     if (!response.ok) {
       const body = await response.text();
-      throw new Error(`PostHog delete_status failed: ${response.status} ${body}`);
+      throw new Error(
+        `PostHog delete_status failed: ${response.status} ${body}`
+      );
     }
 
     const payload = await response.json();
@@ -202,7 +203,9 @@ async function waitForDeleteStatus(
     await new Promise((resolve) => setTimeout(resolve, 2000));
   }
 
-  console.warn('[account-purge-worker] PostHog delete_status still pending after wait');
+  console.warn(
+    '[account-purge-worker] PostHog delete_status still pending after wait'
+  );
 }
 
 export async function purgePostHogUser(
@@ -212,7 +215,9 @@ export async function purgePostHogUser(
     getPostHogConfig();
 
   if (!apiKey || !projectId) {
-    console.warn('[account-purge-worker] PostHog API credentials missing; skipping');
+    console.warn(
+      '[account-purge-worker] PostHog API credentials missing; skipping'
+    );
     return { mode: 'skipped' };
   }
 
@@ -223,7 +228,12 @@ export async function purgePostHogUser(
     let reimportedEvents = 0;
 
     if (useAnonymizedKeep) {
-      const exported = await hogqlExportEvents(host, apiKey, projectId, authUserId);
+      const exported = await hogqlExportEvents(
+        host,
+        apiKey,
+        projectId,
+        authUserId
+      );
       const newDistinctId = crypto.randomUUID();
       const anonymizedBatch = buildAnonymizedEvents(exported, newDistinctId);
 
@@ -234,7 +244,11 @@ export async function purgePostHogUser(
         authUserId
       );
 
-      await reimportAnonymizedEvents(ingestHost, projectApiKey!, anonymizedBatch);
+      await reimportAnonymizedEvents(
+        ingestHost,
+        projectApiKey!,
+        anonymizedBatch
+      );
       reimportedEvents = anonymizedBatch.length;
 
       if (deleteTaskId) {

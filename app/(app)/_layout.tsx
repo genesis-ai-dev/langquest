@@ -101,9 +101,7 @@ function AppContent() {
 
   if (hasScheduledDeletion && profile.deletion_scheduled_for) {
     return (
-      <ScheduledDeletionOverlay
-        purgeDate={profile.deletion_scheduled_for}
-      />
+      <ScheduledDeletionOverlay purgeDate={profile.deletion_scheduled_for} />
     );
   }
 

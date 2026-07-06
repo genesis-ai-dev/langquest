@@ -1,17 +1,17 @@
 {
-	"name": "posthog-relay",
-	"version": "1.0.0",
-	"private": true,
-	"description": "PostHog US reverse proxy with EU/EEA/UK edge geoblock for LangQuest mobile.",
-	"type": "module",
-	"scripts": {
-		"dev": "wrangler dev",
-		"deploy": "wrangler deploy",
-		"cf-typegen": "wrangler types",
-		"typecheck": "wrangler types --check && tsc --noEmit"
-	},
-	"devDependencies": {
-		"typescript": "^5.5.2",
-		"wrangler": "^4.93.0"
-	}
+  "name": "posthog-relay",
+  "version": "1.0.0",
+  "private": true,
+  "description": "PostHog US reverse proxy with EU/EEA/UK edge geoblock for LangQuest mobile.",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "cf-typegen": "wrangler types",
+    "typecheck": "wrangler types --check && tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.2",
+    "wrangler": "^4.93.0"
+  }
 }

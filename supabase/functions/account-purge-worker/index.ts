@@ -227,8 +227,12 @@ Deno.serve(async (req) => {
       results.push(await purgeOneProfile(profile));
     }
 
-    const purged = results.filter((result) => result.status === 'purged').length;
-    const failed = results.filter((result) => result.status === 'failed').length;
+    const purged = results.filter(
+      (result) => result.status === 'purged'
+    ).length;
+    const failed = results.filter(
+      (result) => result.status === 'failed'
+    ).length;
 
     return new Response(
       JSON.stringify({

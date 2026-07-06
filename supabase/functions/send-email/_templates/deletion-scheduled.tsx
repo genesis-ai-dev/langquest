@@ -45,7 +45,8 @@ export const DeletionScheduledEmail = ({
   locale = 'en',
   logoUrl = 'https://langquest.org/langquest-logo-light.png'
 }: DeletionScheduledEmailProps) => {
-  const t = translations[locale as keyof typeof translations] ?? translations.en;
+  const t =
+    translations[locale as keyof typeof translations] ?? translations.en;
 
   return (
     <Html>

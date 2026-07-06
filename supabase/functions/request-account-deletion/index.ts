@@ -69,7 +69,9 @@ async function sendDeletionScheduledEmail(params: {
 
   if (!response.ok) {
     const body = await response.text();
-    throw new Error(`Failed to send deletion email: ${response.status} ${body}`);
+    throw new Error(
+      `Failed to send deletion email: ${response.status} ${body}`
+    );
   }
 }
 
@@ -146,9 +148,7 @@ Deno.serve(async (req) => {
 
     const requestedAt = new Date();
     const scheduledFor = new Date(requestedAt);
-    scheduledFor.setUTCDate(
-      scheduledFor.getUTCDate() + DELETION_GRACE_DAYS
-    );
+    scheduledFor.setUTCDate(scheduledFor.getUTCDate() + DELETION_GRACE_DAYS);
 
     const { error: updateError } = await admin
       .from('profile')

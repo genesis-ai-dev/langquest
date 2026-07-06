@@ -1,5 +1,5 @@
-import { Platform } from 'react-native';
 import { useSyncExternalStore } from 'react';
+import { Platform } from 'react-native';
 
 export function isPostHogEnvConfigured(): boolean {
   return Boolean(

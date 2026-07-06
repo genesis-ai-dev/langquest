@@ -225,10 +225,13 @@ Deno.serve(async (req) => {
 
       const purgeDate = parsedPayload.purge_date?.trim();
       if (!purgeDate) {
-        return new Response(JSON.stringify({ error: 'purge_date is required' }), {
-          status: 400,
-          headers: { 'Content-Type': 'application/json' }
-        });
+        return new Response(
+          JSON.stringify({ error: 'purge_date is required' }),
+          {
+            status: 400,
+            headers: { 'Content-Type': 'application/json' }
+          }
+        );
       }
 
       const locale = parsedPayload.locale ?? 'en';
