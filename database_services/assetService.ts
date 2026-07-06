@@ -5,6 +5,8 @@
 import { system } from '@/db/powersync/system';
 import { resolveTable } from '@/utils/dbUtils';
 import { and, asc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
+import uuid from 'react-native-uuid';
+import { enqueue as enqueueAssetGc } from './assetGarbageCollectorService';
 
 /**
  * Asset metadata structure for verse ranges
@@ -207,6 +209,16 @@ export interface AssetUpdatePayload {
   order_index?: number;
 }
 
+export interface SoftMergeAssetInput {
+  id: string;
+}
+
+export interface SoftMergeResult {
+  newAssetId: string;
+  newAssetName: string;
+  orderIndex: number | null;
+}
+
 /**
  * Batch update asset metadata and/or order_index for multiple assets
  * @param updates - Array of { assetId, metadata?, order_index? } objects
@@ -268,6 +280,175 @@ export async function batchUpdateAssetMetadata(
     console.error('Failed to batch update assets:', error);
     throw error;
   }
+}
+
+/**
+ * Soft delete assets for a specific quest.
+ * - Sets asset.project_id = null
+ * - Deletes quest_asset_link rows for the provided quest
+ * - Keeps asset_content_link rows intact
+ */
+export async function softDeleteAssetsFromQuest(
+  questId: string,
+  assetIds: string[]
+): Promise<void> {
+  if (!questId || assetIds.length === 0) return;
+
+  const assetLocal = resolveTable('asset', { localOverride: true });
+  const questAssetLinkLocal = resolveTable('quest_asset_link', {
+    localOverride: true
+  });
+
+  await system.db.transaction(async (tx) => {
+    await tx
+      .update(assetLocal)
+      .set({ project_id: null })
+      .where(inArray(assetLocal.id, assetIds));
+
+    await tx
+      .delete(questAssetLinkLocal)
+      .where(
+        and(
+          eq(questAssetLinkLocal.quest_id, questId),
+          inArray(questAssetLinkLocal.asset_id, assetIds)
+        )
+      );
+  });
+
+  await enqueueAssetGc(assetIds, 'delete');
+}
+
+/**
+ * Soft merge assets in a quest:
+ * - Creates a NEW asset based on the first selected asset
+ * - Creates NEW quest_asset_link for the new asset
+ * - Creates NEW asset_content_link rows with sequential order_index
+ * - Only then removes project_id and quest links from merged source assets
+ */
+export async function softMergeAssetsInQuest(params: {
+  questId: string;
+  assetsToMerge: SoftMergeAssetInput[];
+  fallbackProjectId?: string | null;
+  fallbackCreatorId?: string | null;
+}): Promise<SoftMergeResult | null> {
+  const { questId, assetsToMerge, fallbackProjectId, fallbackCreatorId } =
+    params;
+  if (!questId || assetsToMerge.length < 2) return null;
+
+  const sourceIds = assetsToMerge.map((asset) => asset.id);
+  const firstSelected = assetsToMerge[0]!;
+  const assetLocal = resolveTable('asset', { localOverride: true });
+  const questAssetLinkLocal = resolveTable('quest_asset_link', {
+    localOverride: true
+  });
+  const contentLocal = resolveTable('asset_content_link', {
+    localOverride: true
+  });
+
+  return system.db
+    .transaction(async (tx) => {
+      const firstAsset = await tx
+        .select()
+        .from(assetLocal)
+        .where(eq(assetLocal.id, firstSelected.id))
+        .limit(1);
+      const first = firstAsset[0];
+      if (!first) {
+        throw new Error('First selected asset not found for soft merge');
+      }
+
+      const mergedContent: {
+        source_language_id: string | null;
+        languoid_id: string | null;
+        text: string | null;
+        audio: string[] | null;
+        download_profiles: string[] | null;
+      }[] = [];
+
+      for (const source of assetsToMerge) {
+        const sourceContent = await tx
+          .select({
+            source_language_id: contentLocal.source_language_id,
+            languoid_id: contentLocal.languoid_id,
+            text: contentLocal.text,
+            audio: contentLocal.audio,
+            download_profiles: contentLocal.download_profiles
+          })
+          .from(contentLocal)
+          .where(eq(contentLocal.asset_id, source.id))
+          .orderBy(asc(contentLocal.order_index), asc(contentLocal.created_at));
+
+        mergedContent.push(...sourceContent);
+      }
+
+      const newAssetId = String(uuid.v4());
+      const creatorId = first.creator_id ?? fallbackCreatorId ?? null;
+      const newProjectId = first.project_id ?? fallbackProjectId ?? null;
+
+      await tx.insert(assetLocal).values({
+        id: newAssetId,
+        name: first.name,
+        images: first.images,
+        visible: first.visible,
+        download_profiles:
+          first.download_profiles ?? (creatorId ? [creatorId] : []),
+        source_language_id: first.source_language_id,
+        project_id: newProjectId,
+        source_asset_id: first.source_asset_id,
+        content_type: first.content_type,
+        creator_id: creatorId,
+        order_index: first.order_index,
+        metadata: first.metadata,
+        uploaded_at: first.uploaded_at
+      });
+
+      await tx.insert(questAssetLinkLocal).values({
+        id: String(uuid.v4()),
+        quest_id: questId,
+        asset_id: newAssetId,
+        download_profiles:
+          first.download_profiles ?? (creatorId ? [creatorId] : [])
+      });
+
+      let contentOrder = 1;
+      for (const content of mergedContent) {
+        await tx.insert(contentLocal).values({
+          asset_id: newAssetId,
+          source_language_id: content.source_language_id,
+          languoid_id: content.languoid_id ?? content.source_language_id,
+          text: content.text ?? '',
+          audio: content.audio,
+          download_profiles:
+            content.download_profiles ?? (creatorId ? [creatorId] : []),
+          order_index: contentOrder++
+        });
+      }
+
+      // IMPORTANT: only after creating new records do we remove old links.
+      await tx
+        .update(assetLocal)
+        .set({ project_id: null })
+        .where(inArray(assetLocal.id, sourceIds));
+
+      await tx
+        .delete(questAssetLinkLocal)
+        .where(
+          and(
+            eq(questAssetLinkLocal.quest_id, questId),
+            inArray(questAssetLinkLocal.asset_id, sourceIds)
+          )
+        );
+
+      return {
+        newAssetId,
+        newAssetName: first.name ?? 'Merged',
+        orderIndex: first.order_index
+      };
+    })
+    .then(async (result) => {
+      await enqueueAssetGc(sourceIds, 'merge');
+      return result;
+    });
 }
 
 /**

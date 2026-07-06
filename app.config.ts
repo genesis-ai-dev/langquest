@@ -64,7 +64,7 @@ export default ({ config }: ConfigContext): ExpoConfig =>
     owner: 'eten-genesis',
     name: getAppName(appVariant),
     slug: 'langquest',
-    version: '2.2.0',
+    version: '2.2.2',
     orientation: 'portrait',
     icon: iconLight,
     scheme: getScheme(appVariant),
@@ -137,7 +137,7 @@ export default ({ config }: ConfigContext): ExpoConfig =>
       // TODO: migrate existing localization to expo-localization
       'expo-localization',
       'expo-asset',
-      'expo-audio',
+      ['expo-audio', { enableBackgroundPlayback: false }],
       'expo-image',
       [
         'expo-build-properties',
@@ -162,7 +162,8 @@ export default ({ config }: ConfigContext): ExpoConfig =>
       'expo-dev-client',
       'expo-sharing',
       'expo-sqlite',
-      ['testflight-dev-deploy', { enabled: appVariant === 'development' }]
+      ['testflight-dev-deploy', { enabled: appVariant === 'development' }],
+      'posthog-react-native/expo'
     ],
     experiments: {
       typedRoutes: true,

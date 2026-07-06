@@ -833,45 +833,49 @@ export default function ProjectDirectoryView() {
     setShowOffloadDrawer(false);
     setIsOffloading(true);
 
+    const offloadQuestId = questIdToDownload || '';
+    const questIdForSyncCallback = questIdToDownload;
+
     try {
       await offloadQuest({
-        questId: questIdToDownload || '',
+        questId: offloadQuestId,
         verifiedIds: verificationState.verifiedIds,
         onProgress: (progress, message) => {
           console.log(`🗑️ [Offload Progress] ${progress}%: ${message}`);
         }
       });
-
-      console.log('🗑️ [Offload] Complete - registering sync callback...');
-
-      // Register callback to invalidate queries after PowerSync sync completes
-      if (questIdToDownload) {
-        syncCallbackService.registerCallback(questIdToDownload, async () => {
-          console.log('🗑️ [Offload] Sync completed - invalidating queries');
-
-          // Invalidate all quest queries for this project
-          await queryClient.invalidateQueries({
-            queryKey: ['quests', 'infinite', 'for-project', projectId]
-          });
-
-          await queryClient.invalidateQueries({
-            queryKey: ['quests', 'offline', 'for-project', projectId]
-          });
-
-          await queryClient.invalidateQueries({
-            queryKey: ['quests', 'cloud', 'for-project', projectId]
-          });
-
-          console.log('🗑️ [Offload] Queries invalidated - UI will refresh');
-        });
-      }
     } catch (error) {
       console.error('🗑️ [Offload] Failed:', error);
       RNAlert.alert(t('error'), t('offloadError'));
-    } finally {
       setIsOffloading(false);
       setQuestIdToDownload(null);
+      return;
     }
+
+    console.log('🗑️ [Offload] Complete - registering sync callback...');
+
+    if (questIdForSyncCallback) {
+      syncCallbackService.registerCallback(questIdForSyncCallback, async () => {
+        console.log('🗑️ [Offload] Sync completed - invalidating queries');
+
+        await queryClient.invalidateQueries({
+          queryKey: ['quests', 'infinite', 'for-project', projectId]
+        });
+
+        await queryClient.invalidateQueries({
+          queryKey: ['quests', 'offline', 'for-project', projectId]
+        });
+
+        await queryClient.invalidateQueries({
+          queryKey: ['quests', 'cloud', 'for-project', projectId]
+        });
+
+        console.log('🗑️ [Offload] Queries invalidated - UI will refresh');
+      });
+    }
+
+    setIsOffloading(false);
+    setQuestIdToDownload(null);
   };
 
   // Handle offload cancellation

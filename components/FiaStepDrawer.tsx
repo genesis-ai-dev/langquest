@@ -29,6 +29,7 @@ import type {
   FiaTerm
 } from '@/hooks/useFiaPericopeSteps';
 import { useFiaPericopeSteps } from '@/hooks/useFiaPericopeSteps';
+import { useProjectFiaLanguageCode } from '@/hooks/useProjectFiaLanguageCode';
 import {
   enqueue as enqueueFiaAttachment,
   isFiaPericopeCached,
@@ -886,21 +887,31 @@ export function FiaStepDrawer({
   );
   const scrollRef = React.useRef<any>(null);
   const dataLoadedRef = React.useRef(false);
+  const { fiaLanguageCode } = useProjectFiaLanguageCode(
+    pericopeId ? projectId : undefined
+  );
+
   const { data, isLoading, error } = useFiaPericopeSteps(
     pericopeId ? projectId : undefined,
     pericopeId ?? undefined
   );
 
-  const attachmentStatus = useFiaAttachmentStatus(pericopeId);
+  const attachmentStatus = useFiaAttachmentStatus(pericopeId, fiaLanguageCode);
   const isAudioDownloading =
     attachmentStatus?.status === 'pending' ||
     attachmentStatus?.status === 'downloading';
 
   React.useEffect(() => {
-    if (open && pericopeId && projectId && !isFiaPericopeCached(pericopeId)) {
+    if (
+      open &&
+      pericopeId &&
+      projectId &&
+      fiaLanguageCode &&
+      !isFiaPericopeCached(fiaLanguageCode, pericopeId)
+    ) {
       enqueueFiaAttachment(pericopeId, projectId);
     }
-  }, [open, pericopeId, projectId]);
+  }, [open, pericopeId, projectId, fiaLanguageCode]);
 
   const currentStep = data?.steps.find((s) => s.stepId === activeStep);
   const audioUrl = currentStep?.audioUrl ?? null;

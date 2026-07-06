@@ -50,7 +50,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
       await setAudioModeAsync({
         allowsRecording: false,
         playsInSilentMode: true,
-        shouldPlayInBackground: true
+        shouldPlayInBackground: false
       });
     };
 

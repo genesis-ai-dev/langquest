@@ -25,7 +25,7 @@ import { ThemeProvider } from '@react-navigation/native';
 import { PortalHost } from '@rn-primitives/portal';
 import { useFonts } from 'expo-font';
 import * as Linking from 'expo-linking';
-import { Stack } from 'expo-router';
+import { Redirect, Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -48,6 +48,7 @@ import {
   configureReanimatedLogger,
   ReanimatedLogLevel
 } from 'react-native-reanimated';
+import { Toaster } from 'sonner-native';
 
 configureReanimatedLogger({
   level: ReanimatedLogLevel.warn,
@@ -55,29 +56,6 @@ configureReanimatedLogger({
 });
 
 SplashScreen.preventAutoHideAsync();
-
-function useHideSplashWhen(shouldHide: boolean) {
-  useEffect(() => {
-    if (shouldHide) {
-      void SplashScreen.hideAsync();
-    }
-  }, [shouldHide]);
-}
-
-/** Hides splash once auth/migration/upgrade routing is ready (main app path only). */
-function AppSplashHider() {
-  const { isLoading, isAuthenticated, migrationNeeded, appUpgradeNeeded } =
-    useAuth();
-
-  const needsMigration = isAuthenticated && !!migrationNeeded;
-  const needsUpgrade = isAuthenticated && !!appUpgradeNeeded;
-  const appReady = !needsMigration && !needsUpgrade && !isLoading;
-  const isReady = appReady || needsMigration || needsUpgrade;
-
-  useHideSplashWhen(isReady);
-
-  return null;
-}
 
 LogBox.ignoreAllLogs(true);
 
@@ -133,29 +111,38 @@ function RootNavigator() {
     };
   }, []);
 
+  useEffect(() => {
+    if (isReady) {
+      void SplashScreen.hideAsync();
+    }
+  }, [isReady]);
+
   if (!isReady) {
     return null;
   }
 
   return (
-    <Stack screenOptions={DEFAULT_STACK_OPTIONS}>
-      <Stack.Screen
-        name="(auth)"
-        options={{
-          ...DEFAULT_STACK_OPTIONS,
-          ...FORM_SHEET_OPTIONS
-        }}
-      />
-      <Stack.Protected guard={appReady}>
-        <Stack.Screen name="(app)" />
-      </Stack.Protected>
-      <Stack.Protected guard={needsMigration}>
-        <Stack.Screen name="migration" />
-      </Stack.Protected>
-      <Stack.Protected guard={needsUpgrade}>
-        <Stack.Screen name="upgrade" />
-      </Stack.Protected>
-    </Stack>
+    <>
+      {needsUpgrade ? <Redirect href="/upgrade" /> : null}
+      <Stack screenOptions={DEFAULT_STACK_OPTIONS}>
+        <Stack.Screen
+          name="(auth)"
+          options={{
+            ...DEFAULT_STACK_OPTIONS,
+            ...FORM_SHEET_OPTIONS
+          }}
+        />
+        <Stack.Protected guard={appReady}>
+          <Stack.Screen name="(app)" />
+        </Stack.Protected>
+        <Stack.Protected guard={needsMigration}>
+          <Stack.Screen name="migration" />
+        </Stack.Protected>
+        <Stack.Protected guard={needsUpgrade}>
+          <Stack.Screen name="upgrade" />
+        </Stack.Protected>
+      </Stack>
+    </>
   );
 }
 
@@ -215,13 +202,7 @@ export default function RootLayout() {
   const hasHydrated = useHasHydrated();
   const termsAccepted = useLocalStore((s) => !!s.dateTermsAccepted);
 
-  const isBootstrapReady =
-    isColorSchemeLoaded && fontsLoaded && hasHydrated;
-
-  useHideSplashWhen(isBootstrapReady && !termsAccepted);
-
-  // Keep splash visible until persisted local state has rehydrated.
-  if (!isBootstrapReady) {
+  if (!isColorSchemeLoaded || !fontsLoaded || !hasHydrated) {
     return null;
   }
 
@@ -241,7 +222,6 @@ export default function RootLayout() {
       <PostHogProvider>
         <PreAuthMigrationCheck>
           <AuthProvider>
-            <AppSplashHider />
             <QueryProvider>
               <LocalizationProvider>
                 <AudioProvider>
@@ -257,6 +237,20 @@ export default function RootLayout() {
                           </ThemeProvider>
                         </BottomSheetModalProvider>
                       </KeyboardProvider>
+                      <Toaster
+                        position="bottom-center"
+                        offset={50}
+                        theme={scheme} // ou "system"
+                        toastOptions={{
+                          style: {
+                            backgroundColor:
+                              NAV_THEME[scheme].colors.background,
+                            borderWidth: 1,
+                            borderColor: NAV_THEME[scheme].colors.border,
+                            borderRadius: 10
+                          }
+                        }}
+                      />
                     </GestureHandlerRootView>
                   </SafeAreaProvider>
                 </AudioProvider>

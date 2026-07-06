@@ -19,7 +19,12 @@ function createPostHogInstance(optIn = false) {
   try {
     posthog.init(process.env.EXPO_PUBLIC_POSTHOG_KEY ?? 'phc_', {
       api_host: `${process.env.EXPO_PUBLIC_POSTHOG_HOST}/relay-Mx9k`,
-      opt_out_capturing_by_default: isDisabled()
+      opt_out_capturing_by_default: isDisabled(),
+      capture_exceptions: {
+        capture_unhandled_errors: true,
+        capture_unhandled_rejections: true,
+        capture_console_errors: true
+      }
     });
 
     if (optIn) {
@@ -37,6 +42,39 @@ function createPostHogInstance(optIn = false) {
 // Initialize immediately with conservative defaults; we'll wire consent via store below
 createPostHogInstance(false);
 
+let pendingPostHogUserId: string | null = null;
+let lastIdentifiedPostHogUserId: string | null = null;
+
+function getAnalyticsOptIn() {
+  const { dateTermsAccepted, analyticsOptOut } = useLocalStore.getState();
+  return !analyticsOptOut && !!dateTermsAccepted;
+}
+
+export const syncPostHogIdentity = () => {
+  if (isDisabled()) {
+    return;
+  }
+
+  const shouldOptIn = getAnalyticsOptIn();
+
+  try {
+    if (shouldOptIn && pendingPostHogUserId) {
+      posthog.identify(pendingPostHogUserId);
+      lastIdentifiedPostHogUserId = pendingPostHogUserId;
+    } else if (lastIdentifiedPostHogUserId !== null) {
+      posthog.reset();
+      lastIdentifiedPostHogUserId = null;
+    }
+  } catch (error) {
+    console.warn('Failed to sync PostHog identity (web):', error);
+  }
+};
+
+export const setPostHogUserId = (userId: string | null) => {
+  pendingPostHogUserId = userId;
+  syncPostHogIdentity();
+};
+
 function changeAnalyticsState(newState: boolean) {
   if (isDisabled()) return;
   if (newState) {
@@ -44,6 +82,8 @@ function changeAnalyticsState(newState: boolean) {
   } else {
     posthog.opt_out_capturing();
   }
+
+  syncPostHogIdentity();
 }
 
 export const initializePostHogWithStore = () => {
@@ -52,7 +92,7 @@ export const initializePostHogWithStore = () => {
   try {
     const shouldOptIn = !analyticsOptOut && !!dateTermsAccepted;
 
-    void changeAnalyticsState(shouldOptIn);
+    changeAnalyticsState(shouldOptIn);
 
     let previousOptOut = analyticsOptOut;
     let previousTermsDate = dateTermsAccepted;
@@ -66,7 +106,7 @@ export const initializePostHogWithStore = () => {
         previousTermsDate = newTermsDate;
 
         const newShouldOptIn = !newOptOut && !!newTermsDate;
-        void changeAnalyticsState(newShouldOptIn);
+        changeAnalyticsState(newShouldOptIn);
       }
     });
 

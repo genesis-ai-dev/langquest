@@ -1,6 +1,5 @@
 /* THIS COMPONENT WILL BECOME DEPRECATED AND REPLACED BY THE ASSETCARDITEM COMPONENT */
 /* THIS COMPONENT WILL BECOME DEPRECATED AND REPLACED BY THE ASSETCARDITEM COMPONENT */
-/* THIS COMPONENT WILL BECOME DEPRECATED AND REPLACED BY THE ASSETCARDITEM COMPONENT */
 import { DownloadIndicator } from '@/components/DownloadIndicator';
 // import { Badge } from '@/components/ui/badge';
 import {
@@ -15,8 +14,8 @@ import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 // import type { Tag } from '@/database_services/tagCache';
 // import { tagService } from '@/database_services/tagService';
 import type { asset as asset_type } from '@/db/drizzleSchema';
-import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useNavigationHelpers } from '@/hooks/useNavigation';
 // import { useTagStore } from '@/hooks/useTagStore';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import { cn } from '@/utils/styleUtils';

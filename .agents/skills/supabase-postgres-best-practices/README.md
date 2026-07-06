@@ -12,7 +12,7 @@ npm install
 # Validate existing references
 npm run validate
 
-# Build reference-guidelines.md
+# Build AGENTS.md
 npm run build
 ```
 
@@ -41,14 +41,14 @@ npm run build
    npm run build
    ```
 
-5. **Review** the generated `reference-guidelines.md`
+5. **Review** the generated `AGENTS.md`
 
 ## Skill Structure
 
 ```
 skills/supabase-postgres-best-practices/
-├── agent-guidelines.md           # Agent-facing skill manifest (Agent Skills spec)
-├── reference-guidelines.md          # [GENERATED] Compiled references document
+├── SKILL.md           # Agent-facing skill manifest (Agent Skills spec)
+├── AGENTS.md          # [GENERATED] Compiled references document
 ├── README.md          # This file
 └── references/
     ├── _template.md      # Reference template

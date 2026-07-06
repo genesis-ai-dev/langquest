@@ -44,7 +44,7 @@ jobs:
     type: get-build
     environment: preview
     params:
-      fingerprint_hash: ${{ needs.fingerprint.outputs.ios_fingerprint_hash }
+      fingerprint_hash: ${{ needs.fingerprint.outputs.ios_fingerprint_hash }}
       profile: preview
   build_android:
     name: Build Android
@@ -52,6 +52,9 @@ jobs:
     if: ${{ !needs.get_android_build.outputs.build_id }}
     type: build
     environment: preview
+    env:
+      POSTHOG_CLI_PROJECT_ID: ${{ env.POSTHOG_CLI_PROJECT_ID }}
+      POSTHOG_CLI_API_KEY: ${{ env.POSTHOG_CLI_API_KEY }}
     params:
       platform: android
       profile: preview
@@ -61,6 +64,9 @@ jobs:
     if: ${{ !needs.get_ios_build.outputs.build_id }}
     type: build
     environment: preview
+    env:
+      POSTHOG_CLI_PROJECT_ID: ${{ env.POSTHOG_CLI_PROJECT_ID }}
+      POSTHOG_CLI_API_KEY: ${{ env.POSTHOG_CLI_API_KEY }}
     params:
       platform: ios
       profile: preview

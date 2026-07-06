@@ -77,3 +77,8 @@ supabase/functions/.env
 # Cloudflare Workers
 cloud-services/**/.wrangler
 cloud-services/**/.env.keys
+# Agent skills: Cursor auto-applies AGENTS.md/CLAUDE.md as always-on rules (use SKILL.md + COMPILED.md)
+.agents/skills/**/AGENTS.md
+.agents/skills/**/CLAUDE.md
+
+scripts/linear-import
