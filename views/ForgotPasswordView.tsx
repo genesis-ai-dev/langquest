@@ -115,7 +115,6 @@ export default function ForgotPasswordView() {
                     placeholder={t('enterEmailForPasswordReset')}
                     returnKeyType="done"
                     onSubmitEditing={handleFormSubmit}
-                    mask
                   />
                 </FormControl>
                 <FormMessage />

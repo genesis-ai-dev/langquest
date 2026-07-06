@@ -4,6 +4,7 @@ import { CheckIcon, ChevronDownIcon } from 'lucide-react-native';
 import { MotiView } from 'moti';
 import * as React from 'react';
 import { ActivityIndicator, FlatList, TextInput, View } from 'react-native';
+import { SessionReplayMask } from '@/components/SessionReplayMask';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { ButtonPressable } from './button';
 import { Icon } from './icon';
@@ -179,15 +180,17 @@ export const Combobox = React.forwardRef<View, ComboboxProps>(
               >
                 {/* Search Input */}
                 <View className="border-b border-border p-2">
-                  <TextInput
-                    ref={searchInputRef}
-                    value={search}
-                    onChangeText={setSearch}
-                    placeholder={searchPlaceholder}
-                    placeholderTextColor={getThemeColor('muted-foreground')}
-                    className="h-10 rounded-md bg-card px-3 text-base text-foreground"
-                    selectionColor={primaryColor}
-                  />
+                  <SessionReplayMask>
+                    <TextInput
+                      ref={searchInputRef}
+                      value={search}
+                      onChangeText={setSearch}
+                      placeholder={searchPlaceholder}
+                      placeholderTextColor={getThemeColor('muted-foreground')}
+                      className="h-10 rounded-md bg-card px-3 text-base text-foreground"
+                      selectionColor={primaryColor}
+                    />
+                  </SessionReplayMask>
                 </View>
 
                 {/* Options List */}

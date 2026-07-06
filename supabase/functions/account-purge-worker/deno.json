@@ -1,0 +1,8 @@
+{
+  "imports": {
+    "@supabase/functions-js": "jsr:@supabase/functions-js@^2",
+    "@supabase/supabase-js": "npm:@supabase/supabase-js",
+    "airtable": "npm:airtable@0.12.2",
+    "pg": "npm:pg@8.11.3"
+  }
+}

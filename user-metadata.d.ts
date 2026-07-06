@@ -10,5 +10,6 @@ declare module '@supabase/auth-js' {
     username?: string;
     terms_accepted?: boolean;
     terms_accepted_at?: string;
+    privacy_policy_version?: string;
   }
 }

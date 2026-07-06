@@ -6,6 +6,7 @@ import ImageCarousel from '@/components/ImageCarousel';
 import { ReportModal } from '@/components/NewReportModal';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { SourceContent } from '@/components/SourceContent';
+import { SessionReplayMask } from '@/components/SessionReplayMask';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -40,6 +41,7 @@ import {
   getLocalAttachmentUriWithOPFS,
   getLocalUri
 } from '@/utils/fileUtils';
+import { isUnpublishedSource } from '@/utils/sessionReplayMask';
 import { cn } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { useFocusEffect } from '@react-navigation/native';
@@ -392,6 +394,9 @@ export default function NextGenAssetDetailView() {
   // useUserPermissions may initially return false for private projects because its
   // internal query for creator_id hasn't resolved yet (race condition on first mount).
   const isLocalContent = activeAsset?.source === 'local';
+  const maskUnpublishedContent =
+    isUnpublishedSource(activeAsset?.source) ||
+    isUnpublishedSource(questData?.source);
   const canTranslate = canTranslateFromPermissions || isLocalContent;
 
   // Highlight assets from the last recording session (only for unpublished content)
@@ -866,15 +871,30 @@ export default function NextGenAssetDetailView() {
   return (
     <View className="mb-safe flex-1 px-4">
       {activeAsset?.name && (
-        <Stack.Screen options={{ title: activeAsset.name }} />
+        <Stack.Screen
+          options={{
+            headerTitle: () => (
+              <SessionReplayMask when={maskUnpublishedContent}>
+                <Text
+                  className="text-lg font-semibold text-foreground"
+                  numberOfLines={1}
+                >
+                  {activeAsset.name}
+                </Text>
+              </SessionReplayMask>
+            )
+          }}
+        />
       )}
       {/* Header */}
       <View className="flex-row items-center justify-between gap-1">
         <View className="flex-1 flex-row items-center gap-4">
           <View className="flex-1 flex-row items-center gap-2">
-            <Text className="text-xl font-bold text-foreground">
-              {activeAsset.name}
-            </Text>
+            <SessionReplayMask when={maskUnpublishedContent} className="flex-1">
+              <Text className="text-xl font-bold text-foreground">
+                {activeAsset.name}
+              </Text>
+            </SessionReplayMask>
             {/* New badge for recently recorded assets */}
             {isHighlighted && <NewHighlightBadge />}
           </View>
@@ -987,6 +1007,7 @@ export default function NextGenAssetDetailView() {
                           content={content}
                           // eslint-disable-next-line @typescript-eslint/no-explicit-any
                           sourceLanguage={languoid as any}
+                          maskContent={maskUnpublishedContent}
                           audioSegments={
                             isCurrentItem ? resolvedAudioUris : undefined
                           }
@@ -1033,55 +1054,58 @@ export default function NextGenAssetDetailView() {
                     {/* Position indicator */}
                     {showReorderInput && allowEditing ? (
                       <View className="flex-row items-center gap-2">
-                        <TextInput
-                          style={{
-                            height: 40,
-                            minWidth: 40,
-                            paddingHorizontal: 8,
-                            fontSize: 14,
-                            textAlign: 'center'
-                          }}
-                          className="rounded border border-primary bg-background text-foreground"
-                          keyboardType="number-pad"
-                          value={reorderValue}
-                          onChangeText={setReorderValue}
-                          autoFocus
-                          selectTextOnFocus
-                          returnKeyType="done"
-                          onSubmitEditing={async () => {
-                            const newPos = parseInt(reorderValue, 10);
-                            const content = activeAsset.content;
-                            if (
-                              !content ||
-                              isNaN(newPos) ||
-                              newPos < 1 ||
-                              newPos > content.length
-                            ) {
+                        <SessionReplayMask>
+                          <TextInput
+                            style={{
+                              height: 40,
+                              minWidth: 40,
+                              paddingHorizontal: 8,
+                              fontSize: 14,
+                              textAlign: 'center'
+                            }}
+                            className="rounded border border-primary bg-background text-foreground"
+                            keyboardType="number-pad"
+                            value={reorderValue}
+                            onChangeText={setReorderValue}
+                            autoFocus
+                            selectTextOnFocus
+                            returnKeyType="done"
+                            onSubmitEditing={async () => {
+                              const newPos = parseInt(reorderValue, 10);
+                              const content = activeAsset.content;
+                              if (
+                                !content ||
+                                isNaN(newPos) ||
+                                newPos < 1 ||
+                                newPos > content.length
+                              ) {
+                                setShowReorderInput(false);
+                                return;
+                              }
+                              const targetIndex = newPos - 1;
+                              if (targetIndex !== currentContentIndex) {
+                                // Build new order: move current item to target position
+                                const ids = content.map((c) => c.id);
+                                const movedId = ids.splice(
+                                  currentContentIndex,
+                                  1
+                                )[0]!;
+                                ids.splice(targetIndex, 0, movedId);
+                                await updateContentLinkOrder(
+                                  activeAsset.id,
+                                  ids,
+                                  {
+                                    localOverride:
+                                      activeAsset.source === 'local'
+                                  }
+                                );
+                                setCurrentContentIndex(targetIndex);
+                              }
                               setShowReorderInput(false);
-                              return;
-                            }
-                            const targetIndex = newPos - 1;
-                            if (targetIndex !== currentContentIndex) {
-                              // Build new order: move current item to target position
-                              const ids = content.map((c) => c.id);
-                              const movedId = ids.splice(
-                                currentContentIndex,
-                                1
-                              )[0]!;
-                              ids.splice(targetIndex, 0, movedId);
-                              await updateContentLinkOrder(
-                                activeAsset.id,
-                                ids,
-                                {
-                                  localOverride: activeAsset.source === 'local'
-                                }
-                              );
-                              setCurrentContentIndex(targetIndex);
-                            }
-                            setShowReorderInput(false);
-                          }}
-                          onBlur={() => setShowReorderInput(false)}
-                        />
+                            }}
+                            onBlur={() => setShowReorderInput(false)}
+                          />
+                        </SessionReplayMask>
                         <Text className="text-sm text-muted-foreground">
                           of {activeAsset.content.length}
                         </Text>
@@ -1202,6 +1226,7 @@ export default function NextGenAssetDetailView() {
           canVote={canTranslate}
           membership={translateMembership}
           contentTypeFilter={contentTypeFilter}
+          maskUnpublishedContent={maskUnpublishedContent}
         />
       </View>
 

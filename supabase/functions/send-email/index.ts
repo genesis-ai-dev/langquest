@@ -8,7 +8,9 @@ import { Resend } from 'resend';
 import { Webhook } from 'standardwebhooks';
 import { isEmailAddressSuppressed } from '../shared/emailSuppression.ts';
 import { ConfirmEmail } from './_templates/confirm-email.tsx';
+import { DeletionScheduledEmail } from './_templates/deletion-scheduled.tsx';
 import { InviteEmail } from './_templates/invite-email.tsx';
+import { PrivacyPolicyUpdateEmail } from './_templates/privacy-policy-update.tsx';
 import { ResetPassword } from './_templates/reset-password.tsx';
 import {
   getMaxInviteResendAttempts,
@@ -109,6 +111,51 @@ function mapLanguoidNameToLocale(
 
   return mapping[normalized] ?? 'en';
 }
+
+function verifyTransactionalEmailSecret(req: Request): boolean {
+  const expected = Deno.env.get('TRANSACTIONAL_EMAIL_SECRET');
+  if (!expected) {
+    console.error('[send-email] TRANSACTIONAL_EMAIL_SECRET is not configured');
+    return false;
+  }
+  return req.headers.get('x-transactional-email-secret') === expected;
+}
+
+async function sendTransactionalEmail(params: {
+  to: string;
+  subject: string;
+  component: React.ReactElement;
+}) {
+  if (await isEmailAddressSuppressed(supabase, params.to)) {
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: 'email_globally_suppressed'
+      }),
+      {
+        status: 422,
+        headers: { 'Content-Type': 'application/json' }
+      }
+    );
+  }
+
+  const html = await render(params.component);
+  const text = await render(params.component, { plainText: true });
+  const { error } = await resend.emails.send({
+    from: 'LangQuest <account-security@langquest.org>',
+    to: [params.to],
+    subject: params.subject,
+    html,
+    text
+  });
+
+  if (error) throw error;
+
+  return new Response(JSON.stringify({ success: true }), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' }
+  });
+}
 Deno.serve(async (req) => {
   if (req.method !== 'POST') {
     return new Response('not allowed', {
@@ -130,6 +177,74 @@ Deno.serve(async (req) => {
   try {
     // Check if this is an invite request webhook
     const parsedPayload = JSON.parse(payload);
+    if (
+      parsedPayload.type === 'privacy_policy_update' ||
+      parsedPayload.type === 'deletion_scheduled'
+    ) {
+      if (!verifyTransactionalEmailSecret(req)) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      const email = parsedPayload.email?.trim();
+      if (!email) {
+        return new Response(JSON.stringify({ error: 'email is required' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      if (parsedPayload.type === 'privacy_policy_update') {
+        const effectiveDate = parsedPayload.effective_date?.trim();
+        const summary = parsedPayload.summary?.trim();
+        const changesBody = parsedPayload.changes_body?.trim();
+        if (!effectiveDate || !summary || !changesBody) {
+          return new Response(
+            JSON.stringify({
+              error: 'effective_date, summary, and changes_body are required'
+            }),
+            {
+              status: 400,
+              headers: { 'Content-Type': 'application/json' }
+            }
+          );
+        }
+
+        return await sendTransactionalEmail({
+          to: email,
+          subject: 'We\u2019re updating our Privacy Policy',
+          component: React.createElement(PrivacyPolicyUpdateEmail, {
+            effectiveDate,
+            summary,
+            changesBody
+          })
+        });
+      }
+
+      const purgeDate = parsedPayload.purge_date?.trim();
+      if (!purgeDate) {
+        return new Response(
+          JSON.stringify({ error: 'purge_date is required' }),
+          {
+            status: 400,
+            headers: { 'Content-Type': 'application/json' }
+          }
+        );
+      }
+
+      const locale = parsedPayload.locale ?? 'en';
+      return await sendTransactionalEmail({
+        to: email,
+        subject: 'Your LangQuest account deletion is scheduled',
+        component: React.createElement(DeletionScheduledEmail, {
+          purgeDate,
+          locale
+        })
+      });
+    }
+
     if (parsedPayload.type === 'invite') {
       // Handle invite request
       const { record } = parsedPayload;

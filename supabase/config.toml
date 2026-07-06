@@ -428,3 +428,15 @@ entrypoint = "./functions/transcribe/index.ts"
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/feedback-to-airtable/index.ts"
+
+[functions.request-account-deletion]
+enabled = true
+verify_jwt = true
+import_map = "./functions/request-account-deletion/deno.json"
+entrypoint = "./functions/request-account-deletion/index.ts"
+
+[functions.account-purge-worker]
+enabled = true
+verify_jwt = false
+import_map = "./functions/account-purge-worker/deno.json"
+entrypoint = "./functions/account-purge-worker/index.ts"

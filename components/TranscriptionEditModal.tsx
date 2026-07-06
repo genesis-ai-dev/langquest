@@ -17,6 +17,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { SessionReplayMask } from '@/components/SessionReplayMask';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface TranscriptionEditModalProps {
@@ -188,15 +189,17 @@ export default function TranscriptionEditModal({
             <Text className="mb-2 text-sm text-muted-foreground">
               Review and edit the transcription before saving:
             </Text>
-            <TextInput
-              value={editedText}
-              onChangeText={setEditedText}
-              placeholder="Enter transcription text..."
-              multiline
-              textAlignVertical="top"
-              className="flex-1 rounded-md border border-border bg-input p-3 text-base text-foreground"
-              style={{ minHeight: 200 }}
-            />
+            <SessionReplayMask className="flex-1">
+              <TextInput
+                value={editedText}
+                onChangeText={setEditedText}
+                placeholder="Enter transcription text..."
+                multiline
+                textAlignVertical="top"
+                className="flex-1 rounded-md border border-border bg-input p-3 text-base text-foreground"
+                style={{ minHeight: 200 }}
+              />
+            </SessionReplayMask>
           </View>
         </KeyboardAvoidingView>
       </SafeAreaView>

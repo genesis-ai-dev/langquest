@@ -41,6 +41,7 @@ interface NextGenTranslationsListProps {
   canVote?: boolean;
   membership?: MembershipRole;
   contentTypeFilter?: 'translation' | 'transcription';
+  maskUnpublishedContent?: boolean;
 }
 
 type SortOption = 'voteCount' | 'dateSubmitted';
@@ -50,7 +51,8 @@ export default function NextGenTranslationsList({
   refreshKey,
   projectData,
   canVote: canVoteProp,
-  contentTypeFilter = 'translation'
+  contentTypeFilter = 'translation',
+  maskUnpublishedContent = false
 }: NextGenTranslationsListProps) {
   const { t } = useLocalization();
   const [useOfflineData, setUseOfflineData] = useState(false);
@@ -140,12 +142,14 @@ export default function NextGenTranslationsList({
         handleTranslationPress={handleTranslationPress}
         audioSegments={getAudioSegments(item)}
         isHighlighted={newChildAssetIdSet.has(item.id)}
+        maskContent={maskUnpublishedContent}
       />
     ),
     [
       getAudioSegments,
       getPreviewText,
       handleTranslationPress,
+      maskUnpublishedContent,
       newChildAssetIdSet
     ]
   );

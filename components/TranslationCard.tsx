@@ -8,10 +8,12 @@ import type { AssetWithVoteCount } from '@/hooks/db/useTranslations';
 import { useLocalization } from '@/hooks/useLocalization';
 import type { WithSource } from '@/utils/dbUtils';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
+import { isUnpublishedSource } from '@/utils/sessionReplayMask';
 import { cn } from '@/utils/styleUtils';
 import { ThumbsDownIcon, ThumbsUpIcon } from 'lucide-react-native';
 import { View } from 'react-native';
 import { NewHighlightBadge } from '@/components/NewHighlightBadge';
+import { SessionReplayMask } from '@/components/SessionReplayMask';
 import AudioPlayer from './AudioPlayer';
 import { Button } from './ui/button';
 
@@ -23,6 +25,7 @@ interface TranslationCardProps {
   onTranscribe?: (uri: string) => void;
   isTranscribing?: boolean;
   isHighlighted?: boolean;
+  maskContent?: boolean;
 }
 
 export const TranslationCard = ({
@@ -32,7 +35,8 @@ export const TranslationCard = ({
   previewText,
   onTranscribe,
   isTranscribing = false,
-  isHighlighted = false
+  isHighlighted = false,
+  maskContent = false
 }: TranslationCardProps) => {
   const { t } = useLocalization();
   const currentLayer = useStatusContext();
@@ -48,6 +52,7 @@ export const TranslationCard = ({
   const isAudioOnlyCard = hasAudio && !showText;
   const showBadgeAbove = isHighlighted && !isAudioOnlyCard;
   const showBadgeWithVotes = isHighlighted && isAudioOnlyCard;
+  const maskContentInReplay = maskContent || isUnpublishedSource(asset.source);
 
   const handleCardPress = () => {
     if (asset.id) {
@@ -91,12 +96,17 @@ export const TranslationCard = ({
               {showBadgeWithVotes && <NewHighlightBadge />}
 
               {showText && (
-                <Text
-                  numberOfLines={2}
-                  className="min-w-0 flex-1 text-base leading-relaxed text-foreground"
+                <SessionReplayMask
+                  when={maskContentInReplay}
+                  className="min-w-0 flex-1"
                 >
-                  {previewText || t('noText')}
-                </Text>
+                  <Text
+                    numberOfLines={2}
+                    className="text-base leading-relaxed text-foreground"
+                  >
+                    {previewText || t('noText')}
+                  </Text>
+                </SessionReplayMask>
               )}
 
               <View className="shrink-0 flex-col items-end gap-1">

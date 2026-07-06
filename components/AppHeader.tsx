@@ -1,5 +1,7 @@
 import { Icon } from '@/components/ui/icon';
+import { SessionReplayMask } from '@/components/SessionReplayMask';
 import { useAttachmentStates } from '@/hooks/useAttachmentStates';
+import type { Breadcrumb } from '@/hooks/useBreadcrumbs';
 import { useBreadcrumbs } from '@/hooks/useBreadcrumbs';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
@@ -32,6 +34,26 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Button, OpacityPressable } from './ui/button';
 import { Text } from './ui/text';
+
+function BreadcrumbLabel({
+  crumb,
+  className
+}: {
+  crumb: Breadcrumb;
+  className?: string;
+}) {
+  const label = (
+    <Text className={className} numberOfLines={1}>
+      {crumb.label}
+    </Text>
+  );
+
+  if (!crumb.maskLabel) {
+    return label;
+  }
+
+  return <SessionReplayMask>{label}</SessionReplayMask>;
+}
 
 export default function AppHeader({
   drawerToggleCallback,
@@ -157,15 +179,15 @@ export default function AppHeader({
               showsHorizontalScrollIndicator={false}
               contentContainerClassName="flex-col justify-center pr-8"
             >
-              <Text
-                className={cn(
-                  'font-semibold text-foreground',
-                  breadcrumbs.length === 1 && 'text-lg'
-                )}
-                numberOfLines={1}
-              >
-                {breadcrumbs.at(breadcrumbs.length - 1)?.label}
-              </Text>
+              {breadcrumbs.length > 0 && (
+                <BreadcrumbLabel
+                  crumb={breadcrumbs[breadcrumbs.length - 1]}
+                  className={cn(
+                    'font-semibold text-foreground',
+                    breadcrumbs.length === 1 && 'text-lg'
+                  )}
+                />
+              )}
               {breadcrumbs.length > 1 && (
                 <View className="flex-row items-center">
                   {breadcrumbs.slice(0, -1).map((crumb, index) => (
@@ -182,9 +204,10 @@ export default function AppHeader({
                         </View>
                       )}
                       <OpacityPressable onPress={crumb.onPress} hitSlop={5}>
-                        <Text className="text-sm leading-5 text-muted-foreground">
-                          {crumb.label}
-                        </Text>
+                        <BreadcrumbLabel
+                          crumb={crumb}
+                          className="text-sm leading-5 text-muted-foreground"
+                        />
                       </OpacityPressable>
                     </View>
                   ))}

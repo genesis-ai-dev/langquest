@@ -113,7 +113,6 @@ export default function SignInView() {
               <FormControl>
                 <Input
                   {...transformInputProps(field)}
-                  mask
                   type="next"
                   autoCapitalize="none"
                   keyboardType="email-address"

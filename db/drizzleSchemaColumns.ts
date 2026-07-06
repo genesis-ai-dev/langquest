@@ -281,6 +281,11 @@ export function createProfileTable<
       ui_languoid_id: text(), // Reference to languoid table (server-only, not synced)
       terms_accepted: int({ mode: 'boolean' }),
       terms_accepted_at: text(),
+      privacy_policy_version: text(),
+      analytics_opt_in: int({ mode: 'boolean' }),
+      analytics_consent_at: text(),
+      deletion_requested_at: text(),
+      deletion_scheduled_for: text(),
       ...extraColumns
     },
     (table) => [...normalizeParams(extraConfig, table)]

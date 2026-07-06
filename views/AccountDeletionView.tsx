@@ -1,8 +1,9 @@
 /**
  * Account Deletion View
  *
- * Multi-step account deletion flow that sets profile.active = false (soft delete).
- * Users can restore their account later from the AccountDeletedOverlay.
+ * Schedules permanent account erasure after a 30-day grace period.
+ * Legacy soft-deleted accounts (active=false without deletion_requested_at) use
+ * AccountDeletedOverlay instead.
  */
 
 import { Alert, AlertTitle } from '@/components/ui/alert';
@@ -11,11 +12,12 @@ import { Icon } from '@/components/ui/icon';
 import { Link } from '@/components/ui/link';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
-import { profileService } from '@/database_services/profileService';
 import { system } from '@/db/powersync/system';
 import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { getNetworkStatus, useNetworkStatus } from '@/hooks/useNetworkStatus';
+import { requestAccountDeletion } from '@/services/accountDeletion';
+import { applyPostHogCaptureState } from '@/services/posthog';
 import { useLocalStore } from '@/store/localStore';
 import { resetDatabase } from '@/utils/dbUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
@@ -48,7 +50,10 @@ export default function AccountDeletionView() {
         throw new Error(t('accountDeletionRequiresOnline'));
       }
 
-      await profileService.deleteAccount(currentUser.id);
+      await requestAccountDeletion();
+
+      useLocalStore.getState().setAnalyticsConsent(false);
+      await applyPostHogCaptureState();
 
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
@@ -174,6 +179,10 @@ export default function AccountDeletionView() {
               <Text className="text-base text-foreground">
                 {t('accountDeletionContributionsInfo')}
               </Text>
+
+              <Text className="text-base text-foreground">
+                {t('accountDeletionAudioInfo')}
+              </Text>
             </View>
 
             <View className="flex flex-col gap-2">
@@ -202,6 +211,10 @@ export default function AccountDeletionView() {
 
               <Text className="text-base text-foreground">
                 {t('accountDeletionContributionsInfo')}
+              </Text>
+
+              <Text className="text-base text-foreground">
+                {t('accountDeletionAudioInfo')}
               </Text>
             </View>
           </View>

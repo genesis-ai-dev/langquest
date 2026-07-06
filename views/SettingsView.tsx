@@ -10,8 +10,9 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useLocalStore } from '@/store/localStore';
 import { cn } from '@/utils/styleUtils';
+import { openLegalUrl } from '@/utils/openLegalUrl';
 import RNAlert from '@blazejkustra/react-native-alert';
-import type { Href } from 'expo-router';
+import { type Href } from 'expo-router';
 import React from 'react';
 import { Pressable, ScrollView, TouchableOpacity, View } from 'react-native';
 
@@ -252,12 +253,9 @@ export default function SettingsView() {
         },
         {
           id: 'terms',
-          title: t('termsAndConditions'),
+          title: t('termsAndPrivacyTitle'),
           type: 'link',
-          onPress: () => {
-            // TODO: Navigate to terms page
-            RNAlert.alert(t('info'), t('termsAndConditionsComingSoon'));
-          }
+          onPress: () => void openLegalUrl('privacy')
         }
       ]
     },

@@ -9,6 +9,7 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { useQuestDownloadStatusLive } from '@/hooks/useQuestDownloadStatusLive';
 import type { WithSource } from '@/utils/dbUtils';
 import { FEATURE_FLAG_SHOW_CREATE_NESTED_QUEST } from '@/utils/featureFlags';
+import { isUnpublishedSource } from '@/utils/sessionReplayMask';
 import { cn } from '@/utils/styleUtils';
 import {
   ChevronDown,
@@ -20,6 +21,7 @@ import {
 } from 'lucide-react-native';
 import React from 'react';
 import { Pressable, View } from 'react-native';
+import { SessionReplayMask } from '@/components/SessionReplayMask';
 import RNAlert from '@blazejkustra/react-native-alert';
 
 type Quest = typeof questTable.$inferSelect;
@@ -57,6 +59,7 @@ export const QuestTreeRow: React.FC<QuestTreeRowProps> = ({
 
   // Query SQLite directly - single source of truth, no cache, no race conditions
   const isDownloaded = useQuestDownloadStatusLive(quest.id);
+  const maskQuestName = isUnpublishedSource(quest.source);
   const isCloudQuest = quest.source === 'cloud';
 
   // Show loading if we're downloading AND not yet downloaded
@@ -140,15 +143,22 @@ export const QuestTreeRow: React.FC<QuestTreeRowProps> = ({
       >
         <View className="flex flex-1 flex-row items-center gap-2">
           <View style={{ minWidth: 40 }}>
-            <Text numberOfLines={1} className="text-base">
-              {quest.name}
-            </Text>
+            <SessionReplayMask when={maskQuestName}>
+              <Text numberOfLines={1} className="text-base">
+                {quest.name}
+              </Text>
+            </SessionReplayMask>
           </View>
           {quest.description && (
             <View className="flex-1 truncate">
-              <Text className="text-sm text-muted-foreground" numberOfLines={1}>
-                {quest.description}
-              </Text>
+              <SessionReplayMask when={maskQuestName}>
+                <Text
+                  className="text-sm text-muted-foreground"
+                  numberOfLines={1}
+                >
+                  {quest.description}
+                </Text>
+              </SessionReplayMask>
             </View>
           )}
         </View>

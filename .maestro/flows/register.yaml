@@ -18,11 +18,25 @@ onFlowStart:
 - inputText: password
 - tapOn: Confirm Password
 - inputText: password
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: register-legal-consent
+- tapOn:
+    id: register-legal-consent
+- scrollUntilVisible:
+    element: Register
 - tapOn: Register
-- tapOn: Register
-- assertVisible: Projects
+- runFlow: _opt-into-analytics.yaml
 - tapOn:
     id: app-drawer-menu-button
 - tapOn: Profile
-- assertVisible: Profile
+- assertVisible:
+    text: Profile
+    above:
+      text: ${output.email}
+- assertVisible:
+    id: analytics-opt-in-switch
+    checked: true
+    rightOf: Enable Analytics
 - evalScript: ${output.api.deleteUser(output.email)}

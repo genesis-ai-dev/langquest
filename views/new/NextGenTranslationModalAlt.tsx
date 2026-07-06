@@ -1,6 +1,7 @@
 import AudioPlayer from '@/components/AudioPlayer';
 import { ReportModal } from '@/components/NewReportModal';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
+import { SessionReplayMask } from '@/components/SessionReplayMask';
 import { TranslationSettingsModal } from '@/components/TranslationSettingsModal';
 import { Alert, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -25,6 +26,7 @@ import { useTranscription } from '@/hooks/useTranscription';
 import { resolveTable } from '@/utils/dbUtils';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import { fileExists, getLocalUri } from '@/utils/fileUtils';
+import { isUnpublishedSource } from '@/utils/sessionReplayMask';
 import { cn, getThemeColor } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
@@ -199,6 +201,7 @@ export default function NextGenTranslationModal({
 
   const asset = translationData[0];
   const assetText = asset?.content[0]?.text;
+  const maskContent = isUnpublishedSource(asset?.source);
   // Calculate vote counts
   const votes = asset?.votes ?? [];
   const upVotes = votes.filter((v) => v.active && v.polarity === 'up').length;
@@ -606,14 +609,16 @@ export default function NextGenTranslationModal({
                         drawerInput={false}
                       />
                     ) : (
-                      <Text
-                        className={cn(
-                          'text-lg leading-6 text-foreground',
-                          !assetText && 'italic text-muted-foreground'
-                        )}
-                      >
-                        {assetText || '(No text)'}
-                      </Text>
+                      <SessionReplayMask when={maskContent}>
+                        <Text
+                          className={cn(
+                            'text-lg leading-6 text-foreground',
+                            !assetText && 'italic text-muted-foreground'
+                          )}
+                        >
+                          {assetText || '(No text)'}
+                        </Text>
+                      </SessionReplayMask>
                     )}
 
                     {/* Audio Player - no transcription for translation audio */}

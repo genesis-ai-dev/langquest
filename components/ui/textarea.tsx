@@ -4,6 +4,7 @@ import { cva } from 'class-variance-authority';
 import * as React from 'react';
 import type { TextInputProps } from 'react-native';
 import { Platform, TextInput } from 'react-native';
+import { SessionReplayMask } from '@/components/SessionReplayMask';
 import { DrawerInput } from './drawer';
 
 const textareaVariants = cva(
@@ -45,25 +46,30 @@ const Textarea = React.forwardRef<
     const primaryColor = useThemeColor('primary');
     const Component = drawerInput ? DrawerInput : TextInput;
     return (
-      <Component
-        // @ts-expect-error - ref is not passed the same type as TextInput
-        ref={ref}
-        className={cn(
-          textareaVariants({ size }),
-          'placeholder:text-muted-foreground',
-          Platform.select({
-            web: 'aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive field-sizing-content resize-y outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed'
-          }),
-          props.editable === false && 'opacity-50',
-          className
-        )}
-        placeholderClassName={cn('text-muted-foreground', placeholderClassName)}
-        selectionColor={primaryColor}
-        multiline={multiline}
-        numberOfLines={numberOfLines}
-        textAlignVertical="top"
-        {...props}
-      />
+      <SessionReplayMask>
+        <Component
+          // @ts-expect-error - ref is not passed the same type as TextInput
+          ref={ref}
+          className={cn(
+            textareaVariants({ size }),
+            'placeholder:text-muted-foreground',
+            Platform.select({
+              web: 'aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive field-sizing-content resize-y outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed'
+            }),
+            props.editable === false && 'opacity-50',
+            className
+          )}
+          placeholderClassName={cn(
+            'text-muted-foreground',
+            placeholderClassName
+          )}
+          selectionColor={primaryColor}
+          multiline={multiline}
+          numberOfLines={numberOfLines}
+          textAlignVertical="top"
+          {...props}
+        />
+      </SessionReplayMask>
     );
   }
 );

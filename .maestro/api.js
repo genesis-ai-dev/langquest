@@ -31,9 +31,6 @@ function getUserByEmail(email) {
     { headers: getDefaultHeaders() }
   );
 
-  console.log('Get user response status:', getUserResponse.status);
-  console.log('Get user response body:', getUserResponse.body);
-
   const responseData = JSON.parse(getUserResponse.body);
   const users = responseData.users || responseData;
 
@@ -58,7 +55,6 @@ function getUserByEmail(email) {
     );
   }
 
-  console.log('Found matching user with ID:', matchingUser.id);
   return matchingUser;
 }
 

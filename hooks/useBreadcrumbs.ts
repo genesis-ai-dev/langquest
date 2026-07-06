@@ -11,6 +11,8 @@ import { useProjectById } from '@/hooks/db/useProjects';
 import { useQuestById } from '@/hooks/db/useQuests';
 import { useLocalization } from '@/hooks/useLocalization';
 import type { LocalizationKey } from '@/services/localizations';
+import { isUnpublishedSource } from '@/utils/sessionReplayMask';
+import type { HybridDataSource } from '@/views/new/useHybridData';
 import { eq } from 'drizzle-orm';
 import type { Href } from 'expo-router';
 import { useGlobalSearchParams, usePathname, useRouter } from 'expo-router';
@@ -20,9 +22,19 @@ function href(path: string): Href {
   return path as unknown as Href;
 }
 
-interface Breadcrumb {
+export interface Breadcrumb {
   label: string;
   onPress?: () => void;
+  /** Mask label in session replays (unpublished quest/asset names). */
+  maskLabel?: boolean;
+}
+
+function shouldMaskBreadcrumbLabel(
+  source: string | undefined | null,
+  projectTemplate: string | undefined | null
+): boolean {
+  if (projectTemplate === 'bible') return false;
+  return isUnpublishedSource(source);
 }
 
 /**
@@ -31,9 +43,9 @@ interface Breadcrumb {
  * Uses local PowerSync DB for instant lookups.
  */
 function useQuestAncestors(questId: string | undefined) {
-  const [ancestors, setAncestors] = useState<{ id: string; name: string }[]>(
-    []
-  );
+  const [ancestors, setAncestors] = useState<
+    { id: string; name: string; source?: string }[]
+  >([]);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
@@ -46,7 +58,7 @@ function useQuestAncestors(questId: string | undefined) {
     setIsLoading(true);
 
     async function walkParents(id: string) {
-      const chain: { id: string; name: string }[] = [];
+      const chain: { id: string; name: string; source?: string }[] = [];
       let currentId: string | null = id;
 
       while (currentId) {
@@ -65,17 +77,28 @@ function useQuestAncestors(questId: string | undefined) {
         const row = results[0];
         if (!row?.parentId) break;
 
-        const parentResults: { id: string; name: string | null }[] =
-          await system.db
-            .select({ id: questTable.id, name: questTable.name })
-            .from(questTable)
-            .where(eq(questTable.id, row.parentId))
-            .limit(1);
+        const parentResults: {
+          id: string;
+          name: string | null;
+          source: string | null;
+        }[] = await system.db
+          .select({
+            id: questTable.id,
+            name: questTable.name,
+            source: questTable.source
+          })
+          .from(questTable)
+          .where(eq(questTable.id, row.parentId))
+          .limit(1);
 
         const parent = parentResults[0];
         if (!parent) break;
 
-        chain.unshift({ id: parent.id, name: parent.name || 'Quest' });
+        chain.unshift({
+          id: parent.id,
+          name: parent.name || 'Quest',
+          source: parent.source ?? undefined
+        });
 
         const grandparentResults: { parentId: string | null }[] =
           await system.db
@@ -140,6 +163,10 @@ export function useBreadcrumbs(): Breadcrumb[] {
     pathname: ''
   });
 
+  const projectTemplate = project?.template ?? null;
+  const questSource = (quest as { source?: HybridDataSource } | null)?.source;
+  const assetSource = (asset as { source?: HybridDataSource } | null)?.source;
+
   // Build content breadcrumbs from current route params (meaningful on content routes)
   const contentCrumbs = useMemo(() => {
     const crumbs: Breadcrumb[] = [];
@@ -163,6 +190,7 @@ export function useBreadcrumbs(): Breadcrumb[] {
     for (const ancestor of ancestors) {
       crumbs.push({
         label: ancestor.name,
+        maskLabel: shouldMaskBreadcrumbLabel(ancestor.source, projectTemplate),
         onPress: () =>
           router.dismissTo(
             href(`/(app)/project/${projectId}/quest/${ancestor.id}`)
@@ -174,6 +202,7 @@ export function useBreadcrumbs(): Breadcrumb[] {
       const isCurrentLevel = !assetId && !isOnRecording;
       crumbs.push({
         label: quest.name || 'Quest',
+        maskLabel: shouldMaskBreadcrumbLabel(questSource, projectTemplate),
         onPress: isCurrentLevel
           ? undefined
           : () =>
@@ -184,7 +213,10 @@ export function useBreadcrumbs(): Breadcrumb[] {
     }
 
     if (asset && assetId) {
-      crumbs.push({ label: asset.name || 'Asset' });
+      crumbs.push({
+        label: asset.name || 'Asset',
+        maskLabel: shouldMaskBreadcrumbLabel(assetSource, projectTemplate)
+      });
     }
 
     if (isOnRecording) {
@@ -201,6 +233,9 @@ export function useBreadcrumbs(): Breadcrumb[] {
     questId,
     assetId,
     isOnRecording,
+    projectTemplate,
+    questSource,
+    assetSource,
     router,
     t
   ]);

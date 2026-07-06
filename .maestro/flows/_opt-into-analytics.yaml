@@ -1,0 +1,12 @@
+appId: ${MAESTRO_APP_ID}
+---
+- runFlow:
+    when:
+      visible: Share how you use LangQuest
+    commands:
+      - tapOn:
+          id: analytics-opt-in-switch
+      - assertVisible:
+          id: analytics-opt-in-switch
+          checked: true
+      - tapOn: Continue

@@ -1,4 +1,6 @@
 import { system } from '@/db/powersync/system';
+import { syncAccountPreferencesFromProfile } from '@/services/accountPreferences';
+import { resetLocalAnalyticsConsentOnSignOut } from '@/services/analyticsConsent';
 import { setPostHogUserId } from '@/services/posthog';
 import { useLocalStore } from '@/store/localStore';
 import { getSupabaseAuthKey } from '@/utils/supabaseUtils';
@@ -139,7 +141,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   } | null>(null);
 
   // Initialize system when we have an authenticated session
-  const initializeSystem = async () => {
+  const initializeSystem = async (userId?: string) => {
     try {
       console.log('[AuthContext] Initializing system...');
       setIsSystemReady(false);
@@ -148,6 +150,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUpgradeError(null);
       await system.init();
       setIsSystemReady(true);
+      if (userId) {
+        void syncAccountPreferencesFromProfile(userId);
+      }
       console.log('[AuthContext] System initialized successfully');
     } catch (error) {
       console.error('[AuthContext] System init failed:', error);
@@ -301,7 +306,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         // Initialize system
         console.log('[AuthContext] Fast path: Starting system initialization');
-        await initializeSystem();
+        await initializeSystem(offlineSession.user.id);
         console.log(
           '[AuthContext] Fast path: System initialization complete (offline mode)'
         );
@@ -408,7 +413,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               console.log(
                 '[AuthContext] Starting system initialization from INITIAL_SESSION'
               );
-              await initializeSystem();
+              await initializeSystem(effectiveSession.user.id);
               console.log(
                 '[AuthContext] System initialization complete from INITIAL_SESSION'
               );
@@ -442,7 +447,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             console.log(
               '[AuthContext] Starting system initialization from SIGNED_IN event'
             );
-            await initializeSystem();
+            await initializeSystem(session?.user.id);
             console.log(
               '[AuthContext] System initialization complete from SIGNED_IN event'
             );
@@ -469,6 +474,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               setSession(null);
               system.supabaseConnector.updateSession(null);
               setPostHogUserId(null);
+              resetLocalAnalyticsConsentOnSignOut();
               setSessionType(null);
               await cleanupSystem();
               // Set system ready for anonymous browsing after sign out
@@ -542,6 +548,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signOut = async () => {
+    resetLocalAnalyticsConsentOnSignOut();
     await system.supabaseConnector.signOut();
   };
 

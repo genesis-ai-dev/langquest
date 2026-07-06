@@ -4,6 +4,7 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { getThemeColor } from '@/utils/styleUtils';
 import { ActivityIndicator, ScrollView, View } from 'react-native';
 import MiniAudioPlayer from './MiniAudioPlayer';
+import { SessionReplayMask } from './SessionReplayMask';
 
 interface SourceContentProps {
   content: typeof asset_content_link.$inferSelect;
@@ -12,6 +13,7 @@ interface SourceContentProps {
   isLoading?: boolean;
   onTranscribe?: (uri: string) => void;
   isTranscribing?: boolean;
+  maskContent?: boolean;
 }
 
 export const SourceContent: React.FC<SourceContentProps> = ({
@@ -20,7 +22,8 @@ export const SourceContent: React.FC<SourceContentProps> = ({
   audioSegments,
   isLoading = false,
   onTranscribe,
-  isTranscribing = false
+  isTranscribing = false,
+  maskContent = false
 }) => {
   const { t } = useLocalization();
 
@@ -34,7 +37,10 @@ export const SourceContent: React.FC<SourceContentProps> = ({
       )}
 
       {/* Text content - scrollable */}
-      <View className="w-full flex-1 rounded bg-primary-foreground p-3">
+      <SessionReplayMask
+        when={maskContent}
+        className="w-full flex-1 rounded bg-primary-foreground p-3"
+      >
         <ScrollView
           showsVerticalScrollIndicator={true}
           contentContainerStyle={{ flexGrow: 1 }}
@@ -43,29 +49,36 @@ export const SourceContent: React.FC<SourceContentProps> = ({
             {content.text}
           </Text>
         </ScrollView>
-      </View>
+      </SessionReplayMask>
 
       {/* Audio player */}
       {(content.audio && audioSegments) || (content.audio && isLoading) ? (
-        <View className="w-full items-center justify-center">
-          {audioSegments ? (
-            <MiniAudioPlayer
-              audioSegments={audioSegments}
-              id={content.id}
-              title={content.text ?? ''}
-              onTranscribe={onTranscribe}
-              isTranscribing={isTranscribing}
-            />
-          ) : (
-            <View className="flex-row items-center justify-center gap-2 py-2">
-              <ActivityIndicator
-                size="small"
-                color={getThemeColor('primary')}
+        <SessionReplayMask
+          when={maskContent}
+          className="w-full items-center justify-center"
+        >
+          <View className="w-full items-center justify-center">
+            {audioSegments ? (
+              <MiniAudioPlayer
+                audioSegments={audioSegments}
+                id={content.id}
+                title={content.text ?? ''}
+                onTranscribe={onTranscribe}
+                isTranscribing={isTranscribing}
               />
-              <Text className="text-muted-foreground">{t('loadingAudio')}</Text>
-            </View>
-          )}
-        </View>
+            ) : (
+              <View className="flex-row items-center justify-center gap-2 py-2">
+                <ActivityIndicator
+                  size="small"
+                  color={getThemeColor('primary')}
+                />
+                <Text className="text-muted-foreground">
+                  {t('loadingAudio')}
+                </Text>
+              </View>
+            )}
+          </View>
+        </SessionReplayMask>
       ) : null}
     </View>
   );
