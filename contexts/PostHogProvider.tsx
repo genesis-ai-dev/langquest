@@ -1,9 +1,17 @@
 import { usePostHogAvailable } from '@/services/postHogAvailability';
-import posthog from '@/services/posthog';
+import posthog, { initializePostHogWithStore } from '@/services/posthog';
 import { PostHogProvider as PostHogProviderBase } from 'posthog-react-native';
+import { useEffect } from 'react';
 
 function PostHogProvider({ children }: { children: React.ReactNode }) {
   const postHogAvailable = usePostHogAvailable();
+
+  useEffect(() => {
+    const cleanup = initializePostHogWithStore();
+    return () => {
+      cleanup?.();
+    };
+  }, []);
 
   if (!postHogAvailable) {
     return children;

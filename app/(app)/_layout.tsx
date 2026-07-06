@@ -12,6 +12,7 @@ import React, { Suspense, useCallback, useEffect, useState } from 'react';
 import { BackHandler, View } from 'react-native';
 
 import { AccountDeletedOverlay } from '@/components/AccountDeletedOverlay';
+import { ScheduledDeletionOverlay } from '@/components/ScheduledDeletionOverlay';
 import AppDrawer from '@/components/AppDrawer';
 import AppHeader from '@/components/AppHeader';
 import { useAuth } from '@/contexts/AuthContext';
@@ -44,8 +45,10 @@ function AppContent() {
   const pathname = usePathname();
   const isProjectsView = pathname === '/' || pathname === '';
 
-  // Account deleted overlay (soft-delete: active === false)
-  const accountDeleted = !!profile && profile.active === false;
+  // Account deleted overlays
+  const hasScheduledDeletion = !!profile?.deletion_requested_at;
+  const isLegacySoftDelete =
+    !!profile && profile.active === false && !profile.deletion_requested_at;
 
   const handleOnboardingPress = useCallback(() => {
     if (isProjectsView) {
@@ -96,8 +99,15 @@ function AppContent() {
     return () => backHandler.remove();
   }, [drawerIsVisible]);
 
-  // Account deleted: block everything with overlay
-  if (accountDeleted) {
+  if (hasScheduledDeletion && profile.deletion_scheduled_for) {
+    return (
+      <ScheduledDeletionOverlay
+        purgeDate={profile.deletion_scheduled_for}
+      />
+    );
+  }
+
+  if (isLegacySoftDelete) {
     return <AccountDeletedOverlay />;
   }
 

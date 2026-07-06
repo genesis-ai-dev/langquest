@@ -93,12 +93,7 @@ export function AnalyticsConsentCard({
       )}
     >
       {!compact && variant === 'consent' && (
-        <View className="gap-4">
-          <Text variant="h4">{t('analyticsConsentTitle')}</Text>
-          <Text className="text-base font-medium leading-6 text-foreground">
-            {t('analyticsConsentMission')}
-          </Text>
-        </View>
+        <Text variant="h4">{t('analyticsConsentTitle')}</Text>
       )}
 
       {!compact && variant === 'learnMore' && (
@@ -120,7 +115,12 @@ export function AnalyticsConsentCard({
 
       {!compact && (
         <Text className="text-sm leading-6 text-muted-foreground">
-          {variant === 'learnMore' ? `${t('analyticsConsentMission')} ` : null}
+          {variant === 'learnMore' ? (
+            <>
+              {t('analyticsConsentMission')}{' '}
+              {t('analyticsConsentSessionReplay')}{' '}
+            </>
+          ) : null}
           {t('analyticsConsentTransparency')}
           <Text
             className="text-sm font-medium leading-6 text-primary underline"

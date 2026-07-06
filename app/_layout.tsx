@@ -36,7 +36,6 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
 import { cssTokens } from '@/generated-tokens';
 import { useDrizzleStudio } from '@/hooks/useDrizzleStudio';
-import { initializePostHogWithStore } from '@/services/posthog';
 import { useHasHydrated } from '@/store/localStore';
 import { initializeNetwork } from '@/store/networkStore';
 import { toNavTheme } from '@/utils/styleUtils';
@@ -129,12 +128,7 @@ function RootNavigator() {
   useDrizzleStudio();
 
   useEffect(() => {
-    const cleanup = initializeNetwork();
-    const cleanupPostHog = initializePostHogWithStore();
-    return () => {
-      cleanup();
-      cleanupPostHog?.();
-    };
+    return initializeNetwork();
   }, []);
 
   useEffect(() => {

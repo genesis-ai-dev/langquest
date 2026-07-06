@@ -1,0 +1,19 @@
+{
+  "name": "send-email",
+  "private": true,
+  "scripts": {
+    "dev": "email dev --dir _templates --port 3003",
+    "build": "email build --dir _templates"
+  },
+  "dependencies": {
+    "@react-email/components": "1.0.12",
+    "react": "19.2.4",
+    "react-dom": "19.2.4"
+  },
+  "devDependencies": {
+    "@react-email/ui": "6.5.0",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "react-email": "6.5.0"
+  }
+}

@@ -3109,26 +3109,26 @@ export const localizations = {
   },
   legalUpdateAnalytics: {
     english:
-      'If you opt in while signed in, we will link usage to your account and record limited session replays on supported devices. Form text is masked. You can turn it off anytime with the switch.',
+      "If you opt in, we'll link usage to your account through PostHog and resume screen replays while you're signed in. That can include how you browsed public projects before you signed in. Replays record screens and taps, not your camera or microphone. Text you type in forms is masked. Turn this off anytime in Profile.",
     french:
-      "Si vous optez pour l'activation lorsque vous êtes connecté, nous associerons l'utilisation à votre compte et enregistrerons des relectures de session limitées sur les appareils pris en charge. Le texte des formulaires est masqué. Vous pouvez le désactiver à tout moment avec l'interrupteur.",
+      "Si vous optez pour l'activation, nous associerons l'utilisation à votre compte via PostHog et reprendrons les relectures d'écran pendant que vous êtes connecté. Cela peut inclure votre navigation dans les projets publics avant votre connexion. Les relectures enregistrent les écrans et les appuis, pas votre caméra ni votre micro. Le texte que vous saisissez dans les formulaires est masqué. Désactivez cela à tout moment dans le profil.",
     spanish:
-      'Si opta por activarlo mientras ha iniciado sesión, vincularemos el uso a su cuenta y registraremos repeticiones de sesión limitadas en dispositivos compatibles. El texto de los formularios está enmascarado. Puede desactivarlo en cualquier momento con el interruptor.',
+      'Si opta por activarlo, vincularemos el uso a su cuenta a través de PostHog y reanudaremos las repeticiones de pantalla mientras tenga la sesión iniciada. Eso puede incluir cómo navegó por proyectos públicos antes de iniciar sesión. Las repeticiones registran pantallas y toques, no su cámara ni su micrófono. El texto que escribe en formularios está enmascarado. Desactívelo en cualquier momento en el perfil.',
     brazilian_portuguese:
-      'Se você optar por ativar enquanto estiver conectado, vincularemos o uso à sua conta e registraremos replays de sessão limitados em dispositivos compatíveis. O texto dos formulários é mascarado. Você pode desativar a qualquer momento com o interruptor.',
+      'Se você optar por ativar, vincularemos o uso à sua conta pelo PostHog e retomaremos os replays de tela enquanto você estiver conectado. Isso pode incluir como você navegou em projetos públicos antes de entrar. Os replays registram telas e toques, não sua câmera nem seu microfone. O texto digitado em formulários é mascarado. Desative a qualquer momento no perfil.',
     tok_pisin:
-      'Sapos yu laik onim analytics na yu login, mipela bai joinim usage long account bilong yu na record liklik session replays long ol device we i sapot. Form text i mask. Yu ken offim long wanem taim long switch.',
+      'Sapos yu laik onim analytics, mipela bai joinim usage long account bilong yu long PostHog na startim gen screen replays taim yu login. Dispela inkludim olsem yu bin lukluk long ol public project bipo yu sign in. Ol replay i recordim ol screen na tap, i no kamera o maik bilong yu. Text yu taip long ol form i mask. Yu ken offim long wanem taim long Profile.',
     indonesian:
-      'Jika Anda memilih untuk mengaktifkan saat masuk, kami akan menautkan penggunaan ke akun Anda dan merekam replay sesi terbatas di perangkat yang didukung. Teks formulir disamarkan. Anda dapat mematikannya kapan saja dengan sakelar.',
+      'Jika Anda memilih untuk mengaktifkan, kami akan menautkan penggunaan ke akun Anda melalui PostHog dan melanjutkan replay layar saat Anda masuk. Ini dapat mencakup cara Anda menjelajahi proyek publik sebelum masuk. Replay merekam layar dan ketukan, bukan kamera atau mikrofon Anda. Teks yang Anda ketik di formulir disamarkan. Matikan kapan saja di Profil.',
     nepali:
-      'साइन इन भएको बेला opt in गर्नुभयो भने, हामी प्रयोगलाई तपाईंको खातासँग जोड्नेछौं र समर्थित उपकरणहरूमा सीमित session replay रेकर्ड गर्नेछौं। फारम पाठ मास्क गरिन्छ। तपाईं स्विच प्रयोग गरेर जुनसुकै समय बन्द गर्न सक्नुहुन्छ।',
+      'तपाईंले opt in गर्नुभयो भने, हामी PostHog मार्फत प्रयोगलाई तपाईंको खातासँग जोड्नेछौं र साइन इन भएको बेला स्क्रिन रिप्ले पुनः सुरु गर्नेछौं। यसमा साइन इन गर्नु अघि सार्वजनिक परियोजनाहरू कसरी हेर्नुभयो भन्ने पनि समावेश हुन सक्छ। रिप्लेले स्क्रिन र ट्याप रेकर्ड गर्छ, तपाईंको क्यामेरा वा माइक्रोफोन होइन। फारममा टाइप गर्ने पाठ मास्क गरिन्छ। प्रोफाइलमा जुनसुकै समय बन्द गर्नुहोस्।',
     hindi:
-      'साइन इन होने पर यदि आप ऑप्ट इन करते हैं, तो हम उपयोग को आपके खाते से जोड़ेंगे और समर्थित डिवाइसों पर सीमित सत्र रीप्ले रिकॉर्ड करेंगे। फ़ॉर्म टेक्स्ट मास्क किया जाता है। आप स्विच से इसे कभी भी बंद कर सकते हैं।',
+      'यदि आप ऑप्ट इन करते हैं, तो हम PostHog के माध्यम से उपयोग को आपके खाते से जोड़ेंगे और साइन इन रहने पर स्क्रीन रीप्ले फिर शुरू करेंगे। इसमें साइन इन से पहले सार्वजनिक प्रोजेक्ट ब्राउज़ करना भी शामिल हो सकता है। रीप्ले स्क्रीन और टैप रिकॉर्ड करते हैं, आपका कैमरा या माइक्रोफोन नहीं। फ़ॉर्म में टाइप किया गया टेक्स्ट मास्क किया जाता है। प्रोफ़ाइल में कभी भी बंद करें।',
     burmese:
-      'sign in ထားပြီး opt in လုပ်ပါက အသုံးပြုမှုကို အကောင့်နှင့် ချိတ်ဆက်ပြီး ပံ့ပိုးထားသော စက်ပစ္စည်းများတွင် session replay အကန့်အသတ်ဖြင့် မှတ်တမ်းတင်မည်။ form စာသားကို mask လုပ်ထားသည်။ switch ဖြင့် မည်သည့်အချိန်မဆို ပိတ်နိုင်သည်။',
-    thai: 'หากคุณเลือกเปิดใช้งานขณะลงชื่อเข้าใช้ เราจะเชื่อมการใช้งานกับบัญชีของคุณและบันทึก session replay แบบจำกัดบนอุปกรณ์ที่รองรับ ข้อความในฟอร์มถูกปิดบัง คุณสามารถปิดได้ตลอดเวลาด้วยสวิตช์',
+      'opt in လုပ်ပါက PostHog မှတစ်ဆင့် အသုံးပြုမှုကို အကောင့်နှင့် ချိတ်ဆက်ပြီး sign in ထားစဉ် screen replay များကို ပြန်စမည်။ sign in မလုပ်မီ public project များကို ဘယ်လို ကြည့်ရှုခဲ့သည်ကို ပါဝင်နိုင်သည်။ replay များသည် မျက်နှာပြင်နှင့် တို့ထိမှုများကို မှတ်တမ်းတင်သည်၊ သင်၏ ကင်မရာ သို့မဟုတ် မိုက်ခရိုဖုန်း မဟုတ်ပါ။ form များတွင် ရိုက်ထည့်သော စာသားကို mask လုပ်ထားသည်။ Profile တွင် မည်သည့်အချိန်မဆို ပိတ်နိုင်သည်။',
+    thai: 'หากคุณเลือกเปิดใช้งาน เราจะเชื่อมการใช้งานกับบัญชีของคุณผ่าน PostHog และบันทึกการเล่นซ้ำหน้าจอต่อเมื่อคุณลงชื่อเข้าใช้ ซึ่งอาจรวมถึงการเรียกดูโครงการสาธารณะก่อนลงชื่อเข้าใช้ การเล่นซ้ำบันทึกหน้าจอและการแตะ ไม่ใช่กล้องหรือไมโครโฟนของคุณ ข้อความที่คุณพิมพ์ในฟอร์มถูกปิดบัง ปิดได้ตลอดเวลาในโปรไฟล์',
     mandarin:
-      '如果您在登录后选择启用，我们会将使用情况与您的账户关联，并在受支持设备上记录有限的会话回放。表单文字会被屏蔽。您可随时通过开关关闭。'
+      '如果您选择启用，我们会通过 PostHog 将使用情况与您的账户关联，并在您登录期间恢复屏幕回放。这可能包括您登录前浏览公共项目的方式。回放记录的是屏幕和点击，不是您的摄像头或麦克风。您在表单中输入的文字会被屏蔽。可随时在个人资料中关闭。'
   },
   legalUpdateAnalyticsNext: {
     english:
@@ -3385,6 +3385,29 @@ export const localizations = {
     thai: '.',
     mandarin: '。'
   },
+  analyticsConsentLead: {
+    english:
+      "While you're signed in, we don't collect analytics unless you turn this on below. If you opt in, screen replays resume on supported devices. They're recordings of screens and taps, not your camera or microphone. We'll link usage to your account through PostHog, including browsing from before you signed in. Text you type in forms is masked.",
+    french:
+      "Tant que vous êtes connecté, nous ne collectons pas d'analyses sauf si vous activez l'option ci-dessous. Si vous optez pour l'activation, les relectures d'écran reprennent sur les appareils pris en charge. Ce sont des enregistrements d'écrans et d'appuis, pas votre caméra ni votre micro. Nous associerons l'utilisation à votre compte via PostHog, y compris la navigation avant votre connexion. Le texte que vous saisissez dans les formulaires est masqué.",
+    spanish:
+      'Mientras tenga la sesión iniciada, no recopilamos análisis a menos que active la opción a continuación. Si opta por activarlo, las repeticiones de pantalla se reanudan en dispositivos compatibles. Son grabaciones de pantallas y toques, no su cámara ni su micrófono. Vincularemos el uso a su cuenta a través de PostHog, incluida la navegación antes de iniciar sesión. El texto que escribe en formularios está enmascarado.',
+    brazilian_portuguese:
+      'Enquanto você estiver conectado, não coletamos análises a menos que você ative a opção abaixo. Se você optar por ativar, os replays de tela retomam em dispositivos compatíveis. São gravações de telas e toques, não sua câmera nem seu microfone. Vincularemos o uso à sua conta pelo PostHog, incluindo a navegação antes de entrar. O texto digitado em formulários é mascarado.',
+    tok_pisin:
+      'Taim yu login, mipela i no kisim analytics sapos yu no onim dispela bihain. Sapos yu laik onim analytics, screen replays bai stat gen long ol device we i sapot. Ol recording bilong ol screen na tap, i no kamera o maik bilong yu. Mipela bai joinim usage long account bilong yu long PostHog, inkluding olsem yu bin lukluk bipo yu sign in. Text yu taip long ol form i mask.',
+    indonesian:
+      'Saat Anda masuk, kami tidak mengumpulkan analitik kecuali Anda mengaktifkan opsi di bawah. Jika Anda memilih untuk mengaktifkan, replay layar dilanjutkan di perangkat yang didukung. Ini rekaman layar dan ketukan, bukan kamera atau mikrofon Anda. Kami akan menautkan penggunaan ke akun Anda melalui PostHog, termasuk penjelajahan sebelum Anda masuk. Teks yang Anda ketik di formulir disamarkan.',
+    nepali:
+      'साइन इन भएको बेला, तपाईंले तल सक्रिय नगरेसम्म हामी विश्लेषण सङ्कलन गर्दैनौं। तपाईंले opt in गर्नुभयो भने, समर्थित उपकरणहरूमा स्क्रिन रिप्ले पुनः सुरु हुन्छ। यी स्क्रिन र ट्यापका रेकर्डिङहरू हुन्, तपाईंको क्यामेरा वा माइक्रोफोन होइन। हामी PostHog मार्फत प्रयोगलाई तपाईंको खातासँग जोड्नेछौं, साइन इन अघिको ब्राउजिङ सहित। फारममा टाइप गर्ने पाठ मास्क गरिन्छ।',
+    hindi:
+      'साइन इन रहने पर, जब तक आप नीचे इसे चालू नहीं करते, हम विश्लेषण एकत्र नहीं करते। यदि आप ऑप्ट इन करते हैं, तो समर्थित डिवाइसों पर स्क्रीन रीप्ले फिर शुरू होते हैं। ये स्क्रीन और टैप की रिकॉर्डिंग हैं, आपका कैमरा या माइक्रोफोन नहीं। हम PostHog के माध्यम से उपयोग को आपके खाते से जोड़ेंगे, साइन इन से पहले की ब्राउज़िंग सहित। फ़ॉर्म में टाइप किया गया टेक्स्ट मास्क किया जाता है।',
+    burmese:
+      'sign in ထားစဉ် အောက်တွင် မဖွင့်လျှင် analytics မစုဆောင်းပါ။ opt in လုပ်ပါက ပံ့ပိုးထားသော စက်ပစ္စည်းများတွင် screen replay များ ပြန်စမည်။ ဤအရာများသည် မျက်နှာပြင်နှင့် တို့ထိမှုများ၏ မှတ်တမ်းဖြစ်ပြီး သင်၏ ကင်မရာ သို့မဟုတ် မိုက်ခရိုဖုန်း မဟုတ်ပါ။ PostHog မှတစ်ဆင့် အသုံးပြုမှုကို အကောင့်နှင့် ချိတ်ဆက်မည်၊ sign in မလုပ်မီ ကြည့်ရှုမှုများ ပါဝင်နိုင်သည်။ form များတွင် ရိုက်ထည့်သော စာသားကို mask လုပ်ထားသည်။',
+    thai: 'ขณะที่คุณลงชื่อเข้าใช้ เราจะไม่เก็บการวิเคราะห์จนกว่าคุณจะเปิดตัวเลือกด้านล่าง หากคุณเลือกเปิดใช้งาน การเล่นซ้ำหน้าจอจะดำเนินต่อบนอุปกรณ์ที่รองรับ เป็นการบันทึกหน้าจอและการแตะ ไม่ใช่กล้องหรือไมโครโฟนของคุณ เราจะเชื่อมการใช้งานกับบัญชีของคุณผ่าน PostHog รวมถึงการเรียกดูก่อนลงชื่อเข้าใช้ ข้อความที่คุณพิมพ์ในฟอร์มถูกปิดบัง',
+    mandarin:
+      '在您登录期间，除非您在下方开启，否则我们不会收集分析数据。如果您选择启用，受支持设备上的屏幕回放将恢复。这是屏幕和点击的录制，不是您的摄像头或麦克风。我们会通过 PostHog 将使用情况与您的账户关联，包括您登录前的浏览。您在表单中输入的文字会被屏蔽。'
+  },
   analyticsConsentTitle: {
     english: 'Share how you use LangQuest',
     french: 'Partagez comment vous utilisez LangQuest',
@@ -3400,26 +3423,49 @@ export const localizations = {
   },
   analyticsConsentMission: {
     english:
-      'If you opt in, we will link usage to your account and record limited session replays on supported devices. Form text is masked. You can turn it off anytime with the switch.',
+      "If you opt in, we'll link usage data to your account through PostHog. That can include how you used the App before you signed in.",
     french:
-      "Si vous optez pour l'activation, nous associerons l'utilisation à votre compte et enregistrerons des relectures de session limitées sur les appareils pris en charge. Le texte des formulaires est masqué. Vous pouvez le désactiver à tout moment avec l'interrupteur.",
+      "Si vous optez pour l'activation, nous associerons les données d'utilisation à votre compte via PostHog. Cela peut inclure votre utilisation de l'application avant votre connexion.",
     spanish:
-      'Si opta por activarlo, vincularemos el uso a su cuenta y registraremos repeticiones de sesión limitadas en dispositivos compatibles. El texto de los formularios está enmascarado. Puede desactivarlo en cualquier momento con el interruptor.',
+      'Si opta por activarlo, vincularemos los datos de uso a su cuenta a través de PostHog. Eso puede incluir cómo usó la aplicación antes de iniciar sesión.',
     brazilian_portuguese:
-      'Se você optar por ativar, vincularemos o uso à sua conta e registraremos replays de sessão limitados em dispositivos compatíveis. O texto dos formulários é mascarado. Você pode desativar a qualquer momento com o interruptor.',
+      'Se você optar por ativar, vincularemos os dados de uso à sua conta pelo PostHog. Isso pode incluir como você usou o aplicativo antes de entrar.',
     tok_pisin:
-      'Sapos yu laik onim analytics, mipela bai joinim usage long account bilong yu na record liklik session replays long ol device we i sapot. Form text i mask. Yu ken offim long wanem taim long switch.',
+      'Sapos yu laik onim analytics, mipela bai joinim usage data long account bilong yu long PostHog. Dispela inkludim olsem yu yusim App bipo yu sign in.',
     indonesian:
-      'Jika Anda memilih untuk mengaktifkan, kami akan menautkan penggunaan ke akun Anda dan merekam replay sesi terbatas di perangkat yang didukung. Teks formulir disamarkan. Anda dapat mematikannya kapan saja dengan sakelar.',
+      'Jika Anda memilih untuk mengaktifkan, kami akan menautkan data penggunaan ke akun Anda melalui PostHog. Ini dapat mencakup cara Anda menggunakan Aplikasi sebelum masuk.',
     nepali:
-      'opt in गर्नुभयो भने, हामी प्रयोगलाई तपाईंको खातासँग जोड्नेछौं र समर्थित उपकरणहरूमा सीमित session replay रेकर्ड गर्नेछौं। फारम पाठ मास्क गरिन्छ। तपाईं स्विच प्रयोग गरेर जुनसुकै समय बन्द गर्न सक्नुहुन्छ।',
+      'तपाईंले opt in गर्नुभयो भने, हामी PostHog मार्फत प्रयोग डाटालाई तपाईंको खातासँग जोड्नेछौं। यसमा साइन इन अघि एप कसरी प्रयोग गर्नुभयो भन्ने पनि समावेश हुन सक्छ।',
     hindi:
-      'यदि आप ऑप्ट इन करते हैं, तो हम उपयोग को आपके खाते से जोड़ेंगे और समर्थित डिवाइसों पर सीमित सत्र रीप्ले रिकॉर्ड करेंगे। फ़ॉर्म टेक्स्ट मास्क किया जाता है। आप स्विच से इसे कभी भी बंद कर सकते हैं।',
+      'यदि आप ऑप्ट इन करते हैं, तो हम PostHog के माध्यम से उपयोग डेटा को आपके खाते से जोड़ेंगे। इसमें साइन इन से पहले ऐप का उपयोग भी शामिल हो सकता है।',
     burmese:
-      'opt in လုပ်ပါက အသုံးပြုမှုကို အကောင့်နှင့် ချိတ်ဆက်ပြီး ပံ့ပိုးထားသော စက်ပစ္စည်းများတွင် session replay အကန့်အသတ်ဖြင့် မှတ်တမ်းတင်မည်။ form စာသားကို mask လုပ်ထားသည်။ switch ဖြင့် မည်သည့်အချိန်မဆို ပိတ်နိုင်သည်။',
-    thai: 'หากคุณเลือกเปิดใช้งาน เราจะเชื่อมการใช้งานกับบัญชีของคุณและบันทึก session replay แบบจำกัดบนอุปกรณ์ที่รองรับ ข้อความในฟอร์มถูกปิดบัง คุณสามารถปิดได้ตลอดเวลาด้วยสวิตช์',
+      'opt in လုပ်ပါက PostHog မှတစ်ဆင့် အသုံးပြုမှုဒေတာကို အကောင့်နှင့် ချိတ်ဆက်မည်။ sign in မလုပ်မီ အက်ပ်ကို အသုံးပြုခဲ့ပုံ ပါဝင်နိုင်သည်။',
+    thai: 'หากคุณเลือกเปิดใช้งาน เราจะเชื่อมข้อมูลการใช้งานกับบัญชีของคุณผ่าน PostHog ซึ่งอาจรวมถึงการใช้แอปก่อนลงชื่อเข้าใช้',
     mandarin:
-      '如果您选择启用，我们会将使用情况与您的账户关联，并在受支持设备上记录有限的会话回放。表单文字会被屏蔽。您可随时通过开关关闭。'
+      '如果您选择启用，我们会通过 PostHog 将使用数据与您的账户关联。这可能包括您登录前对应用的使用。'
+  },
+  analyticsConsentSessionReplay: {
+    english:
+      "Screen replays resume while you're signed in. On supported devices, we record screens and taps to help fix bugs. This isn't your camera or microphone. Text you type in forms is masked.",
+    french:
+      "Les relectures d'écran reprennent pendant que vous êtes connecté. Sur les appareils pris en charge, nous enregistrons les écrans et les appuis pour corriger les bugs. Ce n'est pas votre caméra ni votre micro. Le texte que vous saisissez dans les formulaires est masqué.",
+    spanish:
+      'Las repeticiones de pantalla se reanudan mientras tenga la sesión iniciada. En dispositivos compatibles, registramos pantallas y toques para corregir errores. No es su cámara ni su micrófono. El texto que escribe en formularios está enmascarado.',
+    brazilian_portuguese:
+      'Os replays de tela retomam enquanto você estiver conectado. Em dispositivos compatíveis, gravamos telas e toques para corrigir bugs. Não é sua câmera nem seu microfone. O texto digitado em formulários é mascarado.',
+    tok_pisin:
+      'Screen replays i stat gen taim yu login. Long ol device we i sapot, mipela i record ol screen na tap long helpim fixim bug. Dispela i no kamera o maik bilong yu. Text yu taip long ol form i mask.',
+    indonesian:
+      'Replay layar dilanjutkan saat Anda masuk. Di perangkat yang didukung, kami merekam layar dan ketukan untuk memperbaiki bug. Ini bukan kamera atau mikrofon Anda. Teks yang Anda ketik di formulir disamarkan.',
+    nepali:
+      'साइन इन भएको बेला स्क्रिन रिप्ले पुनः सुरु हुन्छ। समर्थित उपकरणहरूमा, हामी बगहरू मिलाउन स्क्रिन र ट्याप रेकर्ड गर्छौं। यो तपाईंको क्यामेरा वा माइक्रोफोन होइन। फारममा टाइप गर्ने पाठ मास्क गरिन्छ।',
+    hindi:
+      'साइन इन रहने पर स्क्रीन रीप्ले फिर शुरू होते हैं। समर्थित डिवाइसों पर, हम बग ठीक करने के लिए स्क्रीन और टैप रिकॉर्ड करते हैं। यह आपका कैमरा या माइक्रोफोन नहीं है। फ़ॉर्म में टाइप किया गया टेक्स्ट मास्क किया जाता है।',
+    burmese:
+      'sign in ထားစဉ် screen replay များ ပြန်စမည်။ ပံ့ပိုးထားသော စက်ပစ္စည်းများတွင် ချို့ယွင်းချက်များ ပြင်ဆင်ရန် မျက်နှာပြင်နှင့် တို့ထိမှုများကို မှတ်တမ်းတင်မည်။ ဤအရာသည် သင်၏ ကင်မရာ သို့မဟုတ် မိုက်ခရိုဖုန်း မဟုတ်ပါ။ form များတွင် ရိုက်ထည့်သော စာသားကို mask လုပ်ထားသည်။',
+    thai: 'การเล่นซ้ำหน้าจอจะดำเนินต่อขณะที่คุณลงชื่อเข้าใช้ บนอุปกรณ์ที่รองรับ เราบันทึกหน้าจอและการแตะเพื่อช่วยแก้บั๊ก นี่ไม่ใช่กล้องหรือไมโครโฟนของคุณ ข้อความที่คุณพิมพ์ในฟอร์มถูกปิดบัง',
+    mandarin:
+      '在您登录期间，屏幕回放将恢复。在受支持设备上，我们记录屏幕和点击以帮助修复错误。这不是您的摄像头或麦克风。您在表单中输入的文字会被屏蔽。'
   },
   analyticsConsentBenefit1: {
     english:
@@ -3580,26 +3626,26 @@ export const localizations = {
   },
   analyticsInfo: {
     english:
-      'If you turn this on, we collect usage and diagnostic data. Change your mind anytime in Profile settings. Your data is stored in the United States.',
+      'If you turn this on, we collect usage and diagnostic data on your account, including screen replays on supported devices while signed in. We may link this to browsing from before you signed in. Change your mind anytime in Profile settings. Your data is stored in the United States.',
     french:
-      "Si vous l'activez, nous collectons des données d'utilisation et de diagnostic. Changez d'avis à tout moment dans les paramètres du profil. Vos données sont stockées aux États-Unis.",
+      "Si vous l'activez, nous collectons des données d'utilisation et de diagnostic sur votre compte, y compris des relectures d'écran sur les appareils pris en charge pendant que vous êtes connecté. Nous pouvons les associer à votre navigation avant votre connexion. Changez d'avis à tout moment dans les paramètres du profil. Vos données sont stockées aux États-Unis.",
     spanish:
-      'Si lo activa, recopilamos datos de uso y diagnóstico. Cambie de opinión en cualquier momento en la configuración del perfil. Sus datos se almacenan en los Estados Unidos.',
+      'Si lo activa, recopilamos datos de uso y diagnóstico en su cuenta, incluidas repeticiones de pantalla en dispositivos compatibles mientras tenga la sesión iniciada. Podemos vincularlos a su navegación antes de iniciar sesión. Cambie de opinión en cualquier momento en la configuración del perfil. Sus datos se almacenan en los Estados Unidos.',
     brazilian_portuguese:
-      'Se você ativar, coletamos dados de uso e diagnóstico. Mude de ideia a qualquer momento nas configurações do perfil. Seus dados ficam armazenados nos Estados Unidos.',
+      'Se você ativar, coletamos dados de uso e diagnóstico na sua conta, incluindo replays de tela em dispositivos compatíveis enquanto você estiver conectado. Podemos vincular isso à navegação antes de entrar. Mude de ideia a qualquer momento nas configurações do perfil. Seus dados ficam armazenados nos Estados Unidos.',
     tok_pisin:
-      'Sapos yu onim, mipela kisim usage na diagnostic data. Yu ken senisim tingting long wanem taim long Profile settings. Data bilong yu i stap long United States.',
+      'Sapos yu onim, mipela kisim usage na diagnostic data long account bilong yu, inkluding screen replays long ol device we i sapot taim yu login. Mipela inap joinim dispela long olsem yu bin lukluk bipo yu sign in. Yu ken senisim tingting long wanem taim long Profile settings. Data bilong yu i stap long United States.',
     indonesian:
-      'Jika Anda mengaktifkannya, kami mengumpulkan data penggunaan dan diagnostik. Ubah pilihan Anda kapan saja di pengaturan Profil. Data Anda disimpan di Amerika Serikat.',
+      'Jika Anda mengaktifkannya, kami mengumpulkan data penggunaan dan diagnostik pada akun Anda, termasuk replay layar di perangkat yang didukung saat Anda masuk. Kami dapat menautkannya ke penjelajahan sebelum Anda masuk. Ubah pilihan Anda kapan saja di pengaturan Profil. Data Anda disimpan di Amerika Serikat.',
     nepali:
-      'तपाईंले सक्रिय गर्नुभयो भने, हामी प्रयोग र निदान डाटा सङ्कलन गर्छौं। प्रोफाइल सेटिङहरूमा जुनसुकै समय परिवर्तन गर्नुहोस्। तपाईंको डाटा संयुक्त राज्य अमेरिकामा भण्डारण गरिन्छ।',
+      'तपाईंले सक्रिय गर्नुभयो भने, हामी तपाईंको खातामा प्रयोग र निदान डाटा सङ्कलन गर्छौं, साइन इन भएको बेला समर्थित उपकरणहरूमा स्क्रिन रिप्ले सहित। यसलाई साइन इन अघिको ब्राउजिङसँग जोड्न सक्छौं। प्रोफाइल सेटिङहरूमा जुनसुकै समय परिवर्तन गर्नुहोस्। तपाईंको डाटा संयुक्त राज्य अमेरिकामा भण्डारण गरिन्छ।',
     hindi:
-      'यदि आप इसे चालू करते हैं, हम उपयोग और नैदानिक डेटा एकत्र करते हैं। प्रोफ़ाइल सेटिंग्स में कभी भी बदलें। आपका डेटा संयुक्त राज्य अमेरिका में संग्रहीत है।',
+      'यदि आप इसे चालू करते हैं, तो हम आपके खाते पर उपयोग और नैदानिक डेटा एकत्र करते हैं, जिसमें साइन इन रहने पर समर्थित डिवाइसों पर स्क्रीन रीप्ले शामिल हैं। हम इसे साइन इन से पहले की ब्राउज़िंग से जोड़ सकते हैं। प्रोफ़ाइल सेटिंग्स में कभी भी बदलें। आपका डेटा संयुक्त राज्य अमेरिका में संग्रहीत है।',
     burmese:
-      'သင်ဖွင့်လိုက်ပါက အသုံးပြုမှုနှင့် ရောဂါရှာဖွေရေး ဒေတာကို စုဆောင်းသည်။ Profile settings တွင် မည်သည့်အချိန်မဆို ပြောင်းနိုင်သည်။ သင်၏ ဒေတာကို အမေရိကန်ပြည်ထောင်စုတွင် သိမ်းဆည်းထားသည်။',
-    thai: 'หากคุณเปิดใช้งาน เราจะรวบรวมข้อมูลการใช้งานและการวินิจฉัย เปลี่ยนใจได้ตลอดเวลาในการตั้งค่าโปรไฟล์ ข้อมูลของคุณจัดเก็บในสหรัฐอเมริกา',
+      'သင်ဖွင့်လိုက်ပါက အကောင့်တွင် အသုံးပြုမှုနှင့် ရောဂါရှာဖွေရေး ဒေတာကို စုဆောင်းသည်၊ sign in ထားစဉ် ပံ့ပိုးထားသော စက်ပစ္စည်းများတွင် screen replay များ ပါဝင်သည်။ sign in မလုပ်မီ ကြည့်ရှုမှုနှင့် ချိတ်ဆက်နိုင်သည်။ Profile settings တွင် မည်သည့်အချိန်မဆို ပြောင်းနိုင်သည်။ သင်၏ ဒေတာကို အမေရိကန်ပြည်ထောင်စုတွင် သိမ်းဆည်းထားသည်။',
+    thai: 'หากคุณเปิดใช้งาน เราจะรวบรวมข้อมูลการใช้งานและการวินิจฉัยในบัญชีของคุณ รวมถึงการเล่นซ้ำหน้าจอบนอุปกรณ์ที่รองรับขณะลงชื่อเข้าใช้ เราอาจเชื่อมกับการเรียกดูก่อนลงชื่อเข้าใช้ เปลี่ยนใจได้ตลอดเวลาในการตั้งค่าโปรไฟล์ ข้อมูลของคุณจัดเก็บในสหรัฐอเมริกา',
     mandarin:
-      '如果您开启，我们会收集使用和诊断数据。您可以随时在个人资料设置中更改。您的数据存储在美国。'
+      '如果您开启，我们会在您的账户上收集使用和诊断数据，包括您登录期间在受支持设备上的屏幕回放。我们可能会将其与您登录前的浏览关联。您可以随时在个人资料设置中更改。您的数据存储在美国。'
   },
   viewFullTerms: {
     english: 'View Full Terms',
@@ -3849,20 +3895,27 @@ export const localizations = {
     mandarin: '启用分析'
   },
   analyticsDescription: {
-    english: 'Form text is masked in session replays.',
+    english:
+      'Links usage to your account and includes screen replays while signed in. May include browsing from before you signed in. Form text is masked.',
     french:
-      'Le texte des formulaires est masqué dans les relectures de session.',
+      "Associe l'utilisation à votre compte et comprend des relectures d'écran pendant que vous êtes connecté. Peut inclure la navigation avant votre connexion. Le texte des formulaires est masqué.",
     spanish:
-      'El texto de los formularios está enmascarado en las repeticiones de sesión.',
+      'Vincula el uso a su cuenta e incluye repeticiones de pantalla mientras tenga la sesión iniciada. Puede incluir la navegación antes de iniciar sesión. El texto de los formularios está enmascarado.',
     brazilian_portuguese:
-      'O texto dos formulários é mascarado em replays de sessão.',
-    tok_pisin: 'Form text i mask long session replays.',
-    indonesian: 'Teks formulir disamarkan dalam replay sesi.',
-    nepali: 'session replay मा फारम पाठ मास्क गरिन्छ।',
-    hindi: 'सत्र रीप्ले में फ़ॉर्म टेक्स्ट मास्क किया जाता है।',
-    burmese: 'session replay များတွင် form စာသားကို mask လုပ်ထားသည်။',
-    thai: 'ข้อความในฟอร์มถูกปิดบังใน session replay',
-    mandarin: '会话回放中的表单文字会被屏蔽。'
+      'Vincula o uso à sua conta e inclui replays de tela enquanto você estiver conectado. Pode incluir a navegação antes de entrar. O texto dos formulários é mascarado.',
+    tok_pisin:
+      'Joinim usage long account bilong yu na gat screen replays taim yu login. Inkludim olsem yu bin lukluk bipo yu sign in. Form text i mask.',
+    indonesian:
+      'Menautkan penggunaan ke akun Anda dan mencakup replay layar saat Anda masuk. Dapat mencakup penjelajahan sebelum Anda masuk. Teks formulir disamarkan.',
+    nepali:
+      'प्रयोगलाई तपाईंको खातासँग जोड्छ र साइन इन भएको बेला स्क्रिन रिप्ले समावेश गर्छ। साइन इन अघिको ब्राउजिङ समावेश हुन सक्छ। फारम पाठ मास्क गरिन्छ।',
+    hindi:
+      'उपयोग को आपके खाते से जोड़ता है और साइन इन रहने पर स्क्रीन रीप्ले शामिल करता है। साइन इन से पहले की ब्राउज़िंग शामिल हो सकती है। फ़ॉर्म टेक्स्ट मास्क किया जाता है।',
+    burmese:
+      'အသုံးပြုမှုကို အကောင့်နှင့် ချိတ်ဆက်ပြီး sign in ထားစဉ် screen replay များ ပါဝင်သည်။ sign in မလုပ်မီ ကြည့်ရှုမှု ပါဝင်နိုင်သည်။ form စာသားကို mask လုပ်ထားသည်။',
+    thai: 'เชื่อมการใช้งานกับบัญชีของคุณและรวมการเล่นซ้ำหน้าจอขณะลงชื่อเข้าใช้ อาจรวมการเรียกดูก่อนลงชื่อเข้าใช้ ข้อความในฟอร์มถูกปิดบัง',
+    mandarin:
+      '将使用情况与您的账户关联，并包括您登录期间的屏幕回放。可能包括您登录前的浏览。表单文字会被屏蔽。'
   },
   analyticsDeferredStartDate: {
     english: 'Account-linked analytics starts {effectiveDate}.',
@@ -11506,7 +11559,7 @@ export const localizations = {
   },
   accountDeletionPIIWarning: {
     english:
-      'Your account will be deactivated (soft delete). All your data will be preserved, but you will not be able to access the app until you restore your account. You can restore your account at any time, but you must be online to do so.',
+      'Your account will be scheduled for permanent erasure in 30 days. During that grace period you can sign back in and tap Cancel deletion. After the scheduled date, your account and personal identifiers are permanently removed. Backup copies at our providers may remain until routine rotation; we do not use them for normal processing or restore deleted accounts on request.',
     french:
       "Votre compte sera désactivé (suppression logicielle). Toutes vos données seront conservées, mais vous ne pourrez pas accéder à l'application tant que vous n'aurez pas restauré votre compte. Vous pouvez restaurer votre compte à tout moment, mais vous devez être en ligne pour le faire.",
     spanish:
@@ -11529,7 +11582,7 @@ export const localizations = {
   },
   accountDeletionContributionsInfo: {
     english:
-      'All your contributions (projects, quests, assets, translations, votes) will be preserved and will remain public following the terms you already agreed to when you joined. Your account can be restored at any time, and all your data will be accessible again.',
+      'Text translations, comments, and votes you published under CC0 stay in the public language dataset without your name attached. Do not include personal details in shared text if you do not want them to remain public.',
     french:
       'Toutes vos contributions (projets, quêtes, ressources, traductions, votes) seront conservées et resteront publiques selon les conditions que vous avez déjà acceptées lors de votre adhésion. Votre compte pourra être restauré à tout moment et toutes vos données seront à nouveau accessibles.',
     spanish:
@@ -11550,9 +11603,32 @@ export const localizations = {
     mandarin:
       '您的所有贡献（项目、任务、资产、翻译、投票）将被保留，并将根据您加入时同意的条款保持公开。您可以随时恢复账户，所有数据将再次可访问。'
   },
+  accountDeletionAudioInfo: {
+    english:
+      'Voice recordings stay in the language archive after deletion, with your name removed, to preserve irreplaceable audio-only translations. A voice can still identify a speaker. To delete your own recordings instead, email admin@frontierrnd.com when you request account deletion or anytime before the purge date.',
+    french:
+      'Voice recordings stay in the language archive after deletion, with your name removed, to preserve irreplaceable audio-only translations. A voice can still identify a speaker. To delete your own recordings instead, email admin@frontierrnd.com when you request account deletion or anytime before the purge date.',
+    spanish:
+      'Voice recordings stay in the language archive after deletion, with your name removed, to preserve irreplaceable audio-only translations. A voice can still identify a speaker. To delete your own recordings instead, email admin@frontierrnd.com when you request account deletion or anytime before the purge date.',
+    brazilian_portuguese:
+      'Voice recordings stay in the language archive after deletion, with your name removed, to preserve irreplaceable audio-only translations. A voice can still identify a speaker. To delete your own recordings instead, email admin@frontierrnd.com when you request account deletion or anytime before the purge date.',
+    tok_pisin:
+      'Voice recordings stay in the language archive after deletion, with your name removed, to preserve irreplaceable audio-only translations. A voice can still identify a speaker. To delete your own recordings instead, email admin@frontierrnd.com when you request account deletion or anytime before the purge date.',
+    indonesian:
+      'Voice recordings stay in the language archive after deletion, with your name removed, to preserve irreplaceable audio-only translations. A voice can still identify a speaker. To delete your own recordings instead, email admin@frontierrnd.com when you request account deletion or anytime before the purge date.',
+    nepali:
+      'Voice recordings stay in the language archive after deletion, with your name removed, to preserve irreplaceable audio-only translations. A voice can still identify a speaker. To delete your own recordings instead, email admin@frontierrnd.com when you request account deletion or anytime before the purge date.',
+    hindi:
+      'Voice recordings stay in the language archive after deletion, with your name removed, to preserve irreplaceable audio-only translations. A voice can still identify a speaker. To delete your own recordings instead, email admin@frontierrnd.com when you request account deletion or anytime before the purge date.',
+    burmese:
+      'Voice recordings stay in the language archive after deletion, with your name removed, to preserve irreplaceable audio-only translations. A voice can still identify a speaker. To delete your own recordings instead, email admin@frontierrnd.com when you request account deletion or anytime before the purge date.',
+    thai: 'Voice recordings stay in the language archive after deletion, with your name removed, to preserve irreplaceable audio-only translations. A voice can still identify a speaker. To delete your own recordings instead, email admin@frontierrnd.com when you request account deletion or anytime before the purge date.',
+    mandarin:
+      'Voice recordings stay in the language archive after deletion, with your name removed, to preserve irreplaceable audio-only translations. A voice can still identify a speaker. To delete your own recordings instead, email admin@frontierrnd.com when you request account deletion or anytime before the purge date.'
+  },
   accountDeletionConfirm: {
     english:
-      'Are you absolutely sure you want to delete your account? You can restore it later, but you will need to be online to do so.',
+      'Are you absolutely sure you want to permanently delete your account? You have 30 days to cancel by signing back in.',
     french:
       'Êtes-vous absolument sûr de vouloir supprimer votre compte ? Vous pourrez le restaurer plus tard, mais vous devrez être en ligne pour le faire.',
     spanish:
@@ -11574,7 +11650,7 @@ export const localizations = {
   },
   accountDeletionConfirmMessage: {
     english:
-      'Your account will be deleted (soft delete). You can restore it later from the login screen, but you must be online to restore it.',
+      'Your account will be scheduled for permanent erasure in 30 days. You will be signed out now. Sign back in during the grace period to cancel.',
     french:
       "Votre compte sera supprimé (soft delete). Vous pouvez le restaurer plus tard à partir de l'écran de connexion, mais vous devez être en ligne pour le restaurer.",
     spanish:
@@ -11623,7 +11699,7 @@ export const localizations = {
   },
   accountDeletionSuccess: {
     english:
-      'Your account has been successfully deleted (soft delete). You can restore it later, but you must be online to do so. You will be signed out now.',
+      'Your account deletion is scheduled. You will be signed out now. We sent a confirmation email with your purge date.',
     french:
       'Votre compte a été supprimé avec succès (suppression logicielle). Vous pourrez le restaurer plus tard, mais vous devez être en ligne pour le faire. Vous serez déconnecté maintenant.',
     spanish:
@@ -11656,6 +11732,116 @@ export const localizations = {
     burmese: 'အကောင့်ဖျက်ရန် မအောင်မြင်ပါ: {error}',
     thai: 'ลบบัญชีไม่สำเร็จ: {error}',
     mandarin: '删除账户失败: {error}'
+  },
+  scheduledDeletionTitle: {
+    english: 'Account deletion scheduled',
+    french: 'Suppression du compte programmée',
+    spanish: 'Eliminación de cuenta programada',
+    brazilian_portuguese: 'Exclusão de conta agendada',
+    tok_pisin: 'Account deletion i skedul',
+    indonesian: 'Penghapusan akun dijadwalkan',
+    nepali: 'खाता मेटाउने तालिका बनाइयो',
+    hindi: 'खाता हटाने का समय निर्धारित',
+    burmese: 'အကောင့်ဖျက်ခြင်း စီစဉ်ပြီးပါပြီ',
+    thai: 'กำหนดการลบบัญชีแล้ว',
+    mandarin: '账户删除已安排'
+  },
+  scheduledDeletionMessage: {
+    english:
+      'Your account is scheduled for permanent erasure on {purgeDate}. Sign in during the grace period and tap Cancel deletion to keep your account.',
+    french:
+      'Votre compte est programmé pour une suppression définitive le {purgeDate}. Connectez-vous pendant le délai de grâce et appuyez sur Annuler la suppression pour conserver votre compte.',
+    spanish:
+      'Tu cuenta está programada para borrado permanente el {purgeDate}. Inicia sesión durante el período de gracia y pulsa Cancelar eliminación para conservar tu cuenta.',
+    brazilian_portuguese:
+      'Sua conta está agendada para exclusão permanente em {purgeDate}. Entre durante o período de carência e toque em Cancelar exclusão para manter sua conta.',
+    tok_pisin:
+      'Account bilong yu bai permanent raus long {purgeDate}. Login long grace period na presim Cancel deletion long holim account.',
+    indonesian:
+      'Akun Anda dijadwalkan untuk penghapusan permanen pada {purgeDate}. Masuk selama masa tenggang dan ketuk Batalkan penghapusan untuk mempertahankan akun.',
+    nepali:
+      'तपाईंको खाता {purgeDate} मा स्थायी मेटाउनका लागि तालिकाबद्ध छ। ग्रेस अवधिमा साइन इन गरी मेटाउने रद्द गर्नुहोस् थिच्नुहोस्।',
+    hindi:
+      'आपका खाता {purgeDate} को स्थायी हटाने के लिए निर्धारित है। अवधि के दौरान साइन इन करके रद्द करें हटाना दबाएं।',
+    burmese:
+      'သင်၏ အကောင့်ကို {purgeDate} တွင် အပြီးအပိုင်ဖျက်ရန် စီစဉ်ထားပါသည်။ ကာလအတွင်း ဝင်ရောက်ပြီး ဖျက်ခြင်းကို ပယ်ဖျက်ရန် နှိပ်ပါ။',
+    thai: 'บัญชีของคุณกำหนดให้ลบถาวรในวันที่ {purgeDate} เข้าสู่ระบบในช่วงผ่อนผันและแตะยกเลิกการลบ',
+    mandarin:
+      '您的账户定于 {purgeDate} 永久删除。在宽限期内登录并点击取消删除以保留账户。'
+  },
+  cancelDeletion: {
+    english: 'Cancel deletion',
+    french: 'Annuler la suppression',
+    spanish: 'Cancelar eliminación',
+    brazilian_portuguese: 'Cancelar exclusão',
+    tok_pisin: 'Cancel deletion',
+    indonesian: 'Batalkan penghapusan',
+    nepali: 'मेटाउने रद्द गर्नुहोस्',
+    hindi: 'हटाना रद्द करें',
+    burmese: 'ဖျက်ခြင်းကို ပယ်ဖျက်ရန်',
+    thai: 'ยกเลิกการลบ',
+    mandarin: '取消删除'
+  },
+  cancelDeletionConfirmTitle: {
+    english: 'Cancel account deletion?',
+    french: 'Annuler la suppression du compte ?',
+    spanish: '¿Cancelar eliminación de cuenta?',
+    brazilian_portuguese: 'Cancelar exclusão da conta?',
+    tok_pisin: 'Cancel account deletion?',
+    indonesian: 'Batalkan penghapusan akun?',
+    nepali: 'खाता मेटाउने रद्द गर्ने?',
+    hindi: 'खाता हटाना रद्द करें?',
+    burmese: 'အကောင့်ဖျက်ခြင်းကို ပယ်ဖျက်မလား?',
+    thai: 'ยกเลิกการลบบัญชี?',
+    mandarin: '取消账户删除？'
+  },
+  cancelDeletionConfirmMessage: {
+    english:
+      'Your account will be fully restored and the scheduled erasure will be canceled.',
+    french:
+      'Votre compte sera entièrement restauré et la suppression programmée sera annulée.',
+    spanish:
+      'Tu cuenta se restaurará por completo y se cancelará el borrado programado.',
+    brazilian_portuguese:
+      'Sua conta será totalmente restaurada e a exclusão agendada será cancelada.',
+    tok_pisin:
+      'Account bilong yu bai restore olgeta na scheduled erasure bai cancel.',
+    indonesian:
+      'Akun Anda akan dipulihkan sepenuhnya dan penghapusan yang dijadwalkan akan dibatalkan.',
+    nepali:
+      'तपाईंको खाता पूर्ण रूपमा पुनर्स्थापना हुनेछ र तालिकाबद्ध मेटाउने रद्द हुनेछ।',
+    hindi:
+      'आपका खाता पूरी तरह पुनर्स्थापित हो जाएगा और निर्धारित हटाना रद्द हो जाएगा।',
+    burmese:
+      'သင်၏ အကောင့်ကို ပြန်လည်ရယူပြီး စီစဉ်ထားသော ဖျက်ခြင်းကို ပယ်ဖျက်မည်။',
+    thai: 'บัญชีของคุณจะถูกกู้คืนเต็มรูปแบบและการลบที่กำหนดจะถูกยกเลิก',
+    mandarin: '您的账户将完全恢复，预定的删除将被取消。'
+  },
+  cancelDeletionSuccess: {
+    english: 'Account deletion canceled. Welcome back!',
+    french: 'Suppression du compte annulée. Bon retour !',
+    spanish: 'Eliminación de cuenta cancelada. ¡Bienvenido de nuevo!',
+    brazilian_portuguese: 'Exclusão da conta cancelada. Bem-vindo de volta!',
+    tok_pisin: 'Account deletion i cancel. Welkam bek!',
+    indonesian: 'Penghapusan akun dibatalkan. Selamat datang kembali!',
+    nepali: 'खाता मेटाउने रद्द भयो। फेरि स्वागत छ!',
+    hindi: 'खाता हटाना रद्द हो गया। वापसी पर स्वागत है!',
+    burmese: 'အကောင့်ဖျက်ခြင်း ပယ်ဖျက်ပြီးပါပြီ။ ပြန်လာတာ ကြိုဆိုပါတယ်!',
+    thai: 'ยกเลิกการลบบัญชีแล้ว ยินดีต้อนรับกลับ!',
+    mandarin: '账户删除已取消。欢迎回来！'
+  },
+  cancelDeletionError: {
+    english: 'Failed to cancel deletion: {error}',
+    french: 'Échec de l\u2019annulation de la suppression : {error}',
+    spanish: 'Error al cancelar la eliminación: {error}',
+    brazilian_portuguese: 'Falha ao cancelar exclusão: {error}',
+    tok_pisin: 'I no inap cancel deletion: {error}',
+    indonesian: 'Gagal membatalkan penghapusan: {error}',
+    nepali: 'मेटाउने रद्द गर्न असफल: {error}',
+    hindi: 'हटाना रद्द करने में विफल: {error}',
+    burmese: 'ဖျက်ခြင်းကို ပယ်ဖျက်ရန် မအောင်မြင်ပါ: {error}',
+    thai: 'ยกเลิกการลบไม่สำเร็จ: {error}',
+    mandarin: '取消删除失败: {error}'
   },
   accountDeletedTitle: {
     english: 'Account Deleted',

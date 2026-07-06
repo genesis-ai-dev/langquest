@@ -205,10 +205,10 @@ export class ProfileService {
   }
 
   async deleteAccount(userId: string): Promise<void> {
+    // Legacy path — retained for callers; new flow uses requestAccountDeletion().
     try {
       debug('Soft deleting account for user:', userId);
 
-      // Simply set active = false (soft delete)
       const { error: profileError } = await supabaseConnector.client
         .from('profile')
         .update({ active: false })
@@ -222,6 +222,26 @@ export class ProfileService {
       debug('Account soft deleted successfully for user:', userId);
     } catch (error) {
       console.error('Error soft deleting account:', error);
+      throw error;
+    }
+  }
+
+  async cancelScheduledDeletion(userId: string): Promise<void> {
+    try {
+      debug('Canceling scheduled deletion for user:', userId);
+
+      await system.db
+        .update(profile_synced)
+        .set({
+          active: true,
+          deletion_requested_at: null,
+          deletion_scheduled_for: null
+        })
+        .where(eq(profile_synced.id, userId));
+
+      debug('Scheduled deletion canceled for user:', userId);
+    } catch (error) {
+      console.error('Error canceling scheduled deletion:', error);
       throw error;
     }
   }

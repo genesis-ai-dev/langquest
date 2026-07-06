@@ -116,7 +116,7 @@ export const PrivacyPolicyUpdateEmail = ({
 PrivacyPolicyUpdateEmail.PreviewProps = {
   effectiveDate: 'July 8, 2026',
   summary:
-    'We want to link anonymous analytics and session replays to signed-in accounts. It helps us understand and fix bugs faster.\n\nOur Privacy Policy now reflects this: it describes account-linked analytics and limited session replay on supported devices, and clarifies that disabling analytics in profile settings stops linking events to your account and turns off further analytics and replay collection.',
+    'Our Privacy Policy now describes three phases of App analytics.\n\nBefore you sign in, we may record limited pseudonymous session replays while you browse public projects and use sign-up or sign-in screens. After you sign in, analytics stays off until you opt in. If you opt in, screen replays resume, we link usage to your account, and that can include browsing from before you signed in.',
   changesBody: `<p style="margin:0 0 12px;line-height:1.5;font-size:15px;color:#3c4149"><strong>Current wording:</strong> Unique identifiers: randomly generated device identifiers that don't personally identify you but help us analyze usage patterns.</p>
 <p style="margin:0 0 24px;line-height:1.5;font-size:15px;color:#3c4149"><strong>New wording:</strong> Account linkage: if you are signed in and have not opted out of analytics, we associate usage events with your account user ID…</p>
 <p style="margin:0 0 12px;line-height:1.5;font-size:15px;color:#3c4149"><strong>Current wording:</strong> You can opt out of analytics collection directly in the App's profile settings…</p>

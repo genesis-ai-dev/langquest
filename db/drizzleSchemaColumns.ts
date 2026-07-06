@@ -284,6 +284,8 @@ export function createProfileTable<
       privacy_policy_version: text(),
       analytics_opt_in: int({ mode: 'boolean' }),
       analytics_consent_at: text(),
+      deletion_requested_at: text(),
+      deletion_scheduled_for: text(),
       ...extraColumns
     },
     (table) => [...normalizeParams(extraConfig, table)]

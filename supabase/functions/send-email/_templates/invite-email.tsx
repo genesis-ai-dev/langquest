@@ -1,27 +1,33 @@
 import {
   Body,
+  Column,
   Container,
   Head,
   Heading,
   Html,
+  Img,
   Link,
   Preview,
+  Row,
   Tailwind,
   Text
 } from '@react-email/components';
+import { UrlCopyBox } from '../_components/url-copy-box.tsx';
 
-interface InviteEmailProps {
+export interface InviteEmailProps {
   projectName: string;
   inviterName: string;
   joinUrl: string;
   locale?: string;
+  logoUrl?: string;
 }
 
 export const InviteEmail = ({
   projectName,
   inviterName,
   joinUrl,
-  locale = 'en'
+  locale = 'en',
+  logoUrl = 'https://langquest.org/langquest-logo-light.png'
 }: InviteEmailProps) => {
   // Translations
   const translations = {
@@ -29,7 +35,7 @@ export const InviteEmail = ({
       preview: `You've been invited to join ${projectName} on LangQuest`,
       title: 'Project Invitation',
       greeting: 'Hello!',
-      description: `${inviterName} has invited you to join the project "${projectName}" on LangQuest, a collaborative language learning platform.`,
+      description: `${inviterName} has invited you to join the "${projectName}" project on LangQuest, a collaborative language learning platform.`,
       whatIsLangQuest:
         'LangQuest helps communities create and share language learning resources. Join us to contribute translations, audio recordings, and help preserve languages worldwide.',
       instruction:
@@ -42,7 +48,7 @@ export const InviteEmail = ({
       preview: `Has sido invitado a unirte a ${projectName} en LangQuest`,
       title: 'Invitación al Proyecto',
       greeting: '¡Hola!',
-      description: `${inviterName} te ha invitado a unirte al proyecto "${projectName}" en LangQuest, una plataforma colaborativa de aprendizaje de idiomas.`,
+      description: `${inviterName} te ha invitado a unirte al "${projectName}" proyecto en LangQuest, una plataforma colaborativa de aprendizaje de idiomas.`,
       whatIsLangQuest:
         'LangQuest ayuda a las comunidades a crear y compartir recursos para el aprendizaje de idiomas. Únete para contribuir con traducciones, grabaciones de audio y ayudar a preservar idiomas en todo el mundo.',
       instruction:
@@ -55,7 +61,7 @@ export const InviteEmail = ({
       preview: `Vous avez été invité à rejoindre ${projectName} sur LangQuest`,
       title: 'Invitation au Projet',
       greeting: 'Bonjour !',
-      description: `${inviterName} vous a invité à rejoindre le projet "${projectName}" sur LangQuest, une plateforme collaborative d'apprentissage des langues.`,
+      description: `${inviterName} vous a invité à rejoindre le "${projectName}" projet sur LangQuest, une plateforme collaborative d'apprentissage des langues.`,
       whatIsLangQuest:
         "LangQuest aide les communautés à créer et partager des ressources d'apprentissage des langues. Rejoignez-nous pour contribuer des traductions, des enregistrements audio et aider à préserver les langues du monde entier.",
       instruction:
@@ -68,7 +74,7 @@ export const InviteEmail = ({
       preview: `Você foi convidado para participar de ${projectName} no LangQuest`,
       title: 'Convite para Projeto',
       greeting: 'Olá!',
-      description: `${inviterName} convidou você para participar do projeto "${projectName}" no LangQuest, uma plataforma colaborativa de aprendizado de idiomas.`,
+      description: `${inviterName} convidou você para participar do "${projectName}" projeto no LangQuest, uma plataforma colaborativa de aprendizado de idiomas.`,
       whatIsLangQuest:
         'O LangQuest ajuda comunidades a criar e compartilhar recursos de aprendizado de idiomas. Junte-se a nós para contribuir com traduções, gravações de áudio e ajudar a preservar idiomas em todo o mundo.',
       instruction:
@@ -81,7 +87,7 @@ export const InviteEmail = ({
       preview: 'Anda telah diundang untuk bergabung dalam proyek di LangQuest',
       title: 'Undangan untuk Proyek',
       greeting: 'Halo!',
-      description: `${inviterName} telah mengundang Anda untuk bergabung dalam proyek "${projectName}" di LangQuest, sebuah platform kolaboratif pembelajaran bahasa.`,
+      description: `${inviterName} telah mengundang Anda untuk bergabung dalam "${projectName}" proyek di LangQuest, sebuah platform kolaboratif pembelajaran bahasa.`,
       whatIsLangQuest:
         'LangQuest membantu komunitas membuat dan berbagi sumber belajar bahasa. Bergabunglah untuk berkontribusi dalam penerjemahan, rekaman audio, dan membantu menjaga bahasa di seluruh dunia.',
       instruction:
@@ -94,7 +100,7 @@ export const InviteEmail = ({
       preview: 'Yu telah strongim langquest bilong yu',
       title: 'Strongim LangQuest bilong yu',
       greeting: 'Hello,',
-      description: `${inviterName} i salim yu strongim yu long joinim project "{projectName}" long langquest yu, platform collaborative learning language.`,
+      description: `${inviterName} i salim yu strongim yu long joinim "${projectName}" project long langquest yu, platform collaborative learning language.`,
       whatIsLangQuest:
         'LangQuest helpim yu community strongim yu long shareim language learning resources. Joinim yu long contributeim translation, audio recording, and helpim preserveim language long whole world.',
       instruction:
@@ -146,7 +152,7 @@ export const InviteEmail = ({
       preview: `คุณได้รับเชิญให้เข้าร่วม ${projectName} ใน LangQuest`,
       title: 'คำเชิญเข้าร่วมโครงการ',
       greeting: 'สวัสดี!',
-      description: `${inviterName} ได้เชิญคุณให้เข้าร่วมโครงการ "${projectName}" ใน LangQuest ซึ่งเป็นแพลตฟอร์มการเรียนรู้ภาษาที่ทำงานร่วมกัน`,
+      description: `${inviterName} ได้เชิญคุณให้เข้าร่วม "${projectName}" โครงการ ใน LangQuest ซึ่งเป็นแพลตฟอร์มการเรียนรู้ภาษาที่ทำงานร่วมกัน`,
       whatIsLangQuest:
         'LangQuest ช่วยให้ชุมชนสร้างและแบ่งปันทรัพยากรการเรียนรู้ภาษา เข้าร่วมกับเราเพื่อมีส่วนร่วมในการแปล บันทึกเสียง และช่วยรักษาภาษาทั่วโลก',
       instruction: 'คลิกปุ่มด้านล่างเพื่อสร้างบัญชีของคุณและเข้าร่วมโครงการ:',
@@ -158,7 +164,7 @@ export const InviteEmail = ({
       preview: `您已被邀请加入 LangQuest 上的 ${projectName}`,
       title: '项目邀请',
       greeting: '您好！',
-      description: `${inviterName} 邀请您加入 LangQuest 上的项目 "${projectName}"，这是一个协作式语言学习平台。`,
+      description: `${inviterName} 邀请您加入 LangQuest 上的"${projectName}"项目，这是一个协作式语言学习平台。`,
       whatIsLangQuest:
         'LangQuest 帮助社区创建和分享语言学习资源。加入我们，贡献翻译、音频录制，并帮助保护世界各地的语言。',
       instruction: '点击下面的按钮创建您的账户并加入项目:',
@@ -176,34 +182,70 @@ export const InviteEmail = ({
       <Head />
       <Preview>{t.preview}</Preview>
       <Tailwind>
-        <Body className="bg-white">
-          <Container className="mx-auto px-3">
-            <Heading className="my-10 text-2xl font-bold text-gray-800">
+        <Body className="bg-[#fbfbfb] font-sans">
+          <Container className="mx-auto my-10 max-w-[602px] overflow-hidden rounded-lg border border-solid border-[#e5e7eb] bg-white px-8 py-8">
+            <Row className="mb-6">
+              <Column className="w-[32px] align-middle">
+                <Img
+                  src={logoUrl}
+                  width={32}
+                  height={32}
+                  alt="LangQuest"
+                  className="block rounded-lg"
+                />
+              </Column>
+              <Column className="pl-1 align-middle">
+                <Text className="m-0 text-[15px] leading-none text-[#111827]">
+                  LangQuest
+                </Text>
+              </Column>
+            </Row>
+
+            <Heading className="m-0 mb-8 text-2xl leading-[1.3] font-semibold tracking-[-0.3px] text-[#111827]">
               {t.title}
             </Heading>
-            <Text className="my-6 text-sm text-gray-800">{t.greeting}</Text>
-            <Text className="my-6 text-sm text-gray-800">{t.description}</Text>
-            <Text className="my-6 text-sm text-gray-800">
+
+            <Text className="m-0 mb-4 text-[15px] leading-[1.5] text-[#3c4149]">
+              {t.greeting}
+            </Text>
+            <Text className="m-0 mb-4 text-[15px] leading-[1.5] text-[#3c4149]">
+              {t.description}
+            </Text>
+            <Text className="m-0 mb-6 text-[15px] leading-[1.5] text-[#3c4149]">
               {t.whatIsLangQuest}
             </Text>
-            <Text className="my-6 text-sm text-gray-800">{t.instruction}</Text>
+            <Text className="m-0 mb-6 text-[15px] leading-[1.5] text-[#3c4149]">
+              {t.instruction}
+            </Text>
+
             <Link
               href={joinUrl}
               target="_blank"
-              className="mb-4 inline-block rounded bg-green-500 px-5 py-3.5 text-center text-sm text-white no-underline"
+              className="mb-6 inline-block rounded bg-[#6D55CE] px-5 py-3 text-center text-[15px] font-medium text-white no-underline"
             >
               {t.button}
             </Link>
-            <Text className="mb-3.5 text-sm text-gray-800">{t.orCopy}</Text>
-            <Text className="inline-block w-[90.5%] rounded border border-gray-200 bg-gray-100 p-4 font-mono text-sm break-all text-gray-800">
-              {joinUrl}
+
+            <Text className="m-0 mb-4 text-[15px] leading-[1.5] text-[#3c4149]">
+              {t.orCopy}
             </Text>
-            <Text className="mt-3.5 text-sm text-gray-400">{t.expiry}</Text>
+            <UrlCopyBox url={joinUrl} />
+
+            <Text className="m-0 text-[15px] leading-[1.5] text-[#6b7280]">
+              {t.expiry}
+            </Text>
           </Container>
         </Body>
       </Tailwind>
     </Html>
   );
 };
+
+InviteEmail.PreviewProps = {
+  projectName: 'Tok Pisin Bible Translation',
+  inviterName: 'Ean',
+  joinUrl: 'https://langquest.org/invite/example',
+  locale: 'en'
+} satisfies InviteEmailProps;
 
 export default InviteEmail;

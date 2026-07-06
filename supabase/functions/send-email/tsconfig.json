@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "composite": false,
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "strictNullChecks": true
+  },
+  "include": [
+    "_templates/**/*.ts",
+    "_templates/**/*.tsx",
+    "_components/**/*.ts",
+    "_components/**/*.tsx"
+  ],
+  "exclude": ["node_modules", ".react-email"]
+}

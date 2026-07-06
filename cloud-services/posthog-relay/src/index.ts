@@ -1,5 +1,3 @@
-import { isKnownEuEeaGbCountry } from './euRegion';
-
 export interface Env {}
 
 function resolveUpstreamUrl(pathname: string, search: string): URL | null {
@@ -31,10 +29,6 @@ export default {
 		const upstreamUrl = resolveUpstreamUrl(url.pathname, url.search);
 		if (!upstreamUrl) {
 			return new Response('Not found', { status: 404 });
-		}
-
-		if (isKnownEuEeaGbCountry(request)) {
-			return new Response(null, { status: 403 });
 		}
 
 		const headers = new Headers(request.headers);
