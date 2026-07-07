@@ -4,13 +4,17 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
-  SafeAreaView,
   StatusBar,
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View
 } from 'react-native';
+import {
+  SafeAreaProvider,
+  useSafeAreaInsets
+} from 'react-native-safe-area-context';
 
 import { useSessionStore } from '@/store/localStore';
 
@@ -28,6 +32,10 @@ interface EntryGateProps {
  * Renders a working keypad ('A') or a working note pad ('B'). Performing the
  * agreed action reveals the app; otherwise each surface behaves like the
  * ordinary utility it appears to be. Component and prop names stay generic.
+ *
+ * Mounted before the app's providers, so it carries its own SafeAreaProvider —
+ * the OS status/navigation bars must never cover interactive keys (a hidden
+ * "=" key would lock the owner out permanently).
  */
 export function EntryGate({ mode }: EntryGateProps) {
   const unlock = useSessionStore((s) => s.unlock);
@@ -36,10 +44,14 @@ export function EntryGate({ mode }: EntryGateProps) {
   useEffect(() => {
     void SplashScreen.hideAsync();
   }, []);
-  return mode === 'B' ? (
-    <NoteSurface onUnlock={unlock} />
-  ) : (
-    <KeypadSurface onUnlock={unlock} />
+  return (
+    <SafeAreaProvider>
+      {mode === 'B' ? (
+        <NoteSurface onUnlock={unlock} />
+      ) : (
+        <KeypadSurface onUnlock={unlock} />
+      )}
+    </SafeAreaProvider>
   );
 }
 
@@ -68,8 +80,21 @@ function useCandidateCheck(onUnlock: () => void) {
 
 type Op = '+' | '-' | '×' | '÷';
 
+const PAD_H_PADDING = 14;
+const KEY_GAP = 12;
+const MAX_KEY_SIZE = 92;
+const MAX_DIGITS = 12;
+
 function KeypadSurface({ onUnlock }: { onUnlock: () => void }) {
   const check = useCandidateCheck(onUnlock);
+  const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+
+  const keySize = Math.min(
+    (width - PAD_H_PADDING * 2 - KEY_GAP * 3) / 4,
+    MAX_KEY_SIZE
+  );
+
   const [display, setDisplay] = useState('0');
   const [acc, setAcc] = useState<number | null>(null);
   const [op, setOp] = useState<Op | null>(null);
@@ -79,18 +104,38 @@ function KeypadSurface({ onUnlock }: { onUnlock: () => void }) {
 
   const pushDigit = useCallback(
     (d: string) => {
-      setBuffer((b) => (b + d).slice(-MAX_LEN));
+      const next = (buffer + d).slice(-MAX_LEN);
+      setBuffer(next);
+      // The secret is checked on every keystroke, so typing it alone unlocks —
+      // no extra key press that the owner could forget (or that a broken/hidden
+      // key could make unreachable). Trailing windows are tried longest-first
+      // so digits typed earlier (e.g. real arithmetic) don't block a match.
+      for (const candidate of keypadCandidates(next, MIN_LEN, MAX_LEN)) {
+        void check(candidate);
+      }
       setDisplay((prev) => {
         if (fresh || prev === '0') {
           setFresh(false);
           return d;
         }
-        if (prev.replace(/[^0-9]/g, '').length >= 15) return prev;
+        if (prev.replace(/[^0-9]/g, '').length >= MAX_DIGITS) return prev;
         return prev + d;
       });
     },
-    [fresh]
+    [buffer, check, fresh]
   );
+
+  const backspace = useCallback(() => {
+    // Also trims the sequence buffer so a mistyped secret can be corrected.
+    setBuffer((b) => b.slice(0, -1));
+    setDisplay((prev) => {
+      if (fresh) return prev;
+      if (prev.length <= 1 || (prev.length === 2 && prev.startsWith('-'))) {
+        return '0';
+      }
+      return prev.slice(0, -1);
+    });
+  }, [fresh]);
 
   const applyOp = useCallback(
     (next: Op) => {
@@ -106,13 +151,10 @@ function KeypadSurface({ onUnlock }: { onUnlock: () => void }) {
     [acc, display, op]
   );
 
-  const equals = useCallback(async () => {
-    // Secret-sequence check happens on commit, before arithmetic. Try each
-    // trailing window (longest first) so earlier arithmetic can't block a match.
-    for (const candidate of keypadCandidates(buffer, MIN_LEN, MAX_LEN)) {
-      if (await check(candidate)) return;
-    }
-
+  const equals = useCallback(() => {
+    // Plain arithmetic only — the secret check runs per keystroke in pushDigit.
+    // The buffer is deliberately left alone so a code typed across '=' presses
+    // still matches.
     if (op !== null && acc !== null) {
       const current = parseFloat(display) || 0;
       const result = compute(acc, current, op);
@@ -121,8 +163,7 @@ function KeypadSurface({ onUnlock }: { onUnlock: () => void }) {
       setOp(null);
       setFresh(true);
     }
-    setBuffer('');
-  }, [acc, buffer, check, display, op]);
+  }, [acc, display, op]);
 
   const clearAll = useCallback(() => {
     setDisplay('0');
@@ -130,10 +171,6 @@ function KeypadSurface({ onUnlock }: { onUnlock: () => void }) {
     setOp(null);
     setFresh(true);
     setBuffer('');
-  }, []);
-
-  const toggleSign = useCallback(() => {
-    setDisplay((p) => (p.startsWith('-') ? p.slice(1) : p === '0' ? p : `-${p}`));
   }, []);
 
   const percent = useCallback(() => {
@@ -150,39 +187,44 @@ function KeypadSurface({ onUnlock }: { onUnlock: () => void }) {
     () => [
       [
         { label: 'AC', kind: 'fn', onPress: clearAll },
-        { label: '+/−', kind: 'fn', onPress: toggleSign },
+        { label: '⌫', kind: 'fn', onPress: backspace },
         { label: '%', kind: 'fn', onPress: percent },
-        { label: '÷', kind: 'op', onPress: () => applyOp('÷') }
+        { label: '÷', kind: 'op', active: op === '÷', onPress: () => applyOp('÷') }
       ],
       [
         { label: '7', kind: 'num', onPress: () => pushDigit('7') },
         { label: '8', kind: 'num', onPress: () => pushDigit('8') },
         { label: '9', kind: 'num', onPress: () => pushDigit('9') },
-        { label: '×', kind: 'op', onPress: () => applyOp('×') }
+        { label: '×', kind: 'op', active: op === '×', onPress: () => applyOp('×') }
       ],
       [
         { label: '4', kind: 'num', onPress: () => pushDigit('4') },
         { label: '5', kind: 'num', onPress: () => pushDigit('5') },
         { label: '6', kind: 'num', onPress: () => pushDigit('6') },
-        { label: '−', kind: 'op', onPress: () => applyOp('-') }
+        { label: '−', kind: 'op', active: op === '-', onPress: () => applyOp('-') }
       ],
       [
         { label: '1', kind: 'num', onPress: () => pushDigit('1') },
         { label: '2', kind: 'num', onPress: () => pushDigit('2') },
         { label: '3', kind: 'num', onPress: () => pushDigit('3') },
-        { label: '+', kind: 'op', onPress: () => applyOp('+') }
+        { label: '+', kind: 'op', active: op === '+', onPress: () => applyOp('+') }
       ],
       [
         { label: '0', kind: 'num', wide: true, onPress: () => pushDigit('0') },
         { label: '.', kind: 'num', onPress: dot },
-        { label: '=', kind: 'op', onPress: () => void equals() }
+        { label: '=', kind: 'op', onPress: equals }
       ]
     ],
-    [applyOp, clearAll, dot, equals, percent, pushDigit, toggleSign]
+    [applyOp, backspace, clearAll, dot, equals, op, percent, pushDigit]
   );
 
   return (
-    <SafeAreaView style={kp.safe}>
+    <View
+      style={[
+        kp.root,
+        { paddingTop: insets.top, paddingBottom: insets.bottom + 12 }
+      ]}
+    >
       <StatusBar barStyle="light-content" />
       <View style={kp.displayWrap}>
         <Text style={kp.display} numberOfLines={1} adjustsFontSizeToFit>
@@ -191,14 +233,14 @@ function KeypadSurface({ onUnlock }: { onUnlock: () => void }) {
       </View>
       <View style={kp.pad}>
         {rows.map((row, ri) => (
-          <View style={kp.row} key={ri}>
+          <View style={[kp.row, { marginBottom: KEY_GAP }]} key={ri}>
             {row.map((k) => (
-              <Key key={k.label} def={k} />
+              <Key key={k.label} def={k} size={keySize} />
             ))}
           </View>
         ))}
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -206,23 +248,55 @@ interface KeyDef {
   label: string;
   kind: 'num' | 'op' | 'fn';
   wide?: boolean;
+  active?: boolean;
   onPress: () => void;
 }
 
-function Key({ def }: { def: KeyDef }) {
-  const bg =
-    def.kind === 'op' ? '#ff9f0a' : def.kind === 'fn' ? '#5b5b5f' : '#333336';
-  const color = def.kind === 'fn' ? '#000' : '#fff';
+const KEY_COLORS: Record<
+  KeyDef['kind'],
+  { bg: string; bgPressed: string; text: string }
+> = {
+  num: { bg: '#333336', bgPressed: '#737377', text: '#fff' },
+  fn: { bg: '#a5a5a5', bgPressed: '#d9d9d9', text: '#000' },
+  op: { bg: '#ff9f0a', bgPressed: '#fcc78e', text: '#fff' }
+};
+
+function Key({ def, size }: { def: KeyDef; size: number }) {
+  // All visual styles live on the inner View, not the Pressable: styles set
+  // directly on Pressable were observed being dropped on-device (likely the
+  // css-interop wrapper), which rendered the keypad as bare text.
+  const [pressed, setPressed] = useState(false);
+  const colors = KEY_COLORS[def.kind];
+  // An op key stays visibly "armed" after selection, like a real calculator.
+  const idleBg = def.active ? '#fff' : colors.bg;
+  const idleText = def.active ? '#ff9f0a' : colors.text;
   return (
     <Pressable
       onPress={def.onPress}
-      style={({ pressed }) => [
-        kp.key,
-        def.wide && kp.keyWide,
-        { backgroundColor: bg, opacity: pressed ? 0.7 : 1 }
-      ]}
+      onPressIn={() => setPressed(true)}
+      onPressOut={() => setPressed(false)}
     >
-      <Text style={[kp.keyLabel, { color }]}>{def.label}</Text>
+      <View
+        style={{
+          width: def.wide ? size * 2 + KEY_GAP : size,
+          height: size,
+          borderRadius: size / 2,
+          backgroundColor: pressed ? colors.bgPressed : idleBg,
+          alignItems: def.wide ? 'flex-start' : 'center',
+          justifyContent: 'center',
+          paddingLeft: def.wide ? size * 0.38 : 0
+        }}
+      >
+        <Text
+          style={{
+            fontSize: size * 0.42,
+            fontWeight: '500',
+            color: idleText
+          }}
+        >
+          {def.label}
+        </Text>
+      </View>
     </Pressable>
   );
 }
@@ -252,6 +326,7 @@ function formatResult(n: number): string {
 
 function NoteSurface({ onUnlock }: { onUnlock: () => void }) {
   const check = useCandidateCheck(onUnlock);
+  const insets = useSafeAreaInsets();
   const [text, setText] = useState('');
   const title = getFamilyLabel('B');
 
@@ -266,7 +341,7 @@ function NoteSurface({ onUnlock }: { onUnlock: () => void }) {
   );
 
   return (
-    <SafeAreaView style={nt.safe}>
+    <View style={[nt.root, { paddingTop: insets.top }]}>
       <StatusBar barStyle="dark-content" />
       <View style={nt.header}>
         <Text style={nt.title}>{title}</Text>
@@ -276,7 +351,7 @@ function NoteSurface({ onUnlock }: { onUnlock: () => void }) {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <TextInput
-          style={nt.input}
+          style={[nt.input, { paddingBottom: insets.bottom + 16 }]}
           value={text}
           onChangeText={onChange}
           multiline
@@ -287,36 +362,32 @@ function NoteSurface({ onUnlock }: { onUnlock: () => void }) {
           textAlignVertical="top"
         />
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const kp = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#000' },
+  root: { flex: 1, backgroundColor: '#000' },
   displayWrap: {
     flex: 1,
     justifyContent: 'flex-end',
     alignItems: 'flex-end',
-    paddingHorizontal: 24,
-    paddingBottom: 12
+    paddingHorizontal: 28,
+    paddingBottom: 16
   },
-  display: { color: '#fff', fontSize: 72, fontWeight: '300' },
-  pad: { paddingHorizontal: 8, paddingBottom: 12 },
-  row: { flexDirection: 'row', justifyContent: 'space-between' },
-  key: {
-    flex: 1,
-    aspectRatio: 1,
-    margin: 6,
-    borderRadius: 999,
-    alignItems: 'center',
-    justifyContent: 'center'
+  display: { color: '#fff', fontSize: 84, fontWeight: '300' },
+  pad: {
+    paddingHorizontal: PAD_H_PADDING,
+    alignItems: 'center'
   },
-  keyWide: { flex: 2.15, aspectRatio: undefined, alignItems: 'flex-start', paddingLeft: 32 },
-  keyLabel: { fontSize: 32, fontWeight: '500' }
+  row: {
+    flexDirection: 'row',
+    gap: KEY_GAP
+  }
 });
 
 const nt = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#fdfdf7' },
+  root: { flex: 1, backgroundColor: '#fdfdf7' },
   fill: { flex: 1 },
   header: {
     paddingHorizontal: 20,

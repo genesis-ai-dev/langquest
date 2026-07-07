@@ -252,7 +252,10 @@
     "sharp-cli": {
       "glob": "^13.0.0"
     },
-    "lightningcss": "1.31.1"
+    "lightningcss": "1.31.1",
+    "@praneeth26/expo-dynamic-app-identity": {
+      "expo-modules-core": "~55.0.13"
+    }
   },
   "private": true
 }

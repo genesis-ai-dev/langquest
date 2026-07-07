@@ -1,8 +1,10 @@
 import { Button, OpacityPressable } from '@/components/ui/button';
+import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
 import { useRouter } from 'expo-router';
+import { X } from 'lucide-react-native';
 import React, { useCallback } from 'react';
 import { Linking, ScrollView, View } from 'react-native';
 
@@ -48,8 +50,14 @@ export function RoutedTermsView({
     router.replace('/');
   }, [router]);
 
+  // Never leave the user stranded: if there's nothing to go back to (e.g. this
+  // route was restored as the root of the stack), escape to home instead.
   const handleDismiss = useCallback(() => {
-    router.dismiss();
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/');
+    }
   }, [router]);
 
   return (
@@ -94,6 +102,16 @@ function TermsViewInner({
           <Text variant="h4" className="flex-1">
             {t('termsAndPrivacyTitle')}
           </Text>
+          {onDismiss && (
+            <OpacityPressable
+              onPress={handleDismiss}
+              className="-mr-2 h-10 w-10 items-center justify-center"
+              accessibilityRole="button"
+              accessibilityLabel={t('close')}
+            >
+              <Icon as={X} size={24} className="text-foreground" />
+            </OpacityPressable>
+          )}
         </View>
         {languageSelect && (
           <View className="w-full gap-2.5">{languageSelect}</View>

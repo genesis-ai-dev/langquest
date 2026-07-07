@@ -1,8 +1,56 @@
+diff --git a/node_modules/@praneeth26/expo-dynamic-app-identity/android/build/intermediates/aar_metadata/release/writeReleaseAarMetadata/aar-metadata.properties b/node_modules/@praneeth26/expo-dynamic-app-identity/android/build/intermediates/aar_metadata/release/writeReleaseAarMetadata/aar-metadata.properties
+new file mode 100644
+index 0000000..1211b1e
+--- /dev/null
++++ b/node_modules/@praneeth26/expo-dynamic-app-identity/android/build/intermediates/aar_metadata/release/writeReleaseAarMetadata/aar-metadata.properties
+@@ -0,0 +1,6 @@
++aarFormatVersion=1.0
++aarMetadataVersion=1.0
++minCompileSdk=1
++minCompileSdkExtension=0
++minAndroidGradlePluginVersion=1.0.0
++coreLibraryDesugaringEnabled=false
+diff --git a/node_modules/@praneeth26/expo-dynamic-app-identity/android/build/intermediates/incremental/release/packageReleaseResources/compile-file-map.properties b/node_modules/@praneeth26/expo-dynamic-app-identity/android/build/intermediates/incremental/release/packageReleaseResources/compile-file-map.properties
+new file mode 100644
+index 0000000..583fd66
+--- /dev/null
++++ b/node_modules/@praneeth26/expo-dynamic-app-identity/android/build/intermediates/incremental/release/packageReleaseResources/compile-file-map.properties
+@@ -0,0 +1 @@
++#Mon Jul 06 09:28:38 PDT 2026
+diff --git a/node_modules/@praneeth26/expo-dynamic-app-identity/android/build/intermediates/incremental/release/packageReleaseResources/merger.xml b/node_modules/@praneeth26/expo-dynamic-app-identity/android/build/intermediates/incremental/release/packageReleaseResources/merger.xml
+new file mode 100644
+index 0000000..7f576d6
+--- /dev/null
++++ b/node_modules/@praneeth26/expo-dynamic-app-identity/android/build/intermediates/incremental/release/packageReleaseResources/merger.xml
+@@ -0,0 +1,2 @@
++<?xml version="1.0" encoding="utf-8"?>
++<merger version="3"><dataSet aapt-namespace="http://schemas.android.com/apk/res-auto" config="main$Generated" generated="true" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="/Users/caleb/dev/langquest/node_modules/@praneeth26/expo-dynamic-app-identity/android/src/main/res"/></dataSet><dataSet aapt-namespace="http://schemas.android.com/apk/res-auto" config="main" generated-set="main$Generated" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="/Users/caleb/dev/langquest/node_modules/@praneeth26/expo-dynamic-app-identity/android/src/main/res"/></dataSet><dataSet aapt-namespace="http://schemas.android.com/apk/res-auto" config="release$Generated" generated="true" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="/Users/caleb/dev/langquest/node_modules/@praneeth26/expo-dynamic-app-identity/android/src/release/res"/></dataSet><dataSet aapt-namespace="http://schemas.android.com/apk/res-auto" config="release" generated-set="release$Generated" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="/Users/caleb/dev/langquest/node_modules/@praneeth26/expo-dynamic-app-identity/android/src/release/res"/></dataSet><dataSet aapt-namespace="http://schemas.android.com/apk/res-auto" config="generated$Generated" generated="true" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="/Users/caleb/dev/langquest/node_modules/@praneeth26/expo-dynamic-app-identity/android/build/generated/res/resValues/release"/></dataSet><dataSet aapt-namespace="http://schemas.android.com/apk/res-auto" config="generated" generated-set="generated$Generated" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="/Users/caleb/dev/langquest/node_modules/@praneeth26/expo-dynamic-app-identity/android/build/generated/res/resValues/release"/></dataSet><mergedItems/></merger>
+\ No newline at end of file
+diff --git a/node_modules/@praneeth26/expo-dynamic-app-identity/android/build/intermediates/nested_resources_validation_report/release/generateReleaseResources/nestedResourcesValidationReport.txt b/node_modules/@praneeth26/expo-dynamic-app-identity/android/build/intermediates/nested_resources_validation_report/release/generateReleaseResources/nestedResourcesValidationReport.txt
+new file mode 100644
+index 0000000..08f4ebe
+--- /dev/null
++++ b/node_modules/@praneeth26/expo-dynamic-app-identity/android/build/intermediates/nested_resources_validation_report/release/generateReleaseResources/nestedResourcesValidationReport.txt
+@@ -0,0 +1 @@
++0 Warning/Error
+\ No newline at end of file
 diff --git a/node_modules/@praneeth26/expo-dynamic-app-identity/plugin/build/index.js b/node_modules/@praneeth26/expo-dynamic-app-identity/plugin/build/index.js
-index 5a33ce3..11e67c1 100644
+index 5a33ce3..4b0fdf5 100644
 --- a/node_modules/@praneeth26/expo-dynamic-app-identity/plugin/build/index.js
 +++ b/node_modules/@praneeth26/expo-dynamic-app-identity/plugin/build/index.js
-@@ -268,7 +268,7 @@ const withAndroidManifestMod = (config, pluginConfig) => {
+@@ -259,8 +259,9 @@ const withAndroidManifestMod = (config, pluginConfig) => {
+                 aliasIntentFilters.push(...JSON.parse(JSON.stringify(deepLinkFilters)));
+             }
+             const hasCustomImage = resolved.androidImagePath || resolved.androidAdaptive;
+-            const iconResource = hasCustomImage ? `@mipmap/${iconName}` : '@mipmap/ic_launcher';
+-            const roundIconResource = hasCustomImage ? `@mipmap/${iconName}_round` : '@mipmap/ic_launcher_round';
++            const safeIconName = getSafeResourceName(iconName);
++            const iconResource = hasCustomImage ? `@mipmap/${safeIconName}` : '@mipmap/ic_launcher';
++            const roundIconResource = hasCustomImage ? `@mipmap/${safeIconName}_round` : '@mipmap/ic_launcher_round';
+             const iconAlias = {
+                 $: {
+                     'android:name': `.MainActivity${iconName}`,
+@@ -268,7 +269,7 @@ const withAndroidManifestMod = (config, pluginConfig) => {
                      'android:exported': 'true',
                      'android:icon': iconResource,
                      'android:roundIcon': roundIconResource,
@@ -11,3 +59,23 @@ index 5a33ce3..11e67c1 100644
                      'android:targetActivity': '.MainActivity',
                  },
                  'intent-filter': aliasIntentFilters,
+@@ -418,15 +419,15 @@ async function processAdaptiveIcon(config, iconName, androidConfig, drawableDirP
+         }
+         adaptiveIconXml += `
+ </adaptive-icon>`;
+-        fs.writeFileSync(path.join(mipmapAnyDpiV26DirPath, `${iconName}.xml`), adaptiveIconXml);
+-        fs.writeFileSync(path.join(mipmapAnyDpiV26DirPath, `${iconName}_round.xml`), adaptiveIconXml);
++        fs.writeFileSync(path.join(mipmapAnyDpiV26DirPath, `${safeIconName}.xml`), adaptiveIconXml);
++        fs.writeFileSync(path.join(mipmapAnyDpiV26DirPath, `${safeIconName}_round.xml`), adaptiveIconXml);
+         const fallbackSrc = fallbackIconPath
+             ? path.resolve(projectRoot, fallbackIconPath)
+             : foregroundImageSrc;
+         for (const density of ANDROID_DENSITIES) {
+             const mipmapDir = path.join(androidResPath, `mipmap-${density.name}`);
+-            const iconOutputPath = path.join(mipmapDir, `${iconName}.png`);
+-            const roundOutputPath = path.join(mipmapDir, `${iconName}_round.png`);
++            const iconOutputPath = path.join(mipmapDir, `${safeIconName}.png`);
++            const roundOutputPath = path.join(mipmapDir, `${safeIconName}_round.png`);
+             try {
+                 const { source } = await (0, image_utils_1.generateImageAsync)({ projectRoot, cacheType: `expo-dynamic-app-identity-fallback-${iconName}-${density.name}` }, {
+                     src: fallbackSrc,

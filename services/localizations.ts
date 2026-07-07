@@ -8522,30 +8522,44 @@ export const localizations = {
     mandarin: '确认代码'
   },
   appLockInstructionsKeypad: {
-    english: 'Open the app, type your code, then press =',
-    french: "Ouvrez l'application, saisissez votre code, puis appuyez sur =",
-    spanish: 'Abre la app, escribe tu código y pulsa =',
-    brazilian_portuguese: 'Abra o app, digite seu código e pressione =',
-    tok_pisin: 'Opim app, raitim code bilong yu, na paitim =',
-    indonesian: 'Buka aplikasi, ketik kode Anda, lalu tekan =',
-    nepali: 'एप खोल्नुहोस्, आफ्नो कोड टाइप गर्नुहोस्, त्यसपछि = थिच्नुहोस्',
-    hindi: 'ऐप खोलें, अपना कोड टाइप करें, फिर = दबाएं',
-    burmese: 'အက်ပ်ဖွင့်ပြီး သင့်ကုဒ်ကို ရိုက်ကာ = ကို နှိပ်ပါ',
-    thai: 'เปิดแอป พิมพ์รหัสของคุณ แล้วกด =',
-    mandarin: '打开应用，输入您的代码，然后按 ='
+    english: 'To unlock, open "{app}" and type your code on its keypad',
+    french:
+      'Pour déverrouiller, ouvrez « {app} » et saisissez votre code sur son clavier',
+    spanish:
+      'Para desbloquear, abre «{app}» y escribe tu código en su teclado',
+    brazilian_portuguese:
+      'Para desbloquear, abra "{app}" e digite seu código no teclado',
+    tok_pisin:
+      'Bilong go insait gen, opim "{app}" na raitim code bilong yu long keypad',
+    indonesian:
+      'Untuk membuka, buka "{app}" dan ketik kode Anda di papan tombolnya',
+    nepali:
+      'अनलक गर्न "{app}" खोल्नुहोस् र यसको किप्याडमा आफ्नो कोड टाइप गर्नुहोस्',
+    hindi: 'अनलॉक करने के लिए "{app}" खोलें और उसके कीपैड पर अपना कोड टाइप करें',
+    burmese:
+      'ပြန်ဖွင့်ရန် "{app}" ကိုဖွင့်ပြီး ၎င်း၏ကီးပက်ဒ်တွင် သင့်ကုဒ်ကို ရိုက်ပါ',
+    thai: 'หากต้องการปลดล็อก เปิด "{app}" แล้วพิมพ์รหัสของคุณบนแป้นพิมพ์',
+    mandarin: '要解锁，请打开"{app}"并在其键盘上输入您的代码'
   },
   appLockInstructionsNote: {
-    english: 'Open the app, type your code on its own line',
-    french: "Ouvrez l'application, saisissez votre code sur une ligne à part",
-    spanish: 'Abre la app y escribe tu código en su propia línea',
-    brazilian_portuguese: 'Abra o app e digite seu código em uma linha própria',
-    tok_pisin: 'Opim app, raitim code bilong yu long wanpela lain',
-    indonesian: 'Buka aplikasi, ketik kode Anda pada baris tersendiri',
-    nepali: 'एप खोल्नुहोस्, आफ्नो कोड छुट्टै लाइनमा टाइप गर्नुहोस्',
-    hindi: 'ऐप खोलें, अपना कोड एक अलग लाइन पर टाइप करें',
-    burmese: 'အက်ပ်ဖွင့်ပြီး သင့်ကုဒ်ကို သီးခြားစာကြောင်းတွင် ရိုက်ပါ',
-    thai: 'เปิดแอป พิมพ์รหัสของคุณในบรรทัดแยกต่างหาก',
-    mandarin: '打开应用，在单独一行输入您的代码'
+    english: 'To unlock, open "{app}" and type your code on its own line',
+    french:
+      'Pour déverrouiller, ouvrez « {app} » et saisissez votre code sur une ligne à part',
+    spanish:
+      'Para desbloquear, abre «{app}» y escribe tu código en su propia línea',
+    brazilian_portuguese:
+      'Para desbloquear, abra "{app}" e digite seu código em uma linha própria',
+    tok_pisin:
+      'Bilong go insait gen, opim "{app}" na raitim code bilong yu long wanpela lain',
+    indonesian:
+      'Untuk membuka, buka "{app}" dan ketik kode Anda pada baris tersendiri',
+    nepali:
+      'अनलक गर्न "{app}" खोल्नुहोस् र आफ्नो कोड छुट्टै लाइनमा टाइप गर्नुहोस्',
+    hindi: 'अनलॉक करने के लिए "{app}" खोलें और अपना कोड एक अलग लाइन पर टाइप करें',
+    burmese:
+      'ပြန်ဖွင့်ရန် "{app}" ကိုဖွင့်ပြီး သင့်ကုဒ်ကို သီးခြားစာကြောင်းတွင် ရိုက်ပါ',
+    thai: 'หากต้องการปลดล็อก เปิด "{app}" แล้วพิมพ์รหัสของคุณในบรรทัดแยกต่างหาก',
+    mandarin: '要解锁，请打开"{app}"，在单独一行输入您的代码'
   },
   appLockMismatch: {
     english: 'Codes do not match',

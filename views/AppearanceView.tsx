@@ -1,7 +1,11 @@
+import { Check } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
-import { Image, ScrollView, View } from 'react-native';
+import { Image, View } from 'react-native';
+import type { ImageSourcePropType } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 
 import { Button } from '@/components/ui/button';
+import { Icon } from '@/components/ui/icon';
 import {
   Card,
   CardDescription,
@@ -14,13 +18,57 @@ import { Text } from '@/components/ui/text';
 import { clearPin, hasPin, setPin } from '@/features/appearance/guard';
 import { ICON_PREVIEWS } from '@/features/appearance/iconAssets';
 import { applyTheme } from '@/features/appearance/iconTheme';
-import { getThemeProfiles } from '@/features/appearance/profiles.data';
+import {
+  getFamilyLabel,
+  getThemeProfile,
+  getThemeProfiles
+} from '@/features/appearance/profiles.data';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
 import { cn } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 
 const MIN_CODE_LENGTH = 4;
+
+// Standard (non-disguised) icon, shown as the first tile so the feature can be
+// turned off from the same grid it was turned on from.
+const DEFAULT_ICON_PREVIEW = require('@/assets/icons/icon_light.png');
+
+interface IconTileProps {
+  selected: boolean;
+  source: ImageSourcePropType;
+  onPress: () => void;
+}
+
+function IconTile({ selected, source, onPress }: IconTileProps) {
+  return (
+    <Button
+      variant="plain"
+      size="auto"
+      className={cn(
+        'w-[30%] items-center gap-2 rounded-2xl border-2 p-2',
+        selected ? 'border-primary' : 'border-transparent'
+      )}
+      onPress={onPress}
+    >
+      <Image
+        source={source}
+        className="aspect-square w-full rounded-2xl"
+        resizeMode="cover"
+      />
+      {selected && (
+        <View className="absolute -right-2 -top-2 size-6 items-center justify-center rounded-full border-2 border-background bg-primary">
+          <Icon
+            as={Check}
+            size={14}
+            strokeWidth={3.5}
+            className="text-primary-foreground"
+          />
+        </View>
+      )}
+    </Button>
+  );
+}
 
 export default function AppearanceView() {
   const { t } = useLocalization();
@@ -50,6 +98,11 @@ export default function AppearanceView() {
     },
     [setAppearanceThemeId, setEntryGuardMode]
   );
+
+  const handleSelectDefault = useCallback(async () => {
+    setAppearanceThemeId(null);
+    await applyTheme(null);
+  }, [setAppearanceThemeId]);
 
   const handleToggleLock = useCallback(
     (next: boolean) => {
@@ -88,15 +141,24 @@ export default function AppearanceView() {
     setConfirm('');
   }, []);
 
+  // The disguise's home-screen name, decoded at runtime (never plaintext in
+  // source). Falls back to the family's label when no theme is selected.
+  const surfaceLabel = appearanceThemeId
+    ? (getThemeProfile(appearanceThemeId)?.label ??
+      getFamilyLabel(entryGuardMode))
+    : getFamilyLabel(entryGuardMode);
+
   const instructions =
     entryGuardMode === 'B'
-      ? t('appLockInstructionsNote')
-      : t('appLockInstructionsKeypad');
+      ? t('appLockInstructionsNote', { app: surfaceLabel })
+      : t('appLockInstructionsKeypad', { app: surfaceLabel });
 
   return (
-    <ScrollView
+    <KeyboardAwareScrollView
       className="flex-1"
       contentContainerClassName="p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]"
+      bottomOffset={96}
+      extraKeyboardSpace={20}
     >
       <View className="gap-6">
         <View className="gap-1">
@@ -107,27 +169,19 @@ export default function AppearanceView() {
         </View>
 
         <View className="flex-row flex-wrap justify-between gap-y-4">
-          {profiles.map((profile) => {
-            const selected = profile.id === appearanceThemeId;
-            return (
-              <Button
-                key={profile.id}
-                variant="plain"
-                size="auto"
-                className={cn(
-                  'w-[30%] items-center gap-2 rounded-2xl border-2 p-2',
-                  selected ? 'border-primary' : 'border-transparent'
-                )}
-                onPress={() => void handleSelect(profile.id, profile.family)}
-              >
-                <Image
-                  source={ICON_PREVIEWS[profile.id]}
-                  className="aspect-square w-full rounded-2xl"
-                  resizeMode="cover"
-                />
-              </Button>
-            );
-          })}
+          <IconTile
+            selected={appearanceThemeId === null}
+            source={DEFAULT_ICON_PREVIEW}
+            onPress={() => void handleSelectDefault()}
+          />
+          {profiles.map((profile) => (
+            <IconTile
+              key={profile.id}
+              selected={profile.id === appearanceThemeId}
+              source={ICON_PREVIEWS[profile.id]}
+              onPress={() => void handleSelect(profile.id, profile.family)}
+            />
+          ))}
         </View>
 
         <View className="gap-2">
@@ -137,9 +191,11 @@ export default function AppearanceView() {
               <CardDescription>{t('appLockDescription')}</CardDescription>
             </CardHeader>
             <Switch
-              checked={entryGuardEnabled}
+              checked={entryGuardEnabled || showCodeSetup}
               onCheckedChange={handleToggleLock}
-              className={cn(!entryGuardEnabled && 'dark:bg-accent/60')}
+              className={cn(
+                !(entryGuardEnabled || showCodeSetup) && 'dark:bg-accent/60'
+              )}
             />
           </Card>
 
@@ -181,6 +237,6 @@ export default function AppearanceView() {
           )}
         </View>
       </View>
-    </ScrollView>
+    </KeyboardAwareScrollView>
   );
 }

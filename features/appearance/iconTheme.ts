@@ -12,24 +12,36 @@ import {
 
 const DEFAULT_ALIAS = 'DEFAULT';
 
+// On Android, switching immediately would disable the activity-alias the app
+// is currently running from, and the OS kills the process on the spot
+// (DONT_KILL_APP cannot protect the current task's root component). Deferred
+// mode records the change and the plugin's lifecycle listener applies it a few
+// seconds after the app is backgrounded, when a task kill is harmless. iOS
+// uses the safe alternate-icon API, so it can switch right away.
+const SWITCH_OPTIONS = {
+  showToast: false,
+  immediate: Platform.OS !== 'android',
+  delay: 3000
+} as const;
+
 /**
  * Applies the icon theme with the given id. Passing null restores the default
- * app icon. On Android the app label also changes (handled by the native alias
- * declared at build time). On iOS the system shows an unavoidable confirmation
+ * app icon. On Android the icon (and app label) updates shortly after the app
+ * goes to background. On iOS the system shows an unavoidable confirmation
  * alert; that is accepted behaviour.
  */
 export async function applyTheme(themeId: string | null): Promise<void> {
   if (Platform.OS === 'web') return;
 
   if (!themeId) {
-    await setAppIdentity(DEFAULT_ALIAS, { showToast: false });
+    await setAppIdentity(DEFAULT_ALIAS, SWITCH_OPTIONS);
     return;
   }
 
   const profile = getThemeProfile(themeId);
   if (!profile) return;
 
-  await setAppIdentity(profile.aliasName, { showToast: false });
+  await setAppIdentity(profile.aliasName, SWITCH_OPTIONS);
 }
 
 /**
