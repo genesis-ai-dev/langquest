@@ -178,7 +178,7 @@ export default function AppearanceView() {
             <IconTile
               key={profile.id}
               selected={profile.id === appearanceThemeId}
-              source={ICON_PREVIEWS[profile.id]}
+              source={ICON_PREVIEWS[profile.id] ?? DEFAULT_ICON_PREVIEW}
               onPress={() => void handleSelect(profile.id, profile.family)}
             />
           ))}

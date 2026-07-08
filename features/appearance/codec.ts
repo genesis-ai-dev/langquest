@@ -52,7 +52,9 @@ export function decode(blob: string): string {
   const bytes = fromBase64(blob);
   let out = '';
   for (let i = 0; i < bytes.length; i++) {
-    out += String.fromCharCode((bytes[i] ?? 0) ^ KEY.charCodeAt(i % KEY.length));
+    out += String.fromCharCode(
+      (bytes[i] ?? 0) ^ KEY.charCodeAt(i % KEY.length)
+    );
   }
   return out;
 }

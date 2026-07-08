@@ -189,25 +189,45 @@ function KeypadSurface({ onUnlock }: { onUnlock: () => void }) {
         { label: 'AC', kind: 'fn', onPress: clearAll },
         { label: '⌫', kind: 'fn', onPress: backspace },
         { label: '%', kind: 'fn', onPress: percent },
-        { label: '÷', kind: 'op', active: op === '÷', onPress: () => applyOp('÷') }
+        {
+          label: '÷',
+          kind: 'op',
+          active: op === '÷',
+          onPress: () => applyOp('÷')
+        }
       ],
       [
         { label: '7', kind: 'num', onPress: () => pushDigit('7') },
         { label: '8', kind: 'num', onPress: () => pushDigit('8') },
         { label: '9', kind: 'num', onPress: () => pushDigit('9') },
-        { label: '×', kind: 'op', active: op === '×', onPress: () => applyOp('×') }
+        {
+          label: '×',
+          kind: 'op',
+          active: op === '×',
+          onPress: () => applyOp('×')
+        }
       ],
       [
         { label: '4', kind: 'num', onPress: () => pushDigit('4') },
         { label: '5', kind: 'num', onPress: () => pushDigit('5') },
         { label: '6', kind: 'num', onPress: () => pushDigit('6') },
-        { label: '−', kind: 'op', active: op === '-', onPress: () => applyOp('-') }
+        {
+          label: '−',
+          kind: 'op',
+          active: op === '-',
+          onPress: () => applyOp('-')
+        }
       ],
       [
         { label: '1', kind: 'num', onPress: () => pushDigit('1') },
         { label: '2', kind: 'num', onPress: () => pushDigit('2') },
         { label: '3', kind: 'num', onPress: () => pushDigit('3') },
-        { label: '+', kind: 'op', active: op === '+', onPress: () => applyOp('+') }
+        {
+          label: '+',
+          kind: 'op',
+          active: op === '+',
+          onPress: () => applyOp('+')
+        }
       ],
       [
         { label: '0', kind: 'num', wide: true, onPress: () => pushDigit('0') },

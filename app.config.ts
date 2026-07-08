@@ -94,7 +94,7 @@ function decodeAppearanceLabels(): {
   let out = '';
   for (let i = 0; i < bytes.length; i++) {
     out += String.fromCharCode(
-      bytes[i] ^ APPEARANCE_KEY.charCodeAt(i % APPEARANCE_KEY.length)
+      (bytes[i] ?? 0) ^ APPEARANCE_KEY.charCodeAt(i % APPEARANCE_KEY.length)
     );
   }
   return JSON.parse(out) as { aliasName: string; label: string; id: string }[];

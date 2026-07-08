@@ -8525,8 +8525,7 @@ export const localizations = {
     english: 'To unlock, open "{app}" and type your code on its keypad',
     french:
       'Pour déverrouiller, ouvrez « {app} » et saisissez votre code sur son clavier',
-    spanish:
-      'Para desbloquear, abre «{app}» y escribe tu código en su teclado',
+    spanish: 'Para desbloquear, abre «{app}» y escribe tu código en su teclado',
     brazilian_portuguese:
       'Para desbloquear, abra "{app}" e digite seu código no teclado',
     tok_pisin:
@@ -8535,7 +8534,8 @@ export const localizations = {
       'Untuk membuka, buka "{app}" dan ketik kode Anda di papan tombolnya',
     nepali:
       'अनलक गर्न "{app}" खोल्नुहोस् र यसको किप्याडमा आफ्नो कोड टाइप गर्नुहोस्',
-    hindi: 'अनलॉक करने के लिए "{app}" खोलें और उसके कीपैड पर अपना कोड टाइप करें',
+    hindi:
+      'अनलॉक करने के लिए "{app}" खोलें और उसके कीपैड पर अपना कोड टाइप करें',
     burmese:
       'ပြန်ဖွင့်ရန် "{app}" ကိုဖွင့်ပြီး ၎င်း၏ကီးပက်ဒ်တွင် သင့်ကုဒ်ကို ရိုက်ပါ',
     thai: 'หากต้องการปลดล็อก เปิด "{app}" แล้วพิมพ์รหัสของคุณบนแป้นพิมพ์',
@@ -8555,7 +8555,8 @@ export const localizations = {
       'Untuk membuka, buka "{app}" dan ketik kode Anda pada baris tersendiri',
     nepali:
       'अनलक गर्न "{app}" खोल्नुहोस् र आफ्नो कोड छुट्टै लाइनमा टाइप गर्नुहोस्',
-    hindi: 'अनलॉक करने के लिए "{app}" खोलें और अपना कोड एक अलग लाइन पर टाइप करें',
+    hindi:
+      'अनलॉक करने के लिए "{app}" खोलें और अपना कोड एक अलग लाइन पर टाइप करें',
     burmese:
       'ပြန်ဖွင့်ရန် "{app}" ကိုဖွင့်ပြီး သင့်ကုဒ်ကို သီးခြားစာကြောင်းတွင် ရိုက်ပါ',
     thai: 'หากต้องการปลดล็อก เปิด "{app}" แล้วพิมพ์รหัสของคุณในบรรทัดแยกต่างหาก',

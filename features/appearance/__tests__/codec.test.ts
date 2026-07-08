@@ -10,7 +10,10 @@ describe('codec', () => {
   });
 
   it('round-trips json payloads', () => {
-    const payload = JSON.stringify([{ id: 'a01', n: 1 }, { id: 'b05', n: 5 }]);
+    const payload = JSON.stringify([
+      { id: 'a01', n: 1 },
+      { id: 'b05', n: 5 }
+    ]);
     expect(decode(encode(payload))).toBe(payload);
   });
 
