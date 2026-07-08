@@ -12,6 +12,7 @@ import { useLocalStore } from '@/store/localStore';
 import { cn } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import type { Href } from 'expo-router';
+import { useRouter } from 'expo-router';
 import React from 'react';
 import { Pressable, ScrollView, TouchableOpacity, View } from 'react-native';
 
@@ -34,6 +35,7 @@ interface SettingsItem {
 export default function SettingsView() {
   const { t } = useLocalization();
   const isOnline = useNetworkStatus();
+  const router = useRouter();
 
   // Centralized settings store (select individual slices to avoid broad subscriptions)
   const notificationsEnabled = useLocalStore(
@@ -177,6 +179,18 @@ export default function SettingsView() {
           type: 'toggle',
           value: notificationsEnabled,
           onPress: () => handleNotificationToggle(!notificationsEnabled)
+        }
+      ]
+    },
+    {
+      title: t('appIconTheme'),
+      items: [
+        {
+          id: 'appearance',
+          title: t('appIconTheme'),
+          description: t('appIconThemeDescription'),
+          type: 'link',
+          onPress: () => router.push('/(app)/appearance' as Href)
         }
       ]
     },

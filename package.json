@@ -1,7 +1,7 @@
 {
   "name": "langquest",
   "main": "expo-router/entry",
-  "version": "2.2.2",
+  "version": "2.2.3",
   "scripts": {
     "start": "expo start --dev-client",
     "start:offline:android": "npm run start -- --localhost --android",
@@ -88,6 +88,7 @@
     "@powersync/react-native": "^1.30.2",
     "@powersync/tanstack-react-query": "^0.2.0",
     "@powersync/web": "^1.34.0",
+    "@praneeth26/expo-dynamic-app-identity": "^1.2.2",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/netinfo": "11.5.2",
     "@react-native-community/slider": "5.1.2",
@@ -127,6 +128,7 @@
     "expo-build-properties": "~55.0.9",
     "expo-clipboard": "~55.0.8",
     "expo-constants": "~55.0.4",
+    "expo-crypto": "~55.0.16",
     "expo-dev-client": "~55.0.11",
     "expo-device": "~55.0.9",
     "expo-drizzle-studio-plugin": "^0.2.1",
@@ -140,6 +142,7 @@
     "expo-localization": "~55.0.8",
     "expo-manifests": "~55.0.9",
     "expo-router": "~55.0.4",
+    "expo-secure-store": "~55.0.15",
     "expo-sharing": "~55.0.11",
     "expo-splash-screen": "~55.0.10",
     "expo-sqlite": "~55.0.10",
@@ -249,7 +252,10 @@
     "sharp-cli": {
       "glob": "^13.0.0"
     },
-    "lightningcss": "1.31.1"
+    "lightningcss": "1.31.1",
+    "@praneeth26/expo-dynamic-app-identity": {
+      "expo-modules-core": "~55.0.13"
+    }
   },
   "private": true
 }
