@@ -8,7 +8,7 @@ import {
   enqueue as enqueueAssetGc,
   type AssetGcOperation
 } from './assetGarbageCollectorService';
-import { batchUpdateAssetMetadata, renameAsset } from './assetService';
+import { batchUpdateAssetVerse, renameAsset } from './assetService';
 
 async function restoreAssetsToQuest(
   projectId: string,
@@ -105,10 +105,13 @@ async function undoCreate(
   await detachAssetsFromQuest(questId, newIds, 'delete');
 }
 
-async function undoRename(operation: AssetOperationTypes): Promise<void> {
+async function undoRename(
+  questId: string,
+  operation: AssetOperationTypes
+): Promise<void> {
   for (const previous of operation.previousData) {
     if (!previous.name) continue;
-    await renameAsset(previous.id, previous.name);
+    await renameAsset(questId, previous.id, previous.name);
   }
 }
 
@@ -149,7 +152,10 @@ async function undoReplace(
   await detachAssetsFromQuest(questId, newIds, 'delete');
 }
 
-async function undoMove(operation: AssetOperationTypes): Promise<void> {
+async function undoMove(
+  questId: string,
+  operation: AssetOperationTypes
+): Promise<void> {
   const updates = operation.previousData.map((item) => ({
     assetId: item.id,
     metadata: item.metadata ?? null,
@@ -157,7 +163,7 @@ async function undoMove(operation: AssetOperationTypes): Promise<void> {
   }));
 
   if (updates.length === 0) return;
-  await batchUpdateAssetMetadata(updates);
+  await batchUpdateAssetVerse(questId, updates);
 }
 
 async function redoCreate(
@@ -170,10 +176,13 @@ async function redoCreate(
   await dequeueAssetGc(newIds);
 }
 
-async function redoRename(operation: AssetOperationTypes): Promise<void> {
+async function redoRename(
+  questId: string,
+  operation: AssetOperationTypes
+): Promise<void> {
   for (const next of operation.newData) {
     if (!next.name) continue;
-    await renameAsset(next.id, next.name);
+    await renameAsset(questId, next.id, next.name);
   }
 }
 
@@ -211,7 +220,10 @@ async function redoReplace(
   await dequeueAssetGc(newIds);
 }
 
-async function redoMove(operation: AssetOperationTypes): Promise<void> {
+async function redoMove(
+  questId: string,
+  operation: AssetOperationTypes
+): Promise<void> {
   const updates = operation.newData.map((item) => ({
     assetId: item.id,
     metadata: item.metadata ?? null,
@@ -219,7 +231,7 @@ async function redoMove(operation: AssetOperationTypes): Promise<void> {
   }));
 
   if (updates.length === 0) return;
-  await batchUpdateAssetMetadata(updates);
+  await batchUpdateAssetVerse(questId, updates);
 }
 
 /**
@@ -244,7 +256,7 @@ export async function undo(
       await undoCreate(questId, operation);
       return;
     case 'rename':
-      await undoRename(operation);
+      await undoRename(questId, operation);
       return;
     case 'delete':
       await undoDelete(projectId, questId, operation);
@@ -256,7 +268,7 @@ export async function undo(
       await undoReplace(questId, projectId, operation);
       return;
     case 'move':
-      await undoMove(operation);
+      await undoMove(questId, operation);
       return;
     default:
       throw new Error(`Unsupported asset undo action: ${operation.action}`);
@@ -285,7 +297,7 @@ export async function redo(
       await redoCreate(projectId, questId, operation);
       return;
     case 'rename':
-      await redoRename(operation);
+      await redoRename(questId, operation);
       return;
     case 'delete':
       await redoDelete(questId, operation);
@@ -297,7 +309,7 @@ export async function redo(
       await redoReplace(projectId, questId, operation);
       return;
     case 'move':
-      await redoMove(operation);
+      await redoMove(questId, operation);
       return;
     default:
       throw new Error(`Unsupported asset redo action: ${operation.action}`);

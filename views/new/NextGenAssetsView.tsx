@@ -692,10 +692,10 @@ export default function NextGenAssetsView() {
 
   const handleSaveRename = React.useCallback(
     async (newName: string) => {
-      if (!renameAssetId) return;
+      if (!renameAssetId || !questId) return;
 
       try {
-        await renameAsset(renameAssetId, newName);
+        await renameAsset(questId, renameAssetId, newName);
         pushUndoHistory({
           domain: 'asset',
           action: 'rename',

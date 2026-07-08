@@ -34,6 +34,18 @@ export interface SaveRecordingParams {
   metadata?: AssetMetadata | null; // Optional verse metadata
 }
 
+type PersistedAssetMetadata = AssetMetadata & {
+  origin: {
+    questId: string;
+  };
+};
+
+type QuestAssetLinkMetadata = AssetMetadata & {
+  provenance?: {
+    type: 'created';
+  };
+};
+
 /**
  * Save a new recording to the database
  * - Shifts existing assets if needed
@@ -41,7 +53,7 @@ export interface SaveRecordingParams {
  * - Returns the new asset ID
  * - Asset name should be pre-determined and reserved by caller to prevent duplicates
  */
-export async function saveRecording(
+export async function saveRecordingLegacy(
   params: SaveRecordingParams
 ): Promise<string> {
   const {
@@ -138,17 +150,134 @@ export async function saveRecording(
 }
 
 /**
+ * Save a new recording to the database.
+ * Quest-specific placement fields are written to quest_asset_link.
+ */
+export async function saveRecording(
+  params: SaveRecordingParams
+): Promise<string> {
+  const {
+    questId,
+    projectId,
+    targetLanguoidId,
+    userId,
+    orderIndex,
+    audioUri,
+    assetName,
+    metadata
+  } = params;
+
+  const newAssetId = String(uuid.v4());
+  const assetMetadata: PersistedAssetMetadata = {
+    ...(metadata ?? {}),
+    origin: {
+      questId
+    }
+  };
+  const questAssetLinkMetadata: QuestAssetLinkMetadata = {
+    ...(metadata ?? {}),
+    provenance: {
+      type: 'created'
+    }
+  };
+
+  console.log(
+    `💾 Saving recording | name: ${assetName} | order_index: ${orderIndex}`
+  );
+
+  await system.db.transaction(async (tx) => {
+    const assetLocal = resolveTable('asset', { localOverride: true });
+    const linkLocal = resolveTable('quest_asset_link', { localOverride: true });
+    const contentLocal = resolveTable('asset_content_link', {
+      localOverride: true
+    });
+
+    // 1. Shift existing quest placements at or after target order_index
+    const linksToShift = await tx
+      .select({
+        asset_id: linkLocal.asset_id,
+        order_index: linkLocal.order_index
+      })
+      .from(linkLocal)
+      .where(
+        and(
+          eq(linkLocal.quest_id, questId),
+          gte(linkLocal.order_index, orderIndex)
+        )
+      );
+
+    if (linksToShift.length > 0) {
+      console.log(`  📊 Shifting ${linksToShift.length} existing links`);
+      for (const link of linksToShift) {
+        if (typeof link.order_index === 'number') {
+          await tx
+            .update(linkLocal)
+            .set({ order_index: link.order_index + 1 })
+            .where(
+              and(
+                eq(linkLocal.quest_id, questId),
+                eq(linkLocal.asset_id, link.asset_id)
+              )
+            );
+        }
+      }
+    }
+
+    // 2. Insert new asset. Name is intentionally still stored here for now.
+    const [newAsset] = await tx
+      .insert(assetLocal)
+      .values({
+        id: newAssetId,
+        name: assetName,
+        order_index: orderIndex,
+        source_language_id: targetLanguoidId, // Deprecated field, kept for backward compatibility
+        project_id: projectId,
+        creator_id: userId,
+        download_profiles: [userId],
+        metadata: JSON.stringify(assetMetadata)
+      })
+      .returning();
+
+    if (!newAsset) {
+      throw new Error('Failed to insert asset');
+    }
+
+    // 3. Link to quest with quest-specific placement data
+    await tx.insert(linkLocal).values({
+      id: String(uuid.v4()),
+      quest_id: questId,
+      asset_id: newAssetId,
+      name: assetName,
+      order_index: orderIndex,
+      metadata: JSON.stringify(questAssetLinkMetadata),
+      download_profiles: [userId]
+    });
+
+    // 4. Add audio content with languoid_id
+    await tx.insert(contentLocal).values({
+      asset_id: newAssetId,
+      source_language_id: targetLanguoidId, // Deprecated field, kept for backward compatibility
+      languoid_id: targetLanguoidId, // New languoid reference
+      text: assetName,
+      audio: [audioUri],
+      download_profiles: [userId]
+    });
+  });
+
+  console.log(`✅ Saved | ${assetName} | ${newAssetId.slice(0, 8)}`);
+  return newAssetId;
+}
+
+/**
  * Get the next available order_index for a quest
  * Useful for initializing VAD counter
  */
 export async function getNextOrderIndex(questId: string): Promise<number> {
-  const assetLocal = resolveTable('asset', { localOverride: true });
   const linkLocal = resolveTable('quest_asset_link', { localOverride: true });
 
   const assets = await system.db
-    .select({ order_index: assetLocal.order_index })
-    .from(assetLocal)
-    .innerJoin(linkLocal, eq(assetLocal.id, linkLocal.asset_id))
+    .select({ order_index: linkLocal.order_index })
+    .from(linkLocal)
     .where(eq(linkLocal.quest_id, questId));
 
   const maxOrder = Math.max(

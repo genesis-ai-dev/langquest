@@ -849,6 +849,7 @@ export function createQuestAssetLinkTable<
     'quest_asset_link',
     {
       ...getBaseColumns(source),
+      name: text(),
       download_profiles: text({ mode: 'json' }).$type<string[]>(),
       visible: int({ mode: 'boolean' }).notNull().default(true),
       quest_id: text()
@@ -857,6 +858,8 @@ export function createQuestAssetLinkTable<
       asset_id: text()
         .notNull()
         .references(() => asset.id),
+      order_index: int().notNull().default(0),
+      metadata: text(),
       uploaded_at: text(), // Nullable - set by server trigger when content is uploaded
       ...extraColumns
     },

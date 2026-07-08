@@ -105,7 +105,7 @@ import {
 import { run as runAssetGarbageCollector } from '@/database_services/assetGarbageCollectorService';
 import type { AssetUpdatePayload } from '@/database_services/assetService';
 import {
-  batchUpdateAssetMetadata,
+  batchUpdateAssetVerse,
   renameAsset,
   softDeleteAssetsFromQuest,
   softMergeAssetsInQuest
@@ -1581,12 +1581,12 @@ export default function BibleAssetsView() {
 
   const handleSaveRename = React.useCallback(
     async (newName: string) => {
-      if (!renameAssetId) return;
+      if (!renameAssetId || !questId) return;
 
       try {
         // renameAsset will validate that this is a local-only asset
         // and throw if it's synced (immutable)
-        await renameAsset(renameAssetId, newName);
+        await renameAsset(questId, renameAssetId, newName);
 
         pushUndoHistory({
           domain: 'asset',
@@ -1844,7 +1844,7 @@ export default function BibleAssetsView() {
           try {
             const { previousData, newData } =
               buildMoveHistoryEntries(assetsToUpdate);
-            await batchUpdateAssetMetadata(assetsToUpdate);
+            await batchUpdateAssetVerse(questId!, assetsToUpdate);
             if (previousData.length > 0) {
               pushUndoHistory({
                 domain: 'asset',
@@ -1990,7 +1990,7 @@ export default function BibleAssetsView() {
         try {
           const { previousData, newData } =
             buildMoveHistoryEntries(assetsToUpdate);
-          await batchUpdateAssetMetadata(assetsToUpdate);
+          await batchUpdateAssetVerse(questId!, assetsToUpdate);
           if (previousData.length > 0) {
             pushUndoHistory({
               domain: 'asset',
@@ -2355,7 +2355,7 @@ export default function BibleAssetsView() {
         );
 
         const { previousData, newData } = buildMoveHistoryEntries(updates);
-        await batchUpdateAssetMetadata(updates);
+        await batchUpdateAssetVerse(questId!, updates);
         if (previousData.length > 0) {
           pushUndoHistory({
             domain: 'asset',
@@ -2433,7 +2433,7 @@ export default function BibleAssetsView() {
       );
 
       const { previousData, newData } = buildMoveHistoryEntries(updates);
-      await batchUpdateAssetMetadata(updates);
+      await batchUpdateAssetVerse(questId!, updates);
       if (previousData.length > 0) {
         pushUndoHistory({
           domain: 'asset',
@@ -3931,7 +3931,7 @@ export default function BibleAssetsView() {
       if (updates.length > 0) {
         try {
           const { previousData, newData } = buildMoveHistoryEntries(updates);
-          await batchUpdateAssetMetadata(updates);
+          await batchUpdateAssetVerse(questId!, updates);
           if (previousData.length > 0) {
             pushUndoHistory({
               domain: 'asset',

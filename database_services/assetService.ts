@@ -19,22 +19,108 @@ export interface AssetMetadata {
   recordingSessionId?: string;
 }
 
+export interface QuestAssetLinkMetadata {
+  verse?: {
+    from: number;
+    to: number;
+  };
+  recordingSessionId?: string;
+  provenance?: {
+    type: 'created' | 'imported';
+  };
+}
+
 /**
- * Update an asset's name - ONLY for local-only assets
+ * Update an asset's name within a quest.
+ * - Published quest_asset_link rows are immutable.
+ * - Imported/remixed links only update quest_asset_link.name.
+ * - Created links update both quest_asset_link.name and the local asset name.
+ *
+ * @param questId - The quest where the asset is being renamed
  * @param assetId - The ID of the asset to rename
  * @param newName - The new name for the asset
- * @throws Error if asset is synced (immutable)
+ * @throws Error if the quest link or created asset is synced (immutable)
  */
 export async function renameAsset(
+  questId: string,
   assetId: string,
   newName: string
 ): Promise<void> {
   try {
-    // CRITICAL: Only allow renaming local-only assets
-    // Synced assets are immutable once published
+    const trimmedName = newName.trim();
+    const questAssetLinkLocalTable = resolveTable('quest_asset_link', {
+      localOverride: true
+    });
+    const questAssetLinkSyncedTable = resolveTable('quest_asset_link', {
+      localOverride: false
+    });
     const assetLocalTable = resolveTable('asset', { localOverride: true });
 
-    // First, verify this asset exists in the LOCAL table only
+    const syncedQuestAssetLink = await system.db
+      .select()
+      .from(questAssetLinkSyncedTable)
+      .where(
+        and(
+          eq(questAssetLinkSyncedTable.quest_id, questId),
+          eq(questAssetLinkSyncedTable.asset_id, assetId)
+        )
+      )
+      .limit(1);
+
+    if (syncedQuestAssetLink.length > 0) {
+      throw new Error(
+        'Cannot rename asset in a published quest link - it is immutable once published'
+      );
+    }
+
+    const localQuestAssetLink = await system.db
+      .select()
+      .from(questAssetLinkLocalTable)
+      .where(
+        and(
+          eq(questAssetLinkLocalTable.quest_id, questId),
+          eq(questAssetLinkLocalTable.asset_id, assetId)
+        )
+      )
+      .limit(1);
+
+    const questAssetLink = localQuestAssetLink[0];
+
+    if (!questAssetLink) {
+      throw new Error(
+        'Quest asset link not found in local table - cannot rename published links'
+      );
+    }
+
+    const parsedMetadata =
+      typeof questAssetLink.metadata === 'string'
+        ? (JSON.parse(questAssetLink.metadata) as {
+            provenance?: { type?: string };
+          })
+        : (questAssetLink.metadata as {
+            provenance?: { type?: string };
+          } | null);
+    const isCreated = parsedMetadata?.provenance?.type === 'created';
+
+    if (!isCreated) {
+      await system.db
+        .update(questAssetLinkLocalTable)
+        .set({ name: trimmedName })
+        .where(
+          and(
+            eq(questAssetLinkLocalTable.quest_id, questId),
+            eq(questAssetLinkLocalTable.asset_id, assetId)
+          )
+        );
+
+      console.log(
+        `✅ Quest asset link ${assetId.slice(0, 8)} renamed to: ${trimmedName}`
+      );
+      return;
+    }
+
+    // Created assets can update the canonical local asset too, as long as it
+    // has not been published.
     const localAsset = await system.db
       .select()
       .from(assetLocalTable)
@@ -47,7 +133,6 @@ export async function renameAsset(
       );
     }
 
-    // Verify it doesn't exist in synced table (double-check it's not published)
     const syncedTable = resolveTable('asset', { localOverride: false });
     const syncedAsset = await system.db
       .select()
@@ -61,13 +146,24 @@ export async function renameAsset(
       );
     }
 
-    // Safe to rename - it's local only
-    await system.db
-      .update(assetLocalTable)
-      .set({ name: newName.trim() })
-      .where(eq(assetLocalTable.id, assetId));
+    await system.db.transaction(async (tx) => {
+      await tx
+        .update(assetLocalTable)
+        .set({ name: trimmedName })
+        .where(eq(assetLocalTable.id, assetId));
 
-    console.log(`✅ Asset ${assetId.slice(0, 8)} renamed to: ${newName}`);
+      await tx
+        .update(questAssetLinkLocalTable)
+        .set({ name: trimmedName })
+        .where(
+          and(
+            eq(questAssetLinkLocalTable.quest_id, questId),
+            eq(questAssetLinkLocalTable.asset_id, assetId)
+          )
+        );
+    });
+
+    console.log(`✅ Asset ${assetId.slice(0, 8)} renamed to: ${trimmedName}`);
   } catch (error) {
     console.error('Failed to rename asset:', error);
     throw error;
@@ -146,12 +242,6 @@ export async function updateAssetContentText(
   }
 }
 
-/**
- * Update asset metadata (verse range) - ONLY for local-only assets
- * @param assetId - The ID of the asset to update
- * @param metadata - The metadata object to store (will be JSON stringified)
- * @throws Error if asset is synced (immutable)
- */
 export async function updateAssetMetadata(
   assetId: string,
   metadata: AssetMetadata | null
@@ -200,6 +290,201 @@ export async function updateAssetMetadata(
   }
 }
 
+type MetadataRecord = Record<string, unknown> & {
+  verse?: {
+    from?: number;
+    to?: number;
+  };
+  provenance?: {
+    type?: string;
+  };
+};
+
+function parseMetadataRecord(metadata: unknown): MetadataRecord {
+  if (!metadata) return {};
+  if (typeof metadata === 'string') {
+    try {
+      const parsed = JSON.parse(metadata) as unknown;
+      return parsed && typeof parsed === 'object'
+        ? (parsed as MetadataRecord)
+        : {};
+    } catch {
+      return {};
+    }
+  }
+  return typeof metadata === 'object' ? (metadata as MetadataRecord) : {};
+}
+
+function patchVerseMetadata(
+  existingMetadata: unknown,
+  nextVerse: AssetMetadata['verse'] | null | undefined
+): MetadataRecord {
+  const base = parseMetadataRecord(existingMetadata);
+
+  if (!nextVerse) {
+    const { verse: _verse, ...rest } = base;
+    return rest;
+  }
+
+  return {
+    ...base,
+    verse: {
+      ...(base.verse ?? {}),
+      from: nextVerse.from,
+      to: nextVerse.to
+    }
+  };
+}
+
+export async function updateAssetVerse(
+  questId: string,
+  assetId: string,
+  metadata: AssetMetadata | null | undefined,
+  orderIndex?: number
+): Promise<void> {
+  try {
+    const questAssetLinkLocalTable = resolveTable('quest_asset_link', {
+      localOverride: true
+    });
+    const questAssetLinkSyncedTable = resolveTable('quest_asset_link', {
+      localOverride: false
+    });
+    const assetLocalTable = resolveTable('asset', { localOverride: true });
+
+    const syncedQuestAssetLink = await system.db
+      .select()
+      .from(questAssetLinkSyncedTable)
+      .where(
+        and(
+          eq(questAssetLinkSyncedTable.quest_id, questId),
+          eq(questAssetLinkSyncedTable.asset_id, assetId)
+        )
+      )
+      .limit(1);
+
+    if (syncedQuestAssetLink.length > 0) {
+      throw new Error(
+        'Cannot update verse in a published quest link - it is immutable once published'
+      );
+    }
+
+    const localQuestAssetLink = await system.db
+      .select()
+      .from(questAssetLinkLocalTable)
+      .where(
+        and(
+          eq(questAssetLinkLocalTable.quest_id, questId),
+          eq(questAssetLinkLocalTable.asset_id, assetId)
+        )
+      )
+      .limit(1);
+
+    const questAssetLink = localQuestAssetLink[0];
+
+    if (!questAssetLink) {
+      throw new Error(
+        'Quest asset link not found in local table - cannot update published links'
+      );
+    }
+
+    const setLinkPayload: {
+      metadata?: string;
+      order_index?: number;
+    } = {};
+
+    if (metadata !== undefined) {
+      const nextLinkMetadata = patchVerseMetadata(
+        questAssetLink.metadata,
+        metadata?.verse
+      );
+      setLinkPayload.metadata = JSON.stringify(nextLinkMetadata);
+    }
+
+    if (orderIndex !== undefined) {
+      setLinkPayload.order_index = orderIndex;
+    }
+
+    if (Object.keys(setLinkPayload).length === 0) {
+      return;
+    }
+
+    const isCreated =
+      parseMetadataRecord(questAssetLink.metadata).provenance?.type ===
+      'created';
+
+    if (!isCreated) {
+      console.log('>>>>> Updating quest asset link metadata');
+      await system.db
+        .update(questAssetLinkLocalTable)
+        .set(setLinkPayload)
+        .where(
+          and(
+            eq(questAssetLinkLocalTable.quest_id, questId),
+            eq(questAssetLinkLocalTable.asset_id, assetId)
+          )
+        );
+
+      // console.log(`✅ Quest asset link ${assetId.slice(0, 8)} verse updated`);
+      return;
+    }
+
+    const localAsset = await system.db
+      .select()
+      .from(assetLocalTable)
+      .where(eq(assetLocalTable.id, assetId))
+      .limit(1);
+
+    const asset = localAsset[0];
+
+    if (!asset) {
+      throw new Error(
+        'Asset not found in local table - cannot update synced assets'
+      );
+    }
+
+    const syncedTable = resolveTable('asset', { localOverride: false });
+    const syncedAsset = await system.db
+      .select()
+      .from(syncedTable)
+      .where(eq(syncedTable.id, assetId))
+      .limit(1);
+
+    if (syncedAsset.length > 0) {
+      throw new Error(
+        'Cannot update synced assets - they are immutable once published'
+      );
+    }
+
+    await system.db.transaction(async (tx) => {
+      if (metadata !== undefined) {
+        const nextAssetMetadata = patchVerseMetadata(
+          asset.metadata,
+          metadata?.verse
+        );
+        await tx
+          .update(assetLocalTable)
+          .set({ metadata: JSON.stringify(nextAssetMetadata) })
+          .where(eq(assetLocalTable.id, assetId));
+      }
+
+      await tx
+        .update(questAssetLinkLocalTable)
+        .set(setLinkPayload)
+        .where(
+          and(
+            eq(questAssetLinkLocalTable.quest_id, questId),
+            eq(questAssetLinkLocalTable.asset_id, assetId)
+          )
+        );
+    });
+
+    // console.log(`✅ Asset ${assetId.slice(0, 8)} verse updated`);
+  } catch (error) {
+    console.error('Failed to update asset verse:', error);
+    throw error;
+  }
+}
+
 /**
  * Asset update payload for batch operations
  */
@@ -220,64 +505,28 @@ export interface SoftMergeResult {
 }
 
 /**
- * Batch update asset metadata and/or order_index for multiple assets
- * @param updates - Array of { assetId, metadata?, order_index? } objects
+ * Batch update asset verse and/or quest-specific order_index for multiple assets.
+ * Only metadata.verse is patched; every other metadata property is preserved.
  */
-export async function batchUpdateAssetMetadata(
+export async function batchUpdateAssetVerse(
+  questId: string,
   updates: AssetUpdatePayload[]
 ): Promise<void> {
   if (updates.length === 0) return;
 
   try {
-    const assetLocalTable = resolveTable('asset', { localOverride: true });
-    const syncedTable = resolveTable('asset', { localOverride: false });
-
-    const assetIds = updates.map((u) => u.assetId);
-
-    // Check which assets exist in synced table (immutable)
-    const syncedAssets = await system.db
-      .select({ id: syncedTable.id })
-      .from(syncedTable)
-      .where(inArray(syncedTable.id, assetIds));
-
-    const syncedIds = new Set(syncedAssets.map((a) => a.id));
-
-    // Filter out synced assets
-    const localUpdates = updates.filter((u) => !syncedIds.has(u.assetId));
-
-    if (localUpdates.length === 0) {
-      console.log('No local assets to update');
-      return;
+    for (const update of updates) {
+      await updateAssetVerse(
+        questId,
+        update.assetId,
+        update.metadata,
+        update.order_index
+      );
     }
 
-    // Update each local asset
-    for (const update of localUpdates) {
-      const setPayload: { metadata?: string | null; order_index?: number } = {};
-
-      // Only include metadata if explicitly provided
-      if (update.metadata !== undefined) {
-        setPayload.metadata = update.metadata
-          ? JSON.stringify(update.metadata)
-          : null;
-      }
-
-      // Only include order_index if explicitly provided
-      if (update.order_index !== undefined) {
-        setPayload.order_index = update.order_index;
-      }
-
-      // Skip if nothing to update
-      if (Object.keys(setPayload).length === 0) continue;
-
-      await system.db
-        .update(assetLocalTable)
-        .set(setPayload)
-        .where(eq(assetLocalTable.id, update.assetId));
-    }
-
-    console.log(`✅ Updated ${localUpdates.length} assets`);
+    // console.log(`✅ Updated ${updates.length} asset verse placement(s)`);
   } catch (error) {
-    console.error('Failed to batch update assets:', error);
+    console.error('Failed to batch update asset verses:', error);
     throw error;
   }
 }
@@ -298,6 +547,24 @@ export async function softDeleteAssetsFromQuest(
   const questAssetLinkLocal = resolveTable('quest_asset_link', {
     localOverride: true
   });
+  const linksToDelete = await system.db
+    .select({
+      asset_id: questAssetLinkLocal.asset_id,
+      metadata: questAssetLinkLocal.metadata
+    })
+    .from(questAssetLinkLocal)
+    .where(
+      and(
+        eq(questAssetLinkLocal.quest_id, questId),
+        inArray(questAssetLinkLocal.asset_id, assetIds)
+      )
+    );
+  const createdAssetIds = linksToDelete
+    .filter((link) => {
+      const metadata = parseMetadataRecord(link.metadata);
+      return metadata.provenance?.type === 'created';
+    })
+    .map((link) => link.asset_id);
 
   await system.db.transaction(async (tx) => {
     await tx
@@ -315,7 +582,9 @@ export async function softDeleteAssetsFromQuest(
       );
   });
 
-  await enqueueAssetGc(assetIds, 'delete');
+  if (createdAssetIds.length > 0) {
+    await enqueueAssetGc(createdAssetIds, 'delete');
+  }
 }
 
 /**
@@ -347,6 +616,36 @@ export async function softMergeAssetsInQuest(params: {
 
   return system.db
     .transaction(async (tx) => {
+      const sourceLinks = await tx
+        .select({
+          asset_id: questAssetLinkLocal.asset_id,
+          metadata: questAssetLinkLocal.metadata
+        })
+        .from(questAssetLinkLocal)
+        .where(
+          and(
+            eq(questAssetLinkLocal.quest_id, questId),
+            inArray(questAssetLinkLocal.asset_id, sourceIds)
+          )
+        );
+
+      if (sourceLinks.length !== sourceIds.length) {
+        throw new Error(
+          'One or more selected assets are not linked to this quest'
+        );
+      }
+
+      const nonCreatedLink = sourceLinks.find((link) => {
+        const metadata = parseMetadataRecord(link.metadata);
+        return metadata.provenance?.type !== 'created';
+      });
+
+      if (nonCreatedLink) {
+        throw new Error(
+          'Cannot merge imported or remixed assets. Only assets created in this quest can be merged.'
+        );
+      }
+
       const firstAsset = await tx
         .select()
         .from(assetLocal)
@@ -527,7 +826,7 @@ export async function normalizeOrderIndexForVerses(
       }
 
       if (hasChanges && updates.length > 0) {
-        await batchUpdateAssetMetadata(updates);
+        await batchUpdateAssetVerse(questId, updates);
         console.log(
           `  ✅ Verse ${verse}: normalized ${updates.length} of ${assetsInVerse.length} asset(s)`
         );

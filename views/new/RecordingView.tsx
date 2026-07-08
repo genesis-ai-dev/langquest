@@ -2922,12 +2922,12 @@ const RecordingView = () => {
 
   const handleSaveRename = React.useCallback(
     async (newName: string) => {
-      if (!renameAssetId) return;
+      if (!renameAssetId || !questId) return;
 
       try {
         // renameAsset will validate that this is a local-only asset
         // and throw if it's synced (immutable)
-        await renameAsset(renameAssetId, newName);
+        await renameAsset(questId, renameAssetId, newName);
 
         // Update the name directly in sessionAssets to reflect in UI immediately
         // This is safe because the database was already updated successfully
