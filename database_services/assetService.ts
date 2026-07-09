@@ -592,5 +592,5 @@ export async function getNextOrderIndex(
     .where(eq(aclTable.asset_id, assetId));
 
   const maxOrder = result[0]?.maxOrder;
-  return (maxOrder ?? 0) + 1;
+  return (maxOrder ?? 0) + 1; /* */
 }
