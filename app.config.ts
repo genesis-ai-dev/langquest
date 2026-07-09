@@ -159,9 +159,9 @@ const withAppearanceLabels: ConfigPlugin = (config) =>
 
     // The manifest types don't model <activity-alias>, but the XML parser
     // exposes it like any other element.
-    const aliases = ((
-      mainApplication as unknown as Record<string, unknown>
-    )['activity-alias'] ?? []) as (ManifestElement & {
+    const aliases = ((mainApplication as unknown as Record<string, unknown>)[
+      'activity-alias'
+    ] ?? []) as (ManifestElement & {
       'intent-filter'?: IntentFilter[];
     })[];
     for (const alias of aliases) {

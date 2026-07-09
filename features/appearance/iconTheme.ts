@@ -5,10 +5,7 @@ import { getThemeProfile } from './profiles.data';
 // This is the ONLY module that imports the native icon library, so the rest of
 // the feature never references the third-party API surface directly. Everything
 // else talks in terms of a theme id (e.g. "a01").
-import {
-  getAppIconName,
-  setAlternateAppIcon
-} from 'expo-alternate-app-icons';
+import { getAppIconName, setAlternateAppIcon } from 'expo-alternate-app-icons';
 
 // On Android, switching disables the activity-alias the app is currently
 // running from, and the OS kills the process on the spot (DONT_KILL_APP cannot
