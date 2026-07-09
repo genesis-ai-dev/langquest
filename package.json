@@ -88,7 +88,6 @@
     "@powersync/react-native": "^1.30.2",
     "@powersync/tanstack-react-query": "^0.2.0",
     "@powersync/web": "^1.34.0",
-    "@praneeth26/expo-dynamic-app-identity": "^1.2.2",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/netinfo": "11.5.2",
     "@react-native-community/slider": "5.1.2",
@@ -122,6 +121,7 @@
     "eslint-config-expo": "~55.0.0",
     "eslint-plugin-drizzle": "^0.2.3",
     "expo": "^55.0.0",
+    "expo-alternate-app-icons": "^8.0.0",
     "expo-application": "~55.0.8",
     "expo-asset": "~55.0.4",
     "expo-audio": "~55.0.8",
@@ -252,10 +252,7 @@
     "sharp-cli": {
       "glob": "^13.0.0"
     },
-    "lightningcss": "1.31.1",
-    "@praneeth26/expo-dynamic-app-identity": {
-      "expo-modules-core": "~55.0.13"
-    }
+    "lightningcss": "1.31.1"
   },
   "private": true
 }
