@@ -18,10 +18,10 @@ import {
 
 import { useSessionStore } from '@/store/localStore';
 
+import type { EntryGuardMode } from '@/store/localStore';
 import { verifyPin } from './guard';
 import { keypadCandidates, noteCandidates } from './matchSequence';
 import { getFamilyLabel } from './profiles.data';
-import type { EntryGuardMode } from '@/store/localStore';
 
 interface EntryGateProps {
   mode: EntryGuardMode;
@@ -287,7 +287,7 @@ function Key({ def, size }: { def: KeyDef; size: number }) {
   // css-interop wrapper), which rendered the keypad as bare text.
   const [pressed, setPressed] = useState(false);
   const colors = KEY_COLORS[def.kind];
-  // An op key stays visibly "armed" after selection, like a real calculator.
+  // An op key stays visibly "armed" after selection.
   const idleBg = def.active ? '#fff' : colors.bg;
   const idleText = def.active ? '#ff9f0a' : colors.text;
   return (

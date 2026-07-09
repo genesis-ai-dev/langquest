@@ -1,5 +1,7 @@
 import type { ConfigPlugin } from '@expo/config-plugins';
 import {
+  AndroidConfig,
+  withAndroidManifest,
   withGradleProperties,
   withPodfileProperties
 } from '@expo/config-plugins';
@@ -100,21 +102,79 @@ function decodeAppearanceLabels(): {
   return JSON.parse(out) as { aliasName: string; label: string; id: string }[];
 }
 
-function getAppearanceIcons(): Record<string, unknown> {
-  const icons: Record<string, unknown> = {};
-  for (const profile of decodeAppearanceLabels()) {
+function getAppearanceIcons() {
+  return decodeAppearanceLabels().map((profile) => {
     const dir = `./assets/appearance/${profile.id}`;
-    icons[profile.aliasName] = {
+    return {
+      name: profile.aliasName,
       ios: `${dir}/icon.png`,
       android: {
         foregroundImage: `${dir}/adaptive-icon.png`,
         backgroundColor: '#ffffff'
-      },
-      label: profile.label
+      }
     };
-  }
-  return icons;
+  });
 }
+
+// expo-alternate-app-icons generates one <activity-alias> per icon
+// (".MainActivity<Name>") but only gives it the LAUNCHER filter plus the
+// config-declared intent filters. Two fixes are layered on top:
+//   1. android:label — each disguise needs its own home-screen name.
+//   2. deep-link parity — while a disguise is active, .MainActivity is
+//      DISABLED, so any VIEW filter living only there stops resolving.
+//      That includes the app scheme (langquest-preview://) and the dev-client
+//      scheme (exp+langquest://) the CLI uses to reopen the app. Copying all
+//      of MainActivity's VIEW filters onto every alias keeps links working
+//      whichever component is enabled.
+// Manifest mods execute in reverse plugin order, so this plugin is listed
+// BEFORE expo-alternate-app-icons in `plugins` to run after it.
+const withAppearanceLabels: ConfigPlugin = (config) =>
+  withAndroidManifest(config, (c) => {
+    const mainApplication = AndroidConfig.Manifest.getMainApplicationOrThrow(
+      c.modResults
+    );
+    const mainActivity = AndroidConfig.Manifest.getMainActivityOrThrow(
+      c.modResults
+    );
+    const labels = new Map(
+      decodeAppearanceLabels().map((p) => [
+        `.MainActivity${p.aliasName}`,
+        p.label
+      ])
+    );
+
+    type ManifestElement = { $: Record<string, string> };
+    type IntentFilter = {
+      action?: ManifestElement[];
+      [key: string]: unknown;
+    };
+    const isViewFilter = (f: IntentFilter) =>
+      (f.action ?? []).some(
+        (a) => a.$['android:name'] === 'android.intent.action.VIEW'
+      );
+
+    const mainViewFilters = (
+      (mainActivity['intent-filter'] ?? []) as unknown as IntentFilter[]
+    ).filter(isViewFilter);
+
+    // The manifest types don't model <activity-alias>, but the XML parser
+    // exposes it like any other element.
+    const aliases = ((
+      mainApplication as unknown as Record<string, unknown>
+    )['activity-alias'] ?? []) as (ManifestElement & {
+      'intent-filter'?: IntentFilter[];
+    })[];
+    for (const alias of aliases) {
+      const label = labels.get(alias.$['android:name'] ?? '');
+      if (!label) continue;
+      alias.$['android:label'] = label;
+      const launcherFilters = (alias['intent-filter'] ?? []).filter(
+        (f) => !isViewFilter(f)
+      );
+      alias['intent-filter'] = [...launcherFilters, ...mainViewFilters];
+    }
+    return c;
+  });
 
 export default ({ config }: ConfigContext): ExpoConfig =>
   withUseThirdPartySQLitePod({
@@ -221,10 +281,8 @@ export default ({ config }: ConfigContext): ExpoConfig =>
       'expo-sharing',
       'expo-sqlite',
       'expo-secure-store',
-      [
-        '@praneeth26/expo-dynamic-app-identity',
-        { icons: getAppearanceIcons() }
-      ],
+      withAppearanceLabels,
+      ['expo-alternate-app-icons', getAppearanceIcons()],
       ['testflight-dev-deploy', { enabled: appVariant === 'development' }],
       'posthog-react-native/expo',
       withGradleMemory

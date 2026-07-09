@@ -1,4 +1,4 @@
-import { Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
 
 import { getThemeProfile } from './profiles.data';
 
@@ -6,23 +6,33 @@ import { getThemeProfile } from './profiles.data';
 // the feature never references the third-party API surface directly. Everything
 // else talks in terms of a theme id (e.g. "a01").
 import {
-  getAppIdentity,
-  setAppIdentity
-} from '@praneeth26/expo-dynamic-app-identity';
+  getAppIconName,
+  setAlternateAppIcon
+} from 'expo-alternate-app-icons';
 
-const DEFAULT_ALIAS = 'DEFAULT';
+// On Android, switching disables the activity-alias the app is currently
+// running from, and the OS kills the process on the spot (DONT_KILL_APP cannot
+// protect the current task's root component). So the change is queued and
+// applied when the app goes to background, where a task kill is harmless.
+// iOS uses the safe alternate-icon API, so it switches right away.
+// `undefined` = nothing queued; `null` = restore default icon.
+let pendingAlias: string | null | undefined;
+let listenerRegistered = false;
 
-// On Android, switching immediately would disable the activity-alias the app
-// is currently running from, and the OS kills the process on the spot
-// (DONT_KILL_APP cannot protect the current task's root component). Deferred
-// mode records the change and the plugin's lifecycle listener applies it a few
-// seconds after the app is backgrounded, when a task kill is harmless. iOS
-// uses the safe alternate-icon API, so it can switch right away.
-const SWITCH_OPTIONS = {
-  showToast: false,
-  immediate: Platform.OS !== 'android',
-  delay: 3000
-} as const;
+function queueForBackground(alias: string | null): void {
+  pendingAlias = alias;
+  if (listenerRegistered) return;
+  listenerRegistered = true;
+  AppState.addEventListener('change', (state) => {
+    if (state !== 'background' || pendingAlias === undefined) return;
+    const alias = pendingAlias;
+    pendingAlias = undefined;
+    setAlternateAppIcon(alias).catch(() => {
+      // The process is likely being killed as part of the switch; nothing
+      // useful can be done with the error.
+    });
+  });
+}
 
 /**
  * Applies the icon theme with the given id. Passing null restores the default
@@ -33,27 +43,28 @@ const SWITCH_OPTIONS = {
 export async function applyTheme(themeId: string | null): Promise<void> {
   if (Platform.OS === 'web') return;
 
-  if (!themeId) {
-    await setAppIdentity(DEFAULT_ALIAS, SWITCH_OPTIONS);
+  const alias = themeId ? (getThemeProfile(themeId)?.aliasName ?? null) : null;
+  if (themeId && !alias) return;
+
+  if (Platform.OS === 'android') {
+    queueForBackground(alias);
     return;
   }
 
-  const profile = getThemeProfile(themeId);
-  if (!profile) return;
-
-  await setAppIdentity(profile.aliasName, SWITCH_OPTIONS);
+  await setAlternateAppIcon(alias);
 }
 
 /**
  * Returns the id of the currently applied theme, or null when the default icon
  * is active. Derives the id from the native alias name so it stays correct even
- * if the OS reset the alias.
+ * if the OS reset the alias. A queued-but-not-yet-applied Android change is
+ * reported as current, since it will apply on next background.
  */
 export function currentTheme(): string | null {
   if (Platform.OS === 'web') return null;
 
-  const alias = getAppIdentity();
-  if (!alias || alias === DEFAULT_ALIAS) return null;
+  const alias = pendingAlias !== undefined ? pendingAlias : getAppIconName();
+  if (!alias) return null;
 
   // Alias names are "Theme" + slug-in-caps (e.g. ThemeA01 -> a01).
   const match = /^Theme([A-Z]\d{2})$/.exec(alias);
