@@ -43,3 +43,11 @@ index 5a33ce3..4b0fdf5 100644
              try {
                  const { source } = await (0, image_utils_1.generateImageAsync)({ projectRoot, cacheType: `expo-dynamic-app-identity-fallback-${iconName}-${density.name}` }, {
                      src: fallbackSrc,
+@@ -664,7 +665,6 @@ const withDynamicAppIdentity = (config, pluginConfig) => {
+     config = withAndroidManifestMod(config, normalizedConfig);
+     config = withAndroidResourcesMod(config, normalizedConfig);
+     config = withIOSXcodeProject(config, normalizedConfig);
+-    config = withIOSInfoPlistMod(config, normalizedConfig);
+     config = withIOSAssetCatalogMod(config, normalizedConfig);
+     return config;
+ };
