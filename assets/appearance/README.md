@@ -9,7 +9,7 @@ meaning; there must be no searchable text that ties a folder to what it depicts.
 
 One folder per selectable theme. Each folder holds the variants produced by the
 icon generator (expo-assets-generator.vercel.app). The build-time icon config
-plugin (`@praneeth26/expo-dynamic-app-identity`, wired in `app.config.ts`) reads:
+plugin (`expo-alternate-app-icons`, wired in `app.config.ts`) reads:
 
 ```
 assets/appearance/<slug>/icon.png            # iOS alternate icon (1024x1024)
