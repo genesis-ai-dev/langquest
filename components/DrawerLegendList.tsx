@@ -1,6 +1,6 @@
+import type { LegendListProps, LegendListRef } from '@/components/ui/legend-list';
+import { LegendList } from '@/components/ui/legend-list';
 import { useBottomSheetScrollableCreator } from '@gorhom/bottom-sheet';
-import type { LegendListProps, LegendListRef } from '@legendapp/list';
-import { LegendList } from '@legendapp/list';
 import React from 'react';
 import type { StyleProp, ViewStyle } from 'react-native';
 
@@ -60,6 +60,8 @@ export function DrawerLegendList<T>({
       contentContainerStyle={contentContainerStyle}
       renderScrollComponent={BottomSheetScrollable}
       {...(legendListProps as LegendListProps<T>)}
+      // Sheets manage their own chrome; don't double-count the nav bar.
+      ignoreSafeBottom
     />
   );
 }

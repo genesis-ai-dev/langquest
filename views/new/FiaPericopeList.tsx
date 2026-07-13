@@ -39,7 +39,7 @@ import { bulkDownloadQuest } from '@/utils/bulkDownload';
 import { BOOK_ICON_MAP } from '@/utils/BOOK_GRAPHICS';
 import { formatRelativeDate } from '@/utils/dateUtils';
 import { cn, useThemeColor } from '@/utils/styleUtils';
-import { LegendList } from '@legendapp/list';
+import { LegendList } from '@/components/ui/legend-list';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Image } from 'expo-image';
 import {

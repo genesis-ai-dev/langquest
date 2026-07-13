@@ -2,6 +2,7 @@ import type { ConfigPlugin } from '@expo/config-plugins';
 import {
   AndroidConfig,
   withAndroidManifest,
+  withAppBuildGradle,
   withGradleProperties,
   withPodfileProperties
 } from '@expo/config-plugins';
@@ -17,6 +18,42 @@ const withGradleMemory: ConfigPlugin = (config) =>
         ? { ...item, value: '-Xmx4096m -XX:MaxMetaspaceSize=1536m' }
         : item
     );
+    return c;
+  });
+
+// `debugOptimized` is not in RN's default debuggableVariants list, so those
+// APKs bake JS into the binary. Daily `npm run android` uses that variant;
+// without this, Metro edits are ignored whenever the app falls back to the
+// embedded bundle. android/ is gitignored and remade by prebuild --clean.
+const withDebuggableVariants: ConfigPlugin = (config) =>
+  withAppBuildGradle(config, (c) => {
+    if (c.modResults.language !== 'groovy') return c;
+
+    const line =
+      '    debuggableVariants = ["debug", "debugOptimized"]';
+    const contents = c.modResults.contents;
+
+    if (contents.includes('debuggableVariants = ["debug", "debugOptimized"]')) {
+      return c;
+    }
+
+    if (/^\s*\/\/\s*debuggableVariants\s*=/m.test(contents)) {
+      c.modResults.contents = contents.replace(
+        /^\s*\/\/\s*debuggableVariants\s*=.*$/m,
+        line
+      );
+    } else if (/\/\*\s*Variants\s*\*\//.test(contents)) {
+      c.modResults.contents = contents.replace(
+        /\/\*\s*Variants\s*\*\//,
+        `/* Variants */\n${line}`
+      );
+    } else {
+      c.modResults.contents = contents.replace(
+        /autolinkLibrariesWithApp\(\)/,
+        `${line.trim()}\n\n    autolinkLibrariesWithApp()`
+      );
+    }
+
     return c;
   });
 
@@ -187,7 +224,10 @@ export default ({ config }: ConfigContext): ExpoConfig =>
     icon: iconLight,
     scheme: getScheme(appVariant),
     userInterfaceStyle: 'automatic',
-    buildCacheProvider: 'eas',
+    // TEMP: disabled so local `expo run:android` actually builds from this tree
+    // instead of downloading a fingerprint-matched EAS APK with stale JS.
+    // Re-enable after safe-area debugging: buildCacheProvider: 'eas',
+    // buildCacheProvider: 'eas',
     ios: {
       icon: {
         light: iconLight,
@@ -285,7 +325,8 @@ export default ({ config }: ConfigContext): ExpoConfig =>
       ['expo-alternate-app-icons', getAppearanceIcons()],
       ['testflight-dev-deploy', { enabled: appVariant === 'development' }],
       'posthog-react-native/expo',
-      withGradleMemory
+      withGradleMemory,
+      withDebuggableVariants
     ],
     experiments: {
       typedRoutes: true,

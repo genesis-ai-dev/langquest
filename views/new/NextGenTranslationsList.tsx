@@ -9,11 +9,12 @@ import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useBlockedTranslationsCount } from '@/hooks/useBlockedCount';
 import { useLocalization } from '@/hooks/useLocalization';
 import type { MembershipRole } from '@/hooks/useUserPermissions';
+import { useLocalStore } from '@/store/localStore';
 import type { SortOrder, WithSource } from '@/utils/dbUtils';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import { getLocalUri } from '@/utils/fileUtils';
 import { getThemeColor } from '@/utils/styleUtils';
-import { LegendList } from '@legendapp/list';
+import { LegendList } from '@/components/ui/legend-list';
 import {
   ArrowDownWideNarrowIcon,
   ArrowUpNarrowWideIcon,
@@ -22,10 +23,9 @@ import {
   ShieldOffIcon,
   ThumbsUpIcon
 } from 'lucide-react-native';
-import { useLocalStore } from '@/store/localStore';
 import React, { useMemo, useState } from 'react';
-import { useShallow } from 'zustand/react/shallow';
 import { ActivityIndicator, View } from 'react-native';
+import { useShallow } from 'zustand/react/shallow';
 import NextGenTranslationModal from './NextGenTranslationModalAlt';
 
 interface NextGenTranslationsListProps {
