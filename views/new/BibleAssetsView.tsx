@@ -40,6 +40,7 @@ import {
   BrushCleaning,
   CheckCheck,
   CloudUpload,
+  DownloadIcon,
   FlagIcon,
   InfoIcon,
   LockIcon,
@@ -68,6 +69,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useHybridData } from './useHybridData';
+import { ImportWizard, type ImportWizardVerseLabel } from './importWizard';
 
 import { AssetListSkeleton } from '@/components/AssetListSkeleton';
 import { ExportButton } from '@/components/ExportButton';
@@ -647,6 +649,7 @@ export default function BibleAssetsView() {
 
   // State for FIA pericope text drawer
   const [showFiaTextDrawer, setShowFiaTextDrawer] = React.useState(false);
+  const [showImportWizard, setShowImportWizard] = React.useState(false);
   const fiaDrawerStateRef = React.useRef<FiaDrawerState>({
     ...INITIAL_FIA_DRAWER_STATE
   });
@@ -1122,6 +1125,15 @@ export default function BibleAssetsView() {
 
     return Array.from(assetMap.values());
   }, [data.pages]);
+
+  const importWizardVerseLabels = React.useMemo<ImportWizardVerseLabel[]>(() => {
+    return manualSeparators.map((separator) => ({
+      key: separator.key,
+      from: separator.from,
+      to: separator.to,
+      source: 'manual'
+    }));
+  }, [manualSeparators]);
 
   // Infinite scroll - load more when reaching end of list
   const loadMoreAssets = React.useCallback(() => {
@@ -4053,6 +4065,23 @@ export default function BibleAssetsView() {
                       membership={membership}
                     />
                   )}
+                  {questId && projectId && selectedQuest && (
+                    <Button
+                      variant="outline"
+                      disabled={isPublishing || !isMember}
+                      onPress={() => setShowImportWizard(true)}
+                      className="h-10 flex-row gap-2 rounded-md border border-primary bg-background px-3 py-0"
+                    >
+                      <Icon
+                        as={DownloadIcon}
+                        size={16}
+                        className="text-primary"
+                      />
+                      <Text className="text-sm font-medium text-primary">
+                        Import
+                      </Text>
+                    </Button>
+                  )}
                 </>
               )
             )}
@@ -4410,6 +4439,18 @@ export default function BibleAssetsView() {
         />
       )}
       {/* )} */}
+
+      {selectedQuest && projectId && (
+        <ImportWizard
+          visible={showImportWizard}
+          onClose={() => setShowImportWizard(false)}
+          projectId={projectId}
+          currentQuest={selectedQuest}
+          currentAssets={assets}
+          targetVerseLabels={importWizardVerseLabels}
+          formatVerse={formatVersePositionRef.current}
+        />
+      )}
 
       {allowSettings && isOwner && showSettingsModal && (
         <QuestSettingsModal

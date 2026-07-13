@@ -619,6 +619,9 @@ export async function softMergeAssetsInQuest(params: {
       const sourceLinks = await tx
         .select({
           asset_id: questAssetLinkLocal.asset_id,
+          name: questAssetLinkLocal.name,
+          order_index: questAssetLinkLocal.order_index,
+          download_profiles: questAssetLinkLocal.download_profiles,
           metadata: questAssetLinkLocal.metadata
         })
         .from(questAssetLinkLocal)
@@ -644,6 +647,14 @@ export async function softMergeAssetsInQuest(params: {
         throw new Error(
           'Cannot merge imported or remixed assets. Only assets created in this quest can be merged.'
         );
+      }
+
+      const firstSourceLink = sourceLinks.find(
+        (link) => link.asset_id === firstSelected.id
+      );
+
+      if (!firstSourceLink) {
+        throw new Error('First selected asset link not found for soft merge');
       }
 
       const firstAsset = await tx
@@ -683,10 +694,24 @@ export async function softMergeAssetsInQuest(params: {
       const newAssetId = String(uuid.v4());
       const creatorId = first.creator_id ?? fallbackCreatorId ?? null;
       const newProjectId = first.project_id ?? fallbackProjectId ?? null;
+      const mergedName = firstSourceLink.name ?? first.name;
+      const mergedOrderIndex = firstSourceLink.order_index ?? first.order_index;
+      const mergedAssetMetadata = {
+        ...parseMetadataRecord(first.metadata),
+        origin: {
+          questId
+        }
+      };
+      const mergedQuestAssetLinkMetadata = {
+        ...parseMetadataRecord(firstSourceLink.metadata),
+        provenance: {
+          type: 'created'
+        }
+      };
 
       await tx.insert(assetLocal).values({
         id: newAssetId,
-        name: first.name,
+        name: mergedName,
         images: first.images,
         visible: first.visible,
         download_profiles:
@@ -696,8 +721,8 @@ export async function softMergeAssetsInQuest(params: {
         source_asset_id: first.source_asset_id,
         content_type: first.content_type,
         creator_id: creatorId,
-        order_index: first.order_index,
-        metadata: first.metadata,
+        order_index: mergedOrderIndex,
+        metadata: JSON.stringify(mergedAssetMetadata),
         uploaded_at: first.uploaded_at
       });
 
@@ -705,8 +730,13 @@ export async function softMergeAssetsInQuest(params: {
         id: String(uuid.v4()),
         quest_id: questId,
         asset_id: newAssetId,
+        name: mergedName,
+        order_index: mergedOrderIndex,
+        metadata: JSON.stringify(mergedQuestAssetLinkMetadata),
         download_profiles:
-          first.download_profiles ?? (creatorId ? [creatorId] : [])
+          firstSourceLink.download_profiles ??
+          first.download_profiles ??
+          (creatorId ? [creatorId] : [])
       });
 
       let contentOrder = 1;
@@ -740,8 +770,8 @@ export async function softMergeAssetsInQuest(params: {
 
       return {
         newAssetId,
-        newAssetName: first.name ?? 'Merged',
-        orderIndex: first.order_index
+        newAssetName: mergedName ?? 'Merged',
+        orderIndex: mergedOrderIndex
       };
     })
     .then(async (result) => {
@@ -782,7 +812,7 @@ export async function normalizeOrderIndexForVerses(
         .select({
           id: assetTable.id,
           name: assetTable.name,
-          order_index: assetTable.order_index
+          order_index: questAssetLinkTable.order_index
         })
         .from(assetTable)
         .innerJoin(
@@ -792,11 +822,11 @@ export async function normalizeOrderIndexForVerses(
         .where(
           and(
             eq(questAssetLinkTable.quest_id, questId),
-            gte(assetTable.order_index, minOrderIndex),
-            lte(assetTable.order_index, maxOrderIndex)
+            gte(questAssetLinkTable.order_index, minOrderIndex),
+            lte(questAssetLinkTable.order_index, maxOrderIndex)
           )
         )
-        .orderBy(asc(assetTable.order_index));
+        .orderBy(asc(questAssetLinkTable.order_index));
 
       if (assetsInVerse.length === 0) {
         continue;
