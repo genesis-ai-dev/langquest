@@ -6,8 +6,13 @@ import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useAudio } from '@/contexts/AudioContext';
 import { useAuth } from '@/contexts/AuthContext';
-import type { asset, quest as questTable } from '@/db/drizzleSchema';
-import { quest } from '@/db/drizzleSchema';
+import type { quest as questTable } from '@/db/drizzleSchema';
+import {
+  asset as assetTable,
+  profile,
+  quest,
+  quest_asset_link
+} from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { AppConfig } from '@/db/supabase/AppConfig';
 import { useAssetsByQuest } from '@/hooks/db/useAssets';
@@ -19,20 +24,19 @@ import { syncCallbackService } from '@/services/syncCallbackService';
 import { bulkDownloadQuest } from '@/utils/bulkDownload';
 import { resolveTable, type WithSource } from '@/utils/dbUtils';
 import { fileExists, getLocalAttachmentUriWithOPFS } from '@/utils/fileUtils';
-import { cn } from '@/utils/styleUtils';
+import { cn, useThemeColor } from '@/utils/styleUtils';
 import { useHybridData } from '@/views/new/useHybridData';
-import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { LegendList } from '@legendapp/list';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, getTableColumns, sql } from 'drizzle-orm';
 import {
   AlertCircleIcon,
   CheckIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
-  CloudIcon,
+  CircleCheckIcon,
   Edit3Icon,
-  HardDriveIcon,
   InfoIcon,
   PauseIcon,
   PlayIcon,
@@ -44,7 +48,11 @@ import { ScrollView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type Quest = typeof questTable.$inferSelect;
-type Asset = typeof asset.$inferSelect;
+type Asset = typeof assetTable.$inferSelect;
+type ImportQuest = Quest & {
+  creatorName?: string | null;
+  assetCount?: number | null;
+};
 
 interface AssetMetadata {
   verse?: {
@@ -194,11 +202,43 @@ function formatRange(
   return range.from === range.to ? fromLabel : `${fromLabel}-${toLabel}`;
 }
 
-function formatQuestSubtitle(questItem: Quest & { source?: string }) {
-  if (questItem.description?.trim()) return questItem.description;
-  if (questItem.source === 'cloud') return 'Published cloud version';
-  if (questItem.source === 'synced') return 'Downloaded published version';
-  return 'Published version';
+function formatQuestCreatedAt(createdAt?: string | null) {
+  if (!createdAt) return null;
+  const date = new Date(createdAt);
+  if (Number.isNaN(date.getTime())) return null;
+
+  const pad = (value: number) => value.toString().padStart(2, '0');
+  const month = pad(date.getMonth() + 1);
+  const day = pad(date.getDate());
+  const year = date.getFullYear();
+  const hours = pad(date.getHours());
+  const minutes = pad(date.getMinutes());
+
+  return `${month}/${day}/${year} - ${hours}:${minutes}`;
+}
+
+function getCreatorDisplayName(questItem: ImportQuest) {
+  return questItem.creatorName?.trim() || 'Unknown';
+}
+
+function getCreatorInitials(displayName: string) {
+  const parts = displayName
+    .replace(/@.*/, '')
+    .split(/[\s._-]+/)
+    .filter(Boolean);
+
+  if (parts.length === 0) return '?';
+  if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
+  return `${parts[0]![0] ?? ''}${parts[1]![0] ?? ''}`.toUpperCase();
+}
+
+function formatAssetCount(assetCount?: number | null) {
+  const count = assetCount ?? 0;
+  return `${count} ${count === 1 ? 'asset' : 'assets'}`;
+}
+
+function normalizeId(id: string | null | undefined) {
+  return id?.toLowerCase() ?? null;
 }
 
 function ImportProgressIndicator({ currentStep }: { currentStep: ImportStep }) {
@@ -322,7 +362,7 @@ function QuestCard({
   onSelect,
   onDownload
 }: {
-  questItem: WithSource<Quest>;
+  questItem: WithSource<ImportQuest>;
   selected: boolean;
   downloading: boolean;
   onSelect: () => void;
@@ -332,53 +372,62 @@ function QuestCard({
     questItem.source === 'cloud' ? questItem.id : null
   );
   const canUseQuest = questItem.source !== 'cloud' || isDownloaded;
-  const isLocalPublishedCopy = questItem.source === 'synced';
+  const needsDownload = questItem.source === 'cloud' && !isDownloaded;
+  const creatorName = getCreatorDisplayName(questItem);
+  const initials = getCreatorInitials(creatorName);
+  const createdAtLabel = formatQuestCreatedAt(questItem.created_at);
+  const primaryColor = useThemeColor('primary');
 
   return (
     <Pressable
       onPress={canUseQuest ? onSelect : onDownload}
       className={cn(
-        'flex-row items-center gap-3 rounded-lg border bg-card p-4 active:opacity-80',
-        selected ? 'border-primary' : 'border-border',
+        'flex-row items-center gap-2 rounded-lg border bg-card px-3 py-2.5 active:opacity-80',
+        selected ? 'bg-secondary/50' : 'border-border',
         !canUseQuest && 'opacity-70'
       )}
+      style={
+        selected ? { borderColor: primaryColor, borderWidth: 2 } : undefined
+      }
       accessibilityRole="button"
       accessibilityState={{ selected }}
     >
       <View
         className={cn(
-          'size-10 items-center justify-center rounded-full',
-          selected ? 'bg-primary' : 'bg-muted'
+          'size-9 items-center justify-center rounded-full',
+          selected ? 'bg-primary' : needsDownload ? 'bg-muted' : 'bg-primary'
         )}
       >
-        <Icon
-          as={isLocalPublishedCopy || isDownloaded ? HardDriveIcon : CloudIcon}
-          size={20}
+        <Text
           className={
-            selected ? 'text-primary-foreground' : 'text-muted-foreground'
+            selected || !needsDownload
+              ? 'font-semibold text-primary-foreground'
+              : 'font-semibold text-secondary-foreground'
           }
-        />
+        >
+          {initials}
+        </Text>
       </View>
       <View className="flex-1 gap-1">
-        <Text className="font-semibold" numberOfLines={1}>
+        <Text className="text-sm font-semibold" numberOfLines={1}>
           {questItem.name}
+          {createdAtLabel ? ` (${createdAtLabel})` : ''}
         </Text>
-        <Text className="text-sm text-muted-foreground" numberOfLines={2}>
-          {formatQuestSubtitle(questItem)}
+        <Text className="text-xs text-muted-foreground" numberOfLines={1}>
+          {formatAssetCount(questItem.assetCount)}
         </Text>
       </View>
-      {questItem.source === 'cloud' ? (
+      {downloading && needsDownload ? (
+        <ActivityIndicator size="small" />
+      ) : needsDownload ? (
         <DownloadIndicator
           isFlaggedForDownload={isDownloaded}
           isLoading={downloading && !isDownloaded}
           onPress={onDownload}
-          size={22}
-          className="text-primary"
+          size={18}
         />
       ) : (
-        <View className="rounded-full border border-primary px-3 py-1">
-          <Text className="text-xs font-medium text-primary">Downloaded</Text>
-        </View>
+        <Icon as={CircleCheckIcon} size={20} className="text-primary" />
       )}
     </Pressable>
   );
@@ -392,7 +441,7 @@ function QuestStep({
   onSelectQuest,
   onDownloadQuest
 }: {
-  quests: WithSource<Quest>[];
+  quests: WithSource<ImportQuest>[];
   selectedQuestId: string | null;
   isLoading: boolean;
   downloadingQuestIds: Set<string>;
@@ -433,12 +482,13 @@ function QuestStep({
       <LegendList
         data={quests}
         keyExtractor={(item) => item.id}
-        estimatedItemSize={88}
-        contentContainerStyle={{ gap: 12, paddingBottom: 16 }}
+        extraData={[selectedQuestId, downloadingQuestIds]}
+        estimatedItemSize={68}
+        contentContainerStyle={{ gap: 8, paddingBottom: 16 }}
         renderItem={({ item }) => (
           <QuestCard
             questItem={item}
-            selected={selectedQuestId === item.id}
+            selected={normalizeId(selectedQuestId) === normalizeId(item.id)}
             downloading={downloadingQuestIds.has(item.id)}
             onSelect={() => onSelectQuest(item.id)}
             onDownload={() => onDownloadQuest(item.id)}
@@ -465,35 +515,41 @@ function AssetCard({
   formatVerse?: (position: number) => string | null;
 }) {
   const range = normalizeRange(assetItem.metadata);
+  const primaryColor = useThemeColor('primary');
 
   return (
     <Pressable
       onPress={onToggle}
       className={cn(
         'flex-row items-center gap-3 rounded-lg border bg-card p-3 active:opacity-80',
-        selected ? 'border-primary' : 'border-border'
+        selected ? 'bg-secondary/50' : 'border-border'
       )}
+      style={
+        selected ? { borderColor: primaryColor, borderWidth: 2 } : undefined
+      }
       accessibilityRole="checkbox"
       accessibilityState={{ checked: selected }}
+      accessibilityLabel={assetItem.name || 'Untitled asset'}
     >
-      <Button
-        variant="outline"
-        size="icon-sm"
-        className="rounded-full border-primary"
-        onPress={onPlay}
+      <Pressable
+        onPress={(event) => {
+          event.stopPropagation();
+          onPlay();
+        }}
+        className="size-7 items-center justify-center rounded-full bg-primary/20 active:bg-primary/40"
+        hitSlop={8}
+        accessibilityRole="button"
+        accessibilityLabel={isPlaying ? 'Pause asset' : 'Play asset'}
       >
         <Icon
           as={isPlaying ? PauseIcon : PlayIcon}
-          size={16}
-          className="text-primary"
+          size={14}
+          className={isPlaying ? 'text-primary' : 'text-primary/80'}
         />
-      </Button>
-      <View className="flex-1 gap-1">
+      </Pressable>
+      <View className="flex-1 justify-center">
         <Text className="font-medium" numberOfLines={1}>
           {assetItem.name || 'Untitled asset'}
-        </Text>
-        <Text className="text-xs text-muted-foreground" numberOfLines={1}>
-          Audio asset
         </Text>
       </View>
       <View
@@ -568,8 +624,9 @@ function AssetsStep({
       <LegendList
         data={assets}
         keyExtractor={(item) => item.id}
+        extraData={[selectedAssetIds, playingAssetId]}
         estimatedItemSize={76}
-        contentContainerStyle={{ gap: 10, paddingBottom: 16 }}
+        contentContainerStyle={{ gap: 6, paddingBottom: 16 }}
         renderItem={({ item }) => (
           <AssetCard
             assetItem={item}
@@ -745,15 +802,29 @@ export function ImportWizard({
   const [showDiscoveryDrawer, setShowDiscoveryDrawer] = React.useState(false);
   const [showConfirmationModal, setShowConfirmationModal] =
     React.useState(false);
+  const [hideWizardForDownloadOverlay, setHideWizardForDownloadOverlay] =
+    React.useState(false);
   const [playingAssetId, setPlayingAssetId] = React.useState<string | null>(
     null
   );
   const startedDiscoveryRef = React.useRef<string | null>(null);
+  const isTransitioningToConfirmationRef = React.useRef(false);
+  const confirmationTimerRef = React.useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
   const stopCurrentSoundRef = React.useRef(audioContext.stopCurrentSound);
 
   React.useEffect(() => {
     stopCurrentSoundRef.current = audioContext.stopCurrentSound;
   }, [audioContext.stopCurrentSound]);
+
+  React.useEffect(() => {
+    return () => {
+      if (confirmationTimerRef.current) {
+        clearTimeout(confirmationTimerRef.current);
+      }
+    };
+  }, []);
 
   const currentContext = React.useMemo(
     () => getQuestContext(currentQuest.metadata),
@@ -766,35 +837,122 @@ export function ImportWizard({
       setSelectedQuestId(null);
       setSelectedAssetIds(new Set());
       setPlayingAssetId(null);
+      setHideWizardForDownloadOverlay(false);
       return;
     }
     void stopCurrentSoundRef.current();
   }, [visible]);
 
-  const compatibleQuestsQuery = useHybridData<Quest>({
+  const compatibleQuestsQuery = useHybridData<ImportQuest>({
     dataType: 'import-compatible-quests',
     queryKeyParams: [projectId, currentQuest.id],
     offlineQuery: toCompilableQuery(
-      system.db.query.quest.findMany({
-        where: and(
-          eq(quest.project_id, projectId),
-          eq(quest.active, true),
-          eq(quest.visible, true)
+      system.db
+        .select({
+          ...getTableColumns(quest),
+          creatorName: sql<
+            string | null
+          >`coalesce(${profile.username}, ${profile.email})`,
+          assetCount: sql<number>`(
+            select count(distinct ${quest_asset_link.asset_id})
+            from ${quest_asset_link}
+            inner join ${assetTable}
+              on ${assetTable.id} = ${quest_asset_link.asset_id}
+            where ${quest_asset_link.quest_id} = ${quest.id}
+              and ${quest_asset_link.active} = 1
+              and ${quest_asset_link.visible} = 1
+              and ${assetTable.active} = 1
+              and ${assetTable.visible} = 1
+              and ${assetTable.source_asset_id} is null
+          )`
+        })
+        .from(quest)
+        .leftJoin(profile, eq(profile.id, quest.creator_id))
+        .where(
+          and(
+            eq(quest.project_id, projectId),
+            eq(quest.active, true),
+            eq(quest.visible, true)
+          )
         )
-      })
     ),
     cloudQueryFn: async () => {
-      const { data, error } = await system.supabaseConnector.client
-        .from('quest')
-        .select('*')
-        .eq('project_id', projectId)
-        .eq('active', true)
-        .eq('visible', true)
-        .order('created_at', { ascending: false })
-        .overrideTypes<Quest[]>();
+      const { data: questsData, error: questsError } =
+        await system.supabaseConnector.client
+          .from('quest')
+          .select('*')
+          .eq('project_id', projectId)
+          .eq('active', true)
+          .eq('visible', true)
+          .order('created_at', { ascending: false })
+          .overrideTypes<Quest[]>();
 
-      if (error) throw error;
-      return data;
+      if (questsError) throw questsError;
+
+      const questIds = questsData.map((questItem) => questItem.id);
+      const creatorIds = Array.from(
+        new Set(
+          questsData
+            .map((questItem) => questItem.creator_id)
+            .filter((id): id is string => Boolean(id))
+        )
+      );
+
+      const [
+        { data: profilesData, error: profilesError },
+        { data: assetCountsData, error: assetCountsError }
+      ] = await Promise.all([
+        creatorIds.length > 0
+          ? system.supabaseConnector.client
+              .from('profile')
+              .select('id, username, email')
+              .in('id', creatorIds)
+          : Promise.resolve({ data: [], error: null }),
+        questIds.length > 0
+          ? system.supabaseConnector.client
+              .from('quest_asset_link')
+              .select(
+                'quest_id, asset_id, asset:asset_id!inner(id, active, visible, source_asset_id)'
+              )
+              .in('quest_id', questIds)
+              .eq('active', true)
+              .eq('visible', true)
+              .eq('asset.active', true)
+              .eq('asset.visible', true)
+              .is('asset.source_asset_id', null)
+          : Promise.resolve({ data: [], error: null })
+      ]);
+
+      if (profilesError) throw profilesError;
+      if (assetCountsError) throw assetCountsError;
+
+      const profileMap = new Map(
+        (profilesData ?? []).map((profileItem) => [
+          profileItem.id,
+          profileItem.username ?? profileItem.email ?? null
+        ])
+      );
+      const assetIdsByQuest = new Map<string, Set<string>>();
+      for (const item of assetCountsData ?? []) {
+        if (!assetIdsByQuest.has(item.quest_id)) {
+          assetIdsByQuest.set(item.quest_id, new Set());
+        }
+        assetIdsByQuest.get(item.quest_id)?.add(item.asset_id);
+      }
+      const assetCountMap = new Map(
+        Array.from(assetIdsByQuest.entries()).map(([questId, assetIds]) => [
+          questId,
+          assetIds.size
+        ])
+      );
+
+      return questsData.map((questItem) => ({
+        ...questItem,
+        creatorName: questItem.creator_id
+          ? (profileMap.get(questItem.creator_id) ?? null)
+          : null,
+        assetCount: assetCountMap.get(questItem.id) ?? 0
+      }));
     },
     enableCloudQuery: visible && !!projectId,
     enableOfflineQuery: visible && !!projectId,
@@ -1043,8 +1201,11 @@ export function ImportWizard({
 
   const bulkDownloadMutation = useMutation({
     mutationFn: async () => {
-      if (!currentUser?.id) {
-        throw new Error('Missing current user');
+      if (
+        !currentUser?.id ||
+        discoveryState.discoveredIds.questIds.length === 0
+      ) {
+        throw new Error('Missing user or discovered IDs');
       }
       return bulkDownloadQuest(discoveryState.discoveredIds, currentUser.id);
     },
@@ -1079,23 +1240,43 @@ export function ImportWizard({
   });
 
   const handleDownloadQuest = (questId: string) => {
+    isTransitioningToConfirmationRef.current = false;
     setQuestIdToDownload(questId);
+    setHideWizardForDownloadOverlay(true);
     setShowDiscoveryDrawer(true);
   };
 
   const handleCancelDiscovery = () => {
     discoveryState.cancel();
+    if (questIdToDownload) {
+      syncCallbackService.cancelCallback(questIdToDownload);
+      setDownloadingQuestIds((prev) => {
+        const next = new Set(prev);
+        next.delete(questIdToDownload);
+        return next;
+      });
+    }
     setShowDiscoveryDrawer(false);
+    setHideWizardForDownloadOverlay(false);
     setQuestIdToDownload(null);
   };
 
   const handleDiscoveryContinue = () => {
+    isTransitioningToConfirmationRef.current = true;
     setShowDiscoveryDrawer(false);
-    setShowConfirmationModal(true);
+    if (confirmationTimerRef.current) {
+      clearTimeout(confirmationTimerRef.current);
+    }
+    confirmationTimerRef.current = setTimeout(() => {
+      setShowConfirmationModal(true);
+      confirmationTimerRef.current = null;
+    }, 350);
   };
 
   const handleConfirmDownload = async () => {
+    isTransitioningToConfirmationRef.current = false;
     setShowConfirmationModal(false);
+    setHideWizardForDownloadOverlay(false);
     const questIdsToTrack = new Set(discoveryState.discoveredIds.questIds);
     setDownloadingQuestIds((prev) => new Set([...prev, ...questIdsToTrack]));
 
@@ -1113,7 +1294,18 @@ export function ImportWizard({
   };
 
   const handleCancelConfirmation = () => {
+    isTransitioningToConfirmationRef.current = false;
+    if (questIdToDownload) {
+      syncCallbackService.cancelCallback(questIdToDownload);
+      const questIdsToClear = discoveryState.discoveredIds.questIds;
+      setDownloadingQuestIds((prev) => {
+        const next = new Set(prev);
+        questIdsToClear.forEach((id) => next.delete(id));
+        return next;
+      });
+    }
     setShowConfirmationModal(false);
+    setHideWizardForDownloadOverlay(false);
     setQuestIdToDownload(null);
   };
 
@@ -1133,95 +1325,102 @@ export function ImportWizard({
   }
 
   return (
-    <Modal
-      visible={visible}
-      transparent={false}
-      animationType="slide"
-      onRequestClose={onClose}
-    >
-      <View className="flex-1 bg-background" style={{ paddingTop: insets.top }}>
-        <ImportProgressIndicator currentStep={step} />
-
-        <View className="flex-row items-center justify-between border-b border-border px-6 py-4">
-          <Text className="text-base font-semibold">Import assets</Text>
-          <Pressable
-            onPress={onClose}
-            hitSlop={10}
-            accessibilityRole="button"
-            accessibilityLabel="Close import wizard"
-          >
-            <Icon as={XIcon} size={24} className="text-muted-foreground" />
-          </Pressable>
-        </View>
-
-        <View className="flex-1">
-          {step === 'instructions' && <InstructionsStep />}
-          {step === 'quest' && (
-            <QuestStep
-              quests={compatibleQuests}
-              selectedQuestId={selectedQuestId}
-              isLoading={compatibleQuestsQuery.isLoading}
-              downloadingQuestIds={downloadingQuestIds}
-              onSelectQuest={handleSelectQuest}
-              onDownloadQuest={handleDownloadQuest}
-            />
-          )}
-          {step === 'assets' && (
-            <AssetsStep
-              assets={sourceAssets}
-              selectedAssetIds={selectedAssetIds}
-              isLoading={assetsQuery.isLoading || assetsQuery.isFetching}
-              playingAssetId={playingAssetId}
-              onToggleAsset={toggleAsset}
-              onPlayAsset={handlePlayAsset}
-              onLoadMore={handleLoadMoreAssets}
-              isFetchingNextPage={assetsQuery.isFetchingNextPage}
-              formatVerse={formatVerse}
-            />
-          )}
-          {step === 'validation' && (
-            <ValidationStep
-              selectedAssets={selectedAssets}
-              usedLabels={usedLabels}
-              conflictKeys={conflictKeys}
-              formatVerse={formatVerse}
-            />
-          )}
-        </View>
-
+    <>
+      <Modal
+        visible={visible && !hideWizardForDownloadOverlay}
+        transparent={false}
+        animationType="slide"
+        onRequestClose={onClose}
+      >
         <View
-          className="flex-row items-center justify-between gap-3 border-t border-border px-6 py-4"
-          style={{ paddingBottom: insets.bottom + 16 }}
+          className="flex-1 bg-background"
+          style={{ paddingTop: insets.top }}
         >
-          <Button
-            variant="outline"
-            onPress={goToPreviousStep}
-            className="flex-1"
-          >
-            <Icon as={ChevronLeftIcon} size={16} />
-            <Text>{isFirstStep ? 'Close' : 'Previous'}</Text>
-          </Button>
-          <Button
-            onPress={isLastStep ? onClose : goToNextStep}
-            disabled={isLastStep ? !canImport : !canGoNext}
-            className="flex-1"
-          >
-            <Text>{isLastStep ? 'Import' : 'Next'}</Text>
-            {!isLastStep && (
-              <Icon
-                as={ChevronRightIcon}
-                size={16}
-                className="text-primary-foreground"
+          <View className="flex-row items-center justify-between border-b border-border px-6 py-4">
+            <Text className="text-base font-semibold">Import assets</Text>
+            <Pressable
+              onPress={onClose}
+              hitSlop={10}
+              accessibilityRole="button"
+              accessibilityLabel="Close import wizard"
+            >
+              <Icon as={XIcon} size={24} className="text-muted-foreground" />
+            </Pressable>
+          </View>
+
+          <ImportProgressIndicator currentStep={step} />
+
+          <View className="flex-1">
+            {step === 'instructions' && <InstructionsStep />}
+            {step === 'quest' && (
+              <QuestStep
+                quests={compatibleQuests}
+                selectedQuestId={selectedQuestId}
+                isLoading={compatibleQuestsQuery.isLoading}
+                downloadingQuestIds={downloadingQuestIds}
+                onSelectQuest={handleSelectQuest}
+                onDownloadQuest={handleDownloadQuest}
               />
             )}
-          </Button>
+            {step === 'assets' && (
+              <AssetsStep
+                assets={sourceAssets}
+                selectedAssetIds={selectedAssetIds}
+                isLoading={assetsQuery.isLoading || assetsQuery.isFetching}
+                playingAssetId={playingAssetId}
+                onToggleAsset={toggleAsset}
+                onPlayAsset={handlePlayAsset}
+                onLoadMore={handleLoadMoreAssets}
+                isFetchingNextPage={assetsQuery.isFetchingNextPage}
+                formatVerse={formatVerse}
+              />
+            )}
+            {step === 'validation' && (
+              <ValidationStep
+                selectedAssets={selectedAssets}
+                usedLabels={usedLabels}
+                conflictKeys={conflictKeys}
+                formatVerse={formatVerse}
+              />
+            )}
+          </View>
+
+          <View
+            className="flex-row items-center justify-between gap-3 border-t border-border px-6 py-4"
+            style={{ paddingBottom: insets.bottom + 16 }}
+          >
+            <Button
+              variant="outline"
+              onPress={goToPreviousStep}
+              className="flex-1"
+            >
+              <Icon as={ChevronLeftIcon} size={16} />
+              <Text>{isFirstStep ? 'Close' : 'Previous'}</Text>
+            </Button>
+            <Button
+              onPress={isLastStep ? onClose : goToNextStep}
+              disabled={isLastStep ? !canImport : !canGoNext}
+              className="flex-1"
+            >
+              <Text>{isLastStep ? 'Import' : 'Next'}</Text>
+              {!isLastStep && (
+                <Icon
+                  as={ChevronRightIcon}
+                  size={16}
+                  className="text-primary-foreground"
+                />
+              )}
+            </Button>
+          </View>
         </View>
-      </View>
+      </Modal>
 
       <QuestDownloadDiscoveryDrawer
         isOpen={showDiscoveryDrawer}
         onOpenChange={(open) => {
-          if (!open) handleCancelDiscovery();
+          if (!open && !isTransitioningToConfirmationRef.current) {
+            handleCancelDiscovery();
+          }
         }}
         onContinue={handleDiscoveryContinue}
         discoveryState={discoveryState}
@@ -1249,6 +1448,6 @@ export function ImportWizard({
           Languages: discoveryState.progressSharedValues.languages.value.count
         }}
       />
-    </Modal>
+    </>
   );
 }
