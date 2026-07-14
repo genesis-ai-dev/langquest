@@ -1,7 +1,6 @@
 // theme colors no longer needed after removing overlay
 import { useHaptic } from '@/hooks/useHaptic';
-import type { LegendListRef } from '@legendapp/list';
-import { LegendList } from '@legendapp/list';
+import { LegendList, type LegendListRef } from '@/components/ui/legend-list';
 import React from 'react';
 import type {
   LayoutChangeEvent,
