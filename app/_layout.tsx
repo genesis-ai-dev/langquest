@@ -35,7 +35,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { cssTokens } from '@/generated-tokens';
 import { useDrizzleStudio } from '@/hooks/useDrizzleStudio';
 import { initializePostHogWithStore } from '@/services/posthog';
-import { useHasHydrated, useLocalStore } from '@/store/localStore';
+import {
+  useHasHydrated,
+  useLocalStore,
+  useSessionStore
+} from '@/store/localStore';
+import { EntryGate } from '@/features/appearance/EntryGate';
 import { initializeNetwork } from '@/store/networkStore';
 import { toNavTheme } from '@/utils/styleUtils';
 import { TermsGateView } from '@/views/TermsGateView';
@@ -201,6 +206,9 @@ export default function RootLayout() {
 
   const hasHydrated = useHasHydrated();
   const termsAccepted = useLocalStore((s) => !!s.dateTermsAccepted);
+  const entryGuardEnabled = useLocalStore((s) => s.entryGuardEnabled);
+  const entryGuardMode = useLocalStore((s) => s.entryGuardMode);
+  const unlockedThisSession = useSessionStore((s) => s.unlocked);
 
   if (!isColorSchemeLoaded || !fontsLoaded || !hasHydrated) {
     return null;
@@ -208,6 +216,10 @@ export default function RootLayout() {
 
   const scheme: 'light' | 'dark' = colorScheme === 'dark' ? 'dark' : 'light';
   const systemBarsStyle = scheme === 'dark' ? 'light' : 'dark';
+
+  if (Platform.OS !== 'web' && entryGuardEnabled && !unlockedThisSession) {
+    return <EntryGate mode={entryGuardMode} />;
+  }
 
   if (!termsAccepted) {
     return (
