@@ -29,8 +29,7 @@ const withDebuggableVariants: ConfigPlugin = (config) =>
   withAppBuildGradle(config, (c) => {
     if (c.modResults.language !== 'groovy') return c;
 
-    const line =
-      '    debuggableVariants = ["debug", "debugOptimized"]';
+    const line = '    debuggableVariants = ["debug", "debugOptimized"]';
     const contents = c.modResults.contents;
 
     if (contents.includes('debuggableVariants = ["debug", "debugOptimized"]')) {

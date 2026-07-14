@@ -45,13 +45,11 @@ function LegendListInner<T>(
       {...rest}
       ListFooterComponent={() => (
         <View>
-          {ListFooterComponent ? (
-            React.isValidElement(ListFooterComponent) ? (
-              ListFooterComponent
-            ) : (
-              React.createElement(ListFooterComponent as React.ComponentType)
-            )
-          ) : null}
+          {ListFooterComponent
+            ? React.isValidElement(ListFooterComponent)
+              ? ListFooterComponent
+              : React.createElement(ListFooterComponent as React.ComponentType)
+            : null}
           {spacerHeight > 0 ? <View style={{ height: spacerHeight }} /> : null}
         </View>
       )}

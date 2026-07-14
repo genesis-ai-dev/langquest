@@ -1,4 +1,7 @@
-import type { LegendListProps, LegendListRef } from '@/components/ui/legend-list';
+import type {
+  LegendListProps,
+  LegendListRef
+} from '@/components/ui/legend-list';
 import { LegendList } from '@/components/ui/legend-list';
 import { useBottomSheetScrollableCreator } from '@gorhom/bottom-sheet';
 import React from 'react';
