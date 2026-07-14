@@ -34,7 +34,7 @@ import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useLocalStore } from '@/store/localStore';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import RNAlert from '@blazejkustra/react-native-alert';
-import { LegendList } from '@legendapp/list';
+import { LegendList } from '@/components/ui/legend-list';
 import { useKeepAwake } from 'expo-keep-awake';
 import { Stack } from 'expo-router';
 import {
@@ -78,6 +78,7 @@ import { ExportButton } from '@/components/ExportButton';
 import { ModalDetails } from '@/components/ModalDetails';
 import { ReportModal } from '@/components/NewReportModal';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
+import { PublishQuestButton } from '@/components/PublishQuestButton';
 import { QuestOffloadVerificationDrawer } from '@/components/QuestOffloadVerificationDrawer';
 import { run as runAssetGarbageCollector } from '@/database_services/assetGarbageCollectorService';
 import {
@@ -1344,11 +1345,15 @@ export default function NextGenAssetsView() {
     }
 
     setShowPlayAllControls(true);
-    await togglePlayAll({ playlist });
+    await togglePlayAll({
+      playlist,
+      playlistKey: questId ? `nextgen-assets:${questId}` : undefined
+    });
   }, [
     assets,
     getAssetAudioUris,
     isIndividualPlayerActive,
+    questId,
     selectedAssetIds,
     togglePlayAll
   ]);
@@ -1715,72 +1720,15 @@ export default function NextGenAssetsView() {
               // Only show publish/record buttons for authenticated users
               currentUser && (
                 <View className="flex flex-row items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="icon"
+                  <PublishQuestButton
+                    questName={selectedQuest?.name}
                     disabled={isPublishing || !isOnline || !isMember}
-                    onPress={() => {
-                      if (!isOnline) {
-                        RNAlert.alert(
-                          t('error'),
-                          t('cannotPublishWhileOffline')
-                        );
-                        return;
-                      }
-
-                      if (!isMember) {
-                        RNAlert.alert(t('error'), t('membersOnlyPublish'));
-                        return;
-                      }
-
-                      if (!questId) {
-                        console.error('No current quest id');
-                        return;
-                      }
-
-                      // Use quest name if available, otherwise generic message
-                      const questName = selectedQuest?.name || 'this chapter';
-
-                      RNAlert.alert(
-                        t('publishChapter'),
-                        t('publishChapterMessage').replace(
-                          '{questName}',
-                          questName
-                        ),
-                        [
-                          {
-                            text: t('cancel'),
-                            style: 'cancel'
-                          },
-                          {
-                            text: t('publish'),
-                            style: 'default',
-                            isPreferred: true,
-                            onPress: () => {
-                              publishQuest();
-                            }
-                          }
-                        ]
-                      );
-                    }}
-                  >
-                    {isPublishing ? (
-                      <ActivityIndicator
-                        size="small"
-                        color={getThemeColor('primary')}
-                      />
-                    ) : (
-                      <Icon as={CloudUpload} />
-                    )}
-                  </Button>
-                  {/* <Button
-                    variant="outline"
-                    size="icon"
-                    className="border-[1.5px] border-primary"
-                    onPress={() => void handleGoToRecording()}
-                  >
-                    <Icon as={PencilIcon} className="text-primary" />
-                  </Button> */}
+                    isPublishing={isPublishing}
+                    isOnline={isOnline}
+                    isMember={isMember}
+                    hasLocalAssets={assets.length > 0}
+                    onPublish={() => publishQuest()}
+                  />
                   {questId && projectId && (
                     <ExportButton
                       questId={questId}
@@ -1850,8 +1798,8 @@ export default function NextGenAssetsView() {
           <View className="flex-1 flex-row items-center justify-end gap-1">
             {assets.length > 0 && (
               <Button
-                variant="default"
-                size="default"
+                variant="secondary"
+                size="icon"
                 disabled={isIndividualPlayerActive && !isPlayAllPlayerActive}
                 onPress={() => {
                   if (isPlayAllPlayerActive) {
@@ -1859,14 +1807,15 @@ export default function NextGenAssetsView() {
                     setShowPlayAllControls(false);
                     return;
                   }
+                  playbackCheckpoint.clearPlayAllCheckpoint();
                   void handlePlayAll();
                 }}
-                className="h-10 w-10 flex-row items-center rounded-full bg-primary"
+                className="rounded-full"
               >
                 <Icon
                   as={PlayIcon}
                   size={16}
-                  className="text-primary-foreground"
+                  className="text-secondary-foreground"
                 />
               </Button>
             )}

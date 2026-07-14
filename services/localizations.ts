@@ -8430,6 +8430,249 @@ export const localizations = {
     thai: 'เปิดใช้งานโหมดดีบักสำหรับฟีเจอร์การพัฒนา',
     mandarin: '为开发功能启用调试模式'
   },
+  appIconTheme: {
+    english: 'App Icon',
+    french: "Icône de l'application",
+    spanish: 'Icono de la app',
+    brazilian_portuguese: 'Ícone do app',
+    tok_pisin: 'App Icon',
+    indonesian: 'Ikon Aplikasi',
+    nepali: 'एप आइकन',
+    hindi: 'ऐप आइकन',
+    burmese: 'အက်ပ် အိုင်ကွန်',
+    thai: 'ไอคอนแอป',
+    mandarin: '应用图标'
+  },
+  appIconThemeDescription: {
+    english: 'Choose how the app looks on your device',
+    french: "Choisissez l'apparence de l'application sur votre appareil",
+    spanish: 'Elige cómo se ve la app en tu dispositivo',
+    brazilian_portuguese: 'Escolha como o app aparece no seu dispositivo',
+    tok_pisin: 'Makim olsem app i luk long device bilong yu',
+    indonesian: 'Pilih tampilan aplikasi di perangkat Anda',
+    nepali: 'तपाईंको यन्त्रमा एप कस्तो देखिन्छ छान्नुहोस्',
+    hindi: 'चुनें कि आपके डिवाइस पर ऐप कैसा दिखे',
+    burmese: 'သင့်စက်တွင် အက်ပ်ပုံစံကို ရွေးချယ်ပါ',
+    thai: 'เลือกลักษณะของแอปบนอุปกรณ์ของคุณ',
+    mandarin: '选择应用在您设备上的外观'
+  },
+  appIconStandard: {
+    english: 'LangQuest',
+    french: 'LangQuest',
+    spanish: 'LangQuest',
+    brazilian_portuguese: 'LangQuest',
+    tok_pisin: 'LangQuest',
+    indonesian: 'LangQuest',
+    nepali: 'LangQuest',
+    hindi: 'LangQuest',
+    burmese: 'LangQuest',
+    thai: 'LangQuest',
+    mandarin: 'LangQuest'
+  },
+  appIconChangeTitle: {
+    english: 'Change app icon?',
+    french: "Changer l'icône de l'application ?",
+    spanish: '¿Cambiar el icono de la app?',
+    brazilian_portuguese: 'Alterar o ícone do app?',
+    tok_pisin: 'Senisim app icon?',
+    indonesian: 'Ubah ikon aplikasi?',
+    nepali: 'एप आइकन परिवर्तन गर्ने?',
+    hindi: 'ऐप आइकन बदलें?',
+    burmese: 'အက်ပ်အိုင်ကွန် ပြောင်းမလား?',
+    thai: 'เปลี่ยนไอคอนแอป?',
+    mandarin: '更改应用图标？'
+  },
+  appIconChangeHint: {
+    english:
+      'After you confirm, look for the new icon and name on your home screen.',
+    french:
+      "Après confirmation, cherchez la nouvelle icône et le nouveau nom sur votre écran d'accueil.",
+    spanish:
+      'Después de confirmar, busca el nuevo icono y nombre en la pantalla de inicio.',
+    brazilian_portuguese:
+      'Depois de confirmar, procure o novo ícone e nome na tela inicial.',
+    tok_pisin:
+      'Bihain yu tok orait, painim nupela icon na nem long home screen bilong yu.',
+    indonesian:
+      'Setelah mengonfirmasi, cari ikon dan nama baru di layar beranda Anda.',
+    nepali: 'पुष्टि गरेपछि, आफ्नो होम स्क्रिनमा नयाँ आइकन र नाम खोज्नुहोस्।',
+    hindi: 'पुष्टि करने के बाद, अपनी होम स्क्रीन पर नया आइकन और नाम देखें।',
+    burmese:
+      'အတည်ပြုပြီးနောက်၊ သင့်ပင်မစခရင်တွင် အိုင်ကွန်နှင့် အမည်အသစ်ကို ရှာပါ။',
+    thai: 'หลังจากยืนยัน ให้มองหาไอคอนและชื่อใหม่บนหน้าจอหลักของคุณ',
+    mandarin: '确认后，请在主屏幕上查找新的图标和名称。'
+  },
+  appLock: {
+    english: 'App lock',
+    french: "Verrouillage de l'application",
+    spanish: 'Bloqueo de la app',
+    brazilian_portuguese: 'Bloqueio do app',
+    tok_pisin: 'App lock',
+    indonesian: 'Kunci aplikasi',
+    nepali: 'एप लक',
+    hindi: 'ऐप लॉक',
+    burmese: 'အက်ပ် သော့ခတ်ခြင်း',
+    thai: 'ล็อกแอป',
+    mandarin: '应用锁'
+  },
+  appLockDescription: {
+    english: 'Require a code to open the app',
+    french: "Exiger un code pour ouvrir l'application",
+    spanish: 'Requerir un código para abrir la app',
+    brazilian_portuguese: 'Exigir um código para abrir o app',
+    tok_pisin: 'Nidim wanpela code long opim app',
+    indonesian: 'Perlukan kode untuk membuka aplikasi',
+    nepali: 'एप खोल्न कोड चाहिन्छ',
+    hindi: 'ऐप खोलने के लिए कोड आवश्यक करें',
+    burmese: 'အက်ပ်ဖွင့်ရန် ကုဒ်တစ်ခု လိုအပ်စေပါ',
+    thai: 'ต้องใช้รหัสเพื่อเปิดแอป',
+    mandarin: '打开应用需要输入代码'
+  },
+  appLockSetCode: {
+    english: 'Set code',
+    french: 'Définir le code',
+    spanish: 'Establecer código',
+    brazilian_portuguese: 'Definir código',
+    tok_pisin: 'Putim code',
+    indonesian: 'Atur kode',
+    nepali: 'कोड सेट गर्नुहोस्',
+    hindi: 'कोड सेट करें',
+    burmese: 'ကုဒ် သတ်မှတ်ပါ',
+    thai: 'ตั้งรหัส',
+    mandarin: '设置代码'
+  },
+  appLockEnterCode: {
+    english: 'Enter code',
+    french: 'Saisir le code',
+    spanish: 'Introducir código',
+    brazilian_portuguese: 'Digite o código',
+    tok_pisin: 'Raitim code',
+    indonesian: 'Masukkan kode',
+    nepali: 'कोड प्रविष्ट गर्नुहोस्',
+    hindi: 'कोड दर्ज करें',
+    burmese: 'ကုဒ် ထည့်ပါ',
+    thai: 'ป้อนรหัส',
+    mandarin: '输入代码'
+  },
+  appLockConfirmCode: {
+    english: 'Confirm code',
+    french: 'Confirmer le code',
+    spanish: 'Confirmar código',
+    brazilian_portuguese: 'Confirmar código',
+    tok_pisin: 'Konfemim code',
+    indonesian: 'Konfirmasi kode',
+    nepali: 'कोड पुष्टि गर्नुहोस्',
+    hindi: 'कोड की पुष्टि करें',
+    burmese: 'ကုဒ် အတည်ပြုပါ',
+    thai: 'ยืนยันรหัส',
+    mandarin: '确认代码'
+  },
+  appLockInstructionsKeypad: {
+    english: 'To unlock, open "{app}" and type your code on its keypad',
+    french:
+      'Pour déverrouiller, ouvrez « {app} » et saisissez votre code sur son clavier',
+    spanish: 'Para desbloquear, abre «{app}» y escribe tu código en su teclado',
+    brazilian_portuguese:
+      'Para desbloquear, abra "{app}" e digite seu código no teclado',
+    tok_pisin:
+      'Bilong go insait gen, opim "{app}" na raitim code bilong yu long keypad',
+    indonesian:
+      'Untuk membuka, buka "{app}" dan ketik kode Anda di papan tombolnya',
+    nepali:
+      'अनलक गर्न "{app}" खोल्नुहोस् र यसको किप्याडमा आफ्नो कोड टाइप गर्नुहोस्',
+    hindi:
+      'अनलॉक करने के लिए "{app}" खोलें और उसके कीपैड पर अपना कोड टाइप करें',
+    burmese:
+      'ပြန်ဖွင့်ရန် "{app}" ကိုဖွင့်ပြီး ၎င်း၏ကီးပက်ဒ်တွင် သင့်ကုဒ်ကို ရိုက်ပါ',
+    thai: 'หากต้องการปลดล็อก เปิด "{app}" แล้วพิมพ์รหัสของคุณบนแป้นพิมพ์',
+    mandarin: '要解锁，请打开"{app}"并在其键盘上输入您的代码'
+  },
+  appLockInstructionsNote: {
+    english: 'To unlock, open "{app}" and type your code on its own line',
+    french:
+      'Pour déverrouiller, ouvrez « {app} » et saisissez votre code sur une ligne à part',
+    spanish:
+      'Para desbloquear, abre «{app}» y escribe tu código en su propia línea',
+    brazilian_portuguese:
+      'Para desbloquear, abra "{app}" e digite seu código em uma linha própria',
+    tok_pisin:
+      'Bilong go insait gen, opim "{app}" na raitim code bilong yu long wanpela lain',
+    indonesian:
+      'Untuk membuka, buka "{app}" dan ketik kode Anda pada baris tersendiri',
+    nepali:
+      'अनलक गर्न "{app}" खोल्नुहोस् र आफ्नो कोड छुट्टै लाइनमा टाइप गर्नुहोस्',
+    hindi:
+      'अनलॉक करने के लिए "{app}" खोलें और अपना कोड एक अलग लाइन पर टाइप करें',
+    burmese:
+      'ပြန်ဖွင့်ရန် "{app}" ကိုဖွင့်ပြီး သင့်ကုဒ်ကို သီးခြားစာကြောင်းတွင် ရိုက်ပါ',
+    thai: 'หากต้องการปลดล็อก เปิด "{app}" แล้วพิมพ์รหัสของคุณในบรรทัดแยกต่างหาก',
+    mandarin: '要解锁，请打开"{app}"，在单独一行输入您的代码'
+  },
+  appLockMismatch: {
+    english: 'Codes do not match',
+    french: 'Les codes ne correspondent pas',
+    spanish: 'Los códigos no coinciden',
+    brazilian_portuguese: 'Os códigos não coincidem',
+    tok_pisin: 'Ol code i no wankain',
+    indonesian: 'Kode tidak cocok',
+    nepali: 'कोडहरू मेल खाँदैनन्',
+    hindi: 'कोड मेल नहीं खाते',
+    burmese: 'ကုဒ်များ မကိုက်ညီပါ',
+    thai: 'รหัสไม่ตรงกัน',
+    mandarin: '代码不匹配'
+  },
+  appLockTooShort: {
+    english: 'Code must be at least 4 characters',
+    french: 'Le code doit comporter au moins 4 caractères',
+    spanish: 'El código debe tener al menos 4 caracteres',
+    brazilian_portuguese: 'O código deve ter pelo menos 4 caracteres',
+    tok_pisin: 'Code i mas gat 4 karakta o moa',
+    indonesian: 'Kode harus minimal 4 karakter',
+    nepali: 'कोड कम्तिमा ४ अक्षरको हुनुपर्छ',
+    hindi: 'कोड कम से कम 4 वर्ण का होना चाहिए',
+    burmese: 'ကုဒ်သည် အနည်းဆုံး ၄ လုံး ရှိရမည်',
+    thai: 'รหัสต้องมีอย่างน้อย 4 ตัวอักษร',
+    mandarin: '代码至少需要 4 个字符'
+  },
+  appLockRemove: {
+    english: 'Remove code',
+    french: 'Supprimer le code',
+    spanish: 'Eliminar código',
+    brazilian_portuguese: 'Remover código',
+    tok_pisin: 'Rausim code',
+    indonesian: 'Hapus kode',
+    nepali: 'कोड हटाउनुहोस्',
+    hindi: 'कोड हटाएं',
+    burmese: 'ကုဒ် ဖယ်ရှားပါ',
+    thai: 'ลบรหัส',
+    mandarin: '移除代码'
+  },
+  appLockCancel: {
+    english: 'Cancel',
+    french: 'Annuler',
+    spanish: 'Cancelar',
+    brazilian_portuguese: 'Cancelar',
+    tok_pisin: 'Lusim',
+    indonesian: 'Batal',
+    nepali: 'रद्द गर्नुहोस्',
+    hindi: 'रद्द करें',
+    burmese: 'ပယ်ဖျက်ပါ',
+    thai: 'ยกเลิก',
+    mandarin: '取消'
+  },
+  appLockSave: {
+    english: 'Save',
+    french: 'Enregistrer',
+    spanish: 'Guardar',
+    brazilian_portuguese: 'Salvar',
+    tok_pisin: 'Seivim',
+    indonesian: 'Simpan',
+    nepali: 'सुरक्षित गर्नुहोस्',
+    hindi: 'सहेजें',
+    burmese: 'သိမ်းဆည်းပါ',
+    thai: 'บันทึก',
+    mandarin: '保存'
+  },
   settingsRequireInternet: {
     english: 'Some settings require an internet connection',
     french: 'Certains paramètres nécessitent une connexion Internet',

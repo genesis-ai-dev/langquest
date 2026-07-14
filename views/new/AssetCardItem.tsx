@@ -1,4 +1,5 @@
 import { DownloadIndicator } from '@/components/DownloadIndicator';
+import { NewHighlightBadge } from '@/components/NewHighlightBadge';
 // import { Badge } from '@/components/ui/badge';
 import {
   Card,
@@ -12,8 +13,8 @@ import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 // import type { Tag } from '@/database_services/tagCache';
 // import { tagService } from '@/database_services/tagService';
 import type { asset as asset_type } from '@/db/drizzleSchema';
-import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useNavigationHelpers } from '@/hooks/useNavigation';
 // import { useTagStore } from '@/hooks/useTagStore';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import type { AttachmentRecord } from '@powersync/attachments';
@@ -374,13 +375,7 @@ const AssetCardItemComponent: React.FC<AssetCardItemProps> = ({
               {/* Actions: Edit name + Open details (hidden in selection mode) */}
               <View className="flex flex-row items-center gap-2">
                 {/* Highlight indicator badge */}
-                {isHighlighted && (
-                  <View className="rounded-lg bg-primary/50 px-2">
-                    <Text className="text-[10px] font-semibold text-white">
-                      NEW
-                    </Text>
-                  </View>
-                )}
+                {isHighlighted && <NewHighlightBadge />}
 
                 {!isSelectionMode &&
                 !isPublished &&

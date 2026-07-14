@@ -2,7 +2,23 @@ import { useLocalStore } from '@/store/localStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Device from 'expo-device';
 import * as Updates from 'expo-updates';
-import PostHog from 'posthog-react-native';
+import PostHog, { PostHogOptions } from 'posthog-react-native';
+
+function isPostHogDisabled() {
+  return (
+    __DEV__ || // comment out when you want to test analytics locally (with preview environment eas env:pull <environment>)
+    !process.env.EXPO_PUBLIC_POSTHOG_HOST ||
+    !process.env.EXPO_PUBLIC_POSTHOG_KEY
+  );
+}
+
+const posthogErrorTracking = {
+  autocapture: {
+    uncaughtExceptions: true,
+    unhandledRejections: true,
+    console: ['error', 'warn']
+  }
+} satisfies PostHogOptions['errorTracking'];
 
 // Simple initialization without circular dependency
 const createPostHogInstance = (optIn = false) => {
@@ -13,18 +29,58 @@ const createPostHogInstance = (optIn = false) => {
       maskAllImages: false,
       maskAllTextInputs: true
     },
+    errorTracking: posthogErrorTracking,
     enablePersistSessionIdAcrossRestart: true,
     defaultOptIn: optIn,
-    disabled:
-      __DEV__ ||
-      !process.env.EXPO_PUBLIC_POSTHOG_HOST ||
-      !process.env.EXPO_PUBLIC_POSTHOG_KEY,
+    disabled: isPostHogDisabled(),
     customStorage: AsyncStorage
   });
 };
 
 // Initialize PostHog with basic settings immediately (no circular dependency)
 const posthog = createPostHogInstance();
+
+let pendingPostHogUserId: string | null = null;
+let lastIdentifiedPostHogUserId: string | null = null;
+
+function getAnalyticsOptIn() {
+  const { dateTermsAccepted, analyticsOptOut } = useLocalStore.getState();
+  return !analyticsOptOut && !!dateTermsAccepted;
+}
+
+/**
+ * Links PostHog persons to Supabase auth user ids for field troubleshooting.
+ * Call from AuthContext when session changes; identity is applied only when analytics is opted in.
+ */
+export const syncPostHogIdentity = async () => {
+  if (isPostHogDisabled()) {
+    return;
+  }
+
+  const shouldOptIn = getAnalyticsOptIn();
+
+  try {
+    if (shouldOptIn && pendingPostHogUserId) {
+      await posthog.identify(pendingPostHogUserId);
+      lastIdentifiedPostHogUserId = pendingPostHogUserId;
+    } else if (lastIdentifiedPostHogUserId !== null) {
+      posthog.reset();
+      lastIdentifiedPostHogUserId = null;
+    }
+  } catch (error) {
+    console.warn('Failed to sync PostHog identity:', error);
+  }
+};
+
+/**
+ * Intentionally a no-op: identifying PostHog persons by auth user id is on
+ * hold until GDPR requirements are sorted out. Restore the body below to
+ * re-enable.
+ */
+export const setPostHogUserId = (_userId: string | null) => {
+  // pendingPostHogUserId = _userId;
+  // void syncPostHogIdentity();
+};
 
 const changeAnalyticsState = async (newState: boolean) => {
   if (newState) {
@@ -34,6 +90,8 @@ const changeAnalyticsState = async (newState: boolean) => {
   } else {
     await posthog.optOut();
   }
+
+  await syncPostHogIdentity();
 };
 
 /**

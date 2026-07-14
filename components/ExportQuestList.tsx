@@ -12,7 +12,7 @@ import {
   shareExport
 } from '@/utils/exportUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
-import { LegendList } from '@legendapp/list';
+import { LegendList } from '@/components/ui/legend-list';
 import { Download, Info, Share2Icon } from 'lucide-react-native';
 import React from 'react';
 import {

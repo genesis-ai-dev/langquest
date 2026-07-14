@@ -122,7 +122,7 @@ jobs:
     runs_on: macos-large
     params:
       record_screen: true
-      device_identifier: 'iPhone 16e'
+      device_identifier: 'iPhone 17'
       build_id: ${{ needs.ios_repack.outputs.build_id || needs.ios_build.outputs.build_id }}
       flow_path:
         [
@@ -131,9 +131,10 @@ jobs:
           '.maestro/flows/sign-in.yaml'
         ]
     hooks:
-      after_checkout:
+      before_maestro_tests:
         - run: |
-            DEVICE_ID=$(xcrun simctl list devices -j | jq -r '.devices[][] | select(.name=="iPhone 16e") | .udid') && \
+            DEVICE_ID=$(xcrun simctl list devices -j | jq -r '.devices[][] | select(.state=="Booted") | .udid' | head -1) && \
+            if [ -z "$DEVICE_ID" ]; then echo "No booted iOS simulator found"; exit 1; fi && \
             echo "Booted device ID: $DEVICE_ID" && \
             # Source - https://stackoverflow.com/a/76105538
             # Posted by Jonathan.

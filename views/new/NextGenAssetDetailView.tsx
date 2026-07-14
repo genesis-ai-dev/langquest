@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unnecessary-condition */
 import { AssetSettingsModal } from '@/components/AssetSettingsModal';
+import { NewHighlightBadge } from '@/components/NewHighlightBadge';
 import { AssetSkeleton } from '@/components/AssetSkeleton';
 import ImageCarousel from '@/components/ImageCarousel';
 import { ReportModal } from '@/components/NewReportModal';
@@ -308,10 +309,29 @@ export default function NextGenAssetDetailView() {
     [questData?.metadata, activeRecordingSessionId]
   );
 
+  const markNewChildAssetInDetailView = useLocalStore(
+    (state) => state.markNewChildAssetInDetailView
+  );
+  const clearNewChildAssetsInDetailView = useLocalStore(
+    (state) => state.clearNewChildAssetsInDetailView
+  );
+
+  // Refetch quest on focus; keep cleanup separate so refetch identity changes
+  // don't clear ephemeral NEW badges after creating translations.
   useFocusEffect(
     React.useCallback(() => {
       void refetchQuest();
     }, [refetchQuest])
+  );
+
+  useFocusEffect(
+    React.useCallback(() => {
+      return () => {
+        if (assetId) {
+          clearNewChildAssetsInDetailView(assetId);
+        }
+      };
+    }, [assetId, clearNewChildAssetsInDetailView])
   );
 
   // Get target languoid_id from project_language_link
@@ -717,8 +737,10 @@ export default function NextGenAssetDetailView() {
     );
   }
 
-  const handleTranslationSuccess = () => {
-    // Refresh the translations list by forcing a re-render
+  const handleTranslationSuccess = (newAssetId: string) => {
+    if (assetId) {
+      markNewChildAssetInDetailView(assetId, newAssetId);
+    }
     setShowNewTranslationModal(false);
     setTranslationsRefreshKey((prev) => prev + 1);
   };
@@ -854,13 +876,7 @@ export default function NextGenAssetDetailView() {
               {activeAsset.name}
             </Text>
             {/* New badge for recently recorded assets */}
-            {isHighlighted && (
-              <View className="rounded-lg bg-primary/50 px-2">
-                <Text className="text-[10px] font-semibold text-white">
-                  NEW
-                </Text>
-              </View>
-            )}
+            {isHighlighted && <NewHighlightBadge />}
           </View>
           {Boolean(projectData?.private) && (
             <View className="flex-row items-center gap-1">

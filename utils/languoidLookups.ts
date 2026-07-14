@@ -78,6 +78,14 @@ export async function lookupFiaLanguageCode(
   return data.value;
 }
 
+export async function lookupFiaLanguageCodeForProject(
+  projectId: string
+): Promise<string | null> {
+  const sourceLanguoidId = await lookupSourceLanguoidId(projectId);
+  if (!sourceLanguoidId) return null;
+  return lookupFiaLanguageCode(sourceLanguoidId);
+}
+
 export async function lookupIso639_3(
   languoidId: string
 ): Promise<string | null> {

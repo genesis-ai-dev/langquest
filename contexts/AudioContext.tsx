@@ -317,7 +317,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     await setAudioModeAsync({
       allowsRecording: false,
       playsInSilentMode: true,
-      shouldPlayInBackground: true
+      shouldPlayInBackground: false
     });
 
     // Resolve through file cache (downloads remote files on first access, serves local copy thereafter)

@@ -71,6 +71,7 @@ import { useHybridData } from './useHybridData';
 
 import { AssetListSkeleton } from '@/components/AssetListSkeleton';
 import { ExportButton } from '@/components/ExportButton';
+import { PublishQuestButton } from '@/components/PublishQuestButton';
 import type { FiaDrawerState } from '@/components/FiaStepDrawer';
 import {
   FiaStepDrawer,
@@ -124,6 +125,8 @@ import { AppConfig } from '@/db/supabase/AppConfig';
 import { useAssetsByQuest, useLocalAssetsByQuest } from '@/hooks/db/useAssets';
 import { useBlockedAssetsCount } from '@/hooks/useBlockedCount';
 import { useFiaPericopeSteps } from '@/hooks/useFiaPericopeSteps';
+import { useProjectFiaLanguageCode } from '@/hooks/useProjectFiaLanguageCode';
+import { isFiaPericopeCached } from '@/services/FiaAttachmentQueue';
 import { useQuestOffloadVerification } from '@/hooks/useQuestOffloadVerification';
 import { useHasUserReported } from '@/hooks/useReports';
 import { useUndoHistory } from '@/hooks/useUndoHistory';
@@ -817,6 +820,16 @@ export default function BibleAssetsView() {
     ? (fiaMetaExtracted?.pericopeId ?? null)
     : null;
 
+  const { fiaLanguageCode } = useProjectFiaLanguageCode(
+    fiaPericopeId ? projectId : undefined
+  );
+
+  const needsFiaRecache = Boolean(
+    fiaPericopeId &&
+    fiaLanguageCode &&
+    !isFiaPericopeCached(fiaLanguageCode, fiaPericopeId)
+  );
+
   // Fetch all FIA steps (only for FIA pericope quests)
   const { data: fiaStepsData, isLoading: fiaStepsLoading } =
     useFiaPericopeSteps(
@@ -825,18 +838,24 @@ export default function BibleAssetsView() {
     );
 
   // Auto-open FIA steps drawer once per quest per session.
-  // Once the user closes it, don't reopen (even after navigating to recording and back).
+  // Open immediately when guide content must be downloaded (e.g. post LQ-17 recache).
+  // When cached, open after data is ready. If the user dismissed the drawer, don't reopen
+  // unless content is missing and needs a fresh download.
   React.useEffect(() => {
-    if (
-      fiaPericopeId &&
-      questId &&
-      fiaStepsData &&
-      !fiaStepsLoading &&
-      !fiaDrawerDismissedQuests.has(questId)
-    ) {
+    if (!fiaPericopeId || !questId) return;
+
+    const dismissed = fiaDrawerDismissedQuests.has(questId);
+    if (dismissed && !needsFiaRecache) return;
+
+    if (needsFiaRecache) {
+      setShowFiaTextDrawer(true);
+      return;
+    }
+
+    if (fiaStepsData && !fiaStepsLoading) {
       setShowFiaTextDrawer(true);
     }
-  }, [fiaPericopeId, questId, fiaStepsData, fiaStepsLoading]);
+  }, [fiaPericopeId, questId, needsFiaRecache, fiaStepsData, fiaStepsLoading]);
 
   // Build the ordered verse sequence for FIA pericopes (null for standard chapters)
   const pericopeSequence = React.useMemo<ChapterVerse[] | null>(() => {
@@ -3546,12 +3565,16 @@ export default function BibleAssetsView() {
         return;
       }
 
-      await togglePlayAll({ playlist });
+      await togglePlayAll({
+        playlist,
+        playlistKey: questId ? `bible-assets:${questId}` : undefined
+      });
     },
     [
       assets,
       getAssetAudioUris,
       isIndividualPlayerActive,
+      questId,
       selectedAssetIds,
       togglePlayAll
     ]
@@ -4012,67 +4035,15 @@ export default function BibleAssetsView() {
               // Only show publish/export buttons for authenticated users
               currentUser && (
                 <>
-                  <Button
-                    variant="outline"
-                    size="icon"
+                  <PublishQuestButton
+                    questName={selectedQuest?.name}
                     disabled={isPublishing || !isOnline || !isMember}
-                    className="text-xs"
-                    onPress={() => {
-                      if (!isOnline) {
-                        RNAlert.alert(
-                          t('error'),
-                          t('cannotPublishWhileOffline')
-                        );
-                        return;
-                      }
-
-                      if (!isMember) {
-                        RNAlert.alert(t('error'), t('membersOnlyPublish'));
-                        return;
-                      }
-
-                      if (!questId) {
-                        console.error('No current quest id');
-                        return;
-                      }
-
-                      // Use quest name if available, otherwise generic message
-                      const questName = selectedQuest?.name || 'this chapter';
-
-                      RNAlert.alert(
-                        t('publishChapter'),
-                        t('publishChapterMessage').replace(
-                          '{questName}',
-                          questName
-                        ),
-                        [
-                          {
-                            text: t('cancel'),
-                            style: 'cancel'
-                          },
-                          {
-                            text: t('publish'),
-                            style: 'default',
-                            isPreferred: true,
-                            onPress: () => {
-                              publishQuest();
-                            }
-                          }
-                        ]
-                      );
-                    }}
-                  >
-                    {isPublishing ? (
-                      <ActivityIndicator
-                        size="small"
-                        color={getThemeColor('primary')}
-                      />
-                    ) : (
-                      <>
-                        <Icon as={CloudUpload} />
-                      </>
-                    )}
-                  </Button>
+                    isPublishing={isPublishing}
+                    isOnline={isOnline}
+                    isMember={isMember}
+                    hasLocalAssets={assets.length > 0}
+                    onPublish={() => publishQuest()}
+                  />
                   {questId && projectId && (
                     <ExportButton
                       questId={questId}
@@ -4173,8 +4144,8 @@ export default function BibleAssetsView() {
         <View className="flex-1 flex-row items-center justify-end gap-1">
           {assets.length > 0 && (
             <Button
-              variant="default"
-              size="default"
+              variant="secondary"
+              size="icon"
               disabled={isIndividualPlayerActive && !isPlayAllPlayerActive}
               onPress={() => {
                 if (isPlayAllPlayerActive) {
@@ -4183,20 +4154,18 @@ export default function BibleAssetsView() {
                   return;
                 }
                 if (!isPlayAllRunning) {
+                  playbackCheckpoint.clearPlayAllCheckpoint();
                   setShowPlayAllControls(true);
                   void handlePlayAll(selectedForRecording);
                 }
               }}
-              className="h-10 w-10 flex-row items-center rounded-full bg-primary"
+              className="rounded-full"
             >
               <Icon
                 as={PlayIcon}
                 size={16}
-                className="text-primary-foreground"
+                className="text-secondary-foreground"
               />
-              {/* <Text className="p-0 text-sm font-semibold text-primary-foreground">
-              </Text> */}
-              {/* <Text className="-p-safe-or-1 px-2">Play All</Text> */}
             </Button>
           )}
         </View>

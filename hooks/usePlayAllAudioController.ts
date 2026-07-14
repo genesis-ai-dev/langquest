@@ -1,4 +1,9 @@
-import { createAudioPlayer, type AudioPlayer } from 'expo-audio';
+import { getCachedAudioUri } from '@/utils/audioCache';
+import {
+  createAudioPlayer,
+  setAudioModeAsync,
+  type AudioPlayer
+} from 'expo-audio';
 import React from 'react';
 import type { PlayAllCheckpoint } from './useAudioPlaybackCheckpoint';
 
@@ -77,8 +82,62 @@ type PlayAllJumpTarget = {
 
 const DEFAULT_SEEK_STEP_MS = 5000;
 const SEEK_DEBOUNCE_MS = 500;
-const PLAYER_LOAD_TIMEOUT_MS = 2500;
+const PLAYER_LOAD_TIMEOUT_MS = 5000;
 const PLAYER_LOAD_POLL_INTERVAL_MS = 20;
+/** Tolerance when inferring segment end from position (iOS can miss didJustFinish). */
+const SEGMENT_END_TOLERANCE_SECONDS = 0.25;
+
+async function ensureAudioPlaybackMode(): Promise<void> {
+  await setAudioModeAsync({
+    allowsRecording: false,
+    playsInSilentMode: true,
+    shouldPlayInBackground: false
+  });
+}
+
+function isSegmentPlaybackComplete(
+  status: PlaybackStatus,
+  hasStartedPlaying: boolean
+): boolean {
+  if (!hasStartedPlaying) {
+    return false;
+  }
+
+  if (status.didJustFinish) {
+    return true;
+  }
+
+  const duration = status.duration;
+  const currentTime = status.currentTime;
+  if (
+    !status.playing &&
+    Number.isFinite(duration) &&
+    duration > 0 &&
+    Number.isFinite(currentTime) &&
+    currentTime >= duration - SEGMENT_END_TOLERANCE_SECONDS
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+async function resolvePlaylistUris(
+  playlist: PlayAllPlaylistItem[]
+): Promise<PlayAllPlaylistItem[]> {
+  const resolved: PlayAllPlaylistItem[] = [];
+  for (const item of playlist) {
+    const uris: string[] = [];
+    for (const uri of item.uris) {
+      if (!uri) {
+        continue;
+      }
+      uris.push(await getCachedAudioUri(uri));
+    }
+    resolved.push({ ...item, uris });
+  }
+  return resolved;
+}
 
 export function usePlayAllAudioController({
   checkpointStore,
@@ -606,6 +665,10 @@ export function usePlayAllAudioController({
       let shouldUseInitialCheckpoint = shouldResume;
 
       try {
+        await ensureAudioPlaybackMode();
+        const resolvedPlaylist = await resolvePlaylistUris(playlist);
+        currentPlaylistRef.current = resolvedPlaylist;
+
         const waitForPlayerLoaded = async (player: AudioPlayer) => {
           return await new Promise<boolean>((resolve) => {
             if (player.isLoaded) {
@@ -629,67 +692,19 @@ export function usePlayAllAudioController({
           });
         };
 
-        const preloadItemDurations = async (
-          item: PlayAllPlaylistItem,
-          itemIndex: number
-        ) => {
-          const cachedDurations =
-            itemSegmentDurationsRef.current.get(itemIndex);
-          if (
-            cachedDurations &&
-            cachedDurations.length === item.uris.length &&
-            cachedDurations.every((duration) => duration > 0)
-          ) {
-            return;
-          }
-
-          const resolvedDurations = new Array<number>(item.uris.length).fill(0);
-          for (let idx = 0; idx < item.uris.length; idx++) {
-            const uri = item.uris[idx];
-            if (!uri) {
-              continue;
-            }
-            let tempPlayer: AudioPlayer | null = null;
-            try {
-              tempPlayer = createAudioPlayer(uri);
-              const isLoaded = await waitForPlayerLoaded(tempPlayer);
-              if (isLoaded && tempPlayer.isLoaded && tempPlayer.duration > 0) {
-                const durationMs = tempPlayer.duration * 1000;
-                resolvedDurations[idx] = durationMs;
-                segmentDurationMsMapRef.current.set(
-                  `${itemIndex}:${idx}`,
-                  durationMs
-                );
-              }
-            } catch {
-              // Ignore preload failure, runtime playback status can still fill duration.
-            } finally {
-              try {
-                tempPlayer?.release();
-              } catch {
-                // Ignore release failures for temporary preloading players.
-              }
-            }
-          }
-
-          itemSegmentDurationsRef.current.set(itemIndex, resolvedDurations);
-        };
-
         for (
           let itemIndex = resolvedStartItemIndex;
-          itemIndex < playlist.length;
+          itemIndex < resolvedPlaylist.length;
         ) {
           if (!isPlayAllRunningRef.current) {
             stopPlayAll('cancelled');
             return;
           }
 
-          const item = playlist[itemIndex];
+          const item = resolvedPlaylist[itemIndex];
           if (!item || item.uris.length === 0) {
             continue;
           }
-
-          await preloadItemDurations(item, itemIndex);
 
           notifyCurrentAssetChange({
             assetId: item.assetId,
@@ -767,31 +782,23 @@ export function usePlayAllAudioController({
 
               currentSegmentResolveRef.current = settle;
 
-              try {
-                const player = createAudioPlayer(uri);
-                currentPlayerRef.current = player;
-                player.play();
+              void (async () => {
+                try {
+                  const player = createAudioPlayer(uri, {
+                    updateInterval: 100,
+                    keepAudioSessionActive: true
+                  });
+                  currentPlayerRef.current = player;
+                  let segmentCompletionHandled = false;
+                  let segmentHasStartedPlaying = false;
 
-                if (resumePositionMs > 0) {
-                  const seekInterval = setInterval(() => {
-                    if (!player.isLoaded) {
-                      return;
+                  const handleSegmentPlaybackStatus = (
+                    playbackStatus: PlaybackStatus
+                  ) => {
+                    if (playbackStatus.playing) {
+                      segmentHasStartedPlaying = true;
                     }
-                    clearInterval(seekInterval);
-                    player.seekTo(resumePositionMs / 1000);
-                  }, 20);
 
-                  const seekTimeoutId = setTimeout(() => {
-                    clearInterval(seekInterval);
-                    seekTimeoutIdsRef.current.delete(seekTimeoutId);
-                  }, 2000);
-                  seekTimeoutIdsRef.current.add(seekTimeoutId);
-                }
-
-                currentPlayerSubscriptionRef.current = player.addListener(
-                  'playbackStatusUpdate',
-                  (status) => {
-                    const playbackStatus = status as PlaybackStatus;
                     lastStatusItemIndexRef.current = itemIndex;
                     lastStatusUriIndexRef.current = uriIndex;
                     const statusCurrentTimeMs =
@@ -850,7 +857,7 @@ export function usePlayAllAudioController({
                       item,
                       itemIndex,
                       uriIndex,
-                      playlistLength: playlist.length,
+                      playlistLength: resolvedPlaylist.length,
                       assetPositionMs,
                       assetDurationMs
                     });
@@ -864,9 +871,19 @@ export function usePlayAllAudioController({
                       });
                     }
 
-                    if (!playbackStatus.didJustFinish) {
+                    if (
+                      !isSegmentPlaybackComplete(
+                        playbackStatus,
+                        segmentHasStartedPlaying
+                      )
+                    ) {
                       return;
                     }
+
+                    if (segmentCompletionHandled) {
+                      return;
+                    }
+                    segmentCompletionHandled = true;
 
                     const isLastUriInItem = uriIndex >= item.uris.length - 1;
                     const nextItemIndex = isLastUriInItem
@@ -874,7 +891,7 @@ export function usePlayAllAudioController({
                       : itemIndex;
                     const nextUriIndex = isLastUriInItem ? 0 : uriIndex + 1;
 
-                    if (nextItemIndex < playlist.length) {
+                    if (nextItemIndex < resolvedPlaylist.length) {
                       checkpointStore.savePlayAllCheckpoint(
                         {
                           playlistKey: effectivePlaylistKey,
@@ -890,12 +907,58 @@ export function usePlayAllAudioController({
 
                     releaseCurrentPlayer();
                     settle();
+                  };
+
+                  currentPlayerSubscriptionRef.current = player.addListener(
+                    'playbackStatusUpdate',
+                    (status) => {
+                      handleSegmentPlaybackStatus(status as PlaybackStatus);
+                    }
+                  );
+
+                  player.play();
+
+                  const isLoaded = await waitForPlayerLoaded(player);
+                  if (!isLoaded && !player.isLoaded) {
+                    console.warn(
+                      '[PlayAll] Segment failed to load before playback:',
+                      uri.slice(0, 80)
+                    );
+                    releaseCurrentPlayer();
+                    settle();
+                    return;
                   }
-                );
-              } catch {
-                releaseCurrentPlayer();
-                settle();
-              }
+
+                  if (!segmentHasStartedPlaying && !player.playing) {
+                    player.play();
+                  }
+
+                  if (resumePositionMs > 0) {
+                    const seekInterval = setInterval(() => {
+                      if (!player.isLoaded) {
+                        return;
+                      }
+                      clearInterval(seekInterval);
+                      player.seekTo(resumePositionMs / 1000);
+                    }, 20);
+
+                    const seekTimeoutId = setTimeout(() => {
+                      clearInterval(seekInterval);
+                      seekTimeoutIdsRef.current.delete(seekTimeoutId);
+                    }, 2000);
+                    seekTimeoutIdsRef.current.add(seekTimeoutId);
+                  }
+
+                  if (player.isLoaded) {
+                    handleSegmentPlaybackStatus(
+                      player.currentStatus as PlaybackStatus
+                    );
+                  }
+                } catch {
+                  releaseCurrentPlayer();
+                  settle();
+                }
+              })();
             });
 
             const jumpTarget =
@@ -904,7 +967,7 @@ export function usePlayAllAudioController({
               shouldUseInitialCheckpoint = false;
               itemIndex = Math.max(
                 0,
-                Math.min(jumpTarget.itemIndex, playlist.length - 1)
+                Math.min(jumpTarget.itemIndex, resolvedPlaylist.length - 1)
               );
               jumpedToAnotherItem = true;
               break;
