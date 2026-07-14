@@ -278,9 +278,7 @@ export default function AppearanceView() {
                 </CardHeader>
                 <Input
                   value={code}
-                  onChangeText={(value) =>
-                    setCode(normalizeKeypadInput(value))
-                  }
+                  onChangeText={(value) => setCode(normalizeKeypadInput(value))}
                   placeholder={t('appLockEnterCode')}
                   secureTextEntry
                   keyboardType="number-pad"
