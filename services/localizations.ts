@@ -8456,6 +8456,55 @@ export const localizations = {
     thai: 'เลือกลักษณะของแอปบนอุปกรณ์ของคุณ',
     mandarin: '选择应用在您设备上的外观'
   },
+  appIconStandard: {
+    english: 'LangQuest',
+    french: 'LangQuest',
+    spanish: 'LangQuest',
+    brazilian_portuguese: 'LangQuest',
+    tok_pisin: 'LangQuest',
+    indonesian: 'LangQuest',
+    nepali: 'LangQuest',
+    hindi: 'LangQuest',
+    burmese: 'LangQuest',
+    thai: 'LangQuest',
+    mandarin: 'LangQuest'
+  },
+  appIconChangeTitle: {
+    english: 'Change app icon?',
+    french: "Changer l'icône de l'application ?",
+    spanish: '¿Cambiar el icono de la app?',
+    brazilian_portuguese: 'Alterar o ícone do app?',
+    tok_pisin: 'Senisim app icon?',
+    indonesian: 'Ubah ikon aplikasi?',
+    nepali: 'एप आइकन परिवर्तन गर्ने?',
+    hindi: 'ऐप आइकन बदलें?',
+    burmese: 'အက်ပ်အိုင်ကွန် ပြောင်းမလား?',
+    thai: 'เปลี่ยนไอคอนแอป?',
+    mandarin: '更改应用图标？'
+  },
+  appIconChangeHint: {
+    english:
+      'After you confirm, look for the new icon and name on your home screen.',
+    french:
+      "Après confirmation, cherchez la nouvelle icône et le nouveau nom sur votre écran d'accueil.",
+    spanish:
+      'Después de confirmar, busca el nuevo icono y nombre en la pantalla de inicio.',
+    brazilian_portuguese:
+      'Depois de confirmar, procure o novo ícone e nome na tela inicial.',
+    tok_pisin:
+      'Bihain yu tok orait, painim nupela icon na nem long home screen bilong yu.',
+    indonesian:
+      'Setelah mengonfirmasi, cari ikon dan nama baru di layar beranda Anda.',
+    nepali:
+      'पुष्टि गरेपछि, आफ्नो होम स्क्रिनमा नयाँ आइकन र नाम खोज्नुहोस्।',
+    hindi:
+      'पुष्टि करने के बाद, अपनी होम स्क्रीन पर नया आइकन और नाम देखें।',
+    burmese:
+      'အတည်ပြုပြီးနောက်၊ သင့်ပင်မစခရင်တွင် အိုင်ကွန်နှင့် အမည်အသစ်ကို ရှာပါ။',
+    thai:
+      'หลังจากยืนยัน ให้มองหาไอคอนและชื่อใหม่บนหน้าจอหลักของคุณ',
+    mandarin: '确认后，请在主屏幕上查找新的图标和名称。'
+  },
   appLock: {
     english: 'App lock',
     french: "Verrouillage de l'application",
