@@ -36,6 +36,7 @@ import {
   CheckSquareIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  CircleAlertIcon,
   CircleCheckIcon,
   Edit3Icon,
   InfoIcon,
@@ -723,7 +724,7 @@ function ValidationAssetCard({
         onPress={onEditRange}
         className={cn(
           'flex-row items-center gap-1.5 rounded-full px-3 py-1 active:opacity-70',
-          range ? 'bg-primary/10' : 'bg-muted'
+          conflict ? 'bg-destructive/15' : range ? 'bg-primary/10' : 'bg-muted'
         )}
         accessibilityRole="button"
         accessibilityLabel={`Edit verse range for ${assetItem.name || 'asset'}`}
@@ -731,7 +732,11 @@ function ValidationAssetCard({
         <Text
           className={cn(
             'text-xs font-medium',
-            range ? 'text-primary' : 'text-muted-foreground'
+            conflict
+              ? 'text-destructive'
+              : range
+                ? 'text-primary'
+                : 'text-muted-foreground'
           )}
         >
           {formatRange(range, formatVerse)}
@@ -739,7 +744,13 @@ function ValidationAssetCard({
         <Icon
           as={Edit3Icon}
           size={12}
-          className={range ? 'text-primary' : 'text-muted-foreground'}
+          className={
+            conflict
+              ? 'text-destructive'
+              : range
+                ? 'text-primary'
+                : 'text-muted-foreground'
+          }
         />
       </Pressable>
     </View>
@@ -1111,78 +1122,47 @@ export function ImportWizard({
     for (const assetItem of selectedAssets) {
       const range = effectiveVerseRanges.get(assetItem.id);
       if (!range) continue;
+
       const overlappingLabels = existingVerseLabels.filter((label) =>
         rangesOverlap(range, label)
       );
-      const explicitlyAssignedExistingLabel =
-        pendingVerseRanges.has(assetItem.id) &&
-        overlappingLabels.some(
-          (label) => label.from === range.from && label.to === range.to
-        );
-      if (overlappingLabels.length > 0 && !explicitlyAssignedExistingLabel) {
+      if (overlappingLabels.length === 0) continue;
+
+      const matchesExistingLabel = overlappingLabels.some(
+        (label) => label.from === range.from && label.to === range.to
+      );
+      if (!matchesExistingLabel) {
         conflicts.add(assetItem.id);
       }
     }
 
-    for (let leftIndex = 0; leftIndex < selectedAssets.length; leftIndex++) {
-      const leftAsset = selectedAssets[leftIndex];
-      if (!leftAsset) continue;
-      const leftRange = effectiveVerseRanges.get(leftAsset.id);
-      if (!leftRange) continue;
+    return conflicts;
+  }, [effectiveVerseRanges, existingVerseLabels, selectedAssets]);
 
-      for (
-        let rightIndex = leftIndex + 1;
-        rightIndex < selectedAssets.length;
-        rightIndex++
-      ) {
-        const rightAsset = selectedAssets[rightIndex];
-        if (!rightAsset) continue;
-        const rightRange = effectiveVerseRanges.get(rightAsset.id);
-        if (rightRange && rangesOverlap(leftRange, rightRange)) {
-          const bothExplicitlyUseSameExistingLabel =
-            pendingVerseRanges.has(leftAsset.id) &&
-            pendingVerseRanges.has(rightAsset.id) &&
-            leftRange.from === rightRange.from &&
-            leftRange.to === rightRange.to &&
-            existingVerseLabels.some(
-              (label) =>
-                label.from === leftRange.from && label.to === leftRange.to
-            );
-          if (bothExplicitlyUseSameExistingLabel) continue;
+  const assignerExistingLabels = React.useMemo(() => {
+    const labels = new Map<string, VerseRange>();
 
-          conflicts.add(leftAsset.id);
-          conflicts.add(rightAsset.id);
-        }
-      }
+    for (const label of existingVerseLabels) {
+      labels.set(`${label.from}-${label.to}`, label);
     }
 
-    return conflicts;
-  }, [
-    effectiveVerseRanges,
-    existingVerseLabels,
-    pendingVerseRanges,
-    selectedAssets
-  ]);
+    for (const [assetId, range] of effectiveVerseRanges) {
+      if (assetId === assetIdToAssignRange) continue;
+      labels.set(`${range.from}-${range.to}`, range);
+    }
+
+    return Array.from(labels.values()).sort((left, right) => {
+      return left.from - right.from || left.to - right.to;
+    });
+  }, [assetIdToAssignRange, effectiveVerseRanges, existingVerseLabels]);
 
   const hasConflicts = conflictingAssetIds.size > 0;
   const activeVerseRange = assetIdToAssignRange
     ? (effectiveVerseRanges.get(assetIdToAssignRange) ?? null)
     : null;
-  const assignableVerses = React.useMemo(() => {
-    const occupiedByOtherImports = new Set<number>();
-    for (const [assetId, range] of effectiveVerseRanges) {
-      if (assetId === assetIdToAssignRange) continue;
-      for (let verse = range.from; verse <= range.to; verse++) {
-        occupiedByOtherImports.add(verse);
-      }
-    }
-    return availableVerses.filter(
-      (verse) => !occupiedByOtherImports.has(verse)
-    );
-  }, [assetIdToAssignRange, availableVerses, effectiveVerseRanges]);
   const getMaxAssignableTo = React.useCallback(
     (selectedFrom: number) => {
-      const available = new Set(assignableVerses);
+      const available = new Set(availableVerses);
       if (!available.has(selectedFrom)) return selectedFrom;
 
       let maxTo = selectedFrom;
@@ -1191,7 +1171,7 @@ export function ImportWizard({
       }
       return maxTo;
     },
-    [assignableVerses]
+    [availableVerses]
   );
   const currentStepIndex = IMPORT_STEPS.findIndex((item) => item.id === step);
   const isFirstStep = currentStepIndex === 0;
@@ -1603,6 +1583,20 @@ export function ImportWizard({
               </Pressable>
             </View>
           )}
+          {step === 'validation' && hasConflicts && (
+            <View className="flex-row items-center justify-center gap-2 px-6 pb-2 pt-0">
+              {/* <View className="flex-row items-center gap-2 rounded-lg bg-destructive/10 px-3"> */}
+              <Icon
+                as={CircleAlertIcon}
+                size={18}
+                className="text-destructive"
+              />
+              <Text className="text-sm text-destructive">
+                Resolve conflicts before proceeding.
+              </Text>
+              {/* </View> */}
+            </View>
+          )}
           <View
             className="flex-row items-center justify-between gap-3 border-t border-border px-6 py-4"
             style={{ paddingBottom: insets.bottom + 16 }}
@@ -1674,8 +1668,8 @@ export function ImportWizard({
             {assetIdToAssignRange && (
               <VerseAssigner
                 key={assetIdToAssignRange}
-                availableVerses={assignableVerses}
-                existingLabels={existingVerseLabels}
+                availableVerses={availableVerses}
+                existingLabels={assignerExistingLabels}
                 verseCount={verseCount}
                 selectedFrom={activeVerseRange?.from}
                 selectedTo={activeVerseRange?.to}
