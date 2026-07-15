@@ -245,7 +245,7 @@ export function VerseAssigner({
                     : isDisabled
                       ? 'bg-muted/30'
                       : 'border border-primary/30 bg-primary/5'
-                } ${!isDisabled ? 'active:scale-95' : ''}`}
+                } active:scale-95`}
               >
                 <Text
                   className={`text-sm font-medium ${
@@ -279,7 +279,7 @@ export function VerseAssigner({
                     : selectable
                       ? 'border border-primary/30 bg-primary/5'
                       : 'bg-muted/30'
-                } ${selectable ? 'active:scale-95' : ''}`}
+                } active:scale-95`}
               >
                 <Text
                   className={`text-sm font-medium ${
@@ -368,7 +368,7 @@ export function VerseAssigner({
           onRemove &&
           hasSelectedAssetsWithLabels && (
             <Button variant="destructive" className="flex-1" onPress={onRemove}>
-              <Text className="text-destructive-foreground">Remove Label</Text>
+              <Text className="text-destructive-foreground">Remove</Text>
             </Button>
           )
         )}

@@ -4,6 +4,7 @@ import { QuestDownloadDiscoveryDrawer } from '@/components/QuestDownloadDiscover
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
+import { VerseAssigner } from '@/components/VerseAssigner';
 import { useAudio } from '@/contexts/AudioContext';
 import { useAuth } from '@/contexts/AuthContext';
 import type { quest as questTable } from '@/db/drizzleSchema';
@@ -31,8 +32,8 @@ import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { and, eq, getTableColumns, sql } from 'drizzle-orm';
 import {
-  AlertCircleIcon,
   CheckIcon,
+  CheckSquareIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   CircleCheckIcon,
@@ -40,6 +41,7 @@ import {
   InfoIcon,
   PauseIcon,
   PlayIcon,
+  SquareIcon,
   XIcon
 } from 'lucide-react-native';
 import React from 'react';
@@ -60,6 +62,11 @@ interface AssetMetadata {
     to?: number;
   };
   recordingSessionId?: string;
+}
+
+interface VerseRange {
+  from: number;
+  to: number;
 }
 
 type ImportAsset = Asset & {
@@ -84,6 +91,8 @@ interface ImportWizardProps {
   projectId: string;
   currentQuest: Quest;
   currentAssets: ImportAsset[];
+  availableVerses: number[];
+  verseCount: number;
   targetVerseLabels?: ImportWizardVerseLabel[];
   formatVerse?: (position: number) => string | null;
 }
@@ -188,8 +197,8 @@ function normalizeRange(metadata?: AssetMetadata | null) {
   };
 }
 
-function getRangeKey(range: { from: number; to: number }) {
-  return `${range.from}-${range.to}`;
+function rangesOverlap(left: VerseRange, right: VerseRange) {
+  return left.from <= right.to && right.from <= left.to;
 }
 
 function formatRange(
@@ -387,7 +396,7 @@ function QuestCard({
         !canUseQuest && 'opacity-70'
       )}
       style={
-        selected ? { borderColor: primaryColor, borderWidth: 2 } : undefined
+        selected ? { borderColor: primaryColor, borderWidth: 1 } : undefined
       }
       accessibilityRole="button"
       accessibilityState={{ selected }}
@@ -534,6 +543,23 @@ function AssetCard({
       <Pressable
         onPress={(event) => {
           event.stopPropagation();
+          onToggle();
+        }}
+        className="size-7 items-center justify-center"
+        hitSlop={8}
+        accessibilityRole="checkbox"
+        accessibilityState={{ checked: selected }}
+        accessibilityLabel={selected ? 'Deselect asset' : 'Select asset'}
+      >
+        <Icon
+          as={selected ? CheckSquareIcon : SquareIcon}
+          size={22}
+          className={selected ? 'text-primary' : 'text-muted-foreground'}
+        />
+      </Pressable>
+      <Pressable
+        onPress={(event) => {
+          event.stopPropagation();
           onPlay();
         }}
         className="size-7 items-center justify-center rounded-full bg-primary/20 active:bg-primary/40"
@@ -616,7 +642,7 @@ function AssetsStep({
   }
 
   return (
-    <View className="flex-1 gap-4 p-6">
+    <View className="flex-1 gap-4 px-6 pb-4 pt-6">
       <StepHeader
         title="Select assets"
         description="Choose one or more assets to prepare for validation."
@@ -654,50 +680,68 @@ function AssetsStep({
 function ValidationAssetCard({
   assetItem,
   conflict,
+  isPlaying,
+  onPlay,
+  range,
+  onEditRange,
   formatVerse
 }: {
   assetItem: ImportAsset;
   conflict: boolean;
+  isPlaying: boolean;
+  onPlay: () => void;
+  range: VerseRange | null;
+  onEditRange: () => void;
   formatVerse?: (position: number) => string | null;
 }) {
-  const range = normalizeRange(assetItem.metadata);
-
   return (
     <View
       className={cn(
-        'flex-row items-center gap-3 rounded-lg border bg-card p-4',
+        'flex-row items-center gap-3 rounded-lg border bg-card p-3',
         conflict ? 'border-destructive' : 'border-border'
       )}
     >
-      <View
-        className={cn(
-          'size-9 items-center justify-center rounded-full',
-          conflict ? 'bg-destructive/10' : 'bg-primary/10'
-        )}
+      <Pressable
+        onPress={onPlay}
+        className="size-7 items-center justify-center rounded-full bg-primary/20 active:bg-primary/40"
+        hitSlop={8}
+        accessibilityRole="button"
+        accessibilityLabel={isPlaying ? 'Pause asset' : 'Play asset'}
       >
         <Icon
-          as={conflict ? AlertCircleIcon : CheckIcon}
-          size={18}
-          className={conflict ? 'text-destructive' : 'text-primary'}
+          as={isPlaying ? PauseIcon : PlayIcon}
+          size={14}
+          className={isPlaying ? 'text-primary' : 'text-primary/80'}
         />
-      </View>
-      <View className="flex-1 gap-1">
+      </Pressable>
+      <View className="flex-1 justify-center">
         <Text className="font-medium" numberOfLines={1}>
           {assetItem.name || 'Untitled asset'}
         </Text>
+      </View>
+      <Pressable
+        onPress={onEditRange}
+        className={cn(
+          'flex-row items-center gap-1.5 rounded-full px-3 py-1 active:opacity-70',
+          range ? 'bg-primary/10' : 'bg-muted'
+        )}
+        accessibilityRole="button"
+        accessibilityLabel={`Edit verse range for ${assetItem.name || 'asset'}`}
+      >
         <Text
           className={cn(
-            'text-sm',
-            conflict ? 'text-destructive' : 'text-muted-foreground'
+            'text-xs font-medium',
+            range ? 'text-primary' : 'text-muted-foreground'
           )}
         >
-          {conflict ? 'Verse label already used' : 'No conflicts detected'} -{' '}
           {formatRange(range, formatVerse)}
         </Text>
-      </View>
-      <Button variant="ghost" size="icon-sm" disabled>
-        <Icon as={Edit3Icon} size={18} className="text-muted-foreground" />
-      </Button>
+        <Icon
+          as={Edit3Icon}
+          size={12}
+          className={range ? 'text-primary' : 'text-muted-foreground'}
+        />
+      </Pressable>
     </View>
   );
 }
@@ -705,42 +749,54 @@ function ValidationAssetCard({
 function ValidationStep({
   selectedAssets,
   usedLabels,
-  conflictKeys,
+  conflictingAssetIds,
+  effectiveVerseRanges,
+  playingAssetId,
+  onPlayAsset,
+  onEditRange,
   formatVerse
 }: {
   selectedAssets: ImportAsset[];
   usedLabels: ImportWizardVerseLabel[];
-  conflictKeys: Set<string>;
+  conflictingAssetIds: Set<string>;
+  effectiveVerseRanges: Map<string, VerseRange>;
+  playingAssetId: string | null;
+  onPlayAsset: (assetId: string) => void;
+  onEditRange: (assetId: string) => void;
   formatVerse?: (position: number) => string | null;
 }) {
   return (
-    <ScrollView
-      className="flex-1"
-      contentContainerClassName="gap-5 p-6"
-      contentInsetAdjustmentBehavior="automatic"
-    >
+    <View className="flex-1 gap-4 p-6">
       <StepHeader
         title="Validate before import"
         description="Review selected assets and the verse labels already used in the destination quest."
       />
 
-      <View className="gap-3">
-        <Text className="font-semibold">Selected assets</Text>
-        {selectedAssets.map((assetItem) => {
-          const range = normalizeRange(assetItem.metadata);
-          const conflict = range ? conflictKeys.has(getRangeKey(range)) : false;
-          return (
-            <ValidationAssetCard
-              key={assetItem.id}
-              assetItem={assetItem}
-              conflict={conflict}
-              formatVerse={formatVerse}
-            />
-          );
-        })}
-      </View>
+      <ScrollView
+        className="flex-1"
+        contentContainerClassName="gap-4 pb-4"
+        contentInsetAdjustmentBehavior="automatic"
+      >
+        <View className="gap-2">
+          <Text className="font-semibold">Selected assets</Text>
+          {selectedAssets.map((assetItem) => {
+            const range = effectiveVerseRanges.get(assetItem.id) ?? null;
+            return (
+              <ValidationAssetCard
+                key={assetItem.id}
+                assetItem={assetItem}
+                conflict={conflictingAssetIds.has(assetItem.id)}
+                isPlaying={playingAssetId === assetItem.id}
+                onPlay={() => onPlayAsset(assetItem.id)}
+                range={range}
+                onEditRange={() => onEditRange(assetItem.id)}
+                formatVerse={formatVerse}
+              />
+            );
+          })}
+        </View>
 
-      <View className="gap-3">
+        {/* <View className="gap-3">
         <Text className="font-semibold">Existing labels in this quest</Text>
         {usedLabels.length === 0 ? (
           <View className="rounded-lg border border-dashed border-border p-4">
@@ -768,8 +824,9 @@ function ValidationStep({
             </View>
           ))
         )}
-      </View>
-    </ScrollView>
+      </View> */}
+      </ScrollView>
+    </View>
   );
 }
 
@@ -779,6 +836,8 @@ export function ImportWizard({
   projectId,
   currentQuest,
   currentAssets,
+  availableVerses,
+  verseCount,
   targetVerseLabels = [],
   formatVerse
 }: ImportWizardProps) {
@@ -807,6 +866,12 @@ export function ImportWizard({
   const [playingAssetId, setPlayingAssetId] = React.useState<string | null>(
     null
   );
+  const [pendingVerseRanges, setPendingVerseRanges] = React.useState<
+    Map<string, VerseRange>
+  >(() => new Map());
+  const [assetIdToAssignRange, setAssetIdToAssignRange] = React.useState<
+    string | null
+  >(null);
   const startedDiscoveryRef = React.useRef<string | null>(null);
   const isTransitioningToConfirmationRef = React.useRef(false);
   const confirmationTimerRef = React.useRef<ReturnType<
@@ -837,6 +902,8 @@ export function ImportWizard({
       setSelectedQuestId(null);
       setSelectedAssetIds(new Set());
       setPlayingAssetId(null);
+      setPendingVerseRanges(new Map());
+      setAssetIdToAssignRange(null);
       setHideWizardForDownloadOverlay(false);
       return;
     }
@@ -998,6 +1065,19 @@ export function ImportWizard({
     );
   }, [sourceAssets, selectedAssetIds]);
 
+  const effectiveVerseRanges = React.useMemo(() => {
+    const ranges = new Map<string, VerseRange>();
+    for (const assetItem of selectedAssets) {
+      const range =
+        pendingVerseRanges.get(assetItem.id) ??
+        normalizeRange(assetItem.metadata);
+      if (range) {
+        ranges.set(assetItem.id, range);
+      }
+    }
+    return ranges;
+  }, [pendingVerseRanges, selectedAssets]);
+
   const usedLabels = React.useMemo<ImportWizardVerseLabel[]>(() => {
     const fromAssets: ImportWizardVerseLabel[] = [];
     for (const assetItem of currentAssets) {
@@ -1015,29 +1095,110 @@ export function ImportWizard({
     return [...fromAssets, ...targetVerseLabels];
   }, [currentAssets, targetVerseLabels]);
 
-  const usedLabelKeys = React.useMemo(() => {
-    return new Set(
-      usedLabels.map((label) => getRangeKey({ from: label.from, to: label.to }))
-    );
+  const existingVerseLabels = React.useMemo(() => {
+    const labels = new Map<string, VerseRange>();
+    for (const label of usedLabels) {
+      const range = { from: label.from, to: label.to };
+      labels.set(`${range.from}-${range.to}`, range);
+    }
+    return Array.from(labels.values()).sort((left, right) => {
+      return left.from - right.from || left.to - right.to;
+    });
   }, [usedLabels]);
 
-  const conflictKeys = React.useMemo(() => {
+  const conflictingAssetIds = React.useMemo(() => {
     const conflicts = new Set<string>();
     for (const assetItem of selectedAssets) {
-      const range = normalizeRange(assetItem.metadata);
+      const range = effectiveVerseRanges.get(assetItem.id);
       if (!range) continue;
-      const key = getRangeKey(range);
-      if (usedLabelKeys.has(key)) {
-        conflicts.add(key);
+      const overlappingLabels = existingVerseLabels.filter((label) =>
+        rangesOverlap(range, label)
+      );
+      const explicitlyAssignedExistingLabel =
+        pendingVerseRanges.has(assetItem.id) &&
+        overlappingLabels.some(
+          (label) => label.from === range.from && label.to === range.to
+        );
+      if (overlappingLabels.length > 0 && !explicitlyAssignedExistingLabel) {
+        conflicts.add(assetItem.id);
       }
     }
-    return conflicts;
-  }, [selectedAssets, usedLabelKeys]);
 
-  const hasConflicts = conflictKeys.size > 0;
+    for (let leftIndex = 0; leftIndex < selectedAssets.length; leftIndex++) {
+      const leftAsset = selectedAssets[leftIndex];
+      if (!leftAsset) continue;
+      const leftRange = effectiveVerseRanges.get(leftAsset.id);
+      if (!leftRange) continue;
+
+      for (
+        let rightIndex = leftIndex + 1;
+        rightIndex < selectedAssets.length;
+        rightIndex++
+      ) {
+        const rightAsset = selectedAssets[rightIndex];
+        if (!rightAsset) continue;
+        const rightRange = effectiveVerseRanges.get(rightAsset.id);
+        if (rightRange && rangesOverlap(leftRange, rightRange)) {
+          const bothExplicitlyUseSameExistingLabel =
+            pendingVerseRanges.has(leftAsset.id) &&
+            pendingVerseRanges.has(rightAsset.id) &&
+            leftRange.from === rightRange.from &&
+            leftRange.to === rightRange.to &&
+            existingVerseLabels.some(
+              (label) =>
+                label.from === leftRange.from && label.to === leftRange.to
+            );
+          if (bothExplicitlyUseSameExistingLabel) continue;
+
+          conflicts.add(leftAsset.id);
+          conflicts.add(rightAsset.id);
+        }
+      }
+    }
+
+    return conflicts;
+  }, [
+    effectiveVerseRanges,
+    existingVerseLabels,
+    pendingVerseRanges,
+    selectedAssets
+  ]);
+
+  const hasConflicts = conflictingAssetIds.size > 0;
+  const activeVerseRange = assetIdToAssignRange
+    ? (effectiveVerseRanges.get(assetIdToAssignRange) ?? null)
+    : null;
+  const assignableVerses = React.useMemo(() => {
+    const occupiedByOtherImports = new Set<number>();
+    for (const [assetId, range] of effectiveVerseRanges) {
+      if (assetId === assetIdToAssignRange) continue;
+      for (let verse = range.from; verse <= range.to; verse++) {
+        occupiedByOtherImports.add(verse);
+      }
+    }
+    return availableVerses.filter(
+      (verse) => !occupiedByOtherImports.has(verse)
+    );
+  }, [assetIdToAssignRange, availableVerses, effectiveVerseRanges]);
+  const getMaxAssignableTo = React.useCallback(
+    (selectedFrom: number) => {
+      const available = new Set(assignableVerses);
+      if (!available.has(selectedFrom)) return selectedFrom;
+
+      let maxTo = selectedFrom;
+      while (available.has(maxTo + 1)) {
+        maxTo++;
+      }
+      return maxTo;
+    },
+    [assignableVerses]
+  );
   const currentStepIndex = IMPORT_STEPS.findIndex((item) => item.id === step);
   const isFirstStep = currentStepIndex === 0;
   const isLastStep = currentStepIndex === IMPORT_STEPS.length - 1;
+  const areAllAssetsSelected =
+    sourceAssets.length > 0 &&
+    sourceAssets.every((assetItem) => selectedAssetIds.has(assetItem.id));
 
   const canGoNext =
     step === 'instructions' ||
@@ -1078,6 +1239,31 @@ export function ImportWizard({
       }
       return next;
     });
+  };
+
+  const toggleAllAssets = () => {
+    setSelectedAssetIds(
+      areAllAssetsSelected
+        ? new Set()
+        : new Set(sourceAssets.map((assetItem) => assetItem.id))
+    );
+  };
+
+  const handleEditVerseRange = (assetId: string) => {
+    setAssetIdToAssignRange(assetId);
+  };
+
+  const handleApplyVerseRange = (from: number, to: number) => {
+    if (!assetIdToAssignRange) return;
+
+    // Virtual only. Persist this range later on quest_asset_link.metadata.verse
+    // when the import operation itself is implemented.
+    setPendingVerseRanges((previous) => {
+      const next = new Map(previous);
+      next.set(assetIdToAssignRange, { from, to });
+      return next;
+    });
+    setAssetIdToAssignRange(null);
   };
 
   const getAssetAudioUris = React.useCallback(
@@ -1312,6 +1498,8 @@ export function ImportWizard({
   const handleSelectQuest = (questId: string) => {
     setSelectedQuestId(questId);
     setSelectedAssetIds(new Set());
+    setPendingVerseRanges(new Map());
+    setAssetIdToAssignRange(null);
   };
 
   const handleLoadMoreAssets = () => {
@@ -1379,12 +1567,42 @@ export function ImportWizard({
               <ValidationStep
                 selectedAssets={selectedAssets}
                 usedLabels={usedLabels}
-                conflictKeys={conflictKeys}
+                conflictingAssetIds={conflictingAssetIds}
+                effectiveVerseRanges={effectiveVerseRanges}
+                playingAssetId={playingAssetId}
+                onPlayAsset={handlePlayAsset}
+                onEditRange={handleEditVerseRange}
                 formatVerse={formatVerse}
               />
             )}
           </View>
 
+          {step === 'assets' && (
+            <View className="px-6 pb-2 pt-0">
+              <Pressable
+                onPress={toggleAllAssets}
+                disabled={sourceAssets.length === 0}
+                className="flex-row items-center gap-2 self-start pt-0 disabled:opacity-50"
+                accessibilityRole="checkbox"
+                accessibilityState={{
+                  checked: areAllAssetsSelected,
+                  disabled: sourceAssets.length === 0
+                }}
+                accessibilityLabel="Select all assets"
+              >
+                <Icon
+                  as={areAllAssetsSelected ? CheckSquareIcon : SquareIcon}
+                  size={22}
+                  className={
+                    areAllAssetsSelected
+                      ? 'text-primary'
+                      : 'text-muted-foreground'
+                  }
+                />
+                <Text className="font-medium">Select All</Text>
+              </Pressable>
+            </View>
+          )}
           <View
             className="flex-row items-center justify-between gap-3 border-t border-border px-6 py-4"
             style={{ paddingBottom: insets.bottom + 16 }}
@@ -1411,6 +1629,61 @@ export function ImportWizard({
                 />
               )}
             </Button>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={assetIdToAssignRange !== null}
+        transparent
+        animationType="slide"
+        statusBarTranslucent
+        navigationBarTranslucent
+        onRequestClose={() => setAssetIdToAssignRange(null)}
+      >
+        <View className="flex-1 justify-end">
+          <Pressable
+            className="absolute inset-0 bg-black/50"
+            onPress={() => setAssetIdToAssignRange(null)}
+            accessibilityRole="button"
+            accessibilityLabel="Close verse range selector"
+          />
+          <View
+            className="gap-4 rounded-t-3xl bg-background px-4 pt-4"
+            style={{ paddingBottom: insets.bottom + 16 }}
+          >
+            <View className="flex-row items-start justify-between gap-4 px-2">
+              <View className="flex-1 gap-1">
+                <Text className="text-lg font-semibold">
+                  Assign verse label
+                </Text>
+                <Text className="text-sm text-muted-foreground">
+                  This assignment will only be applied when the assets are
+                  imported.
+                </Text>
+              </View>
+              <Pressable
+                onPress={() => setAssetIdToAssignRange(null)}
+                hitSlop={10}
+                accessibilityRole="button"
+                accessibilityLabel="Close verse range selector"
+              >
+                <Icon as={XIcon} size={22} className="text-muted-foreground" />
+              </Pressable>
+            </View>
+            {assetIdToAssignRange && (
+              <VerseAssigner
+                key={assetIdToAssignRange}
+                availableVerses={assignableVerses}
+                existingLabels={existingVerseLabels}
+                verseCount={verseCount}
+                selectedFrom={activeVerseRange?.from}
+                selectedTo={activeVerseRange?.to}
+                getMaxToForFrom={getMaxAssignableTo}
+                onApply={handleApplyVerseRange}
+                onCancel={() => setAssetIdToAssignRange(null)}
+              />
+            )}
           </View>
         </View>
       </Modal>

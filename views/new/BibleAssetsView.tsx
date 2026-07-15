@@ -68,12 +68,11 @@ import Animated, {
   withTiming
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useHybridData } from './useHybridData';
 import { ImportWizard, type ImportWizardVerseLabel } from './importWizard';
+import { useHybridData } from './useHybridData';
 
 import { AssetListSkeleton } from '@/components/AssetListSkeleton';
 import { ExportButton } from '@/components/ExportButton';
-import { PublishQuestButton } from '@/components/PublishQuestButton';
 import type { FiaDrawerState } from '@/components/FiaStepDrawer';
 import {
   FiaStepDrawer,
@@ -82,6 +81,7 @@ import {
 import { ModalDetails } from '@/components/ModalDetails';
 import { ReportModal } from '@/components/NewReportModal';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
+import { PublishQuestButton } from '@/components/PublishQuestButton';
 import { QuestOffloadVerificationDrawer } from '@/components/QuestOffloadVerificationDrawer';
 import { RecordButton } from '@/components/RecordButton';
 import {
@@ -128,10 +128,10 @@ import { useAssetsByQuest, useLocalAssetsByQuest } from '@/hooks/db/useAssets';
 import { useBlockedAssetsCount } from '@/hooks/useBlockedCount';
 import { useFiaPericopeSteps } from '@/hooks/useFiaPericopeSteps';
 import { useProjectFiaLanguageCode } from '@/hooks/useProjectFiaLanguageCode';
-import { isFiaPericopeCached } from '@/services/FiaAttachmentQueue';
 import { useQuestOffloadVerification } from '@/hooks/useQuestOffloadVerification';
 import { useHasUserReported } from '@/hooks/useReports';
 import { useUndoHistory } from '@/hooks/useUndoHistory';
+import { isFiaPericopeCached } from '@/services/FiaAttachmentQueue';
 import { resolveTable } from '@/utils/dbUtils';
 import { fileExists, getLocalAttachmentUriWithOPFS } from '@/utils/fileUtils';
 import { publishQuest as publishQuestUtils } from '@/utils/publishQuest';
@@ -1126,7 +1126,9 @@ export default function BibleAssetsView() {
     return Array.from(assetMap.values());
   }, [data.pages]);
 
-  const importWizardVerseLabels = React.useMemo<ImportWizardVerseLabel[]>(() => {
+  const importWizardVerseLabels = React.useMemo<
+    ImportWizardVerseLabel[]
+  >(() => {
     return manualSeparators.map((separator) => ({
       key: separator.key,
       from: separator.from,
@@ -4070,16 +4072,20 @@ export default function BibleAssetsView() {
                       variant="outline"
                       disabled={isPublishing || !isMember}
                       onPress={() => setShowImportWizard(true)}
-                      className="h-10 flex-row gap-2 rounded-md border border-primary bg-background px-3 py-0"
+                      className="h-10 flex-row rounded-md border-2 border-primary bg-primary/10 py-0"
                     >
                       <Icon
                         as={DownloadIcon}
                         size={16}
-                        className="text-primary"
+                        className="font-bold text-primary"
                       />
+                      {/*
+
+
                       <Text className="text-sm font-medium text-primary">
                         Import
                       </Text>
+                        */}
                     </Button>
                   )}
                 </>
@@ -4447,6 +4453,8 @@ export default function BibleAssetsView() {
           projectId={projectId}
           currentQuest={selectedQuest}
           currentAssets={assets}
+          availableVerses={getAvailableVerses()}
+          verseCount={verseCount}
           targetVerseLabels={importWizardVerseLabels}
           formatVerse={formatVersePositionRef.current}
         />
