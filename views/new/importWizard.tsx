@@ -7,6 +7,8 @@ import { Text } from '@/components/ui/text';
 import { VerseAssigner } from '@/components/VerseAssigner';
 import { useAudio } from '@/contexts/AudioContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { linkExistingAssetsToQuest } from '@/database_services/assetService';
+import { createQuestRecordingSession } from '@/database_services/questService';
 import type { quest as questTable } from '@/db/drizzleSchema';
 import {
   asset as assetTable,
@@ -49,6 +51,7 @@ import React from 'react';
 import { ActivityIndicator, Modal, Pressable, View } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { toast } from 'sonner-native';
 
 type Quest = typeof questTable.$inferSelect;
 type Asset = typeof assetTable.$inferSelect;
@@ -75,6 +78,7 @@ type ImportAsset = Asset & {
   quest_visible?: boolean;
   tag_ids?: string[];
   metadata?: AssetMetadata | null;
+  order_index?: number | null;
   source?: 'local' | 'synced' | 'cloud';
 };
 
@@ -96,6 +100,7 @@ interface ImportWizardProps {
   verseCount: number;
   targetVerseLabels?: ImportWizardVerseLabel[];
   formatVerse?: (position: number) => string | null;
+  chapterSequence?: { chapter: number; verse: number }[];
 }
 
 type ImportStep = 'instructions' | 'quest' | 'assets' | 'validation';
@@ -200,6 +205,35 @@ function normalizeRange(metadata?: AssetMetadata | null) {
 
 function rangesOverlap(left: VerseRange, right: VerseRange) {
   return left.from <= right.to && right.from <= left.to;
+}
+
+const UNASSIGNED_VERSE_BASE = 999;
+
+function computeImportOrderIndexes(
+  items: { assetId: string; range: VerseRange | null }[],
+  existingAssets: { id: string; order_index?: number | null }[]
+) {
+  const orderIndexes = new Map<string, number>();
+  const lastSequentialByVerse = new Map<number, number>();
+
+  for (const asset of existingAssets) {
+    if (typeof asset.order_index !== 'number') continue;
+    const verseBase = Math.floor(asset.order_index / 1_000_000);
+    const sequential = Math.floor(asset.order_index / 1000) - verseBase * 1000;
+    const previous = lastSequentialByVerse.get(verseBase) ?? 0;
+    if (sequential > previous) {
+      lastSequentialByVerse.set(verseBase, sequential);
+    }
+  }
+
+  for (const item of items) {
+    const verseBase = item.range?.from ?? UNASSIGNED_VERSE_BASE;
+    const nextSequential = (lastSequentialByVerse.get(verseBase) ?? 0) + 1;
+    lastSequentialByVerse.set(verseBase, nextSequential);
+    orderIndexes.set(item.assetId, (verseBase * 1000 + nextSequential) * 1000);
+  }
+
+  return orderIndexes;
 }
 
 function formatRange(
@@ -850,7 +884,8 @@ export function ImportWizard({
   availableVerses,
   verseCount,
   targetVerseLabels = [],
-  formatVerse
+  formatVerse,
+  chapterSequence
 }: ImportWizardProps) {
   const insets = useSafeAreaInsets();
   const { currentUser } = useAuth();
@@ -883,6 +918,7 @@ export function ImportWizard({
   const [assetIdToAssignRange, setAssetIdToAssignRange] = React.useState<
     string | null
   >(null);
+  const [isImporting, setIsImporting] = React.useState(false);
   const startedDiscoveryRef = React.useRef<string | null>(null);
   const isTransitioningToConfirmationRef = React.useRef(false);
   const confirmationTimerRef = React.useRef<ReturnType<
@@ -915,6 +951,7 @@ export function ImportWizard({
       setPlayingAssetId(null);
       setPendingVerseRanges(new Map());
       setAssetIdToAssignRange(null);
+      setIsImporting(false);
       setHideWizardForDownloadOverlay(false);
       return;
     }
@@ -1236,14 +1273,79 @@ export function ImportWizard({
   const handleApplyVerseRange = (from: number, to: number) => {
     if (!assetIdToAssignRange) return;
 
-    // Virtual only. Persist this range later on quest_asset_link.metadata.verse
-    // when the import operation itself is implemented.
     setPendingVerseRanges((previous) => {
       const next = new Map(previous);
       next.set(assetIdToAssignRange, { from, to });
       return next;
     });
     setAssetIdToAssignRange(null);
+  };
+
+  const handleImport = async () => {
+    if (!currentUser?.id || selectedAssets.length === 0 || hasConflicts) {
+      return;
+    }
+
+    setIsImporting(true);
+    try {
+      const recordingSessionId = await createQuestRecordingSession(
+        currentQuest.id
+      );
+
+      const importItems = selectedAssets.map((assetItem) => ({
+        assetId: assetItem.id,
+        range: effectiveVerseRanges.get(assetItem.id) ?? null
+      }));
+      const orderIndexes = computeImportOrderIndexes(
+        importItems,
+        currentAssets
+      );
+
+      const result = await linkExistingAssetsToQuest({
+        questId: currentQuest.id,
+        userId: currentUser.id,
+        items: selectedAssets.map((assetItem) => {
+          const range = effectiveVerseRanges.get(assetItem.id) ?? null;
+          return {
+            assetId: assetItem.id,
+            name: assetItem.name,
+            order_index: orderIndexes.get(assetItem.id) ?? 999001000,
+            metadata: {
+              ...(range ? { verse: range } : {}),
+              recordingSessionId,
+              provenance: { type: 'imported' }
+            }
+          };
+        })
+      });
+
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['assets'], exact: false }),
+        queryClient.invalidateQueries({ queryKey: ['quests'], exact: false }),
+        queryClient.invalidateQueries({
+          queryKey: ['quest-asset-link'],
+          exact: false
+        })
+      ]);
+
+      if (result.linkedAssetIds.length > 0) {
+        toast.success(
+          `Imported ${result.linkedAssetIds.length} asset${result.linkedAssetIds.length === 1 ? '' : 's'}`
+        );
+      }
+      if (result.skippedAssetIds.length > 0) {
+        toast.info(
+          `${result.skippedAssetIds.length} asset${result.skippedAssetIds.length === 1 ? ' was' : 's were'} already in this quest`
+        );
+      }
+
+      onClose();
+    } catch (error) {
+      console.error('[ImportWizard] Failed to import assets:', error);
+      toast.error('Failed to import assets. Please try again.');
+    } finally {
+      setIsImporting(false);
+    }
   };
 
   const getAssetAudioUris = React.useCallback(
@@ -1508,9 +1610,11 @@ export function ImportWizard({
             <Text className="text-base font-semibold">Import assets</Text>
             <Pressable
               onPress={onClose}
+              disabled={isImporting}
               hitSlop={10}
               accessibilityRole="button"
               accessibilityLabel="Close import wizard"
+              className={isImporting ? 'opacity-40' : undefined}
             >
               <Icon as={XIcon} size={24} className="text-muted-foreground" />
             </Pressable>
@@ -1604,14 +1708,16 @@ export function ImportWizard({
             <Button
               variant="outline"
               onPress={goToPreviousStep}
+              disabled={isImporting}
               className="flex-1"
             >
               <Icon as={ChevronLeftIcon} size={16} />
               <Text>{isFirstStep ? 'Close' : 'Previous'}</Text>
             </Button>
             <Button
-              onPress={isLastStep ? onClose : goToNextStep}
-              disabled={isLastStep ? !canImport : !canGoNext}
+              onPress={isLastStep ? () => void handleImport() : goToNextStep}
+              disabled={isImporting || (isLastStep ? !canImport : !canGoNext)}
+              loading={isLastStep && isImporting}
               className="flex-1"
             >
               <Text>{isLastStep ? 'Import' : 'Next'}</Text>
@@ -1674,6 +1780,8 @@ export function ImportWizard({
                 selectedFrom={activeVerseRange?.from}
                 selectedTo={activeVerseRange?.to}
                 getMaxToForFrom={getMaxAssignableTo}
+                formatLabel={formatVerse}
+                chapterSequence={chapterSequence}
                 onApply={handleApplyVerseRange}
                 onCancel={() => setAssetIdToAssignRange(null)}
               />

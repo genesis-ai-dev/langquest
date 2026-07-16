@@ -2548,14 +2548,16 @@ const RecordingView = () => {
     async (assetId: string) => {
       try {
         if (!questId) return;
-        await softDeleteAssetsFromQuest(questId, [assetId]);
+        const previousData = await softDeleteAssetsFromQuest(questId, [
+          assetId
+        ]);
 
         // Remove from session assets list
         setSessionItems((prev) => prev.filter((a) => a.id !== assetId));
         pushUndoHistory({
           domain: 'asset',
           action: 'delete',
-          previousData: [{ id: assetId }],
+          previousData,
           newData: [],
           canUndo: true
         });
@@ -2811,7 +2813,7 @@ const RecordingView = () => {
           clearUndoHistory();
         }
 
-        await softDeleteAssetsFromQuest(
+        const previousData = await softDeleteAssetsFromQuest(
           questId,
           selectedOrdered.map((asset) => asset.id)
         );
@@ -2824,9 +2826,7 @@ const RecordingView = () => {
           pushUndoHistory({
             domain: 'asset',
             action: 'delete',
-            previousData: selectedOrdered.map((asset) => ({
-              id: asset.id
-            })),
+            previousData,
             newData: [],
             canUndo: true
           });

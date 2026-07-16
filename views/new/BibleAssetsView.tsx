@@ -29,6 +29,7 @@ import { useQuestDownloadStatusLive } from '@/hooks/useQuestDownloadStatusLive';
 import { useSingleAudioController } from '@/hooks/useSingleAudioController';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useLocalStore } from '@/store/localStore';
+import { isImportedAsset } from '@/utils/assetProvenance';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import RNAlert from '@blazejkustra/react-native-alert';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -1404,14 +1405,11 @@ export default function BibleAssetsView() {
           clearUndoHistory();
         }
 
-        const previousData = selectedAssets.map((asset) => ({
-          id: asset.id,
-          name: asset.name ?? null,
-          orderIndex: asset.order_index
-        }));
         const selectedIds = selectedAssets.map((asset) => asset.id);
-
-        await softDeleteAssetsFromQuest(questId, selectedIds);
+        const previousData = await softDeleteAssetsFromQuest(
+          questId,
+          selectedIds
+        );
         if (allowUndo) {
           pushUndoHistory({
             domain: 'asset',
@@ -2322,6 +2320,16 @@ export default function BibleAssetsView() {
     }
     return false;
   }, [selectedAssetIds, assets]);
+
+  // Imported assets cannot be merged — keep Merge disabled if any are selected
+  const canMergeSelection = React.useMemo(() => {
+    if (selectedAssetIds.size < 2) return false;
+    for (const asset of assets) {
+      if (!selectedAssetIds.has(asset.id)) continue;
+      if (isImportedAsset(asset.metadata)) return false;
+    }
+    return true;
+  }, [assets, selectedAssetIds]);
 
   // Handle applying verse label to selected assets
   const handleAssignVerseToSelected = React.useCallback(
@@ -4380,6 +4388,7 @@ export default function BibleAssetsView() {
               allowAssignVerse={true}
               onAssignVerse={() => setShowVerseAssignerDrawer(true)}
               showMerge={enableMerge}
+              canMerge={canMergeSelection}
             />
           </View>
         ) : (
@@ -4457,6 +4466,7 @@ export default function BibleAssetsView() {
           verseCount={verseCount}
           targetVerseLabels={importWizardVerseLabels}
           formatVerse={formatVersePositionRef.current}
+          chapterSequence={pericopeSequence ?? undefined}
         />
       )}
 
@@ -4558,6 +4568,8 @@ export default function BibleAssetsView() {
               existingLabels={existingLabels}
               getMaxToForFrom={getMaxToForFrom}
               verseCount={verseCount}
+              formatLabel={formatVersePositionRef.current ?? undefined}
+              chapterSequence={pericopeSequence ?? undefined}
               onApply={(from, to) => {
                 void handleAssignVerseToSelected(from, to);
               }}

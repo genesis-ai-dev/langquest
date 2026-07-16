@@ -1,3 +1,4 @@
+import { cn } from '@/utils/styleUtils';
 import { XIcon } from 'lucide-react-native';
 import React from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
@@ -35,6 +36,10 @@ interface VerseAssignerProps {
   existingLabels?: ExistingLabel[];
   // Total verse count for the chapter (to show all verses in unified list)
   verseCount?: number;
+  /** Map a position number to a display label (e.g., "2:23"). Also used for chapter separators. */
+  formatLabel?: (position: number) => string | null;
+  /** Pericope verse sequence for detecting chapter boundaries between bubbles. */
+  chapterSequence?: { chapter: number; verse: number }[];
 }
 
 export function VerseAssigner({
@@ -51,7 +56,9 @@ export function VerseAssigner({
   ScrollViewComponent = ScrollView,
   getMaxToForFrom,
   existingLabels = [],
-  verseCount
+  verseCount,
+  formatLabel,
+  chapterSequence
 }: VerseAssignerProps) {
   const [selectedFrom, setSelectedFrom] = React.useState<number | undefined>(
     initialFrom
@@ -62,6 +69,23 @@ export function VerseAssigner({
 
   // Track if selection came from an existing label (to prevent range editing)
   const [isExistingSelected, setIsExistingSelected] = React.useState(false);
+
+  const usePill = !!formatLabel;
+
+  const formatPosition = React.useCallback(
+    (position: number) => formatLabel?.(position) ?? String(position),
+    [formatLabel]
+  );
+
+  const formatRangeLabel = React.useCallback(
+    (rangeFrom: number, rangeTo: number) => {
+      if (rangeFrom === rangeTo) {
+        return formatPosition(rangeFrom);
+      }
+      return `${formatPosition(rangeFrom)} - ${formatPosition(rangeTo)}`;
+    },
+    [formatPosition]
+  );
 
   // Generate array of available numbers
   const availableSet = React.useMemo(() => {
@@ -100,14 +124,6 @@ export function VerseAssigner({
       existingMap.set(label.from, label);
     }
 
-    // Build a set of verses covered by existing labels
-    const coveredByExisting = new Set<number>();
-    for (const label of existingLabels) {
-      for (let v = label.from; v <= label.to; v++) {
-        coveredByExisting.add(v);
-      }
-    }
-
     let verse = 1;
     while (verse <= totalVerseCount) {
       // Check if this verse starts an existing label
@@ -132,6 +148,10 @@ export function VerseAssigner({
 
     return items;
   }, [totalVerseCount, existingLabels, availableSet]);
+
+  const getItemStartPosition = React.useCallback((item: ListItem) => {
+    return item.type === 'existing' ? item.from : item.verse;
+  }, []);
 
   // Calculate max "to" value when "from" is selected
   const maxTo: number = React.useMemo(() => {
@@ -212,7 +232,10 @@ export function VerseAssigner({
 
   return (
     <View
-      className={`rounded-xl border border-border bg-card p-4 ${className}`}
+      className={cn(
+        'rounded-xl border border-border bg-card p-4',
+        className
+      )}
     >
       {/* Unified verse list */}
       <ScrollViewComponent
@@ -221,80 +244,105 @@ export function VerseAssigner({
         className="mb-4"
         contentContainerClassName="gap-2 px-1"
       >
-        {unifiedList.map((item) => {
+        {unifiedList.map((item, idx) => {
+          const startPosition = getItemStartPosition(item);
+          let showChapterSep = false;
+          if (chapterSequence && idx > 0) {
+            const prevStart = getItemStartPosition(unifiedList[idx - 1]!);
+            const prevEntry = chapterSequence[prevStart - 1];
+            const currEntry = chapterSequence[startPosition - 1];
+            if (
+              prevEntry &&
+              currEntry &&
+              prevEntry.chapter !== currEntry.chapter
+            ) {
+              showChapterSep = true;
+            }
+          }
+
           if (item.type === 'existing') {
             // Existing label - render as a pill
             const isSelected =
               selectedFrom === item.from && selectedTo === item.to;
-            const labelText =
-              item.from === item.to
-                ? `${item.from}`
-                : `${item.from} - ${item.to}`;
+            const labelText = formatRangeLabel(item.from, item.to);
             // Disable existing labels when user is selecting a new range
             const isDisabled =
               selectedFrom !== undefined && !isExistingSelected;
 
             return (
-              <Pressable
-                key={`existing-${item.from}-${item.to}`}
-                onPress={() => handleExistingPress(item)}
-                disabled={isDisabled}
-                className={`h-10 items-center justify-center rounded-full px-3 ${
-                  isSelected
-                    ? 'bg-primary'
-                    : isDisabled
-                      ? 'bg-muted/30'
-                      : 'border border-primary/30 bg-primary/5'
-                } active:scale-95`}
-              >
-                <Text
-                  className={`text-sm font-medium ${
+              <React.Fragment key={`existing-${item.from}-${item.to}`}>
+                {showChapterSep && <View className="mx-1 h-10 w-px bg-border" />}
+                <Pressable
+                  onPress={() => handleExistingPress(item)}
+                  disabled={isDisabled}
+                  className={cn(
+                    'h-10 items-center justify-center px-3 active:scale-95',
+                    usePill ? 'rounded-lg' : 'rounded-full',
                     isSelected
-                      ? 'text-primary-foreground'
+                      ? 'bg-primary'
                       : isDisabled
-                        ? 'text-muted-foreground/40'
-                        : 'text-primary'
-                  }`}
+                        ? 'bg-muted/30'
+                        : 'border border-primary/30 bg-primary/5'
+                  )}
                 >
-                  {labelText}
-                </Text>
-              </Pressable>
+                  <Text
+                    className={cn(
+                      'font-medium',
+                      usePill ? 'text-xs' : 'text-sm',
+                      isSelected
+                        ? 'text-primary-foreground'
+                        : isDisabled
+                          ? 'text-muted-foreground/40'
+                          : 'text-primary'
+                    )}
+                  >
+                    {labelText}
+                  </Text>
+                </Pressable>
+              </React.Fragment>
             );
-          } else {
-            // Available verse - render as circle
-            const verse = item.verse;
-            const isSelectedFrom = verse === selectedFrom;
-            const isSelectedTo = verse === selectedTo;
-            const isSelected = isSelectedFrom || isSelectedTo;
-            const selectable = isVerseSelectable(verse);
+          }
 
-            return (
+          // Available verse - render as circle (or pill for FIA labels)
+          const verse = item.verse;
+          const isSelectedFrom = verse === selectedFrom;
+          const isSelectedTo = verse === selectedTo;
+          const isSelected = isSelectedFrom || isSelectedTo;
+          const selectable = isVerseSelectable(verse);
+          const label = formatPosition(verse);
+
+          return (
+            <React.Fragment key={`available-${verse}`}>
+              {showChapterSep && <View className="mx-1 h-10 w-px bg-border" />}
               <Pressable
-                key={`available-${verse}`}
                 onPress={() => handleAvailablePress(verse)}
                 disabled={!selectable}
-                className={`h-10 w-10 items-center justify-center rounded-full ${
+                className={cn(
+                  'h-10 items-center justify-center active:scale-95',
+                  usePill ? 'rounded-lg px-2.5' : 'w-10 rounded-full',
                   isSelected
                     ? 'bg-primary'
                     : selectable
                       ? 'border border-primary/30 bg-primary/5'
                       : 'bg-muted/30'
-                } active:scale-95`}
+                )}
               >
                 <Text
-                  className={`text-sm font-medium ${
+                  className={cn(
+                    'font-medium',
+                    usePill ? 'text-xs' : 'text-sm',
                     isSelected
                       ? 'text-primary-foreground'
                       : selectable
                         ? 'text-primary'
                         : 'text-muted-foreground/40'
-                  }`}
+                  )}
                 >
-                  {verse}
+                  {label}
                 </Text>
               </Pressable>
-            );
-          }
+            </React.Fragment>
+          );
         })}
       </ScrollViewComponent>
 
@@ -303,16 +351,17 @@ export function VerseAssigner({
         {/* From input */}
         <Pressable
           onPress={selectedFrom !== undefined ? handleClear : undefined}
-          className={`h-12 w-20 flex-row items-center justify-center rounded-lg border ${
+          className={cn(
+            'h-12 min-w-20 flex-row items-center justify-center rounded-lg border px-3',
             selectedFrom !== undefined
               ? 'border-primary bg-primary/10'
               : 'border-dashed border-muted-foreground/30 bg-muted/30'
-          }`}
+          )}
         >
           {selectedFrom !== undefined ? (
             <>
               <Text className="text-lg font-semibold text-primary">
-                {selectedFrom}
+                {formatPosition(selectedFrom)}
               </Text>
               <Icon as={XIcon} size={14} className="ml-1 text-primary/60" />
             </>
@@ -327,18 +376,19 @@ export function VerseAssigner({
         <Pressable
           onPress={selectedTo !== undefined ? handleClear : undefined}
           disabled={selectedFrom === undefined}
-          className={`h-12 w-20 flex-row items-center justify-center rounded-lg border ${
+          className={cn(
+            'h-12 min-w-20 flex-row items-center justify-center rounded-lg border px-3',
             selectedTo !== undefined
               ? 'border-primary bg-primary/10'
               : selectedFrom !== undefined
                 ? 'border-dashed border-muted-foreground/30 bg-muted/30'
                 : 'border-dashed border-muted-foreground/20 bg-muted/20 opacity-50'
-          }`}
+          )}
         >
           {selectedTo !== undefined ? (
             <>
               <Text className="text-lg font-semibold text-primary">
-                {selectedTo}
+                {formatPosition(selectedTo)}
               </Text>
               <Icon as={XIcon} size={14} className="ml-1 text-primary/60" />
             </>

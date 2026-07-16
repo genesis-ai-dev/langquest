@@ -7,6 +7,7 @@ import { resolveTable } from '@/utils/dbUtils';
 import { and, asc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
 import uuid from 'react-native-uuid';
 import { enqueue as enqueueAssetGc } from './assetGarbageCollectorService';
+import type { AssetOperationDataItem } from './types';
 
 /**
  * Asset metadata structure for verse ranges
@@ -533,15 +534,17 @@ export async function batchUpdateAssetVerse(
 
 /**
  * Soft delete assets for a specific quest.
- * - Sets asset.project_id = null
+ * - Sets asset.project_id = null for created assets only
  * - Deletes quest_asset_link rows for the provided quest
+ * - Enqueues GC only for created assets
  * - Keeps asset_content_link rows intact
+ * - Returns link snapshots for undo/redo restore
  */
 export async function softDeleteAssetsFromQuest(
   questId: string,
   assetIds: string[]
-): Promise<void> {
-  if (!questId || assetIds.length === 0) return;
+): Promise<AssetOperationDataItem[]> {
+  if (!questId || assetIds.length === 0) return [];
 
   const assetLocal = resolveTable('asset', { localOverride: true });
   const questAssetLinkLocal = resolveTable('quest_asset_link', {
@@ -550,7 +553,10 @@ export async function softDeleteAssetsFromQuest(
   const linksToDelete = await system.db
     .select({
       asset_id: questAssetLinkLocal.asset_id,
-      metadata: questAssetLinkLocal.metadata
+      name: questAssetLinkLocal.name,
+      order_index: questAssetLinkLocal.order_index,
+      metadata: questAssetLinkLocal.metadata,
+      download_profiles: questAssetLinkLocal.download_profiles
     })
     .from(questAssetLinkLocal)
     .where(
@@ -559,18 +565,26 @@ export async function softDeleteAssetsFromQuest(
         inArray(questAssetLinkLocal.asset_id, assetIds)
       )
     );
-  const createdAssetIds = linksToDelete
-    .filter((link) => {
-      const metadata = parseMetadataRecord(link.metadata);
-      return metadata.provenance?.type === 'created';
-    })
-    .map((link) => link.asset_id);
+
+  const snapshots: AssetOperationDataItem[] = linksToDelete.map((link) => ({
+    id: link.asset_id,
+    name: link.name ?? null,
+    order_index: link.order_index ?? 0,
+    metadata: parseMetadataRecord(link.metadata),
+    download_profiles: link.download_profiles ?? []
+  }));
+
+  const createdAssetIds = snapshots
+    .filter((item) => item.metadata?.provenance?.type === 'created')
+    .map((item) => item.id);
 
   await system.db.transaction(async (tx) => {
-    await tx
-      .update(assetLocal)
-      .set({ project_id: null })
-      .where(inArray(assetLocal.id, assetIds));
+    if (createdAssetIds.length > 0) {
+      await tx
+        .update(assetLocal)
+        .set({ project_id: null })
+        .where(inArray(assetLocal.id, createdAssetIds));
+    }
 
     await tx
       .delete(questAssetLinkLocal)
@@ -585,6 +599,8 @@ export async function softDeleteAssetsFromQuest(
   if (createdAssetIds.length > 0) {
     await enqueueAssetGc(createdAssetIds, 'delete');
   }
+
+  return snapshots;
 }
 
 /**
@@ -811,7 +827,7 @@ export async function normalizeOrderIndexForVerses(
       const assetsInVerse = await system.db
         .select({
           id: assetTable.id,
-          name: assetTable.name,
+          // name: assetTable.name,
           order_index: questAssetLinkTable.order_index
         })
         .from(assetTable)
@@ -922,4 +938,90 @@ export async function getNextOrderIndex(
 
   const maxOrder = result[0]?.maxOrder;
   return (maxOrder ?? 0) + 1;
+}
+
+export interface LinkExistingAssetToQuestItem {
+  assetId: string;
+  name?: string | null;
+  order_index: number;
+  metadata: QuestAssetLinkMetadata;
+}
+
+export interface LinkExistingAssetsToQuestResult {
+  linkedAssetIds: string[];
+  skippedAssetIds: string[];
+}
+
+/**
+ * Link existing assets into a quest by creating quest_asset_link rows only.
+ * Never inserts/updates the shared asset record.
+ */
+export async function linkExistingAssetsToQuest(params: {
+  questId: string;
+  userId: string;
+  items: LinkExistingAssetToQuestItem[];
+}): Promise<LinkExistingAssetsToQuestResult> {
+  const { questId, userId, items } = params;
+  if (items.length === 0) {
+    return { linkedAssetIds: [], skippedAssetIds: [] };
+  }
+
+  const linkLocal = resolveTable('quest_asset_link', { localOverride: true });
+  const linkSynced = resolveTable('quest_asset_link', { localOverride: false });
+  const assetIds = items.map((item) => item.assetId);
+
+  const [localLinks, syncedLinks] = await Promise.all([
+    system.db
+      .select({ asset_id: linkLocal.asset_id })
+      .from(linkLocal)
+      .where(
+        and(
+          eq(linkLocal.quest_id, questId),
+          inArray(linkLocal.asset_id, assetIds)
+        )
+      ),
+    system.db
+      .select({ asset_id: linkSynced.asset_id })
+      .from(linkSynced)
+      .where(
+        and(
+          eq(linkSynced.quest_id, questId),
+          inArray(linkSynced.asset_id, assetIds)
+        )
+      )
+  ]);
+
+  const alreadyLinked = new Set(
+    [...localLinks, ...syncedLinks].map((link) => link.asset_id)
+  );
+
+  const itemsToInsert = items.filter(
+    (item) => !alreadyLinked.has(item.assetId)
+  );
+  const skippedAssetIds = items
+    .filter((item) => alreadyLinked.has(item.assetId))
+    .map((item) => item.assetId);
+
+  if (itemsToInsert.length === 0) {
+    return { linkedAssetIds: [], skippedAssetIds };
+  }
+
+  await system.db.transaction(async (tx) => {
+    for (const item of itemsToInsert) {
+      await tx.insert(linkLocal).values({
+        id: String(uuid.v4()),
+        quest_id: questId,
+        asset_id: item.assetId,
+        name: item.name ?? null,
+        order_index: item.order_index,
+        metadata: JSON.stringify(item.metadata),
+        download_profiles: [userId]
+      });
+    }
+  });
+
+  return {
+    linkedAssetIds: itemsToInsert.map((item) => item.assetId),
+    skippedAssetIds
+  };
 }

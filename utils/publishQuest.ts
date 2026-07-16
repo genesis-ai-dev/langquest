@@ -496,6 +496,8 @@ export async function publishQuest(
       await tx.run(sql.raw(childAssetQuery));
 
       // 7. Insert quest_asset_link (with EXISTS(asset) guard)
+      // Accept assets from either local (created in this quest) or synced
+      // (e.g. imported from another published quest).
       const questAssetLinkColumns = getTableColumns(quest_asset_link_synced);
       const questAssetLinkQuery = `INSERT OR IGNORE INTO quest_asset_link_synced(${questAssetLinkColumns})
         SELECT ${questAssetLinkColumns
@@ -505,7 +507,10 @@ export async function publishQuest(
         FROM quest_asset_link_local qal
         WHERE qal.quest_id IN (${toColumns(allQuestIds)})
           AND qal.source = 'local'
-          AND EXISTS (SELECT 1 FROM asset_local a WHERE a.id = qal.asset_id)`;
+          AND (
+            EXISTS (SELECT 1 FROM asset_local a WHERE a.id = qal.asset_id)
+            OR EXISTS (SELECT 1 FROM asset_synced a WHERE a.id = qal.asset_id)
+          )`;
       await tx.run(sql.raw(questAssetLinkQuery));
 
       // 8. Insert asset_content_link (with EXISTS(asset) guard + REPLACE audio)

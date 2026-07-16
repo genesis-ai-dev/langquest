@@ -32,6 +32,7 @@ import { useQuestDownloadStatusLive } from '@/hooks/useQuestDownloadStatusLive';
 import { useSingleAudioController } from '@/hooks/useSingleAudioController';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useLocalStore } from '@/store/localStore';
+import { isImportedAsset } from '@/utils/assetProvenance';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { LegendList } from '@legendapp/list';
@@ -529,14 +530,11 @@ export default function NextGenAssetsView() {
           clearUndoHistory();
         }
 
-        const previousData = selectedAssets.map((asset) => ({
-          id: asset.id,
-          name: asset.name ?? null,
-          order_index: asset.order_index
-        }));
         const selectedIds = selectedAssets.map((asset) => asset.id);
-
-        await softDeleteAssetsFromQuest(questId, selectedIds);
+        const previousData = await softDeleteAssetsFromQuest(
+          questId,
+          selectedIds
+        );
         if (allowUndo) {
           pushUndoHistory({
             domain: 'asset',
@@ -592,6 +590,15 @@ export default function NextGenAssetsView() {
     selectedAssetIds,
     t
   ]);
+
+  const canMergeSelection = React.useMemo(() => {
+    if (selectedAssetIds.size < 2) return false;
+    for (const asset of assets) {
+      if (!selectedAssetIds.has(asset.id)) continue;
+      if (isImportedAsset(asset.metadata)) return false;
+    }
+    return true;
+  }, [assets, selectedAssetIds]);
 
   const handleBatchMergeSelected = React.useCallback(() => {
     const selectedAssets = assets.filter(
@@ -1999,6 +2006,7 @@ export default function NextGenAssetsView() {
               onCancel={cancelSelection}
               onMerge={handleBatchMergeSelected}
               onDelete={handleBatchDeleteSelected}
+              canMerge={canMergeSelection}
             />
           </View>
         ) : (

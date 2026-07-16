@@ -33,6 +33,7 @@ export interface AssetOperationDataItem {
   // orderIndex?: number | null;
   order_index?: number | null;
   metadata?: Record<string, any> | null;
+  download_profiles?: string[] | null;
 }
 
 export interface AssetOperationTypes {
