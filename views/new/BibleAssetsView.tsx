@@ -4467,6 +4467,19 @@ export default function BibleAssetsView() {
           targetVerseLabels={importWizardVerseLabels}
           formatVerse={formatVersePositionRef.current}
           chapterSequence={pericopeSequence ?? undefined}
+          onImported={(linkedSnapshots) => {
+            if (linkedSnapshots.length === 0) return;
+            pushUndoHistory({
+              domain: 'asset',
+              action: 'import',
+              previousData: [],
+              newData: linkedSnapshots,
+              canUndo: true
+            });
+            // Refresh quest so lastRecordingSessionId updates and old NEW badges clear
+            void refetchQuest();
+            void refetch();
+          }}
         />
       )}
 

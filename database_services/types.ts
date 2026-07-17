@@ -25,7 +25,8 @@ export type AssetOperationAction =
   | 'merge'
   | 'delete'
   | 'replace'
-  | 'move';
+  | 'move'
+  | 'import';
 
 export interface AssetOperationDataItem {
   id: string;

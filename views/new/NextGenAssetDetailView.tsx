@@ -182,7 +182,8 @@ export default function NextGenAssetDetailView() {
   const { t } = useLocalization();
   const { isAuthenticated } = useAuth();
 
-  const { assetId, projectId, questId, router } = useNavigationHelpers();
+  const { assetId, projectId, questId, assetNameParam, router } =
+    useNavigationHelpers();
 
   // Debug logging moved to useEffect to prevent render loop
   useEffect(() => {
@@ -387,6 +388,17 @@ export default function NextGenAssetDetailView() {
         images?: string[];
       })
     | undefined;
+
+  // Prefer route display name (quest_asset_link coalesce from list).
+  // If it differs from the canonical asset table name, show both.
+  const assetDisplayName = React.useMemo(() => {
+    const tableName = activeAsset?.name?.trim() ?? '';
+    const routeName = assetNameParam?.trim() ?? '';
+    if (!routeName || !tableName || routeName === tableName) {
+      return tableName || routeName;
+    }
+    return `${routeName} [${tableName}]`;
+  }, [activeAsset?.name, assetNameParam]);
 
   // For local (unpublished) content, the current user is always the creator.
   // useUserPermissions may initially return false for private projects because its
@@ -865,15 +877,15 @@ export default function NextGenAssetDetailView() {
 
   return (
     <View className="mb-safe flex-1 px-4">
-      {activeAsset?.name && (
-        <Stack.Screen options={{ title: activeAsset.name }} />
-      )}
+      {assetDisplayName ? (
+        <Stack.Screen options={{ title: assetDisplayName }} />
+      ) : null}
       {/* Header */}
       <View className="flex-row items-center justify-between gap-1">
         <View className="flex-1 flex-row items-center gap-4">
           <View className="flex-1 flex-row items-center gap-2">
             <Text className="text-xl font-bold text-foreground">
-              {activeAsset.name}
+              {assetDisplayName}
             </Text>
             {/* New badge for recently recorded assets */}
             {isHighlighted && <NewHighlightBadge />}

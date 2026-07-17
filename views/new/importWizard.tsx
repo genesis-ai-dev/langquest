@@ -9,6 +9,7 @@ import { useAudio } from '@/contexts/AudioContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { linkExistingAssetsToQuest } from '@/database_services/assetService';
 import { createQuestRecordingSession } from '@/database_services/questService';
+import type { AssetOperationDataItem } from '@/database_services/types';
 import type { quest as questTable } from '@/db/drizzleSchema';
 import {
   asset as assetTable,
@@ -101,6 +102,7 @@ interface ImportWizardProps {
   targetVerseLabels?: ImportWizardVerseLabel[];
   formatVerse?: (position: number) => string | null;
   chapterSequence?: { chapter: number; verse: number }[];
+  onImported?: (linkedSnapshots: AssetOperationDataItem[]) => void;
 }
 
 type ImportStep = 'instructions' | 'quest' | 'assets' | 'validation';
@@ -360,8 +362,10 @@ function StepHeader({
 }) {
   return (
     <View className="gap-2">
-      <Text variant="h2">{title}</Text>
-      <Text className="text-muted-foreground">{description}</Text>
+      <Text variant="h4">{title}</Text>
+      <Text variant="default" className="text-muted-foreground">
+        {description}
+      </Text>
     </View>
   );
 }
@@ -370,31 +374,42 @@ function InstructionsStep() {
   return (
     <ScrollView
       className="flex-1"
-      contentContainerClassName="gap-4 p-6"
+      contentContainerClassName="gap-6 p-6"
       contentInsetAdjustmentBehavior="automatic"
     >
       <StepHeader
         title="Import assets from another quest"
-        description="Use this flow to copy assets from a published version of the same chapter or pericope."
+        description="Reuse assets from a previous published version of this quest."
       />
-      {[
-        'Choose a published quest version that matches this chapter or pericope.',
-        'Download the quest first if it is only available in the cloud.',
-        'Select one or more assets to import.',
-        'Review names, verse labels, and conflicts before confirming.'
-      ].map((item, index) => (
-        <View
-          key={item}
-          className="flex-row items-start gap-3 rounded-lg border border-border bg-card p-4"
-        >
-          <View className="size-7 items-center justify-center rounded-full bg-primary">
-            <Text className="text-sm font-semibold text-primary-foreground">
-              {index + 1}
-            </Text>
+      <View className="gap-3">
+        <Text className="text-sm font-medium text-muted-foreground">
+          How it works
+        </Text>
+        {[
+          'Choose a published quest version. If it is not on this device yet, the next step lets you download it.',
+          'Select the assets you want, then review any verse label conflicts before confirming.'
+        ].map((item) => (
+          <View key={item} className="flex-row items-start gap-2">
+            <Text className="text-base text-muted-foreground">•</Text>
+            <Text className="flex-1 text-base">{item}</Text>
           </View>
-          <Text className="flex-1 text-base">{item}</Text>
-        </View>
-      ))}
+        ))}
+      </View>
+      <View className="gap-3">
+        <Text className="text-sm font-medium text-muted-foreground">
+          Good to know
+        </Text>
+        {[
+          'Imported assets cannot be merged with any existing assets.',
+          'Import reuses the original asset by reference, so the source stays unchanged.',
+          'Imports can be done as often as needed, but each asset can only be imported once.'
+        ].map((item) => (
+          <View key={item} className="flex-row items-start gap-2">
+            <Text className="text-base text-muted-foreground">•</Text>
+            <Text className="flex-1 text-base">{item}</Text>
+          </View>
+        ))}
+      </View>
     </ScrollView>
   );
 }
@@ -885,7 +900,8 @@ export function ImportWizard({
   verseCount,
   targetVerseLabels = [],
   formatVerse,
-  chapterSequence
+  chapterSequence,
+  onImported
 }: ImportWizardProps) {
   const insets = useSafeAreaInsets();
   const { currentUser } = useAuth();
@@ -1322,6 +1338,11 @@ export function ImportWizard({
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['assets'], exact: false }),
         queryClient.invalidateQueries({ queryKey: ['quests'], exact: false }),
+        // BibleAssetsView / NextGenAssetsView load the quest as 'current-quest'
+        queryClient.invalidateQueries({
+          queryKey: ['current-quest'],
+          exact: false
+        }),
         queryClient.invalidateQueries({
           queryKey: ['quest-asset-link'],
           exact: false
@@ -1332,6 +1353,7 @@ export function ImportWizard({
         toast.success(
           `Imported ${result.linkedAssetIds.length} asset${result.linkedAssetIds.length === 1 ? '' : 's'}`
         );
+        onImported?.(result.linkedSnapshots);
       }
       if (result.skippedAssetIds.length > 0) {
         toast.info(

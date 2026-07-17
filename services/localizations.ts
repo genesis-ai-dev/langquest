@@ -2760,6 +2760,19 @@ export const localizations = {
     thai: 'ย้ายสินทรัพย์แล้ว: {count}',
     mandarin: '已移动资产：{count}'
   },
+  assetRedoImportMessage: {
+    english: 'Assets imported: {count}',
+    french: 'Éléments importés : {count}',
+    spanish: 'Recursos importados: {count}',
+    brazilian_portuguese: 'Recursos importados: {count}',
+    tok_pisin: 'Ol asset i kam insait: {count}',
+    indonesian: 'Aset diimpor: {count}',
+    nepali: 'एसेटहरू आयात गरियो: {count}',
+    hindi: 'एसेट आयात किए गए: {count}',
+    burmese: 'ပိုင်ဆိုင်မှုများ တင်သွင်းပြီးပါပြီ: {count}',
+    thai: 'นำเข้าสินทรัพย์แล้ว: {count}',
+    mandarin: '已导入资产：{count}'
+  },
   assetUndoCreateMessage: {
     english: 'Asset removed',
     french: 'Élément supprimé',
@@ -2838,6 +2851,19 @@ export const localizations = {
     burmese: 'ပိုင်ဆိုင်မှုများကို နဂိုနေရာသို့ ပြန်ရွှေ့ပြီးပါပြီ: {count}',
     thai: 'ย้ายสินทรัพย์กลับแล้ว: {count}',
     mandarin: '已移回资产：{count}'
+  },
+  assetUndoImportMessage: {
+    english: 'Import undone: {count}',
+    french: "Importation annulée : {count}",
+    spanish: 'Importación deshecha: {count}',
+    brazilian_portuguese: 'Importação desfeita: {count}',
+    tok_pisin: 'Import i go bek: {count}',
+    indonesian: 'Impor dibatalkan: {count}',
+    nepali: 'आयात पूर्ववत गरियो: {count}',
+    hindi: 'आयात पूर्ववत किया गया: {count}',
+    burmese: 'တင်သွင်းမှုကို နောက်ပြန်လှန်ပြီးပါပြီ: {count}',
+    thai: 'ยกเลิกการนำเข้าแล้ว: {count}',
+    mandarin: '已撤销导入：{count}'
   },
   errorLoadingAssets: {
     english: 'Error loading assets',

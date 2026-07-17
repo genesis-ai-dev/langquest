@@ -265,6 +265,22 @@ async function undoMove(
   await batchUpdateAssetVerse(questId, updates);
 }
 
+async function undoImport(
+  questId: string,
+  operation: AssetOperationTypes
+): Promise<void> {
+  const importedIds = operation.newData.map((item) => item.id);
+  await softDeleteAssetsFromQuest(questId, importedIds);
+}
+
+async function redoImport(
+  projectId: string,
+  questId: string,
+  operation: AssetOperationTypes
+): Promise<void> {
+  await restoreAssetsToQuest(projectId, questId, operation.newData);
+}
+
 async function redoCreate(
   projectId: string,
   questId: string,
@@ -369,6 +385,9 @@ export async function undo(
     case 'move':
       await undoMove(questId, operation);
       return;
+    case 'import':
+      await undoImport(questId, operation);
+      return;
     default:
       throw new Error(`Unsupported asset undo action: ${operation.action}`);
   }
@@ -409,6 +428,9 @@ export async function redo(
       return;
     case 'move':
       await redoMove(questId, operation);
+      return;
+    case 'import':
+      await redoImport(projectId, questId, operation);
       return;
     default:
       throw new Error(`Unsupported asset redo action: ${operation.action}`);

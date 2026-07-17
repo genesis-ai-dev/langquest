@@ -950,6 +950,7 @@ export interface LinkExistingAssetToQuestItem {
 export interface LinkExistingAssetsToQuestResult {
   linkedAssetIds: string[];
   skippedAssetIds: string[];
+  linkedSnapshots: AssetOperationDataItem[];
 }
 
 /**
@@ -963,7 +964,7 @@ export async function linkExistingAssetsToQuest(params: {
 }): Promise<LinkExistingAssetsToQuestResult> {
   const { questId, userId, items } = params;
   if (items.length === 0) {
-    return { linkedAssetIds: [], skippedAssetIds: [] };
+    return { linkedAssetIds: [], skippedAssetIds: [], linkedSnapshots: [] };
   }
 
   const linkLocal = resolveTable('quest_asset_link', { localOverride: true });
@@ -1003,8 +1004,18 @@ export async function linkExistingAssetsToQuest(params: {
     .map((item) => item.assetId);
 
   if (itemsToInsert.length === 0) {
-    return { linkedAssetIds: [], skippedAssetIds };
+    return { linkedAssetIds: [], skippedAssetIds, linkedSnapshots: [] };
   }
+
+  const linkedSnapshots: AssetOperationDataItem[] = itemsToInsert.map(
+    (item) => ({
+      id: item.assetId,
+      name: item.name ?? null,
+      order_index: item.order_index,
+      metadata: item.metadata as Record<string, unknown>,
+      download_profiles: [userId]
+    })
+  );
 
   await system.db.transaction(async (tx) => {
     for (const item of itemsToInsert) {
@@ -1022,6 +1033,7 @@ export async function linkExistingAssetsToQuest(params: {
 
   return {
     linkedAssetIds: itemsToInsert.map((item) => item.assetId),
-    skippedAssetIds
+    skippedAssetIds,
+    linkedSnapshots
   };
 }

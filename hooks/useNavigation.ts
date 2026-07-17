@@ -15,11 +15,18 @@ export function useNavigationHelpers() {
     projectId?: string;
     questId?: string;
     assetId?: string;
+    name?: string;
   }>();
 
   const projectId = (params.projectId as string) || undefined;
   const questId = (params.questId as string) || undefined;
   const assetId = (params.assetId as string) || undefined;
+  const rawName = params.name;
+  const assetNameParam = Array.isArray(rawName)
+    ? rawName[0]
+    : typeof rawName === 'string' && rawName.length > 0
+      ? rawName
+      : undefined;
 
   const goToProjects = useCallback(() => {
     router.dismissTo('/(app)');
@@ -48,9 +55,14 @@ export function useNavigationHelpers() {
         return;
       }
 
-      router.push(
-        `/(app)/project/${targetProjectId}/quest/${targetQuestId}/asset/${asset.id}`
-      );
+      router.push({
+        pathname: `/(app)/project/${targetProjectId}/quest/${targetQuestId}/asset/${asset.id}`,
+        params: asset.name
+          ? {
+              name: asset.name
+            }
+          : undefined
+      });
     },
     [router, projectId, questId]
   );
@@ -79,6 +91,7 @@ export function useNavigationHelpers() {
     projectId,
     questId,
     assetId,
+    assetNameParam,
     pathname,
     router,
     goToProjects,
