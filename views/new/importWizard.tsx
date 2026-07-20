@@ -19,12 +19,13 @@ import {
 } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { AppConfig } from '@/db/supabase/AppConfig';
-import { useAssetsByQuest } from '@/hooks/db/useAssets';
+import { useAssetsByQuest, useLocalAssetsByQuest } from '@/hooks/db/useAssets';
 import { useAudioPlaybackCheckpoint } from '@/hooks/useAudioPlaybackCheckpoint';
 import { useQuestDownloadDiscovery } from '@/hooks/useQuestDownloadDiscovery';
 import { useQuestDownloadStatusLive } from '@/hooks/useQuestDownloadStatusLive';
 import { useSingleAudioController } from '@/hooks/useSingleAudioController';
 import { syncCallbackService } from '@/services/syncCallbackService';
+import { useLocalStore } from '@/store/localStore';
 import { bulkDownloadQuest } from '@/utils/bulkDownload';
 import { resolveTable, type WithSource } from '@/utils/dbUtils';
 import { fileExists, getLocalAttachmentUriWithOPFS } from '@/utils/fileUtils';
@@ -45,6 +46,7 @@ import {
   InfoIcon,
   PauseIcon,
   PlayIcon,
+  RefreshCwIcon,
   SquareIcon,
   XIcon
 } from 'lucide-react-native';
@@ -657,24 +659,28 @@ function AssetsStep({
   assets,
   selectedAssetIds,
   isLoading,
+  isRefreshing,
   playingAssetId,
   onToggleAsset,
   onPlayAsset,
   onLoadMore,
+  onRefresh,
   isFetchingNextPage,
   formatVerse
 }: {
   assets: ImportAsset[];
   selectedAssetIds: Set<string>;
   isLoading: boolean;
+  isRefreshing: boolean;
   playingAssetId: string | null;
   onToggleAsset: (assetId: string) => void;
   onPlayAsset: (assetId: string) => void;
   onLoadMore: () => void;
+  onRefresh: () => void;
   isFetchingNextPage: boolean;
   formatVerse?: (position: number) => string | null;
 }) {
-  if (isLoading) {
+  if (isLoading && assets.length === 0) {
     return (
       <View className="flex-1 items-center justify-center gap-3 p-6">
         <ActivityIndicator />
@@ -685,14 +691,28 @@ function AssetsStep({
 
   if (assets.length === 0) {
     return (
-      <View className="flex-1 items-center justify-center gap-3 p-6">
+      <View className="flex-1 items-center justify-center gap-4 p-6">
         <Icon as={InfoIcon} size={40} className="text-muted-foreground" />
         <Text variant="h4" className="text-center">
           No assets found
         </Text>
         <Text className="text-center text-muted-foreground">
-          This quest does not have visible assets available for import.
+          Assets from a recently downloaded quest may still be syncing to this
+          device. Wait a moment and tap Refresh.
         </Text>
+        <Button
+          variant="outline"
+          onPress={onRefresh}
+          disabled={isRefreshing}
+          className="flex-row gap-2"
+        >
+          {isRefreshing ? (
+            <ActivityIndicator size="small" />
+          ) : (
+            <Icon as={RefreshCwIcon} size={16} className="text-foreground" />
+          )}
+          <Text>{isRefreshing ? 'Refreshing...' : 'Refresh'}</Text>
+        </Button>
       </View>
     );
   }
@@ -1116,7 +1136,29 @@ export function ImportWizard({
       });
   }, [compatibleQuestsQuery.data, currentContext, currentQuest.id]);
 
-  const assetsQuery = useAssetsByQuest(selectedQuestId ?? '', '', true);
+  const selectedSourceQuest = React.useMemo(() => {
+    if (!selectedQuestId) return undefined;
+    return compatibleQuests.find(
+      (questItem) => normalizeId(questItem.id) === normalizeId(selectedQuestId)
+    );
+  }, [compatibleQuests, selectedQuestId]);
+
+  const isSourceQuestPublished = selectedSourceQuest?.source === 'synced';
+  const showInvisibleContent = useLocalStore((s) => s.showHiddenContent);
+
+  const publishedAssetsQuery = useAssetsByQuest(
+    selectedQuestId ?? '',
+    '',
+    showInvisibleContent
+  );
+  const localAssetsQuery = useLocalAssetsByQuest(
+    selectedQuestId ?? '',
+    '',
+    showInvisibleContent
+  );
+  const assetsQuery = isSourceQuestPublished
+    ? publishedAssetsQuery
+    : localAssetsQuery;
 
   const sourceAssets = React.useMemo(() => {
     const allAssets = assetsQuery.data.pages.flatMap((page) => page.data);
@@ -1618,6 +1660,14 @@ export function ImportWizard({
     }
   };
 
+  const handleRefreshAssets = React.useCallback(async () => {
+    await queryClient.invalidateQueries({
+      queryKey: ['assets']
+    });
+    void publishedAssetsQuery.refetch();
+    void localAssetsQuery.refetch();
+  }, [queryClient, publishedAssetsQuery, localAssetsQuery]);
+
   if (!visible) {
     return null;
   }
@@ -1666,11 +1716,19 @@ export function ImportWizard({
               <AssetsStep
                 assets={sourceAssets}
                 selectedAssetIds={selectedAssetIds}
-                isLoading={assetsQuery.isLoading || assetsQuery.isFetching}
+                isLoading={assetsQuery.isLoading}
+                isRefreshing={
+                  assetsQuery.isFetching &&
+                  !assetsQuery.isLoading &&
+                  sourceAssets.length === 0
+                }
                 playingAssetId={playingAssetId}
                 onToggleAsset={toggleAsset}
                 onPlayAsset={handlePlayAsset}
                 onLoadMore={handleLoadMoreAssets}
+                onRefresh={() => {
+                  void handleRefreshAssets();
+                }}
                 isFetchingNextPage={assetsQuery.isFetchingNextPage}
                 formatVerse={formatVerse}
               />
