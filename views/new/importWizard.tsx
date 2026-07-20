@@ -53,6 +53,7 @@ import { ActivityIndicator, Modal, Pressable, View } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { toast } from 'sonner-native';
+import { AssetImportAnimation } from './onboarding/AssetImportAnimation';
 
 type Quest = typeof questTable.$inferSelect;
 type Asset = typeof assetTable.$inferSelect;
@@ -382,12 +383,15 @@ function InstructionsStep() {
         description="Reuse assets from a previous published version of this quest."
       />
       <View className="gap-3">
-        <Text className="text-sm font-medium text-muted-foreground">
+        {/* <Text className="text-sm font-medium text-muted-foreground">
           How it works
-        </Text>
+        </Text> */}
         {[
-          'Choose a published quest version. If it is not on this device yet, the next step lets you download it.',
-          'Select the assets you want, then review any verse label conflicts before confirming.'
+          // 'Choose a published quest version. If it is not on this device yet, the next step lets you download it.',
+          // 'Select the assets you want, then review any verse label conflicts before confirming.'
+          'Choose a published quest version',
+          'Select the assets to be imported',
+          'Review any verse label conflicts before confirming'
         ].map((item) => (
           <View key={item} className="flex-row items-start gap-2">
             <Text className="text-base text-muted-foreground">•</Text>
@@ -395,6 +399,7 @@ function InstructionsStep() {
           </View>
         ))}
       </View>
+      {/*}
       <View className="gap-3">
         <Text className="text-sm font-medium text-muted-foreground">
           Good to know
@@ -409,7 +414,8 @@ function InstructionsStep() {
             <Text className="flex-1 text-base">{item}</Text>
           </View>
         ))}
-      </View>
+      </View> */}
+      <AssetImportAnimation />
     </ScrollView>
   );
 }

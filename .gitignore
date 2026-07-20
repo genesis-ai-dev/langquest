@@ -82,3 +82,4 @@ cloud-services/**/.env.keys
 .agents/skills/**/CLAUDE.md
 
 scripts/linear-import
+.env.local.example
