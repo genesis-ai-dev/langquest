@@ -19,6 +19,7 @@ export interface FiaPericopeQuest {
   id: string;
   name: string;
   pericopeId: string;
+  versionLabel?: string | null;
   source: HybridDataSource;
   hasLocalCopy: boolean;
   hasSyncedCopy: boolean;
@@ -38,6 +39,7 @@ export interface FiaPericopeGroup {
 interface QuestWithPericopeMeta {
   quest_id: string;
   quest_name: string;
+  quest_version_label: string | null;
   quest_source: HybridDataSource;
   quest_created_at: string;
   quest_download_profiles: string[] | null;
@@ -51,6 +53,7 @@ interface FiaMetadataShape {
     bookId?: string;
     pericopeId?: string;
     verseRange?: string;
+    versionLabel?: string;
   };
 }
 
@@ -120,6 +123,7 @@ async function fetchLocalPericopes(
       return {
         quest_id: q.id,
         quest_name: q.name,
+        quest_version_label: meta.fia.versionLabel ?? null,
         quest_source: q.source,
         quest_created_at: createdAt,
         quest_download_profiles: parsedProfiles,
@@ -154,6 +158,7 @@ async function fetchCloudPericopes(
       results.push({
         quest_id: row.id,
         quest_name: row.name,
+        quest_version_label: meta.fia.versionLabel ?? null,
         quest_source: 'cloud' as HybridDataSource,
         quest_created_at: row.created_at ?? new Date().toISOString(),
         quest_download_profiles: row.download_profiles as string[] | null,
@@ -198,6 +203,7 @@ const getSourcePriority = (source: HybridDataSource): number => {
 interface DeduplicatedVersion {
   id: string;
   name: string;
+  versionLabel: string | null;
   pericopeId: string;
   sources: Set<HybridDataSource>;
   download_profiles?: string[] | null;
@@ -228,6 +234,7 @@ function processPericopeResults(
       questMap.set(normalizedId, {
         id: q.quest_id,
         name: q.quest_name,
+        versionLabel: q.quest_version_label,
         pericopeId: q.pericope_id,
         sources: new Set([q.quest_source]),
         download_profiles: q.quest_download_profiles,
@@ -264,6 +271,7 @@ function processPericopeResults(
         .map((v) => ({
           id: v.id,
           name: v.name,
+          versionLabel: v.versionLabel,
           pericopeId: v.pericopeId,
           source: (v.sources.has('synced')
             ? 'synced'

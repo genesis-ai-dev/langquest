@@ -19,6 +19,7 @@ export interface BibleChapterQuest {
   id: string;
   name: string;
   chapterNumber: number;
+  versionLabel?: string | null;
   source: HybridDataSource;
   hasLocalCopy: boolean;
   hasSyncedCopy: boolean;
@@ -38,6 +39,7 @@ export interface BibleChapterGroup {
 interface QuestWithMetadata {
   quest_id: string;
   quest_name: string;
+  quest_version_label: string | null;
   quest_source: HybridDataSource;
   quest_created_at: string;
   quest_download_profiles: string[] | null;
@@ -50,6 +52,7 @@ interface BibleMetadata {
   bible?: {
     book?: string;
     chapter?: number;
+    versionLabel?: string;
   };
 }
 
@@ -120,6 +123,7 @@ async function fetchLocalChapters(
       return {
         quest_id: q.id,
         quest_name: q.name,
+        quest_version_label: meta.bible.versionLabel ?? null,
         quest_source: q.source,
         quest_created_at: createdAt,
         quest_download_profiles: parsedProfiles,
@@ -155,6 +159,7 @@ async function fetchCloudChapters(
       results.push({
         quest_id: row.id,
         quest_name: row.name,
+        quest_version_label: meta.bible.versionLabel ?? null,
         quest_source: 'cloud' as HybridDataSource,
         quest_created_at: row.created_at ?? new Date().toISOString(),
         quest_download_profiles: row.download_profiles as string[] | null,
@@ -199,6 +204,7 @@ const getSourcePriority = (source: HybridDataSource): number => {
 interface DeduplicatedVersion {
   id: string;
   name: string;
+  versionLabel: string | null;
   chapterNumber: number;
   sources: Set<HybridDataSource>;
   download_profiles?: string[] | null;
@@ -231,6 +237,7 @@ function processChapterResults(
       questMap.set(normalizedId, {
         id: q.quest_id,
         name: q.quest_name,
+        versionLabel: q.quest_version_label,
         chapterNumber: q.chapter_number,
         sources: new Set([q.quest_source]),
         download_profiles: q.quest_download_profiles,
@@ -267,6 +274,7 @@ function processChapterResults(
         .map((v) => ({
           id: v.id,
           name: v.name,
+          versionLabel: v.versionLabel,
           chapterNumber: v.chapterNumber,
           source: (v.sources.has('synced')
             ? 'synced'

@@ -42,6 +42,7 @@ import {
   CheckCheck,
   CloudUpload,
   DownloadIcon,
+  FilePenIcon,
   FlagIcon,
   InfoIcon,
   LockIcon,
@@ -83,6 +84,7 @@ import { ModalDetails } from '@/components/ModalDetails';
 import { ReportModal } from '@/components/NewReportModal';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { PublishQuestButton } from '@/components/PublishQuestButton';
+import { QuestLabelHandler } from '@/components/questLabelHandler';
 import { QuestOffloadVerificationDrawer } from '@/components/QuestOffloadVerificationDrawer';
 import { RecordButton } from '@/components/RecordButton';
 import {
@@ -561,7 +563,8 @@ function KeepAwakeGuard() {
 }
 
 export default function BibleAssetsView() {
-  const { questId, projectId, router, goToRecording } = useNavigationHelpers();
+  const { questId, projectId, router, goToRecording, promptVersionLabel } =
+    useNavigationHelpers();
   const { currentUser } = useAuth();
   const audioContext = useAudio();
   const queryClient = useQueryClient();
@@ -609,6 +612,8 @@ export default function BibleAssetsView() {
   const [showReportModal, setShowReportModal] = React.useState(false);
   const [showOffloadDrawer, setShowOffloadDrawer] = React.useState(false);
   const [showDeleteAllDrawer, setShowDeleteAllDrawer] = React.useState(false);
+  const [showRenameQuestLabelDrawer, setShowRenameQuestLabelDrawer] =
+    React.useState(false);
   const [verseSelectorState, setVerseSelectorState] = React.useState<{
     isOpen: boolean;
     key: string | null;
@@ -775,6 +780,32 @@ export default function BibleAssetsView() {
 
   // Check if quest is published (source is 'synced')
   const isPublished = selectedQuest?.source === 'synced';
+  const promptVersionLabelConsumedRef = React.useRef<string | null>(null);
+
+  React.useEffect(() => {
+    if (promptVersionLabel !== '1' || !questId) return;
+
+    const consumeKey = `${questId}:promptVersionLabel`;
+    if (promptVersionLabelConsumedRef.current === consumeKey) return;
+    if (!selectedQuest || !currentUser?.id) return;
+
+    promptVersionLabelConsumedRef.current = consumeKey;
+
+    if (isPublished || selectedQuest.creator_id !== currentUser.id) {
+      router.setParams({ promptVersionLabel: undefined });
+      return;
+    }
+
+    setShowRenameQuestLabelDrawer(true);
+    router.setParams({ promptVersionLabel: undefined });
+  }, [
+    currentUser?.id,
+    isPublished,
+    promptVersionLabel,
+    questId,
+    router,
+    selectedQuest
+  ]);
 
   // Derive bookId from quest metadata (was previously passed via navigation)
   const currentBookId = React.useMemo(() => {
@@ -4078,13 +4109,14 @@ export default function BibleAssetsView() {
                   {questId && projectId && selectedQuest && (
                     <Button
                       variant="outline"
+                      size="icon"
                       disabled={isPublishing || !isMember}
                       onPress={() => setShowImportWizard(true)}
-                      className="h-10 flex-row rounded-md border-2 border-primary bg-primary/10 py-0"
+                      className="border-2 border-primary bg-primary/10"
                     >
                       <Icon
                         as={DownloadIcon}
-                        size={16}
+                        size={18}
                         className="font-bold text-primary"
                       />
                       {/*
@@ -4335,6 +4367,14 @@ export default function BibleAssetsView() {
                   onPress={() => setShowDeleteAllDrawer(true)}
                 />
               )}
+              {!isPublished && currentUser && (
+                <SpeedDialItem
+                  className="rounded-full"
+                  icon={FilePenIcon}
+                  variant="outline"
+                  onPress={() => setShowRenameQuestLabelDrawer(true)}
+                />
+              )}
               {/* Info button always visible */}
               <SpeedDialItem
                 icon={InfoIcon}
@@ -4502,6 +4542,25 @@ export default function BibleAssetsView() {
           title="Delete All Assets?"
           description="All assets in this quest will be permanently deleted. This action is irreversible and cannot be undone."
           confirmationString={selectedQuest?.name || 'DELETE'}
+        />
+      )}
+      {showRenameQuestLabelDrawer && selectedQuest && (
+        <QuestLabelHandler
+          isOpen={showRenameQuestLabelDrawer}
+          questId={questId}
+          questName={selectedQuest.name}
+          metadata={selectedQuest.metadata}
+          isPublished={isPublished}
+          onOpenChange={setShowRenameQuestLabelDrawer}
+          onSaved={() => {
+            void refetchQuest();
+            void queryClient.invalidateQueries({
+              queryKey: ['bible-chapters']
+            });
+            void queryClient.invalidateQueries({
+              queryKey: ['fia-pericope-quests']
+            });
+          }}
         />
       )}
       {showDetailsModal && selectedQuest && (

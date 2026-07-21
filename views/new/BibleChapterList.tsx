@@ -8,6 +8,7 @@
 import { DownloadConfirmationModal } from '@/components/DownloadConfirmationModal';
 import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { QuestDownloadDiscoveryDrawer } from '@/components/QuestDownloadDiscoveryDrawer';
+import { QuestVersionPickerCard } from '@/components/QuestVersionPickerCard';
 import { Button } from '@/components/ui/button';
 import {
   Drawer,
@@ -36,7 +37,6 @@ import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { syncCallbackService } from '@/services/syncCallbackService';
 import { BOOK_ICON_MAP } from '@/utils/BOOK_GRAPHICS';
 import { bulkDownloadQuest } from '@/utils/bulkDownload';
-import { formatRelativeDate } from '@/utils/dateUtils';
 import { cn, useThemeColor } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { LegendList } from '@legendapp/list';
@@ -66,66 +66,25 @@ function VersionCard({
   onDownloadClick: (questId: string) => void;
   isDownloading: boolean;
 }) {
-  const displayName = version.creatorName || 'Unknown';
-  const initial = displayName.charAt(0).toUpperCase();
   const isLocal = version.source === 'local';
   const isCloud = version.source === 'cloud';
   const isDownloaded = useQuestDownloadStatusLive(isLocal ? null : version.id);
   const needsDownload = isCloud && !isDownloaded;
 
   return (
-    <Pressable
-      onPress={needsDownload ? () => onDownloadClick(version.id) : onPress}
-      className={cn(
-        'flex-row items-center gap-3 rounded-lg border border-border bg-card p-4 active:opacity-70',
-        needsDownload && 'opacity-60',
-        !version.visible && 'opacity-50'
-      )}
-    >
-      <View
-        className={cn(
-          'h-10 w-10 items-center justify-center rounded-full',
-          isLocal ? 'bg-chart-2' : needsDownload ? 'bg-muted' : 'bg-primary'
-        )}
-      >
-        <Text
-          className={cn(
-            'font-semibold',
-            isLocal || needsDownload
-              ? 'text-secondary-foreground'
-              : 'text-primary-foreground'
-          )}
-        >
-          {initial}
-        </Text>
-      </View>
-      <View className="flex-1">
-        <View className="flex-row items-center gap-1.5">
-          <Text className="font-semibold">
-            {displayName}
-            {isCurrentUser ? ' (you)' : ''}
-          </Text>
-        </View>
-        <Text className="text-sm text-muted-foreground">
-          {isCurrentUser && isLocal
-            ? `Draft - ${formatRelativeDate(version.created_at)}`
-            : formatRelativeDate(version.created_at)}
-        </Text>
-      </View>
-      <View className="items-center justify-center">
-        {isLocal && (
-          <Icon as={HardDriveIcon} size={18} className="text-chart-2" />
-        )}
-        {!isLocal && (
-          <DownloadIndicator
-            isFlaggedForDownload={isDownloaded}
-            isLoading={isDownloading && !isDownloaded}
-            onPress={() => onDownloadClick(version.id)}
-            size={18}
-          />
-        )}
-      </View>
-    </Pressable>
+    <QuestVersionPickerCard
+      versionLabel={version.versionLabel}
+      creatorName={version.creatorName}
+      isCurrentUser={isCurrentUser}
+      createdAt={version.created_at}
+      isLocal={isLocal}
+      isCloud={isCloud}
+      isDownloaded={isDownloaded}
+      isDownloading={isDownloading}
+      visible={version.visible}
+      onPress={onPress}
+      onDownloadClick={() => onDownloadClick(version.id)}
+    />
   );
 }
 
@@ -528,7 +487,8 @@ export function BibleChapterList({
       goToQuest({
         id: result.questId,
         project_id: projectId,
-        name: result.questName
+        name: result.questName,
+        promptVersionLabel: true
       });
     } catch (error) {
       console.error('Failed to create chapter:', error);

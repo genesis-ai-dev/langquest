@@ -29,6 +29,7 @@ import { useLocalStore } from '@/store/localStore';
 import { bulkDownloadQuest } from '@/utils/bulkDownload';
 import { resolveTable, type WithSource } from '@/utils/dbUtils';
 import { fileExists, getLocalAttachmentUriWithOPFS } from '@/utils/fileUtils';
+import { formatQuestDisplayLabel } from '@/utils/questVersionLabel';
 import { cn, useThemeColor } from '@/utils/styleUtils';
 import { useHybridData } from '@/views/new/useHybridData';
 import { LegendList } from '@legendapp/list';
@@ -251,9 +252,12 @@ function formatRange(
   return range.from === range.to ? fromLabel : `${fromLabel}-${toLabel}`;
 }
 
-function formatQuestCreatedAt(createdAt?: string | null) {
+function formatQuestCreatedAt(createdAt: Quest['created_at']) {
   if (!createdAt) return null;
-  const date = new Date(createdAt);
+  const date =
+    typeof createdAt === 'object' && 'toISOString' in createdAt
+      ? (createdAt as Date)
+      : new Date(createdAt);
   if (Number.isNaN(date.getTime())) return null;
 
   const pad = (value: number) => value.toString().padStart(2, '0');
@@ -442,7 +446,16 @@ function QuestCard({
   const needsDownload = questItem.source === 'cloud' && !isDownloaded;
   const creatorName = getCreatorDisplayName(questItem);
   const initials = getCreatorInitials(creatorName);
+  const primaryLabel = formatQuestDisplayLabel(
+    questItem.name,
+    questItem.metadata
+  );
   const createdAtLabel = formatQuestCreatedAt(questItem.created_at);
+  const secondaryParts = [formatAssetCount(questItem.assetCount)];
+  if (createdAtLabel) {
+    secondaryParts.push(createdAtLabel);
+  }
+  const secondaryLabel = secondaryParts.join(' · ');
   const primaryColor = useThemeColor('primary');
 
   return (
@@ -477,11 +490,10 @@ function QuestCard({
       </View>
       <View className="flex-1 gap-1">
         <Text className="text-sm font-semibold" numberOfLines={1}>
-          {questItem.name}
-          {createdAtLabel ? ` (${createdAtLabel})` : ''}
+          {primaryLabel}
         </Text>
         <Text className="text-xs text-muted-foreground" numberOfLines={1}>
-          {formatAssetCount(questItem.assetCount)}
+          {secondaryLabel}
         </Text>
       </View>
       {downloading && needsDownload ? (

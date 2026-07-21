@@ -1,5 +1,5 @@
-import type { QuestMetadata } from '@/db/drizzleSchemaColumns';
 import { parseQuestMetadata } from '@/database_services/questService';
+import type { QuestMetadata } from '@/db/drizzleSchemaColumns';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const QUEST_VERSION_COUNTER_PREFIX = '@quest_version_counter:';
