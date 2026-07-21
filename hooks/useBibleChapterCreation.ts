@@ -3,6 +3,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import type { QuestMetadata } from '@/db/drizzleSchemaColumns';
 import { system } from '@/db/powersync/system';
 import { resolveTable } from '@/utils/dbUtils';
+import {
+  allocateQuestVersionLabel,
+  withBibleVersionLabel
+} from '@/utils/questVersionLabel';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useBibleBookCreation } from './useBibleBookCreation';
 
@@ -43,16 +47,24 @@ export function useBibleChapterCreation() {
       // Step 1: Ensure book quest exists and get its ID
       const bookQuest = await findOrCreateBook({ projectId, bookId });
       const bookQuestId = bookQuest.id;
+      const versionLabel = await allocateQuestVersionLabel(
+        projectId,
+        bookId,
+        chapter
+      );
 
       return await system.db.transaction(async (tx) => {
         const questName = `${book.name} ${chapter}`;
 
-        const metadata: QuestMetadata = {
-          bible: {
-            book: bookId,
-            chapter: chapter
-          }
-        };
+        const metadata: QuestMetadata = withBibleVersionLabel(
+          {
+            bible: {
+              book: bookId,
+              chapter: chapter
+            }
+          },
+          versionLabel
+        );
 
         const [chapterQuest] = await tx
           .insert(resolveTable('quest', { localOverride: true }))

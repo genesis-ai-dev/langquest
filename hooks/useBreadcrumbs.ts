@@ -10,6 +10,7 @@ import { useAssetById } from '@/hooks/db/useAssets';
 import { useProjectById } from '@/hooks/db/useProjects';
 import { useQuestById } from '@/hooks/db/useQuests';
 import { useLocalization } from '@/hooks/useLocalization';
+import { formatQuestDisplayLabel } from '@/utils/questVersionLabel';
 import type { LocalizationKey } from '@/services/localizations';
 import { eq } from 'drizzle-orm';
 import type { Href } from 'expo-router';
@@ -173,7 +174,7 @@ export function useBreadcrumbs(): Breadcrumb[] {
     if (quest && questId) {
       const isCurrentLevel = !assetId && !isOnRecording;
       crumbs.push({
-        label: quest.name || 'Quest',
+        label: formatQuestDisplayLabel(quest.name, quest.metadata),
         onPress: isCurrentLevel
           ? undefined
           : () =>

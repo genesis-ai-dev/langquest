@@ -8,6 +8,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import type { QuestMetadata } from '@/db/drizzleSchemaColumns';
 import { system } from '@/db/powersync/system';
 import { resolveTable } from '@/utils/dbUtils';
+import {
+  allocateQuestVersionLabel,
+  withFiaVersionLabel
+} from '@/utils/questVersionLabel';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useFiaBookCreation } from './useFiaBookCreation';
 
@@ -48,16 +52,25 @@ export function useFiaPericopeCreation() {
         pericopeCount: totalPericopesInBook
       });
 
+      const versionLabel = await allocateQuestVersionLabel(
+        projectId,
+        bookId,
+        pericopeId
+      );
+
       return await system.db.transaction(async (tx) => {
         const questName = `${bookTitle} ${verseRange}`;
 
-        const metadata: QuestMetadata = {
-          fia: {
-            bookId,
-            pericopeId,
-            verseRange
-          }
-        };
+        const metadata: QuestMetadata = withFiaVersionLabel(
+          {
+            fia: {
+              bookId,
+              pericopeId,
+              verseRange
+            }
+          },
+          versionLabel
+        );
 
         const [pericopeQuest] = await tx
           .insert(resolveTable('quest', { localOverride: true }))
