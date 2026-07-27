@@ -614,6 +614,10 @@ export default function BibleAssetsView() {
   const [showDeleteAllDrawer, setShowDeleteAllDrawer] = React.useState(false);
   const [showRenameQuestLabelDrawer, setShowRenameQuestLabelDrawer] =
     React.useState(false);
+  // Hold FIA instructions until the version-label prompt (if any) is dismissed
+  const [awaitingVersionLabel, setAwaitingVersionLabel] = React.useState(
+    () => promptVersionLabel === '1'
+  );
   const [verseSelectorState, setVerseSelectorState] = React.useState<{
     isOpen: boolean;
     key: string | null;
@@ -792,10 +796,13 @@ export default function BibleAssetsView() {
     promptVersionLabelConsumedRef.current = consumeKey;
 
     if (isPublished || selectedQuest.creator_id !== currentUser.id) {
+      setAwaitingVersionLabel(false);
       router.setParams({ promptVersionLabel: undefined });
       return;
     }
 
+    setAwaitingVersionLabel(true);
+    setShowFiaTextDrawer(false);
     setShowRenameQuestLabelDrawer(true);
     router.setParams({ promptVersionLabel: undefined });
   }, [
@@ -876,8 +883,10 @@ export default function BibleAssetsView() {
   // Open immediately when guide content must be downloaded (e.g. post LQ-17 recache).
   // When cached, open after data is ready. If the user dismissed the drawer, don't reopen
   // unless content is missing and needs a fresh download.
+  // Wait for the version-label prompt to finish so it isn't covered by FIA instructions.
   React.useEffect(() => {
     if (!fiaPericopeId || !questId) return;
+    if (awaitingVersionLabel || showRenameQuestLabelDrawer) return;
 
     const dismissed = fiaDrawerDismissedQuests.has(questId);
     if (dismissed && !needsFiaRecache) return;
@@ -890,7 +899,15 @@ export default function BibleAssetsView() {
     if (fiaStepsData && !fiaStepsLoading) {
       setShowFiaTextDrawer(true);
     }
-  }, [fiaPericopeId, questId, needsFiaRecache, fiaStepsData, fiaStepsLoading]);
+  }, [
+    awaitingVersionLabel,
+    fiaPericopeId,
+    fiaStepsData,
+    fiaStepsLoading,
+    needsFiaRecache,
+    questId,
+    showRenameQuestLabelDrawer
+  ]);
 
   // Build the ordered verse sequence for FIA pericopes (null for standard chapters)
   const pericopeSequence = React.useMemo<ChapterVerse[] | null>(() => {
@@ -4551,7 +4568,12 @@ export default function BibleAssetsView() {
           questName={selectedQuest.name}
           metadata={selectedQuest.metadata}
           isPublished={isPublished}
-          onOpenChange={setShowRenameQuestLabelDrawer}
+          onOpenChange={(open) => {
+            setShowRenameQuestLabelDrawer(open);
+            if (!open) {
+              setAwaitingVersionLabel(false);
+            }
+          }}
           onSaved={() => {
             void refetchQuest();
             void queryClient.invalidateQueries({
