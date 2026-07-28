@@ -175,6 +175,8 @@ export interface LocalState {
   setEnableProjectLanguageSuggestions: (enabled: boolean) => void;
   enableMerge: boolean;
   setEnableMerge: (enabled: boolean) => void;
+  enableAssetImport: boolean;
+  setEnableAssetImport: (enabled: boolean) => void;
   enableFia: boolean;
   setEnableFia: (enabled: boolean) => void;
 
@@ -399,6 +401,7 @@ export const useLocalStore = create<LocalState>()(
       enableTranscription: false,
       enableProjectLanguageSuggestions: false,
       enableMerge: false,
+      enableAssetImport: false,
       enableFia: false,
 
       // VAD settings (defaults)
@@ -520,6 +523,7 @@ export const useLocalStore = create<LocalState>()(
       setEnableProjectLanguageSuggestions: (enabled) =>
         set({ enableProjectLanguageSuggestions: enabled }),
       setEnableMerge: (enabled) => set({ enableMerge: enabled }),
+      setEnableAssetImport: (enabled) => set({ enableAssetImport: enabled }),
       setEnableFia: (enabled) => set({ enableFia: enabled }),
 
       // VAD settings setters

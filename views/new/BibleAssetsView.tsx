@@ -1127,6 +1127,7 @@ export default function BibleAssetsView() {
   currentStatus.layerStatus(LayerType.QUEST, questId || '');
   const showInvisibleContent = useLocalStore((s) => s.showHiddenContent);
   const enableMerge = useLocalStore((s) => s.enableMerge);
+  const enableAssetImport = useLocalStore((s) => s.enableAssetImport);
 
   // Call both hooks unconditionally to comply with React Hooks rules
   const publishedAssets = useAssetsByQuest(
@@ -4123,28 +4124,31 @@ export default function BibleAssetsView() {
                       membership={membership}
                     />
                   )}
-                  {questId && projectId && selectedQuest && (
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      disabled={isPublishing || !isMember}
-                      onPress={() => setShowImportWizard(true)}
-                      className="border-2 border-primary bg-primary/10"
-                    >
-                      <Icon
-                        as={DownloadIcon}
-                        size={18}
-                        className="font-bold text-primary"
-                      />
-                      {/*
+                  {enableAssetImport &&
+                    questId &&
+                    projectId &&
+                    selectedQuest && (
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        disabled={isPublishing || !isMember}
+                        onPress={() => setShowImportWizard(true)}
+                        className="border-2 border-primary bg-primary/10"
+                      >
+                        <Icon
+                          as={DownloadIcon}
+                          size={18}
+                          className="font-bold text-primary"
+                        />
+                        {/*
 
 
                       <Text className="text-sm font-medium text-primary">
                         Import
                       </Text>
                         */}
-                    </Button>
-                  )}
+                      </Button>
+                    )}
                 </>
               )
             )}
@@ -4512,7 +4516,7 @@ export default function BibleAssetsView() {
       )}
       {/* )} */}
 
-      {selectedQuest && projectId && (
+      {enableAssetImport && selectedQuest && projectId && (
         <ImportWizard
           visible={showImportWizard}
           onClose={() => setShowImportWizard(false)}

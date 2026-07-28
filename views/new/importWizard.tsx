@@ -21,9 +21,11 @@ import { system } from '@/db/powersync/system';
 import { AppConfig } from '@/db/supabase/AppConfig';
 import { useAssetsByQuest, useLocalAssetsByQuest } from '@/hooks/db/useAssets';
 import { useAudioPlaybackCheckpoint } from '@/hooks/useAudioPlaybackCheckpoint';
+import { useLocalization } from '@/hooks/useLocalization';
 import { useQuestDownloadDiscovery } from '@/hooks/useQuestDownloadDiscovery';
 import { useQuestDownloadStatusLive } from '@/hooks/useQuestDownloadStatusLive';
 import { useSingleAudioController } from '@/hooks/useSingleAudioController';
+import type { LocalizationKey } from '@/services/localizations';
 import { syncCallbackService } from '@/services/syncCallbackService';
 import { useLocalStore } from '@/store/localStore';
 import { bulkDownloadQuest } from '@/utils/bulkDownload';
@@ -111,11 +113,11 @@ interface ImportWizardProps {
 
 type ImportStep = 'instructions' | 'quest' | 'assets' | 'validation';
 
-const IMPORT_STEPS: { id: ImportStep; label: string }[] = [
-  { id: 'instructions', label: 'Instructions' },
-  { id: 'quest', label: 'Quest' },
-  { id: 'assets', label: 'Assets' },
-  { id: 'validation', label: 'Validation' }
+const IMPORT_STEPS: { id: ImportStep; labelKey: LocalizationKey }[] = [
+  { id: 'instructions', labelKey: 'instructions' },
+  { id: 'quest', labelKey: 'quest' },
+  { id: 'assets', labelKey: 'assets' },
+  { id: 'validation', labelKey: 'validation' }
 ];
 
 type QuestContext =
@@ -295,6 +297,7 @@ function normalizeId(id: string | null | undefined) {
 }
 
 function ImportProgressIndicator({ currentStep }: { currentStep: ImportStep }) {
+  const { t } = useLocalization();
   const currentIndex = IMPORT_STEPS.findIndex(
     (item) => item.id === currentStep
   );
@@ -350,7 +353,7 @@ function ImportProgressIndicator({ currentStep }: { currentStep: ImportStep }) {
                 )}
                 numberOfLines={1}
               >
-                {step.label}
+                {t(step.labelKey)}
               </Text>
             </View>
           );
@@ -378,6 +381,8 @@ function StepHeader({
 }
 
 function InstructionsStep() {
+  const { t } = useLocalization();
+
   return (
     <ScrollView
       className="flex-1"
@@ -385,23 +390,23 @@ function InstructionsStep() {
       contentInsetAdjustmentBehavior="automatic"
     >
       <StepHeader
-        title="Import assets from another quest"
-        description="Reuse assets from a previous published version of this quest."
+        title={t('importStepTitleInstructions')}
+        description={t('importStepDescriptionInstructions')}
       />
       <View className="gap-3">
         {/* <Text className="text-sm font-medium text-muted-foreground">
           How it works
         </Text> */}
-        {[
-          // 'Choose a published quest version. If it is not on this device yet, the next step lets you download it.',
-          // 'Select the assets you want, then review any verse label conflicts before confirming.'
-          'Choose a published quest version',
-          'Select the assets to be imported',
-          'Review any verse label conflicts before confirming'
-        ].map((item) => (
+        {(
+          [
+            'importStepInstruction-1',
+            'importStepInstruction-2',
+            'importStepInstruction-3'
+          ] as const satisfies readonly LocalizationKey[]
+        ).map((item) => (
           <View key={item} className="flex-row items-start gap-2">
             <Text className="text-base text-muted-foreground">•</Text>
-            <Text className="flex-1 text-base">{item}</Text>
+            <Text className="flex-1 text-base">{t(item)}</Text>
           </View>
         ))}
       </View>
@@ -527,6 +532,8 @@ function QuestStep({
   onSelectQuest: (questId: string) => void;
   onDownloadQuest: (questId: string) => void;
 }) {
+  const { t } = useLocalization();
+
   if (isLoading) {
     return (
       <View className="flex-1 items-center justify-center gap-3 p-6">
@@ -555,8 +562,8 @@ function QuestStep({
   return (
     <View className="flex-1 gap-4 p-6">
       <StepHeader
-        title="Choose a source quest"
-        description="Only downloaded published quests can be used as an import source."
+        title={t('importStepTitleQuest')}
+        description={t('importStepDescriptionQuest')}
       />
       <LegendList
         data={quests}
@@ -692,6 +699,8 @@ function AssetsStep({
   isFetchingNextPage: boolean;
   formatVerse?: (position: number) => string | null;
 }) {
+  const { t } = useLocalization();
+
   if (isLoading && assets.length === 0) {
     return (
       <View className="flex-1 items-center justify-center gap-3 p-6">
@@ -732,8 +741,8 @@ function AssetsStep({
   return (
     <View className="flex-1 gap-4 px-6 pb-4 pt-6">
       <StepHeader
-        title="Select assets"
-        description="Choose one or more assets to prepare for validation."
+        title={t('importStepTitleAssets')}
+        description={t('importStepDescriptionAssets')}
       />
       <LegendList
         data={assets}
@@ -863,11 +872,13 @@ function ValidationStep({
   onEditRange: (assetId: string) => void;
   formatVerse?: (position: number) => string | null;
 }) {
+  const { t } = useLocalization();
+
   return (
     <View className="flex-1 gap-4 p-6">
       <StepHeader
-        title="Validate before import"
-        description="Review selected assets and the verse labels already used in the destination quest."
+        title={t('importStepTitleValidation')}
+        description={t('importStepDescriptionValidation')}
       />
 
       <ScrollView
@@ -876,7 +887,7 @@ function ValidationStep({
         contentInsetAdjustmentBehavior="automatic"
       >
         <View className="gap-2">
-          <Text className="font-semibold">Selected assets</Text>
+          <Text className="font-semibold">{t('selectedAssets')}</Text>
           {selectedAssets.map((assetItem) => {
             const range = effectiveVerseRanges.get(assetItem.id) ?? null;
             return (
@@ -941,6 +952,7 @@ export function ImportWizard({
   chapterSequence,
   onImported
 }: ImportWizardProps) {
+  const { t } = useLocalization();
   const insets = useSafeAreaInsets();
   const { currentUser } = useAuth();
   const audioContext = useAudio();
@@ -1697,7 +1709,9 @@ export function ImportWizard({
           style={{ paddingTop: insets.top }}
         >
           <View className="flex-row items-center justify-between border-b border-border px-6 py-4">
-            <Text className="text-base font-semibold">Import assets</Text>
+            <Text className="text-base font-semibold">
+              {t('enableAssetImport')}
+            </Text>
             <Pressable
               onPress={onClose}
               disabled={isImporting}
