@@ -975,9 +975,6 @@ export function ImportWizard({
     React.useState(false);
   const [hideWizardForDownloadOverlay, setHideWizardForDownloadOverlay] =
     React.useState(false);
-  const [playingAssetId, setPlayingAssetId] = React.useState<string | null>(
-    null
-  );
   const [pendingVerseRanges, setPendingVerseRanges] = React.useState<
     Map<string, VerseRange>
   >(() => new Map());
@@ -991,6 +988,12 @@ export function ImportWizard({
     typeof setTimeout
   > | null>(null);
   const stopCurrentSoundRef = React.useRef(audioContext.stopCurrentSound);
+
+  // Only reflect actively playing audio so the icon returns to play on pause/end.
+  const playingAssetId =
+    audioContext.isPlaying && audioContext.currentAudioId
+      ? audioContext.currentAudioId
+      : null;
 
   React.useEffect(() => {
     stopCurrentSoundRef.current = audioContext.stopCurrentSound;
@@ -1014,7 +1017,6 @@ export function ImportWizard({
       setStep('instructions');
       setSelectedQuestId(null);
       setSelectedAssetIds(new Set());
-      setPlayingAssetId(null);
       setPendingVerseRanges(new Map());
       setAssetIdToAssignRange(null);
       setIsImporting(false);
@@ -1527,11 +1529,8 @@ export function ImportWizard({
     audioContext,
     checkpointStore,
     getAssetAudioUris,
-    onCurrentAssetChange: setPlayingAssetId,
-    onNoAudioFound: () => setPlayingAssetId(null),
     onError: (error) => {
       console.error('[ImportWizard] Failed to play asset:', error);
-      setPlayingAssetId(null);
     }
   });
 

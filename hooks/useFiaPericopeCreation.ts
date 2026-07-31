@@ -67,7 +67,8 @@ export function useFiaPericopeCreation() {
               bookId,
               pericopeId,
               verseRange
-            }
+            },
+            allowImportAssets: true
           },
           versionLabel
         );

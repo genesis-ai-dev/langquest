@@ -198,6 +198,8 @@ export interface QuestMetadata {
   fia?: FiaMetadata;
   lastRecordingSessionId?: string;
   recordingSessions?: RecordingSessionMetadata[];
+  /** When true, this quest can receive imported assets (Bible chapter / FIA pericope). */
+  allowImportAssets?: boolean;
   // Add other metadata types here as needed
   // e.g., curriculum?: { unit: string; lesson: number };
 }

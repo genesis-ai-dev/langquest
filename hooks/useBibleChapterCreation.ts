@@ -61,7 +61,8 @@ export function useBibleChapterCreation() {
             bible: {
               book: bookId,
               chapter: chapter
-            }
+            },
+            allowImportAssets: true
           },
           versionLabel
         );

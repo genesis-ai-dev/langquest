@@ -253,6 +253,7 @@ export default function RootLayout() {
                         position="bottom-center"
                         offset={50}
                         theme={scheme} // ou "system"
+                        closeButton
                         toastOptions={{
                           style: {
                             backgroundColor:

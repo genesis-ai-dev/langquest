@@ -120,7 +120,10 @@ import {
   undo as undoAssetOperation
 } from '@/database_services/assetUndoService';
 import { audioSegmentService } from '@/database_services/audioSegmentService';
-import { createQuestRecordingSession } from '@/database_services/questService';
+import {
+  createQuestRecordingSession,
+  parseQuestMetadata
+} from '@/database_services/questService';
 import type {
   AssetOperationDataItem,
   AssetOperationTypes
@@ -139,6 +142,7 @@ import { resolveTable } from '@/utils/dbUtils';
 import { fileExists, getLocalAttachmentUriWithOPFS } from '@/utils/fileUtils';
 import { publishQuest as publishQuestUtils } from '@/utils/publishQuest';
 import { offloadQuest } from '@/utils/questOffloadUtils';
+import { formatQuestDisplayLabel } from '@/utils/questVersionLabel';
 import { getThemeColor } from '@/utils/styleUtils';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -1128,6 +1132,11 @@ export default function BibleAssetsView() {
   const showInvisibleContent = useLocalStore((s) => s.showHiddenContent);
   const enableMerge = useLocalStore((s) => s.enableMerge);
   const enableAssetImport = useLocalStore((s) => s.enableAssetImport);
+  const allowImportAssets = React.useMemo(
+    () =>
+      parseQuestMetadata(selectedQuest?.metadata).allowImportAssets === true,
+    [selectedQuest?.metadata]
+  );
 
   // Call both hooks unconditionally to comply with React Hooks rules
   const publishedAssets = useAssetsByQuest(
@@ -4055,7 +4064,14 @@ export default function BibleAssetsView() {
   return (
     <View className="flex flex-1 flex-col gap-4 px-6 pb-6 pt-1">
       {selectedQuest?.name && (
-        <Stack.Screen options={{ title: selectedQuest.name }} />
+        <Stack.Screen
+          options={{
+            title: formatQuestDisplayLabel(
+              selectedQuest.name,
+              selectedQuest.metadata
+            )
+          }}
+        />
       )}
       {isPlayAllPlayerActive && <KeepAwakeGuard />}
       <View className="flex flex-row items-center justify-between">
@@ -4125,6 +4141,7 @@ export default function BibleAssetsView() {
                     />
                   )}
                   {enableAssetImport &&
+                    allowImportAssets &&
                     questId &&
                     projectId &&
                     selectedQuest && (
@@ -4516,7 +4533,10 @@ export default function BibleAssetsView() {
       )}
       {/* )} */}
 
-      {enableAssetImport && selectedQuest && projectId && (
+      {enableAssetImport &&
+        allowImportAssets &&
+        selectedQuest &&
+        projectId && (
         <ImportWizard
           visible={showImportWizard}
           onClose={() => setShowImportWizard(false)}
@@ -4579,6 +4599,10 @@ export default function BibleAssetsView() {
             }
           }}
           onSaved={() => {
+            void queryClient.invalidateQueries({ queryKey: ['quest'] });
+            void queryClient.invalidateQueries({
+              queryKey: ['current-quest']
+            });
             void refetchQuest();
             void queryClient.invalidateQueries({
               queryKey: ['bible-chapters']
