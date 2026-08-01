@@ -7,7 +7,7 @@ import { useBibleBookNameGetter } from '@/hooks/useBibleBookName';
 import { useLocalization } from '@/hooks/useLocalization';
 import { BOOK_ICON_MAP } from '@/utils/BOOK_GRAPHICS';
 import { cn, useThemeColor } from '@/utils/styleUtils';
-import { LegendList } from '@legendapp/list';
+import { LegendList } from '@/components/ui/legend-list';
 import { PlusCircleIcon } from 'lucide-react-native';
 import { Image } from 'expo-image';
 import React from 'react';
@@ -114,7 +114,7 @@ export function BibleBookList({
   ];
 
   return (
-    <View className="mb-safe flex-1 gap-6">
+    <View className="flex-1 gap-6">
       <LegendList
         data={allBooks}
         keyExtractor={(item) => (typeof item === 'string' ? item : item.id)}
@@ -122,9 +122,9 @@ export function BibleBookList({
         estimatedItemSize={140}
         columnWrapperStyle={{ gap: gap }}
         contentContainerStyle={{
-          paddingHorizontal: padding,
-          paddingBottom: 24
+          paddingHorizontal: padding
         }}
+        bottomExtra={24}
         recycleItems
         renderItem={({ item }) => renderBookButton(item, item.testament)}
         StickyHeaderComponent={() => (
@@ -169,9 +169,9 @@ export function BibleBookListSkeleton() {
         estimatedItemSize={140}
         columnWrapperStyle={{ gap: gap }}
         contentContainerStyle={{
-          paddingHorizontal: padding,
-          paddingBottom: 24
+          paddingHorizontal: padding
         }}
+        bottomExtra={24}
         recycleItems
         renderItem={() => (
           <Skeleton

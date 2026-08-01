@@ -17,7 +17,7 @@ import {
   useSimpleHybridInfiniteData
 } from '@/views/new/useHybridData';
 import RNAlert from '@blazejkustra/react-native-alert';
-import { LegendList } from '@legendapp/list';
+import { LegendList } from '@/components/ui/legend-list';
 import {
   and,
   desc,
@@ -910,7 +910,7 @@ export default function NextGenProjectsView() {
                     ? `invite-${item.projectId}-${activeTab}`
                     : `project-${item.project.id}-${activeTab}`
                 }
-                contentContainerClassName="pb-8"
+                bottomExtra={32}
                 recycleItems
                 estimatedItemSize={175}
                 maintainVisibleContentPosition
