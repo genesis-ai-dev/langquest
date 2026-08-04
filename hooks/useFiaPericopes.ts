@@ -53,8 +53,8 @@ interface FiaMetadataShape {
     bookId?: string;
     pericopeId?: string;
     verseRange?: string;
-    versionLabel?: string;
   };
+  versionLabel?: string;
 }
 
 function parseMetadata(raw: unknown): FiaMetadataShape | null {
@@ -123,7 +123,7 @@ async function fetchLocalPericopes(
       return {
         quest_id: q.id,
         quest_name: q.name,
-        quest_version_label: meta.fia.versionLabel ?? null,
+        quest_version_label: meta.versionLabel ?? null,
         quest_source: q.source,
         quest_created_at: createdAt,
         quest_download_profiles: parsedProfiles,
@@ -158,7 +158,7 @@ async function fetchCloudPericopes(
       results.push({
         quest_id: row.id,
         quest_name: row.name,
-        quest_version_label: meta.fia.versionLabel ?? null,
+        quest_version_label: meta.versionLabel ?? null,
         quest_source: 'cloud' as HybridDataSource,
         quest_created_at: row.created_at ?? new Date().toISOString(),
         quest_download_profiles: row.download_profiles as string[] | null,

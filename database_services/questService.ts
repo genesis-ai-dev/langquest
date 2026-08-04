@@ -2,10 +2,7 @@ import { eq } from 'drizzle-orm';
 // import { db } from '../db/database';
 import type { QuestMetadata } from '@/db/drizzleSchemaColumns';
 import { resolveTable } from '@/utils/dbUtils';
-import {
-  withBibleVersionLabel,
-  withFiaVersionLabel
-} from '@/utils/questVersionLabel';
+import { withQuestVersionLabel } from '@/utils/questVersionLabel';
 import uuid from 'react-native-uuid';
 import { quest } from '../db/drizzleSchema';
 import { system } from '../db/powersync/system';
@@ -45,21 +42,10 @@ export async function updateQuestVersionLabel(
   }
 
   const parsed = parseQuestMetadata(existingMetadata);
-
-  if (parsed.bible) {
-    await updateQuestMetadata(
-      quest_id,
-      withBibleVersionLabel(parsed, trimmed)
-    );
-    return;
-  }
-
-  if (parsed.fia) {
-    await updateQuestMetadata(quest_id, withFiaVersionLabel(parsed, trimmed));
-    return;
-  }
-
-  throw new Error('Quest metadata does not support version labels');
+  await updateQuestMetadata(
+    quest_id,
+    withQuestVersionLabel(parsed, trimmed)
+  );
 }
 
 export async function updateQuestMetadata(

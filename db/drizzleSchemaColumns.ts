@@ -171,7 +171,6 @@ export function getTableColumns<T extends TableSource>(source: T) {
 export interface BibleMetadata {
   book: string; // Bible book ID (e.g., 'gen', 'matt')
   chapter?: number; // Chapter number (undefined for book-level quests)
-  versionLabel?: string; // Local version disambiguator (e.g. '#1')
 }
 
 /**
@@ -182,7 +181,6 @@ export interface FiaMetadata {
   bookId: string; // FIA book ID (e.g., 'mrk', 'mat')
   pericopeId?: string; // FIA pericope ID (e.g., 'mrk-p1') - undefined for book-level quests
   verseRange?: string; // e.g., '1:1-13' - only set for pericope-level quests
-  versionLabel?: string; // Local version disambiguator (e.g. '#1')
 }
 
 export interface RecordingSessionMetadata {
@@ -196,6 +194,8 @@ export interface RecordingSessionMetadata {
 export interface QuestMetadata {
   bible?: BibleMetadata;
   fia?: FiaMetadata;
+  /** Local version disambiguator (e.g. '#1') for multiple copies of the same chapter/pericope. */
+  versionLabel?: string;
   lastRecordingSessionId?: string;
   recordingSessions?: RecordingSessionMetadata[];
   /** When true, this quest can receive imported assets (Bible chapter / FIA pericope). */
