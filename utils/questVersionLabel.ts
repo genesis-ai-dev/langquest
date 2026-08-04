@@ -37,7 +37,7 @@ export async function allocateQuestVersionLabel(
 
 export function getQuestVersionLabel(metadata: unknown): string | null {
   const parsed = parseQuestMetadata(metadata);
-  const label = parsed.bible?.versionLabel ?? parsed.fia?.versionLabel ?? null;
+  const label = parsed.versionLabel ?? null;
   if (!label) return null;
   const trimmed = label.trim();
   return trimmed.length > 0 ? trimmed : null;
@@ -53,30 +53,12 @@ export function formatQuestDisplayLabel(
   return versionLabel ? `${base} · ${versionLabel}` : base;
 }
 
-export function withBibleVersionLabel(
+export function withQuestVersionLabel(
   metadata: QuestMetadata,
   versionLabel: string
 ): QuestMetadata {
-  if (!metadata.bible) return metadata;
   return {
     ...metadata,
-    bible: {
-      ...metadata.bible,
-      versionLabel
-    }
-  };
-}
-
-export function withFiaVersionLabel(
-  metadata: QuestMetadata,
-  versionLabel: string
-): QuestMetadata {
-  if (!metadata.fia) return metadata;
-  return {
-    ...metadata,
-    fia: {
-      ...metadata.fia,
-      versionLabel
-    }
+    versionLabel
   };
 }

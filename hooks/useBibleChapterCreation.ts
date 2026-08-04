@@ -5,7 +5,7 @@ import { system } from '@/db/powersync/system';
 import { resolveTable } from '@/utils/dbUtils';
 import {
   allocateQuestVersionLabel,
-  withBibleVersionLabel
+  withQuestVersionLabel
 } from '@/utils/questVersionLabel';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useBibleBookCreation } from './useBibleBookCreation';
@@ -56,7 +56,7 @@ export function useBibleChapterCreation() {
       return await system.db.transaction(async (tx) => {
         const questName = `${book.name} ${chapter}`;
 
-        const metadata: QuestMetadata = withBibleVersionLabel(
+        const metadata: QuestMetadata = withQuestVersionLabel(
           {
             bible: {
               book: bookId,

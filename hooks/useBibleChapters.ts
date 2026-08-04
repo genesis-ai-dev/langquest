@@ -52,8 +52,8 @@ interface BibleMetadata {
   bible?: {
     book?: string;
     chapter?: number;
-    versionLabel?: string;
   };
+  versionLabel?: string;
 }
 
 function parseMetadata(raw: unknown): BibleMetadata | null {
@@ -123,7 +123,7 @@ async function fetchLocalChapters(
       return {
         quest_id: q.id,
         quest_name: q.name,
-        quest_version_label: meta.bible.versionLabel ?? null,
+        quest_version_label: meta.versionLabel ?? null,
         quest_source: q.source,
         quest_created_at: createdAt,
         quest_download_profiles: parsedProfiles,
@@ -159,7 +159,7 @@ async function fetchCloudChapters(
       results.push({
         quest_id: row.id,
         quest_name: row.name,
-        quest_version_label: meta.bible.versionLabel ?? null,
+        quest_version_label: meta.versionLabel ?? null,
         quest_source: 'cloud' as HybridDataSource,
         quest_created_at: row.created_at ?? new Date().toISOString(),
         quest_download_profiles: row.download_profiles as string[] | null,

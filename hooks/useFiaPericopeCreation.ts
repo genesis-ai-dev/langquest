@@ -10,7 +10,7 @@ import { system } from '@/db/powersync/system';
 import { resolveTable } from '@/utils/dbUtils';
 import {
   allocateQuestVersionLabel,
-  withFiaVersionLabel
+  withQuestVersionLabel
 } from '@/utils/questVersionLabel';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useFiaBookCreation } from './useFiaBookCreation';
@@ -61,7 +61,7 @@ export function useFiaPericopeCreation() {
       return await system.db.transaction(async (tx) => {
         const questName = `${bookTitle} ${verseRange}`;
 
-        const metadata: QuestMetadata = withFiaVersionLabel(
+        const metadata: QuestMetadata = withQuestVersionLabel(
           {
             fia: {
               bookId,
