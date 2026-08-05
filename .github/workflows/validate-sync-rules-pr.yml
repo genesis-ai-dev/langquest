@@ -65,10 +65,6 @@ jobs:
       - name: Get Branch Environment Variables
         run: |
           supabase --experimental branches get "$GITHUB_HEAD_REF" -o env >> $GITHUB_ENV
-          # Mask JWT secret in logs immediately after retrieval
-          if [ -n "$SUPABASE_JWT_SECRET" ]; then
-            echo "::add-mask::${SUPABASE_JWT_SECRET}"
-          fi
 
       - name: Setup PowerSync Environment
         run: |
@@ -77,7 +73,6 @@ jobs:
           DB_URL=$(echo "$POSTGRES_URL" | sed "s|:6543|:5432|g" | sed 's|?.*||')
           echo "DB_URL=${DB_URL}" >> $GITHUB_ENV
           echo "PS_DATA_SOURCE_URI=${DB_URL}" >> $GITHUB_ENV
-          echo "PS_SUPABASE_JWT_SECRET=${SUPABASE_JWT_SECRET}" >> $GITHUB_ENV
 
       - name: Run PowerSync Container
         uses: hoverkraft-tech/compose-action@v2.2.0
