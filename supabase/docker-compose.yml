@@ -29,7 +29,6 @@ services:
     environment:
       POWERSYNC_CONFIG_PATH: /config/powersync.yml
       NODE_OPTIONS: --max-old-space-size=1000
-      PS_SUPABASE_JWT_SECRET: ${PS_SUPABASE_JWT_SECRET}
       PS_DATA_SOURCE_URI: ${PS_DATA_SOURCE_URI}
       PS_MONGO_URI: mongodb://mongo:27017/powersync_demo
       PS_PORT: ${PS_PORT}
