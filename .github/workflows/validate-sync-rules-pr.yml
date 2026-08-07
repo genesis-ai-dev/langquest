@@ -57,14 +57,12 @@ jobs:
       SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PRODUCTION_PROJECT_ID }}
     steps:
       - uses: actions/checkout@v4
-
-      - uses: supabase/setup-cli@v1
-        with:
-          version: latest
+      - uses: ./tooling/github/setup-ci
 
       - name: Get POSTGRES_URL Environment Variable for this branch from Supabase
         run: |
-          supabase branches get "$GITHUB_HEAD_REF" -o env | grep "^POSTGRES_URL=" >> $GITHUB_ENV
+          npm ci
+          npx supabase branches get "$GITHUB_HEAD_REF" -o env | grep "^POSTGRES_URL=" >> $GITHUB_ENV
 
       - name: Setup PowerSync Environment
         run: |
