@@ -48,7 +48,7 @@ if [ ! -f ".env.local" ]; then
     echo "⚠️  IMPORTANT: Update .env.local with your Supabase credentials:"
     echo "   1. Run: npx supabase start"
     echo "   2. Run: npx supabase status"
-    echo "   3. Update EXPO_PUBLIC_SUPABASE_ANON_KEY and PS_SUPABASE_JWT_SECRET in .env.local"
+    echo "   3. Update EXPO_PUBLIC_SUPABASE_ANON_KEY in .env.local"
     echo ""
 else
     echo "✅ .env.local already exists"
