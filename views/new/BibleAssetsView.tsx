@@ -4533,10 +4533,7 @@ export default function BibleAssetsView() {
       )}
       {/* )} */}
 
-      {enableAssetImport &&
-        allowImportAssets &&
-        selectedQuest &&
-        projectId && (
+      {enableAssetImport && allowImportAssets && selectedQuest && projectId && (
         <ImportWizard
           visible={showImportWizard}
           onClose={() => setShowImportWizard(false)}

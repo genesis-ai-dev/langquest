@@ -81,8 +81,7 @@ export function useNavigationHelpers() {
       }
 
       router.push({
-        pathname:
-          '/(app)/project/[projectId]/quest/[questId]/asset/[assetId]',
+        pathname: '/(app)/project/[projectId]/quest/[questId]/asset/[assetId]',
         params: {
           projectId: targetProjectId,
           questId: targetQuestId,

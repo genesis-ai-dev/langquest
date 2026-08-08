@@ -42,10 +42,7 @@ export async function updateQuestVersionLabel(
   }
 
   const parsed = parseQuestMetadata(existingMetadata);
-  await updateQuestMetadata(
-    quest_id,
-    withQuestVersionLabel(parsed, trimmed)
-  );
+  await updateQuestMetadata(quest_id, withQuestVersionLabel(parsed, trimmed));
 }
 
 export async function updateQuestMetadata(

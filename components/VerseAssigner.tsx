@@ -232,10 +232,7 @@ export function VerseAssigner({
 
   return (
     <View
-      className={cn(
-        'rounded-xl border border-border bg-card p-4',
-        className
-      )}
+      className={cn('rounded-xl border border-border bg-card p-4', className)}
     >
       {/* Unified verse list */}
       <ScrollViewComponent
@@ -271,7 +268,9 @@ export function VerseAssigner({
 
             return (
               <React.Fragment key={`existing-${item.from}-${item.to}`}>
-                {showChapterSep && <View className="mx-1 h-10 w-px bg-border" />}
+                {showChapterSep && (
+                  <View className="mx-1 h-10 w-px bg-border" />
+                )}
                 <Pressable
                   onPress={() => handleExistingPress(item)}
                   disabled={isDisabled}

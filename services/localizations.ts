@@ -2854,7 +2854,7 @@ export const localizations = {
   },
   assetUndoImportMessage: {
     english: 'Import undone: {count}',
-    french: "Importation annulée : {count}",
+    french: 'Importation annulée : {count}',
     spanish: 'Importación deshecha: {count}',
     brazilian_portuguese: 'Importação desfeita: {count}',
     tok_pisin: 'Import i go bek: {count}',
@@ -13392,8 +13392,7 @@ export const localizations = {
       'अन्य प्रकाशित क्वेस्ट से वर्तमान ड्राफ्ट क्वेस्ट में एसेट आयात करने की अनुमति दें (केवल बाइबल और FIA टेम्प्लेट)।',
     burmese:
       'အခြား ထုတ်ဝေပြီးသော quest များမှ လက်ရှိ draft quest သို့ ပိုင်ဆိုင်မှုများကို တင်သွင်းခွင့်ပြုပါ (Bible နှင့် FIA template များသာ)။',
-    thai:
-      'อนุญาตให้นำเข้าสินทรัพย์จากเควสที่เผยแพร่แล้วไปยังเควสฉบับร่างปัจจุบัน (เฉพาะเทมเพลตพระคัมภีร์และ FIA)',
+    thai: 'อนุญาตให้นำเข้าสินทรัพย์จากเควสที่เผยแพร่แล้วไปยังเควสฉบับร่างปัจจุบัน (เฉพาะเทมเพลตพระคัมภีร์และ FIA)',
     mandarin:
       '允许从其他已发布任务将资产导入到当前草稿任务（仅限圣经和 FIA 模板）。'
   },
@@ -13830,8 +13829,7 @@ export const localizations = {
     mandarin: '导入前验证'
   },
   importStepDescriptionInstructions: {
-    english:
-      'Reuse assets from a previous published version of this quest.',
+    english: 'Reuse assets from a previous published version of this quest.',
     french:
       "Réutilisez des actifs d'une version publiée précédente de cette quête.",
     spanish:
@@ -13844,12 +13842,10 @@ export const localizations = {
       'Gunakan kembali aset dari versi terbit sebelumnya dari quest ini.',
     nepali:
       'यो क्वेस्टको अघिल्लो प्रकाशित संस्करणबाट सम्पत्तिहरू पुन: प्रयोग गर्नुहोस्।',
-    hindi:
-      'इस क्वेस्ट के पिछले प्रकाशित संस्करण से एसेट का पुन: उपयोग करें।',
+    hindi: 'इस क्वेस्ट के पिछले प्रकाशित संस्करण से एसेट का पुन: उपयोग करें।',
     burmese:
       'ဤ quest ၏ ယခင်ထုတ်ဝေထားသော ဗားရှင်းမှ ပိုင်ဆိုင်မှုများကို ပြန်လည်အသုံးပြုပါ။',
-    thai:
-      'นำสินทรัพย์จากเวอร์ชันที่เผยแพร่ก่อนหน้าของเควสนี้กลับมาใช้ใหม่',
+    thai: 'นำสินทรัพย์จากเวอร์ชันที่เผยแพร่ก่อนหน้าของเควสนี้กลับมาใช้ใหม่',
     mandarin: '复用此任务先前已发布版本中的资产。'
   },
   importStepDescriptionQuest: {
@@ -13871,23 +13867,21 @@ export const localizations = {
       'केवल डाउनलोड किए गए प्रकाशित क्वेस्ट को आयात स्रोत के रूप में उपयोग किया जा सकता है।',
     burmese:
       'ဒေါင်းလုဒ်လုပ်ထားသော ထုတ်ဝေပြီး quest များကိုသာ တင်သွင်းမူရင်းအဖြစ် အသုံးပြုနိုင်သည်။',
-    thai:
-      'ใช้ได้เฉพาะเควสที่เผยแพร่แล้วและดาวน์โหลดไว้เป็นแหล่งนำเข้าเท่านั้น',
+    thai: 'ใช้ได้เฉพาะเควสที่เผยแพร่แล้วและดาวน์โหลดไว้เป็นแหล่งนำเข้าเท่านั้น',
     mandarin: '只有已下载的已发布任务可用作导入来源。'
   },
   importStepDescriptionAssets: {
     english: 'Choose one or more assets to prepare for validation.',
-    french:
-      'Choisissez un ou plusieurs actifs à préparer pour la validation.',
-    spanish:
-      'Elija uno o más recursos para preparar la validación.',
+    french: 'Choisissez un ou plusieurs actifs à préparer pour la validation.',
+    spanish: 'Elija uno o más recursos para preparar la validación.',
     brazilian_portuguese:
       'Escolha um ou mais recursos para preparar a validação.',
     tok_pisin: 'Makim wanpela o planti aset bilong redim long validation.',
     indonesian: 'Pilih satu atau lebih aset untuk disiapkan ke validasi.',
     nepali: 'प्रमाणीकरणका लागि तयार पार्न एक वा बढी सम्पत्तिहरू छान्नुहोस्।',
     hindi: 'सत्यापन के लिए तैयार करने हेतु एक या अधिक एसेट चुनें।',
-    burmese: 'အတည်ပြုရန် ပြင်ဆင်ရန် ပိုင်ဆိုင်မှု တစ်ခု သို့မဟုတ် တစ်ခုထက်ပို ရွေးပါ။',
+    burmese:
+      'အတည်ပြုရန် ပြင်ဆင်ရန် ပိုင်ဆိုင်မှု တစ်ခု သို့မဟုတ် တစ်ခုထက်ပို ရွေးပါ။',
     thai: 'เลือกสินทรัพย์อย่างน้อยหนึ่งรายการเพื่อเตรียมสำหรับการตรวจสอบ',
     mandarin: '选择一个或多个资产以准备验证。'
   },
@@ -13910,8 +13904,7 @@ export const localizations = {
       'चयनित एसेट और गंतव्य क्वेस्ट में पहले से उपयोग किए गए पद लेबल की समीक्षा करें।',
     burmese:
       'ရွေးထားသော ပိုင်ဆိုင်မှုများနှင့် ဦးတည်ရာ quest တွင် အသုံးပြုပြီးသား အခန်းငယ် တံဆိပ်များကို ပြန်လည်စစ်ဆေးပါ။',
-    thai:
-      'ตรวจทานสินทรัพย์ที่เลือกและป้ายข้อพระคัมภีร์ที่ใช้แล้วในเควสปลายทาง',
+    thai: 'ตรวจทานสินทรัพย์ที่เลือกและป้ายข้อพระคัมภีร์ที่ใช้แล้วในเควสปลายทาง',
     mandarin: '检查所选资产以及目标任务中已使用的经文标签。'
   },
   'importStepInstruction-1': {
@@ -13942,24 +13935,17 @@ export const localizations = {
   },
   'importStepInstruction-3': {
     english: 'Review any verse label conflicts before confirming',
-    french:
-      'Vérifiez les conflits d’étiquettes de versets avant de confirmer',
+    french: 'Vérifiez les conflits d’étiquettes de versets avant de confirmer',
     spanish:
       'Revise cualquier conflicto de etiquetas de versículos antes de confirmar',
     brazilian_portuguese:
       'Revise quaisquer conflitos de etiquetas de versículos antes de confirmar',
-    tok_pisin:
-      'Lukluk gen long ol verse label conflict pastaim long konfemim',
-    indonesian:
-      'Tinjau konflik label ayat sebelum mengonfirmasi',
-    nepali:
-      'पुष्टि गर्नु अघि कुनै पनि पद लेबल द्वन्द्वहरू समीक्षा गर्नुहोस्',
-    hindi:
-      'पुष्टि करने से पहले किसी भी पद लेबल विरोध की समीक्षा करें',
-    burmese:
-      'အတည်မပြုမီ အခန်းငယ် တံဆိပ် ပဋိပက္ခများကို ပြန်လည်စစ်ဆေးပါ',
-    thai:
-      'ตรวจทานความขัดแย้งของป้ายข้อพระคัมภีร์ก่อนยืนยัน',
+    tok_pisin: 'Lukluk gen long ol verse label conflict pastaim long konfemim',
+    indonesian: 'Tinjau konflik label ayat sebelum mengonfirmasi',
+    nepali: 'पुष्टि गर्नु अघि कुनै पनि पद लेबल द्वन्द्वहरू समीक्षा गर्नुहोस्',
+    hindi: 'पुष्टि करने से पहले किसी भी पद लेबल विरोध की समीक्षा करें',
+    burmese: 'အတည်မပြုမီ အခန်းငယ် တံဆိပ် ပဋိပက္ခများကို ပြန်လည်စစ်ဆေးပါ',
+    thai: 'ตรวจทานความขัดแย้งของป้ายข้อพระคัมภีร์ก่อนยืนยัน',
     mandarin: '确认前检查任何经文标签冲突'
   },
   selectedAssets: {
