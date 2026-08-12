@@ -55,7 +55,7 @@
     "powersync:diagnostics": "docker run --pull always -p 8082:80 --platform linux/amd64 journeyapps/powersync-diagnostics-app",
     "powersync:clean": "npm run powersync:stop && docker volume rm -f powersync_mongo_storage",
     "sb:clean": "git clean -xdf supabase/**/.DS_Store && npm run sb db reset && npm run sb stop",
-    "decrypt-env": "dotenvx run -f supabase/.env -f supabase/.env.preview -f supabase/.env.local --overload",
+    "decrypt-env": "dotenvx run -f supabase/.env -f supabase/.env.preview -f supabase/.env.local --overload --",
     "sb": "npm run decrypt-env -- npx supabase",
     "decrypt-env:file": "dotenvx get -f supabase/.env -f supabase/.env.preview -f supabase/.env.local --overload 2>/dev/null | node -e \"const j=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));Object.entries(j).forEach(([k,v])=>console.log(k+'=\\\"'+v+'\\\"'))\" > supabase/functions/.env",
     "sb:serve-functions": "npm run decrypt-env:file && npm run sb functions serve -- --env-file supabase/functions/.env",
