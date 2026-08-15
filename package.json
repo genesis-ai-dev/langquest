@@ -1,7 +1,7 @@
 {
   "name": "langquest",
   "main": "expo-router/entry",
-  "version": "2.2.4",
+  "version": "2.2.5",
   "scripts": {
     "start": "expo start --dev-client",
     "start:offline:android": "npm run start -- --localhost --android",
@@ -15,7 +15,7 @@
     "export:dev:web": "EXPO_ATLAS=true npm run export:web -- --dev",
     "export:dev:all": "EXPO_ATLAS=true npm run export:all -- --dev",
     "export:analyze": "npx expo-atlas .expo/atlas.jsonl",
-    "posthog:upload-sourcemaps": "posthog-cli hermes upload --directory dist",
+    "posthog:upload-sourcemaps": "posthog-cli hermes upload --directory dist --skip-on-conflict",
     "update": "eas update && npm run posthog:upload-sourcemaps",
     "update:preview": "eas update --branch preview && npm run posthog:upload-sourcemaps",
     "update:production": "eas update --branch production && npm run posthog:upload-sourcemaps",
@@ -154,7 +154,7 @@
     "moti": "^0.30.0",
     "nativewind": "^4.2.1",
     "posthog-js": "^1.376.6",
-    "posthog-react-native": "^4.46.4",
+    "posthog-react-native": "^4.63.2",
     "posthog-react-native-session-replay": "^1.6.0",
     "react": "19.2.0",
     "react-compiler-runtime": "^1.0.0",
