@@ -323,7 +323,7 @@ export default ({ config }: ConfigContext): ExpoConfig =>
       withAppearanceLabels,
       ['expo-alternate-app-icons', getAppearanceIcons()],
       ['testflight-dev-deploy', { enabled: appVariant === 'development' }],
-      'posthog-react-native/expo',
+      ['posthog-react-native/expo', { skipOnConflict: true }],
       withGradleMemory,
       withDebuggableVariants
     ],
