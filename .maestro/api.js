@@ -62,6 +62,55 @@ function getUserByEmail(email) {
   return matchingUser;
 }
 
+function createConfirmedUser(email, password) {
+  if (!email || typeof email !== 'string' || email.trim() === '') {
+    throw new Error(
+      'Email is required and must be a non-empty string. Received: ' + email
+    );
+  }
+  if (!password || typeof password !== 'string' || password.length < 6) {
+    throw new Error(
+      'Password is required and must be at least 6 characters. Received: ' +
+        password
+    );
+  }
+
+  const username =
+    'maestro_' +
+    Date.now().toString(36) +
+    Math.random().toString(36).slice(2, 6);
+
+  console.log('Creating confirmed user:', email);
+
+  const createResponse = http.post(supabaseUrl + '/auth/v1/admin/users', {
+    headers: getDefaultHeaders(),
+    body: JSON.stringify({
+      email: email,
+      password: password,
+      email_confirm: true,
+      user_metadata: {
+        username: username,
+        terms_accepted: true,
+        terms_accepted_at: new Date().toISOString()
+      }
+    })
+  });
+
+  console.log('Create user response status:', createResponse.status);
+  console.log('Create user response body:', createResponse.body);
+
+  if (createResponse.status !== 200) {
+    throw new Error(
+      'Failed to create user: ' +
+        createResponse.status +
+        ' ' +
+        createResponse.body
+    );
+  }
+
+  return JSON.parse(createResponse.body);
+}
+
 function deleteUser(email) {
   const user = getUserByEmail(email);
   console.log('Found user ID:', user.id);
@@ -238,8 +287,19 @@ function deleteProject(projectName) {
   return deleteResponse;
 }
 
+function deleteUserIfExists(email) {
+  try {
+    return deleteUser(email);
+  } catch (error) {
+    console.log('deleteUserIfExists skipped:', error);
+    return null;
+  }
+}
+
 output.api = {
+  createConfirmedUser,
   deleteUser,
+  deleteUserIfExists,
   generatePasswordResetLink,
   deleteProject,
   updateUserPassword
