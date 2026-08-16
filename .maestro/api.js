@@ -68,11 +68,7 @@ function createConfirmedUser(email, password) {
       'Email is required and must be a non-empty string. Received: ' + email
     );
   }
-  if (
-    !password ||
-    typeof password !== 'string' ||
-    password.length < 6
-  ) {
+  if (!password || typeof password !== 'string' || password.length < 6) {
     throw new Error(
       'Password is required and must be at least 6 characters. Received: ' +
         password
@@ -80,7 +76,9 @@ function createConfirmedUser(email, password) {
   }
 
   const username =
-    'maestro_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    'maestro_' +
+    Date.now().toString(36) +
+    Math.random().toString(36).slice(2, 6);
 
   console.log('Creating confirmed user:', email);
 
