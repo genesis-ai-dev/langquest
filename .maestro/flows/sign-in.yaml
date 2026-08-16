@@ -1,8 +1,4 @@
 appId: ${MAESTRO_APP_ID}
-onFlowStart:
-  - runScript: ../api.js
-  # Make sign-in independent of reset-password leftover state.
-  - evalScript: ${output.api.updateUserPassword(MAESTRO_TEST_EMAIL, MAESTRO_TEST_PASSWORD)}
 ---
 # - runFlow:
 #     when:
