@@ -113,6 +113,7 @@ export default function SignInView() {
               <FormControl>
                 <Input
                   {...transformInputProps(field)}
+                  testID="sign-in-email"
                   mask
                   type="next"
                   autoCapitalize="none"
@@ -134,6 +135,7 @@ export default function SignInView() {
               <FormControl>
                 <Input
                   {...transformInputProps(field)}
+                  testID="sign-in-password"
                   onSubmitEditing={handleFormSubmit}
                   returnKeyType="done"
                   autoCapitalize="none"

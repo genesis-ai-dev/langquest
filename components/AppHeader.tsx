@@ -300,6 +300,8 @@ export default function AppHeader({
             onPress={drawerToggleCallback}
             className="relative"
             testID="app-drawer-menu-button"
+            accessible
+            accessibilityLabel="app-drawer-menu-button"
           >
             <Icon as={MenuIcon} className="size-6 text-foreground" />
 
