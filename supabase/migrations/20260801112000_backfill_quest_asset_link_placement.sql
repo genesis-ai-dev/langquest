@@ -7,6 +7,9 @@
 -- Idempotent: does not overwrite link values already set by newer clients.
 -- No get_schema_info() bump — schema version already at 2.4 from the column add.
 
+-- Increase timeout for long-running backfill (may affect many rows)
+set statement_timeout = '10min';
+
 do $$
 declare
   rows_updated integer := 0;
@@ -35,3 +38,6 @@ begin
   raise notice '[backfill_quest_asset_link_placement] Updated % quest_asset_link row(s)', rows_updated;
 end;
 $$;
+
+-- Restore default timeout
+set statement_timeout = '60s';
