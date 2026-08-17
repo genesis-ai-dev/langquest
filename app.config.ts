@@ -218,7 +218,7 @@ export default ({ config }: ConfigContext): ExpoConfig =>
     owner: 'eten-genesis',
     name: getAppName(appVariant),
     slug: 'langquest',
-    version: '2.2.4',
+    version: '2.2.5',
     orientation: 'portrait',
     icon: iconLight,
     scheme: getScheme(appVariant),
@@ -323,7 +323,7 @@ export default ({ config }: ConfigContext): ExpoConfig =>
       withAppearanceLabels,
       ['expo-alternate-app-icons', getAppearanceIcons()],
       ['testflight-dev-deploy', { enabled: appVariant === 'development' }],
-      'posthog-react-native/expo',
+      ['posthog-react-native/expo', { skipOnConflict: true }],
       withGradleMemory,
       withDebuggableVariants
     ],

@@ -8,12 +8,16 @@ appId: ${MAESTRO_APP_ID}
 - tapOn:
     text: Sign In
     index: -1
-- tapOn: Enter your email
-- inputText: ${MAESTRO_TEST_EMAIL}
-- tapOn: Enter your password
-- inputText: ${MAESTRO_TEST_PASSWORD}
 - tapOn:
-    point: 95%,30%
+    id: sign-in-email
+- eraseText
+- inputText: ${MAESTRO_TEST_EMAIL}
+- hideKeyboard
+- tapOn:
+    id: sign-in-password
+- eraseText
+- inputText: ${MAESTRO_TEST_PASSWORD}
+- hideKeyboard
 - tapOn:
     text: Sign In
     below: I forgot my password
