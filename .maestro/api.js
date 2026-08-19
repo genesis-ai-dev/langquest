@@ -62,6 +62,34 @@ function getUserByEmail(email) {
   return matchingUser;
 }
 
+function uniqueEmail(prefix) {
+  const tag =
+    Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  const safePrefix = String(prefix || 'maestro').replace(/[^a-z0-9]/gi, '');
+  return safePrefix + '.' + tag + '@langquest.org';
+}
+
+function uniquePassword(prefix) {
+  return (
+    String(prefix || 'pw') +
+    '-' +
+    Date.now() +
+    '-' +
+    Math.random().toString(36).slice(2, 10)
+  );
+}
+
+function isSamePasswordError(status, body) {
+  if (status !== 422 && status !== 400) {
+    return false;
+  }
+  const text = String(body || '');
+  return (
+    text.indexOf('same_password') !== -1 ||
+    text.indexOf('should be different from the old password') !== -1
+  );
+}
+
 function createConfirmedUser(email, password) {
   if (!email || typeof email !== 'string' || email.trim() === '') {
     throw new Error(
@@ -161,6 +189,14 @@ function updateUserPassword(email, newPassword) {
   console.log('Update password response body:', updateResponse.body);
 
   if (updateResponse.status !== 200) {
+    // GoTrue 422 same_password: the password is already the requested value.
+    // Parallel iOS/Android jobs used to fail here while fighting over one user.
+    if (isSamePasswordError(updateResponse.status, updateResponse.body)) {
+      console.log(
+        'Password already matches requested value; treating as success'
+      );
+      return user;
+    }
     throw new Error(
       'Failed to update password: ' +
         updateResponse.status +
@@ -302,5 +338,7 @@ output.api = {
   deleteUserIfExists,
   generatePasswordResetLink,
   deleteProject,
+  uniqueEmail,
+  uniquePassword,
   updateUserPassword
 };

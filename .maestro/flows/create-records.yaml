@@ -4,6 +4,7 @@ onFlowStart:
 ---
 - evalScript: ${output.projectName = "Test project"}
 - evalScript: ${output.questName = "Test quest"}
+- evalScript: ${output.skipSignInCleanup = true}
 - runFlow: sign-in.yaml
 
 # Create project
@@ -41,3 +42,4 @@ onFlowStart:
 
 # Cleanup
 - evalScript: ${output.api.deleteProject(output.projectName)}
+- evalScript: ${output.api.deleteUserIfExists(output.signInEmail)}
