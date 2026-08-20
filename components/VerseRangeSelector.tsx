@@ -179,7 +179,7 @@ export function VerseRangeSelector({
                     : selectable
                       ? 'border border-primary/30 bg-primary/5'
                       : 'bg-muted/30'
-                } ${selectable ? 'active:scale-95' : ''}`}
+                } active:scale-95`}
               >
                 <Text
                   className={`font-medium ${usePill ? 'text-xs' : 'text-sm'} ${

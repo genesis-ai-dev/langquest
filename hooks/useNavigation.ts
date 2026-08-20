@@ -15,20 +15,52 @@ export function useNavigationHelpers() {
     projectId?: string;
     questId?: string;
     assetId?: string;
+    name?: string;
+    promptVersionLabel?: string;
   }>();
 
   const projectId = (params.projectId as string) || undefined;
   const questId = (params.questId as string) || undefined;
   const assetId = (params.assetId as string) || undefined;
+  const rawName = params.name;
+  const assetNameParam = Array.isArray(rawName)
+    ? rawName[0]
+    : typeof rawName === 'string' && rawName.length > 0
+      ? rawName
+      : undefined;
+  const rawPromptVersionLabel = params.promptVersionLabel;
+  const promptVersionLabel = Array.isArray(rawPromptVersionLabel)
+    ? rawPromptVersionLabel[0]
+    : typeof rawPromptVersionLabel === 'string' &&
+        rawPromptVersionLabel.length > 0
+      ? rawPromptVersionLabel
+      : undefined;
 
   const goToProjects = useCallback(() => {
     router.dismissTo('/(app)');
   }, [router]);
 
   const goToQuest = useCallback(
-    (quest: { id: string; project_id: string; name?: string }) => {
+    (quest: {
+      id: string;
+      project_id: string;
+      name?: string;
+      promptVersionLabel?: boolean;
+    }) => {
       const targetProjectId = quest.project_id || projectId;
-      router.push(`/(app)/project/${targetProjectId}/quest/${quest.id}`);
+      if (!targetProjectId) {
+        console.warn('Cannot navigate to quest without projectId');
+        return;
+      }
+
+      router.push({
+        pathname: '/(app)/project/[projectId]/quest/[questId]',
+        params: {
+          projectId: targetProjectId,
+          questId: quest.id,
+          ...(quest.promptVersionLabel ? { promptVersionLabel: '1' } : {})
+        }
+      });
     },
     [router, projectId]
   );
@@ -48,9 +80,15 @@ export function useNavigationHelpers() {
         return;
       }
 
-      router.push(
-        `/(app)/project/${targetProjectId}/quest/${targetQuestId}/asset/${asset.id}`
-      );
+      router.push({
+        pathname: '/(app)/project/[projectId]/quest/[questId]/asset/[assetId]',
+        params: {
+          projectId: targetProjectId,
+          questId: targetQuestId,
+          assetId: asset.id,
+          ...(asset.name ? { name: asset.name } : {})
+        }
+      });
     },
     [router, projectId, questId]
   );
@@ -79,6 +117,8 @@ export function useNavigationHelpers() {
     projectId,
     questId,
     assetId,
+    assetNameParam,
+    promptVersionLabel,
     pathname,
     router,
     goToProjects,
