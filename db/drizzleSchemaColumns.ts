@@ -194,8 +194,12 @@ export interface RecordingSessionMetadata {
 export interface QuestMetadata {
   bible?: BibleMetadata;
   fia?: FiaMetadata;
+  /** Local version disambiguator (e.g. '#1') for multiple copies of the same chapter/pericope. */
+  versionLabel?: string;
   lastRecordingSessionId?: string;
   recordingSessions?: RecordingSessionMetadata[];
+  /** When true, this quest can receive imported assets (Bible chapter / FIA pericope). */
+  allowImportAssets?: boolean;
   // Add other metadata types here as needed
   // e.g., curriculum?: { unit: string; lesson: number };
 }
@@ -849,6 +853,7 @@ export function createQuestAssetLinkTable<
     'quest_asset_link',
     {
       ...getBaseColumns(source),
+      name: text(),
       download_profiles: text({ mode: 'json' }).$type<string[]>(),
       visible: int({ mode: 'boolean' }).notNull().default(true),
       quest_id: text()
@@ -857,6 +862,8 @@ export function createQuestAssetLinkTable<
       asset_id: text()
         .notNull()
         .references(() => asset.id),
+      order_index: int().notNull().default(0),
+      metadata: text(),
       uploaded_at: text(), // Nullable - set by server trigger when content is uploaded
       ...extraColumns
     },
