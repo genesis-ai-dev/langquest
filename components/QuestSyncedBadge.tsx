@@ -18,7 +18,10 @@ interface QuestSyncedBadgeProps {
  * Shows a check while everything is confirmed, or a queue icon + percent
  * while records/audio are still awaiting server confirmation.
  */
-export function QuestSyncedBadge({ questId, questName }: QuestSyncedBadgeProps) {
+export function QuestSyncedBadge({
+  questId,
+  questName
+}: QuestSyncedBadgeProps) {
   const progress = useQuestUploadProgress(questId);
   const [isDrawerOpen, setIsDrawerOpen] = React.useState(false);
 
