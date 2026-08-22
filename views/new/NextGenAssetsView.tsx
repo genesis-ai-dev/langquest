@@ -40,9 +40,7 @@ import { useKeepAwake } from 'expo-keep-awake';
 import { Stack } from 'expo-router';
 import {
   ArrowBigDownDashIcon,
-  CheckCheck,
   ChevronRight,
-  CloudUpload,
   FlagIcon,
   InfoIcon,
   LockIcon,
@@ -80,6 +78,7 @@ import { ModalDetails } from '@/components/ModalDetails';
 import { ReportModal } from '@/components/NewReportModal';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { PublishQuestButton } from '@/components/PublishQuestButton';
+import { QuestSyncedBadge } from '@/components/QuestSyncedBadge';
 import { QuestOffloadVerificationDrawer } from '@/components/QuestOffloadVerificationDrawer';
 import { run as runAssetGarbageCollector } from '@/database_services/assetGarbageCollectorService';
 import {
@@ -1687,18 +1686,10 @@ export default function NextGenAssetsView() {
               // Only show cloud-check icon if user is creator, member, or owner
               canSeePublishedBadge ? (
                 <>
-                  <Button
-                    variant="outline"
-                    className="h-10 border-border/50 px-4 py-0"
-                    onPress={() => {
-                      RNAlert.alert(t('questSyncedToCloud'));
-                    }}
-                  >
-                    <View className="flex-row items-center gap-0.5">
-                      <Icon as={CloudUpload} size={18} />
-                      <Icon as={CheckCheck} size={14} />
-                    </View>
-                  </Button>
+                  <QuestSyncedBadge
+                    questId={questId}
+                    questName={selectedQuest?.name}
+                  />
                   {questId && projectId && (
                     <ExportButton
                       questId={questId}
@@ -1728,6 +1719,7 @@ export default function NextGenAssetsView() {
               currentUser && (
                 <View className="flex flex-row items-center gap-2">
                   <PublishQuestButton
+                    questId={questId}
                     questName={selectedQuest?.name}
                     disabled={isPublishing || !isOnline || !isMember}
                     isPublishing={isPublishing}

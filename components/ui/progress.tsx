@@ -78,13 +78,15 @@ function NativeIndicator({ value, className }: IndicatorProps) {
     return null;
   }
 
+  // Don't slot the Animated.View through ProgressPrimitive.Indicator asChild:
+  // @rn-primitives/slot merges styles with StyleSheet.flatten, which destroys
+  // the Reanimated animated-style binding and crashes at render.
   return (
-    <ProgressPrimitive.Indicator asChild>
-      <Animated.View
-        style={indicator}
-        className={cn('h-full rounded-r-full bg-foreground', className)}
-      />
-    </ProgressPrimitive.Indicator>
+    <Animated.View
+      role="presentation"
+      style={indicator}
+      className={cn('h-full rounded-r-full bg-foreground', className)}
+    />
   );
 }
 

@@ -39,8 +39,6 @@ import {
   BookmarkPlusIcon,
   BookOpenIcon,
   BrushCleaning,
-  CheckCheck,
-  CloudUpload,
   DownloadIcon,
   FilePenIcon,
   FlagIcon,
@@ -84,6 +82,7 @@ import { ModalDetails } from '@/components/ModalDetails';
 import { ReportModal } from '@/components/NewReportModal';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { PublishQuestButton } from '@/components/PublishQuestButton';
+import { QuestSyncedBadge } from '@/components/QuestSyncedBadge';
 import { QuestLabelHandler } from '@/components/questLabelHandler';
 import { QuestOffloadVerificationDrawer } from '@/components/QuestOffloadVerificationDrawer';
 import { RecordButton } from '@/components/RecordButton';
@@ -4082,18 +4081,10 @@ export default function BibleAssetsView() {
               // Show cloud badge and export button if user is creator, member, or owner
               canSeePublishedBadge ? (
                 <>
-                  <Button
-                    variant="outline"
-                    className="h-10 border-border/50 px-4 py-0"
-                    onPress={() => {
-                      RNAlert.alert(t('questSyncedToCloud'));
-                    }}
-                  >
-                    <View className="flex-row items-center gap-0.5">
-                      <Icon as={CloudUpload} size={18} />
-                      <Icon as={CheckCheck} size={14} />
-                    </View>
-                  </Button>
+                  <QuestSyncedBadge
+                    questId={questId}
+                    questName={selectedQuest?.name}
+                  />
                   {questId && projectId && (
                     <ExportButton
                       questId={questId}
@@ -4123,6 +4114,7 @@ export default function BibleAssetsView() {
               currentUser && (
                 <>
                   <PublishQuestButton
+                    questId={questId}
                     questName={selectedQuest?.name}
                     disabled={isPublishing || !isOnline || !isMember}
                     isPublishing={isPublishing}

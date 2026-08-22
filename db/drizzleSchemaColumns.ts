@@ -685,6 +685,7 @@ export function createAssetContentLinkTable<
       languoid_id: text(), // Reference to languoid table
       order_index: int().notNull().default(0),
       uploaded_at: text(), // Nullable - set by server trigger when content is uploaded
+      audio_uploaded_at: text(), // Nullable - set by server triggers from storage.objects.created_at
       ...extraColumns
     },
     (table) => {
