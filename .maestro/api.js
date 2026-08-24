@@ -63,8 +63,7 @@ function getUserByEmail(email) {
 }
 
 function uniqueEmail(prefix) {
-  const tag =
-    Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  const tag = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
   const safePrefix = String(prefix || 'maestro').replace(/[^a-z0-9]/gi, '');
   return safePrefix + '.' + tag + '@langquest.org';
 }
