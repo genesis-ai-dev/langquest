@@ -1,5 +1,5 @@
-import NextGenProjectsView from '@/views/new/NextGenProjectsView';
+import MyProjectsDashboardView from '@/views/new/MyProjectsDashboardView';
 
 export default function ProjectsRoute() {
-  return <NextGenProjectsView />;
+  return <MyProjectsDashboardView />;
 }

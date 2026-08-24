@@ -22,6 +22,7 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: 'bg-primary web:hover:opacity-90',
+        action: 'bg-action web:hover:opacity-90',
         destructive: 'bg-destructive web:hover:opacity-90',
         outline:
           'border border-input bg-background active:bg-accent web:hover:bg-accent web:hover:text-accent-foreground',
@@ -56,6 +57,7 @@ const buttonTextVariants = cva(
     variants: {
       variant: {
         default: 'text-primary-foreground',
+        action: 'text-action-foreground',
         destructive: 'text-destructive-foreground',
         outline: 'group-active:text-accent-foreground',
         secondary:
@@ -280,12 +282,14 @@ const Button = React.forwardRef<
     ref
   ) => {
     const primaryForeground = useThemeColor('primary-foreground');
+    const actionForeground = useThemeColor('action-foreground');
     const destructiveForeground = useThemeColor('destructive-foreground');
     const accentForeground = useThemeColor('accent-foreground');
     const secondaryForeground = useThemeColor('secondary-foreground');
 
     const activityIndicatorColors = {
       default: primaryForeground,
+      action: actionForeground,
       destructive: destructiveForeground,
       secondary: secondaryForeground,
       outline: accentForeground,

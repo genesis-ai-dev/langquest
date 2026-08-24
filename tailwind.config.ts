@@ -46,6 +46,10 @@ const config = {
           DEFAULT: 'hsl(var(--warning))',
           foreground: 'hsl(var(--warning-foreground))'
         },
+        action: {
+          DEFAULT: 'hsl(var(--action))',
+          foreground: 'hsl(var(--action-foreground))'
+        },
         muted: {
           DEFAULT: 'hsl(var(--muted))',
           foreground: 'hsl(var(--muted-foreground))'

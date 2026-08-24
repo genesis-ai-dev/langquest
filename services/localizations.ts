@@ -300,6 +300,66 @@ export const localizations = {
     thai: 'ชื่อโครงการ',
     mandarin: '项目名称'
   },
+  continueProject: {
+    english: 'Continue'
+  },
+  openProject: {
+    english: 'Open project'
+  },
+  continueWork: {
+    english: 'Continue Work'
+  },
+  activity: {
+    english: 'Activity'
+  },
+  taskToTranslate: {
+    english: 'To translate'
+  },
+  taskToReview: {
+    english: 'To review'
+  },
+  taskReviewDone: {
+    english: 'Reviewed'
+  },
+  addComment: {
+    english: 'Add comment'
+  },
+  keyTerms: {
+    english: 'Key terms'
+  },
+  reRecord: {
+    english: 'Re-record'
+  },
+  roleTranslator: {
+    english: 'Translator'
+  },
+  roleReviewer: {
+    english: 'Reviewer'
+  },
+  roleCommenter: {
+    english: 'Commenter'
+  },
+  eventTranslationSubmitted: {
+    english: 'submitted a translation for'
+  },
+  eventReviewApproved: {
+    english: 'approved'
+  },
+  eventReviewRejected: {
+    english: 'requested changes on'
+  },
+  eventCommentAdded: {
+    english: 'commented on'
+  },
+  eventQuestCreated: {
+    english: 'added'
+  },
+  translationProgress: {
+    english: 'Translation'
+  },
+  reviewProgress: {
+    english: 'Review'
+  },
   newProject: {
     english: 'New Project',
     french: 'Nouveau projet',

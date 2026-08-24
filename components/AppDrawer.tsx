@@ -29,6 +29,8 @@ import {
   CloudDownload,
   CloudOff,
   CloudUpload,
+  FolderOpenIcon,
+  HistoryIcon,
   HomeIcon,
   LogOutIcon,
   RefreshCw,
@@ -267,6 +269,14 @@ export default function AppDrawer({
     () => closeDrawerAndExecute(() => router.push('/(app)/download-status')),
     [closeDrawerAndExecute, router]
   );
+  const handleGoToActivity = useCallback(
+    () => closeDrawerAndExecute(() => router.push('/(app)/activity')),
+    [closeDrawerAndExecute, router]
+  );
+  const handleGoToAllProjects = useCallback(
+    () => closeDrawerAndExecute(() => router.push('/(app)/all-projects')),
+    [closeDrawerAndExecute, router]
+  );
   const handleSignIn = useCallback(() => {
     setDrawerIsVisible(false);
     router.push('/(auth)/sign-in');
@@ -327,6 +337,18 @@ export default function AppDrawer({
         view: 'projects',
         icon: HomeIcon,
         onPress: handleGoToProjects
+      },
+      {
+        name: t('allProjects'),
+        view: 'all-projects',
+        icon: FolderOpenIcon,
+        onPress: handleGoToAllProjects
+      },
+      {
+        name: t('activity'),
+        view: 'activity',
+        icon: HistoryIcon,
+        onPress: handleGoToActivity
       }
     ];
 

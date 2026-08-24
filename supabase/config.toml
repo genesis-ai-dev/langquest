@@ -85,10 +85,13 @@ openai_api_key = "env(OPENAI_API_KEY)"
 
 # Email testing server. Emails sent with the local dev setup are not actually sent - rather, they
 # are monitored, and you can view the emails that would have been sent from the web interface.
-[local_smtp]
-enabled = false
+# TEMP: commented out to work around a supabase CLI version gap (2.108+ needs this key but has a
+# broken storage-api:iceberg-catalog-ids image pull; <=2.107 doesn't recognize this key). Restore
+# once the CLI pin in package.json is fixed.
+# [local_smtp]
+# enabled = false
 # Port to use for the email testing server web interface.
-port = 54324
+# port = 54324
 # Uncomment to expose additional ports for testing user applications that send emails.
 # smtp_port = 54325
 # pop3_port = 54326
