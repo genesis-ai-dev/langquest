@@ -32,9 +32,10 @@ import { useQuestDownloadStatusLive } from '@/hooks/useQuestDownloadStatusLive';
 import { useSingleAudioController } from '@/hooks/useSingleAudioController';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useLocalStore } from '@/store/localStore';
+import { isImportedAsset } from '@/utils/assetProvenance';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import RNAlert from '@blazejkustra/react-native-alert';
-import { LegendList } from '@legendapp/list';
+import { LegendList } from '@/components/ui/legend-list';
 import { useKeepAwake } from 'expo-keep-awake';
 import { Stack } from 'expo-router';
 import {
@@ -75,10 +76,10 @@ import { useHybridData } from './useHybridData';
 
 import { AssetListSkeleton } from '@/components/AssetListSkeleton';
 import { ExportButton } from '@/components/ExportButton';
-import { PublishQuestButton } from '@/components/PublishQuestButton';
 import { ModalDetails } from '@/components/ModalDetails';
 import { ReportModal } from '@/components/NewReportModal';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
+import { PublishQuestButton } from '@/components/PublishQuestButton';
 import { QuestOffloadVerificationDrawer } from '@/components/QuestOffloadVerificationDrawer';
 import { run as runAssetGarbageCollector } from '@/database_services/assetGarbageCollectorService';
 import {
@@ -529,14 +530,11 @@ export default function NextGenAssetsView() {
           clearUndoHistory();
         }
 
-        const previousData = selectedAssets.map((asset) => ({
-          id: asset.id,
-          name: asset.name ?? null,
-          order_index: asset.order_index
-        }));
         const selectedIds = selectedAssets.map((asset) => asset.id);
-
-        await softDeleteAssetsFromQuest(questId, selectedIds);
+        const previousData = await softDeleteAssetsFromQuest(
+          questId,
+          selectedIds
+        );
         if (allowUndo) {
           pushUndoHistory({
             domain: 'asset',
@@ -592,6 +590,15 @@ export default function NextGenAssetsView() {
     selectedAssetIds,
     t
   ]);
+
+  const canMergeSelection = React.useMemo(() => {
+    if (selectedAssetIds.size < 2) return false;
+    for (const asset of assets) {
+      if (!selectedAssetIds.has(asset.id)) continue;
+      if (isImportedAsset(asset.metadata)) return false;
+    }
+    return true;
+  }, [assets, selectedAssetIds]);
 
   const handleBatchMergeSelected = React.useCallback(() => {
     const selectedAssets = assets.filter(
@@ -692,10 +699,10 @@ export default function NextGenAssetsView() {
 
   const handleSaveRename = React.useCallback(
     async (newName: string) => {
-      if (!renameAssetId) return;
+      if (!renameAssetId || !questId) return;
 
       try {
-        await renameAsset(renameAssetId, newName);
+        await renameAsset(questId, renameAssetId, newName);
         pushUndoHistory({
           domain: 'asset',
           action: 'rename',
@@ -1999,6 +2006,7 @@ export default function NextGenAssetsView() {
               onCancel={cancelSelection}
               onMerge={handleBatchMergeSelected}
               onDelete={handleBatchDeleteSelected}
+              canMerge={canMergeSelection}
             />
           </View>
         ) : (

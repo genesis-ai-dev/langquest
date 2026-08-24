@@ -16,6 +16,7 @@ import type { asset as asset_type } from '@/db/drizzleSchema';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNavigationHelpers } from '@/hooks/useNavigation';
 // import { useTagStore } from '@/hooks/useTagStore';
+import { isImportedAsset } from '@/utils/assetProvenance';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import type { AttachmentRecord } from '@powersync/attachments';
 import {
@@ -23,6 +24,7 @@ import {
   EyeOffIcon,
   GripVerticalIcon,
   HardDriveIcon,
+  ImportIcon,
   PauseIcon,
   PencilLineIcon,
   PlayIcon,
@@ -45,6 +47,7 @@ type AssetQuestLink = Asset & {
   quest_visible: boolean;
   tag_ids?: string[] | undefined;
 };
+
 export interface AssetCardItemProps {
   asset: AssetQuestLink;
   isPublished: boolean;
@@ -97,6 +100,9 @@ const AssetCardItemComponent: React.FC<AssetCardItemProps> = ({
   const { t } = useLocalization();
   // Check if asset is downloaded
   const isDownloaded = useItemDownloadStatus(asset, currentUser?.id);
+  const isImported = isImportedAsset(asset.metadata);
+  const canRenameAsset = asset.source === 'local' || isImported;
+  const canOpenAssetDetails = isPublished || !isImported;
 
   // Tags functionality commented out
   // const fetchManyTags = useTagStore((s) => s.fetchManyTags);
@@ -312,8 +318,12 @@ const AssetCardItemComponent: React.FC<AssetCardItemProps> = ({
                 )}
                 {selectionOrDragElement}
                 <View className="flex flex-row items-center gap-1.5">
-                  {asset.source === 'local' && (
-                    <Icon as={HardDriveIcon} size={14} />
+                  {!isPublished && isImported ? (
+                    <Icon as={ImportIcon} size={14} />
+                  ) : (
+                    asset.source === 'local' && (
+                      <Icon as={HardDriveIcon} size={14} />
+                    )
                   )}
                   {/* Play button - only show if onPlay is provided */}
                   {onPlay && (
@@ -380,7 +390,7 @@ const AssetCardItemComponent: React.FC<AssetCardItemProps> = ({
                 {!isSelectionMode &&
                 !isPublished &&
                 onRename &&
-                asset.source === 'local' ? (
+                canRenameAsset ? (
                   <Pressable
                     onPress={(e) => {
                       e.stopPropagation();
@@ -407,17 +417,29 @@ const AssetCardItemComponent: React.FC<AssetCardItemProps> = ({
 
                 {!isSelectionMode && (
                   <Pressable
+                    disabled={!canOpenAssetDetails}
                     onPress={(e) => {
                       e.stopPropagation();
+                      if (!canOpenAssetDetails) return;
                       handleOpenAsset();
                     }}
-                    className="mr-2"
+                    className="mr-2 disabled:opacity-40"
                     hitSlop={8}
+                    accessibilityState={{ disabled: !canOpenAssetDetails }}
+                    accessibilityLabel={
+                      canOpenAssetDetails
+                        ? 'Open asset details'
+                        : 'Asset details unavailable for imported assets'
+                    }
                   >
                     <Icon
                       as={SquareArrowOutUpRightIcon}
                       size={16}
-                      className="text-primary"
+                      className={
+                        canOpenAssetDetails
+                          ? 'text-primary'
+                          : 'text-muted-foreground'
+                      }
                     />
                   </Pressable>
                 )}

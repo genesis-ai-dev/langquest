@@ -6,7 +6,7 @@ import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
 import type { WithSource } from '@/utils/dbUtils';
-import { LegendList } from '@legendapp/list';
+import { LegendList } from '@/components/ui/legend-list';
 import { and, eq, like, or } from 'drizzle-orm';
 import React from 'react';
 import { ActivityIndicator, View } from 'react-native';

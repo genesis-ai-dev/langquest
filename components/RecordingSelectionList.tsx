@@ -11,8 +11,7 @@
  * - Supports lazy rendering with data + renderItem
  */
 
-import type { LegendListRef } from '@legendapp/list';
-import { LegendList } from '@legendapp/list';
+import { LegendList, type LegendListRef } from '@/components/ui/legend-list';
 import { ArrowDownNarrowWide, Mic } from 'lucide-react-native';
 import React from 'react';
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';

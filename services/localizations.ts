@@ -1663,7 +1663,7 @@ export const localizations = {
     english: 'Quest',
     french: 'Quête',
     spanish: 'Misión',
-    brazilian_portuguese: 'Missão',
+    brazilian_portuguese: 'Quest',
     tok_pisin: 'Quest',
     indonesian: 'Misi',
     nepali: 'क्वेस्ट',
@@ -2760,6 +2760,19 @@ export const localizations = {
     thai: 'ย้ายสินทรัพย์แล้ว: {count}',
     mandarin: '已移动资产：{count}'
   },
+  assetRedoImportMessage: {
+    english: 'Assets imported: {count}',
+    french: 'Éléments importés : {count}',
+    spanish: 'Recursos importados: {count}',
+    brazilian_portuguese: 'Recursos importados: {count}',
+    tok_pisin: 'Ol asset i kam insait: {count}',
+    indonesian: 'Aset diimpor: {count}',
+    nepali: 'एसेटहरू आयात गरियो: {count}',
+    hindi: 'एसेट आयात किए गए: {count}',
+    burmese: 'ပိုင်ဆိုင်မှုများ တင်သွင်းပြီးပါပြီ: {count}',
+    thai: 'นำเข้าสินทรัพย์แล้ว: {count}',
+    mandarin: '已导入资产：{count}'
+  },
   assetUndoCreateMessage: {
     english: 'Asset removed',
     french: 'Élément supprimé',
@@ -2838,6 +2851,19 @@ export const localizations = {
     burmese: 'ပိုင်ဆိုင်မှုများကို နဂိုနေရာသို့ ပြန်ရွှေ့ပြီးပါပြီ: {count}',
     thai: 'ย้ายสินทรัพย์กลับแล้ว: {count}',
     mandarin: '已移回资产：{count}'
+  },
+  assetUndoImportMessage: {
+    english: 'Import undone: {count}',
+    french: 'Importation annulée : {count}',
+    spanish: 'Importación deshecha: {count}',
+    brazilian_portuguese: 'Importação desfeita: {count}',
+    tok_pisin: 'Import i go bek: {count}',
+    indonesian: 'Impor dibatalkan: {count}',
+    nepali: 'आयात पूर्ववत गरियो: {count}',
+    hindi: 'आयात पूर्ववत किया गया: {count}',
+    burmese: 'တင်သွင်းမှုကို နောက်ပြန်လှန်ပြီးပါပြီ: {count}',
+    thai: 'ยกเลิกการนำเข้าแล้ว: {count}',
+    mandarin: '已撤销导入：{count}'
   },
   errorLoadingAssets: {
     english: 'Error loading assets',
@@ -8033,6 +8059,19 @@ export const localizations = {
     thai: 'ข้อมูล',
     mandarin: '信息'
   },
+  instructions: {
+    english: 'Instructions',
+    french: 'Instructions',
+    spanish: 'Instrucciones',
+    brazilian_portuguese: 'Instruções',
+    tok_pisin: 'Instructions',
+    indonesian: 'Instruksi',
+    nepali: 'निर्देशहरू',
+    hindi: 'निर्देश',
+    burmese: 'ညွှန်ကြားချက်များ',
+    thai: 'คำแนะนำ',
+    mandarin: '说明'
+  },
   enableNotifications: {
     english: 'Enable Notifications',
     french: 'Activer les notifications',
@@ -8455,6 +8494,52 @@ export const localizations = {
     burmese: 'သင့်စက်တွင် အက်ပ်ပုံစံကို ရွေးချယ်ပါ',
     thai: 'เลือกลักษณะของแอปบนอุปกรณ์ของคุณ',
     mandarin: '选择应用在您设备上的外观'
+  },
+  appIconStandard: {
+    english: 'LangQuest',
+    french: 'LangQuest',
+    spanish: 'LangQuest',
+    brazilian_portuguese: 'LangQuest',
+    tok_pisin: 'LangQuest',
+    indonesian: 'LangQuest',
+    nepali: 'LangQuest',
+    hindi: 'LangQuest',
+    burmese: 'LangQuest',
+    thai: 'LangQuest',
+    mandarin: 'LangQuest'
+  },
+  appIconChangeTitle: {
+    english: 'Change app icon?',
+    french: "Changer l'icône de l'application ?",
+    spanish: '¿Cambiar el icono de la app?',
+    brazilian_portuguese: 'Alterar o ícone do app?',
+    tok_pisin: 'Senisim app icon?',
+    indonesian: 'Ubah ikon aplikasi?',
+    nepali: 'एप आइकन परिवर्तन गर्ने?',
+    hindi: 'ऐप आइकन बदलें?',
+    burmese: 'အက်ပ်အိုင်ကွန် ပြောင်းမလား?',
+    thai: 'เปลี่ยนไอคอนแอป?',
+    mandarin: '更改应用图标？'
+  },
+  appIconChangeHint: {
+    english:
+      'After you confirm, look for the new icon and name on your home screen.',
+    french:
+      "Après confirmation, cherchez la nouvelle icône et le nouveau nom sur votre écran d'accueil.",
+    spanish:
+      'Después de confirmar, busca el nuevo icono y nombre en la pantalla de inicio.',
+    brazilian_portuguese:
+      'Depois de confirmar, procure o novo ícone e nome na tela inicial.',
+    tok_pisin:
+      'Bihain yu tok orait, painim nupela icon na nem long home screen bilong yu.',
+    indonesian:
+      'Setelah mengonfirmasi, cari ikon dan nama baru di layar beranda Anda.',
+    nepali: 'पुष्टि गरेपछि, आफ्नो होम स्क्रिनमा नयाँ आइकन र नाम खोज्नुहोस्।',
+    hindi: 'पुष्टि करने के बाद, अपनी होम स्क्रीन पर नया आइकन और नाम देखें।',
+    burmese:
+      'အတည်ပြုပြီးနောက်၊ သင့်ပင်မစခရင်တွင် အိုင်ကွန်နှင့် အမည်အသစ်ကို ရှာပါ။',
+    thai: 'หลังจากยืนยัน ให้มองหาไอคอนและชื่อใหม่บนหน้าจอหลักของคุณ',
+    mandarin: '确认后，请在主屏幕上查找新的图标和名称。'
   },
   appLock: {
     english: 'App lock',
@@ -9873,6 +9958,19 @@ export const localizations = {
     thai: 'ดาวน์โหลดตอนนี้',
     mandarin: '立即下载'
   },
+  validation: {
+    english: 'Validation',
+    french: 'Validation',
+    spanish: 'Validación',
+    brazilian_portuguese: 'Validação',
+    tok_pisin: 'Validation',
+    indonesian: 'Validasi',
+    nepali: 'प्रमाणीकरण',
+    hindi: 'सत्यापन',
+    burmese: 'အတည်ပြုခြင်း',
+    thai: 'การตรวจสอบ',
+    mandarin: '验证'
+  },
   vadTitle: {
     english: 'Voice Activity',
     french: 'Activité vocale',
@@ -10856,7 +10954,7 @@ export const localizations = {
   associatedAssets: {
     english: 'Associated Assets ({count})',
     french: 'Actifs associés ({count})',
-    spanish: 'Activos Asociados ({count})',
+    spanish: 'Recursos asociados ({count})',
     brazilian_portuguese: 'Ativos Associados ({count})',
     tok_pisin: 'Ol Asset i go wantaim ({count})',
     indonesian: 'Aset Terkait ({count})',
@@ -11304,7 +11402,7 @@ export const localizations = {
     french:
       'Toutes vos contributions (projets, quêtes, ressources, traductions, votes) seront conservées et resteront publiques selon les conditions que vous avez déjà acceptées lors de votre adhésion. Votre compte pourra être restauré à tout moment et toutes vos données seront à nouveau accessibles.',
     spanish:
-      'Todas tus contribuciones (proyectos, búsquedas, activos, traducciones, votos) se conservarán y permanecerán públicas según los términos que ya aceptaste al unirte. Tu cuenta puede ser restaurada en cualquier momento, y todos tus datos volverán a estar accesibles.',
+      'Todas tus contribuciones (proyectos, búsquedas, recursos, traducciones, votos) se conservarán y permanecerán públicas según los términos que ya aceptaste al unirte. Tu cuenta puede ser restaurada en cualquier momento, y todos tus datos volverán a estar accesibles.',
     brazilian_portuguese:
       'Todas as suas contribuições (projetos, missões, ativos, traduções, votos) serão preservadas e permanecerão públicas de acordo com os termos que você já concordou ao ingressar. Sua conta pode ser restaurada a qualquer momento, e todos os seus dados estarão acessíveis novamente.',
     tok_pisin:
@@ -13229,7 +13327,7 @@ export const localizations = {
   enableMerge: {
     english: 'Merge assets',
     french: 'Fusionner les actifs',
-    spanish: 'Fusionar activos',
+    spanish: 'Fusionar recursos',
     brazilian_portuguese: 'Mesclar ativos',
     tok_pisin: 'Joinim ol aset',
     indonesian: 'Gabungkan aset',
@@ -13245,7 +13343,7 @@ export const localizations = {
     french:
       "Autoriser la fusion de plusieurs ressources audio en une seule ressource. À utiliser avec prudence : l'ordre des segments peut nécessiter un ajustement manuel après la fusion.",
     spanish:
-      'Permitir fusionar múltiples activos de audio en un solo activo. Usar con precaución — el orden de los segmentos puede necesitar ajuste manual después de fusionar.',
+      'Permitir fusionar múltiples recursos de audio en un solo recurso. Usar con precaución — el orden de los segmentos puede necesitar ajuste manual después de fusionar.',
     brazilian_portuguese:
       'Permitir mesclar vários ativos de áudio em um único ativo. Use com cuidado — a ordem dos segmentos pode precisar de ajuste manual após a mesclagem.',
     tok_pisin:
@@ -13261,6 +13359,42 @@ export const localizations = {
     thai: 'อนุญาตให้รวมสินทรัพย์เสียงหลายรายการเป็นสินทรัพย์เดียว ใช้ด้วยความระมัดระวัง — ลำดับของส่วนอาจต้องปรับด้วยตนเองหลังจากรวม',
     mandarin:
       '允许将多个音频资产合并为单个资产。请谨慎使用 — 合并后可能需要手动调整片段顺序。'
+  },
+  enableAssetImport: {
+    english: 'Import assets',
+    french: 'Importer des actifs',
+    spanish: 'Importar recursos',
+    brazilian_portuguese: 'Importar Recursos',
+    tok_pisin: 'Impotim ol aset',
+    indonesian: 'Impor aset',
+    nepali: 'सम्पत्तिहरू आयात गर्नुहोस्',
+    hindi: 'एसेट आयात करें',
+    burmese: 'ပိုင်ဆိုင်မှုများကို တင်သွင်းပါ',
+    thai: 'นำเข้าสินทรัพย์',
+    mandarin: '导入资产'
+  },
+  enableAssetImportDescription: {
+    english:
+      'Allow importing assets from other published quests into the current draft quest (Bible and FIA templates only).',
+    french:
+      "Autoriser l'importation d'actifs depuis d'autres quêtes publiées vers la quête brouillon actuelle (modèles Bible et FIA uniquement).",
+    spanish:
+      'Permitir importar recursos desde otras misiones publicadas a la misión borrador actual (solo plantillas Biblia y FIA).',
+    brazilian_portuguese:
+      'Permitir importar recursos de outras quests publicadas para a quest rascunho atual (apenas templates Bíblia e FIA).',
+    tok_pisin:
+      'Larim impotim ol aset bilong ol narapela published quest i go long current draft quest (Bible na FIA template tasol).',
+    indonesian:
+      'Izinkan mengimpor aset dari quest terbit lainnya ke quest draf saat ini (hanya templat Alkitab dan FIA).',
+    nepali:
+      'अन्य प्रकाशित क्वेस्टहरूबाट हालको ड्राफ्ट क्वेस्टमा सम्पत्तिहरू आयात गर्न अनुमति दिनुहोस् (केवल बाइबल र FIA टेम्प्लेटहरू)।',
+    hindi:
+      'अन्य प्रकाशित क्वेस्ट से वर्तमान ड्राफ्ट क्वेस्ट में एसेट आयात करने की अनुमति दें (केवल बाइबल और FIA टेम्प्लेट)।',
+    burmese:
+      'အခြား ထုတ်ဝေပြီးသော quest များမှ လက်ရှိ draft quest သို့ ပိုင်ဆိုင်မှုများကို တင်သွင်းခွင့်ပြုပါ (Bible နှင့် FIA template များသာ)။',
+    thai: 'อนุญาตให้นำเข้าสินทรัพย์จากเควสที่เผยแพร่แล้วไปยังเควสฉบับร่างปัจจุบัน (เฉพาะเทมเพลตพระคัมภีร์และ FIA)',
+    mandarin:
+      '允许从其他已发布任务将资产导入到当前草稿任务（仅限圣经和 FIA 模板）。'
   },
   enableFia: {
     english: 'FIA Projects',
@@ -13641,6 +13775,191 @@ export const localizations = {
       'သင်အော့ဖ်လိုင်းဖြစ်နေသည်။ ပြန်ချိတ်ဆက်သောအခါ သင့်အကြောင်းကို တင်သွင်းပါမည်။',
     thai: 'คุณออฟไลน์อยู่ ข้อเสนอแนะของคุณจะถูกส่งเมื่อคุณเชื่อมต่ออีกครั้ง',
     mandarin: '您处于离线状态。重新连接后，您的反馈将被提交。'
+  },
+  importStepTitleInstructions: {
+    english: 'Import assets from another quest',
+    french: "Importer des actifs d'une autre quête",
+    spanish: 'Importar recursos de otra misión',
+    brazilian_portuguese: 'Importar recursos de outra quest',
+    tok_pisin: 'Impotim ol aset bilong narapela quest',
+    indonesian: 'Impor aset dari quest lain',
+    nepali: 'अर्को क्वेस्टबाट सम्पत्तिहरू आयात गर्नुहोस्',
+    hindi: 'दूसरे क्वेस्ट से एसेट आयात करें',
+    burmese: 'အခြား quest မှ ပိုင်ဆိုင်မှုများကို တင်သွင်းပါ',
+    thai: 'นำเข้าสินทรัพย์จากเควสอื่น',
+    mandarin: '从其他任务导入资产'
+  },
+  importStepTitleQuest: {
+    english: 'Choose a source quest',
+    french: 'Choisir une quête source',
+    spanish: 'Elegir una misión de origen',
+    brazilian_portuguese: 'Escolher uma quest de origem',
+    tok_pisin: 'Makim wanpela source quest',
+    indonesian: 'Pilih quest sumber',
+    nepali: 'स्रोत क्वेस्ट छान्नुहोस्',
+    hindi: 'स्रोत क्वेस्ट चुनें',
+    burmese: 'မူရင်း quest ကို ရွေးပါ',
+    thai: 'เลือกเควสต้นทาง',
+    mandarin: '选择源任务'
+  },
+  importStepTitleAssets: {
+    english: 'Select assets',
+    french: 'Sélectionner des actifs',
+    spanish: 'Seleccionar recursos',
+    brazilian_portuguese: 'Selecionar recursos',
+    tok_pisin: 'Makim ol aset',
+    indonesian: 'Pilih aset',
+    nepali: 'सम्पत्तिहरू चयन गर्नुहोस्',
+    hindi: 'एसेट चुनें',
+    burmese: 'ပိုင်ဆိုင်မှုများကို ရွေးပါ',
+    thai: 'เลือกสินทรัพย์',
+    mandarin: '选择资产'
+  },
+  importStepTitleValidation: {
+    english: 'Validate before import',
+    french: "Valider avant l'importation",
+    spanish: 'Validar antes de importar',
+    brazilian_portuguese: 'Validar antes de importar',
+    tok_pisin: 'Checkim pastaim long impotim',
+    indonesian: 'Validasi sebelum impor',
+    nepali: 'आयात गर्नु अघि प्रमाणीकरण गर्नुहोस्',
+    hindi: 'आयात से पहले सत्यापित करें',
+    burmese: 'တင်သွင်းမီ အတည်ပြုပါ',
+    thai: 'ตรวจสอบก่อนนำเข้า',
+    mandarin: '导入前验证'
+  },
+  importStepDescriptionInstructions: {
+    english: 'Reuse assets from a previous published version of this quest.',
+    french:
+      "Réutilisez des actifs d'une version publiée précédente de cette quête.",
+    spanish:
+      'Reutilice recursos de una versión publicada anterior de esta misión.',
+    brazilian_portuguese:
+      'Reutilize recursos de uma versão publicada anterior desta quest.',
+    tok_pisin:
+      'Yusim gen ol aset bilong wanpela published version bipo bilong dispela quest.',
+    indonesian:
+      'Gunakan kembali aset dari versi terbit sebelumnya dari quest ini.',
+    nepali:
+      'यो क्वेस्टको अघिल्लो प्रकाशित संस्करणबाट सम्पत्तिहरू पुन: प्रयोग गर्नुहोस्।',
+    hindi: 'इस क्वेस्ट के पिछले प्रकाशित संस्करण से एसेट का पुन: उपयोग करें।',
+    burmese:
+      'ဤ quest ၏ ယခင်ထုတ်ဝေထားသော ဗားရှင်းမှ ပိုင်ဆိုင်မှုများကို ပြန်လည်အသုံးပြုပါ။',
+    thai: 'นำสินทรัพย์จากเวอร์ชันที่เผยแพร่ก่อนหน้าของเควสนี้กลับมาใช้ใหม่',
+    mandarin: '复用此任务先前已发布版本中的资产。'
+  },
+  importStepDescriptionQuest: {
+    english:
+      'Only downloaded published quests can be used as an import source.',
+    french:
+      'Seules les quêtes publiées téléchargées peuvent être utilisées comme source d’importation.',
+    spanish:
+      'Solo las misiones publicadas descargadas pueden usarse como origen de importación.',
+    brazilian_portuguese:
+      'Somente quests publicadas baixadas podem ser usadas como origem de importação.',
+    tok_pisin:
+      'Ol published quest i daunim pinis tasol i ken kamap import source.',
+    indonesian:
+      'Hanya quest terbit yang sudah diunduh yang dapat digunakan sebagai sumber impor.',
+    nepali:
+      'केवल डाउनलोड गरिएका प्रकाशित क्वेस्टहरूलाई आयात स्रोतको रूपमा प्रयोग गर्न सकिन्छ।',
+    hindi:
+      'केवल डाउनलोड किए गए प्रकाशित क्वेस्ट को आयात स्रोत के रूप में उपयोग किया जा सकता है।',
+    burmese:
+      'ဒေါင်းလုဒ်လုပ်ထားသော ထုတ်ဝေပြီး quest များကိုသာ တင်သွင်းမူရင်းအဖြစ် အသုံးပြုနိုင်သည်။',
+    thai: 'ใช้ได้เฉพาะเควสที่เผยแพร่แล้วและดาวน์โหลดไว้เป็นแหล่งนำเข้าเท่านั้น',
+    mandarin: '只有已下载的已发布任务可用作导入来源。'
+  },
+  importStepDescriptionAssets: {
+    english: 'Choose one or more assets to prepare for validation.',
+    french: 'Choisissez un ou plusieurs actifs à préparer pour la validation.',
+    spanish: 'Elija uno o más recursos para preparar la validación.',
+    brazilian_portuguese:
+      'Escolha um ou mais recursos para preparar a validação.',
+    tok_pisin: 'Makim wanpela o planti aset bilong redim long validation.',
+    indonesian: 'Pilih satu atau lebih aset untuk disiapkan ke validasi.',
+    nepali: 'प्रमाणीकरणका लागि तयार पार्न एक वा बढी सम्पत्तिहरू छान्नुहोस्।',
+    hindi: 'सत्यापन के लिए तैयार करने हेतु एक या अधिक एसेट चुनें।',
+    burmese:
+      'အတည်ပြုရန် ပြင်ဆင်ရန် ပိုင်ဆိုင်မှု တစ်ခု သို့မဟုတ် တစ်ခုထက်ပို ရွေးပါ။',
+    thai: 'เลือกสินทรัพย์อย่างน้อยหนึ่งรายการเพื่อเตรียมสำหรับการตรวจสอบ',
+    mandarin: '选择一个或多个资产以准备验证。'
+  },
+  importStepDescriptionValidation: {
+    english:
+      'Review selected assets and the verse labels already used in the destination quest.',
+    french:
+      'Passez en revue les actifs sélectionnés et les étiquettes de versets déjà utilisées dans la quête de destination.',
+    spanish:
+      'Revise los recursos seleccionados y las etiquetas de versículos ya usadas en la misión de destino.',
+    brazilian_portuguese:
+      'Revise os recursos selecionados e as etiquetas de versículos já usadas na quest de destino.',
+    tok_pisin:
+      'Lukluk gen long ol aset yu makim na ol verse label i stap pinis long destination quest.',
+    indonesian:
+      'Tinjau aset yang dipilih dan label ayat yang sudah digunakan di quest tujuan.',
+    nepali:
+      'चयन गरिएका सम्पत्तिहरू र गन्तव्य क्वेस्टमा पहिले नै प्रयोग भएका पद लेबलहरू समीक्षा गर्नुहोस्।',
+    hindi:
+      'चयनित एसेट और गंतव्य क्वेस्ट में पहले से उपयोग किए गए पद लेबल की समीक्षा करें।',
+    burmese:
+      'ရွေးထားသော ပိုင်ဆိုင်မှုများနှင့် ဦးတည်ရာ quest တွင် အသုံးပြုပြီးသား အခန်းငယ် တံဆိပ်များကို ပြန်လည်စစ်ဆေးပါ။',
+    thai: 'ตรวจทานสินทรัพย์ที่เลือกและป้ายข้อพระคัมภีร์ที่ใช้แล้วในเควสปลายทาง',
+    mandarin: '检查所选资产以及目标任务中已使用的经文标签。'
+  },
+  'importStepInstruction-1': {
+    english: 'Choose a published quest version',
+    french: 'Choisissez une version de quête publiée',
+    spanish: 'Elija una versión de misión publicada',
+    brazilian_portuguese: 'Escolha uma versão publicada da quest',
+    tok_pisin: 'Makim wanpela published quest version',
+    indonesian: 'Pilih versi quest yang sudah diterbitkan',
+    nepali: 'प्रकाशित क्वेस्ट संस्करण छान्नुहोस्',
+    hindi: 'एक प्रकाशित क्वेस्ट संस्करण चुनें',
+    burmese: 'ထုတ်ဝေပြီးသော quest ဗားရှင်းကို ရွေးပါ',
+    thai: 'เลือกเวอร์ชันเควสที่เผยแพร่แล้ว',
+    mandarin: '选择一个已发布的任务版本'
+  },
+  'importStepInstruction-2': {
+    english: 'Select the assets to be imported',
+    french: 'Sélectionnez les actifs à importer',
+    spanish: 'Seleccione los recursos que se importarán',
+    brazilian_portuguese: 'Selecione os recursos a serem importados',
+    tok_pisin: 'Makim ol aset bilong impotim',
+    indonesian: 'Pilih aset yang akan diimpor',
+    nepali: 'आयात गर्नुपर्ने सम्पत्तिहरू चयन गर्नुहोस्',
+    hindi: 'आयात किए जाने वाले एसेट चुनें',
+    burmese: 'တင်သွင်းမည့် ပိုင်ဆိုင်မှုများကို ရွေးပါ',
+    thai: 'เลือกสินทรัพย์ที่จะนำเข้า',
+    mandarin: '选择要导入的资产'
+  },
+  'importStepInstruction-3': {
+    english: 'Review any verse label conflicts before confirming',
+    french: 'Vérifiez les conflits d’étiquettes de versets avant de confirmer',
+    spanish:
+      'Revise cualquier conflicto de etiquetas de versículos antes de confirmar',
+    brazilian_portuguese:
+      'Revise quaisquer conflitos de etiquetas de versículos antes de confirmar',
+    tok_pisin: 'Lukluk gen long ol verse label conflict pastaim long konfemim',
+    indonesian: 'Tinjau konflik label ayat sebelum mengonfirmasi',
+    nepali: 'पुष्टि गर्नु अघि कुनै पनि पद लेबल द्वन्द्वहरू समीक्षा गर्नुहोस्',
+    hindi: 'पुष्टि करने से पहले किसी भी पद लेबल विरोध की समीक्षा करें',
+    burmese: 'အတည်မပြုမီ အခန်းငယ် တံဆိပ် ပဋိပက္ခများကို ပြန်လည်စစ်ဆေးပါ',
+    thai: 'ตรวจทานความขัดแย้งของป้ายข้อพระคัมภีร์ก่อนยืนยัน',
+    mandarin: '确认前检查任何经文标签冲突'
+  },
+  selectedAssets: {
+    english: 'Selected assets',
+    french: 'Actifs sélectionnés',
+    spanish: 'Recursos seleccionados',
+    brazilian_portuguese: 'Recursos selecionados',
+    tok_pisin: 'Ol aset yu makim',
+    indonesian: 'Aset yang dipilih',
+    nepali: 'चयन गरिएका सम्पत्तिहरू',
+    hindi: 'चयनित एसेट',
+    burmese: 'ရွေးထားသော ပိုင်ဆိုင်မှုများ',
+    thai: 'สินทรัพย์ที่เลือก',
+    mandarin: '已选资产'
   }
 } as const;
 

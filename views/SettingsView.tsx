@@ -57,6 +57,7 @@ export default function SettingsView() {
     (state) => state.enableProjectLanguageSuggestions
   );
   const enableMerge = useLocalStore((state) => state.enableMerge);
+  const enableAssetImport = useLocalStore((state) => state.enableAssetImport);
   const enableFia = useLocalStore((state) => state.enableFia);
 
   const setShowHiddenContent = useLocalStore(
@@ -84,6 +85,9 @@ export default function SettingsView() {
     (state) => state.setEnableProjectLanguageSuggestions
   );
   const setEnableMerge = useLocalStore((state) => state.setEnableMerge);
+  const setEnableAssetImport = useLocalStore(
+    (state) => state.setEnableAssetImport
+  );
   const setEnableFia = useLocalStore((state) => state.setEnableFia);
 
   // Settings are loaded from the centralized store
@@ -138,6 +142,10 @@ export default function SettingsView() {
 
   const handleMergeToggle = (value: boolean) => {
     setEnableMerge(value);
+  };
+
+  const handleAssetImportToggle = (value: boolean) => {
+    setEnableAssetImport(value);
   };
 
   const handleFiaToggle = (value: boolean) => {
@@ -338,6 +346,14 @@ export default function SettingsView() {
           type: 'toggle',
           value: enableMerge,
           onPress: () => handleMergeToggle(!enableMerge)
+        },
+        {
+          id: 'assetImport',
+          title: t('enableAssetImport'),
+          description: t('enableAssetImportDescription'),
+          type: 'toggle',
+          value: enableAssetImport,
+          onPress: () => handleAssetImportToggle(!enableAssetImport)
         }
       ]
     },

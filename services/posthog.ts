@@ -72,10 +72,14 @@ export const syncPostHogIdentity = async () => {
   }
 };
 
-/** Set the authenticated user id (or null). Re-syncs identity when consent allows. */
-export const setPostHogUserId = (userId: string | null) => {
-  pendingPostHogUserId = userId;
-  void syncPostHogIdentity();
+/**
+ * Intentionally a no-op: identifying PostHog persons by auth user id is on
+ * hold until GDPR requirements are sorted out. Restore the body below to
+ * re-enable.
+ */
+export const setPostHogUserId = (_userId: string | null) => {
+  // pendingPostHogUserId = _userId;
+  // void syncPostHogIdentity();
 };
 
 const changeAnalyticsState = async (newState: boolean) => {

@@ -29,6 +29,7 @@ import { useQuestDownloadStatusLive } from '@/hooks/useQuestDownloadStatusLive';
 import { useSingleAudioController } from '@/hooks/useSingleAudioController';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useLocalStore } from '@/store/localStore';
+import { isImportedAsset } from '@/utils/assetProvenance';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import RNAlert from '@blazejkustra/react-native-alert';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -40,6 +41,8 @@ import {
   BrushCleaning,
   CheckCheck,
   CloudUpload,
+  DownloadIcon,
+  FilePenIcon,
   FlagIcon,
   InfoIcon,
   LockIcon,
@@ -67,11 +70,11 @@ import Animated, {
   withTiming
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ImportWizard, type ImportWizardVerseLabel } from './importWizard';
 import { useHybridData } from './useHybridData';
 
 import { AssetListSkeleton } from '@/components/AssetListSkeleton';
 import { ExportButton } from '@/components/ExportButton';
-import { PublishQuestButton } from '@/components/PublishQuestButton';
 import type { FiaDrawerState } from '@/components/FiaStepDrawer';
 import {
   FiaStepDrawer,
@@ -80,6 +83,8 @@ import {
 import { ModalDetails } from '@/components/ModalDetails';
 import { ReportModal } from '@/components/NewReportModal';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
+import { PublishQuestButton } from '@/components/PublishQuestButton';
+import { QuestLabelHandler } from '@/components/questLabelHandler';
 import { QuestOffloadVerificationDrawer } from '@/components/QuestOffloadVerificationDrawer';
 import { RecordButton } from '@/components/RecordButton';
 import {
@@ -105,7 +110,7 @@ import {
 import { run as runAssetGarbageCollector } from '@/database_services/assetGarbageCollectorService';
 import type { AssetUpdatePayload } from '@/database_services/assetService';
 import {
-  batchUpdateAssetMetadata,
+  batchUpdateAssetVerse,
   renameAsset,
   softDeleteAssetsFromQuest,
   softMergeAssetsInQuest
@@ -115,7 +120,10 @@ import {
   undo as undoAssetOperation
 } from '@/database_services/assetUndoService';
 import { audioSegmentService } from '@/database_services/audioSegmentService';
-import { createQuestRecordingSession } from '@/database_services/questService';
+import {
+  createQuestRecordingSession,
+  parseQuestMetadata
+} from '@/database_services/questService';
 import type {
   AssetOperationDataItem,
   AssetOperationTypes
@@ -126,14 +134,15 @@ import { useAssetsByQuest, useLocalAssetsByQuest } from '@/hooks/db/useAssets';
 import { useBlockedAssetsCount } from '@/hooks/useBlockedCount';
 import { useFiaPericopeSteps } from '@/hooks/useFiaPericopeSteps';
 import { useProjectFiaLanguageCode } from '@/hooks/useProjectFiaLanguageCode';
-import { isFiaPericopeCached } from '@/services/FiaAttachmentQueue';
 import { useQuestOffloadVerification } from '@/hooks/useQuestOffloadVerification';
 import { useHasUserReported } from '@/hooks/useReports';
 import { useUndoHistory } from '@/hooks/useUndoHistory';
+import { isFiaPericopeCached } from '@/services/FiaAttachmentQueue';
 import { resolveTable } from '@/utils/dbUtils';
 import { fileExists, getLocalAttachmentUriWithOPFS } from '@/utils/fileUtils';
 import { publishQuest as publishQuestUtils } from '@/utils/publishQuest';
 import { offloadQuest } from '@/utils/questOffloadUtils';
+import { formatQuestDisplayLabel } from '@/utils/questVersionLabel';
 import { getThemeColor } from '@/utils/styleUtils';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -558,7 +567,8 @@ function KeepAwakeGuard() {
 }
 
 export default function BibleAssetsView() {
-  const { questId, projectId, router, goToRecording } = useNavigationHelpers();
+  const { questId, projectId, router, goToRecording, promptVersionLabel } =
+    useNavigationHelpers();
   const { currentUser } = useAuth();
   const audioContext = useAudio();
   const queryClient = useQueryClient();
@@ -606,6 +616,12 @@ export default function BibleAssetsView() {
   const [showReportModal, setShowReportModal] = React.useState(false);
   const [showOffloadDrawer, setShowOffloadDrawer] = React.useState(false);
   const [showDeleteAllDrawer, setShowDeleteAllDrawer] = React.useState(false);
+  const [showRenameQuestLabelDrawer, setShowRenameQuestLabelDrawer] =
+    React.useState(false);
+  // Hold FIA instructions until the version-label prompt (if any) is dismissed
+  const [awaitingVersionLabel, setAwaitingVersionLabel] = React.useState(
+    () => promptVersionLabel === '1'
+  );
   const [verseSelectorState, setVerseSelectorState] = React.useState<{
     isOpen: boolean;
     key: string | null;
@@ -647,6 +663,7 @@ export default function BibleAssetsView() {
 
   // State for FIA pericope text drawer
   const [showFiaTextDrawer, setShowFiaTextDrawer] = React.useState(false);
+  const [showImportWizard, setShowImportWizard] = React.useState(false);
   const fiaDrawerStateRef = React.useRef<FiaDrawerState>({
     ...INITIAL_FIA_DRAWER_STATE
   });
@@ -771,6 +788,35 @@ export default function BibleAssetsView() {
 
   // Check if quest is published (source is 'synced')
   const isPublished = selectedQuest?.source === 'synced';
+  const promptVersionLabelConsumedRef = React.useRef<string | null>(null);
+
+  React.useEffect(() => {
+    if (promptVersionLabel !== '1' || !questId) return;
+
+    const consumeKey = `${questId}:promptVersionLabel`;
+    if (promptVersionLabelConsumedRef.current === consumeKey) return;
+    if (!selectedQuest || !currentUser?.id) return;
+
+    promptVersionLabelConsumedRef.current = consumeKey;
+
+    if (isPublished || selectedQuest.creator_id !== currentUser.id) {
+      setAwaitingVersionLabel(false);
+      router.setParams({ promptVersionLabel: undefined });
+      return;
+    }
+
+    setAwaitingVersionLabel(true);
+    setShowFiaTextDrawer(false);
+    setShowRenameQuestLabelDrawer(true);
+    router.setParams({ promptVersionLabel: undefined });
+  }, [
+    currentUser?.id,
+    isPublished,
+    promptVersionLabel,
+    questId,
+    router,
+    selectedQuest
+  ]);
 
   // Derive bookId from quest metadata (was previously passed via navigation)
   const currentBookId = React.useMemo(() => {
@@ -841,8 +887,10 @@ export default function BibleAssetsView() {
   // Open immediately when guide content must be downloaded (e.g. post LQ-17 recache).
   // When cached, open after data is ready. If the user dismissed the drawer, don't reopen
   // unless content is missing and needs a fresh download.
+  // Wait for the version-label prompt to finish so it isn't covered by FIA instructions.
   React.useEffect(() => {
     if (!fiaPericopeId || !questId) return;
+    if (awaitingVersionLabel || showRenameQuestLabelDrawer) return;
 
     const dismissed = fiaDrawerDismissedQuests.has(questId);
     if (dismissed && !needsFiaRecache) return;
@@ -855,7 +903,15 @@ export default function BibleAssetsView() {
     if (fiaStepsData && !fiaStepsLoading) {
       setShowFiaTextDrawer(true);
     }
-  }, [fiaPericopeId, questId, needsFiaRecache, fiaStepsData, fiaStepsLoading]);
+  }, [
+    awaitingVersionLabel,
+    fiaPericopeId,
+    fiaStepsData,
+    fiaStepsLoading,
+    needsFiaRecache,
+    questId,
+    showRenameQuestLabelDrawer
+  ]);
 
   // Build the ordered verse sequence for FIA pericopes (null for standard chapters)
   const pericopeSequence = React.useMemo<ChapterVerse[] | null>(() => {
@@ -1075,6 +1131,12 @@ export default function BibleAssetsView() {
   currentStatus.layerStatus(LayerType.QUEST, questId || '');
   const showInvisibleContent = useLocalStore((s) => s.showHiddenContent);
   const enableMerge = useLocalStore((s) => s.enableMerge);
+  const enableAssetImport = useLocalStore((s) => s.enableAssetImport);
+  const allowImportAssets = React.useMemo(
+    () =>
+      parseQuestMetadata(selectedQuest?.metadata).allowImportAssets === true,
+    [selectedQuest?.metadata]
+  );
 
   // Call both hooks unconditionally to comply with React Hooks rules
   const publishedAssets = useAssetsByQuest(
@@ -1122,6 +1184,17 @@ export default function BibleAssetsView() {
 
     return Array.from(assetMap.values());
   }, [data.pages]);
+
+  const importWizardVerseLabels = React.useMemo<
+    ImportWizardVerseLabel[]
+  >(() => {
+    return manualSeparators.map((separator) => ({
+      key: separator.key,
+      from: separator.from,
+      to: separator.to,
+      source: 'manual'
+    }));
+  }, [manualSeparators]);
 
   // Infinite scroll - load more when reaching end of list
   const loadMoreAssets = React.useCallback(() => {
@@ -1390,14 +1463,11 @@ export default function BibleAssetsView() {
           clearUndoHistory();
         }
 
-        const previousData = selectedAssets.map((asset) => ({
-          id: asset.id,
-          name: asset.name ?? null,
-          orderIndex: asset.order_index
-        }));
         const selectedIds = selectedAssets.map((asset) => asset.id);
-
-        await softDeleteAssetsFromQuest(questId, selectedIds);
+        const previousData = await softDeleteAssetsFromQuest(
+          questId,
+          selectedIds
+        );
         if (allowUndo) {
           pushUndoHistory({
             domain: 'asset',
@@ -1581,12 +1651,12 @@ export default function BibleAssetsView() {
 
   const handleSaveRename = React.useCallback(
     async (newName: string) => {
-      if (!renameAssetId) return;
+      if (!renameAssetId || !questId) return;
 
       try {
         // renameAsset will validate that this is a local-only asset
         // and throw if it's synced (immutable)
-        await renameAsset(renameAssetId, newName);
+        await renameAsset(questId, renameAssetId, newName);
 
         pushUndoHistory({
           domain: 'asset',
@@ -1844,7 +1914,7 @@ export default function BibleAssetsView() {
           try {
             const { previousData, newData } =
               buildMoveHistoryEntries(assetsToUpdate);
-            await batchUpdateAssetMetadata(assetsToUpdate);
+            await batchUpdateAssetVerse(questId!, assetsToUpdate);
             if (previousData.length > 0) {
               pushUndoHistory({
                 domain: 'asset',
@@ -1990,7 +2060,7 @@ export default function BibleAssetsView() {
         try {
           const { previousData, newData } =
             buildMoveHistoryEntries(assetsToUpdate);
-          await batchUpdateAssetMetadata(assetsToUpdate);
+          await batchUpdateAssetVerse(questId!, assetsToUpdate);
           if (previousData.length > 0) {
             pushUndoHistory({
               domain: 'asset',
@@ -2309,6 +2379,16 @@ export default function BibleAssetsView() {
     return false;
   }, [selectedAssetIds, assets]);
 
+  // Imported assets cannot be merged — keep Merge disabled if any are selected
+  const canMergeSelection = React.useMemo(() => {
+    if (selectedAssetIds.size < 2) return false;
+    for (const asset of assets) {
+      if (!selectedAssetIds.has(asset.id)) continue;
+      if (isImportedAsset(asset.metadata)) return false;
+    }
+    return true;
+  }, [assets, selectedAssetIds]);
+
   // Handle applying verse label to selected assets
   const handleAssignVerseToSelected = React.useCallback(
     async (from: number, to: number) => {
@@ -2355,7 +2435,7 @@ export default function BibleAssetsView() {
         );
 
         const { previousData, newData } = buildMoveHistoryEntries(updates);
-        await batchUpdateAssetMetadata(updates);
+        await batchUpdateAssetVerse(questId!, updates);
         if (previousData.length > 0) {
           pushUndoHistory({
             domain: 'asset',
@@ -2433,7 +2513,7 @@ export default function BibleAssetsView() {
       );
 
       const { previousData, newData } = buildMoveHistoryEntries(updates);
-      await batchUpdateAssetMetadata(updates);
+      await batchUpdateAssetVerse(questId!, updates);
       if (previousData.length > 0) {
         pushUndoHistory({
           domain: 'asset',
@@ -3931,7 +4011,7 @@ export default function BibleAssetsView() {
       if (updates.length > 0) {
         try {
           const { previousData, newData } = buildMoveHistoryEntries(updates);
-          await batchUpdateAssetMetadata(updates);
+          await batchUpdateAssetVerse(questId!, updates);
           if (previousData.length > 0) {
             pushUndoHistory({
               domain: 'asset',
@@ -3984,7 +4064,14 @@ export default function BibleAssetsView() {
   return (
     <View className="flex flex-1 flex-col gap-4 px-6 pb-6 pt-1">
       {selectedQuest?.name && (
-        <Stack.Screen options={{ title: selectedQuest.name }} />
+        <Stack.Screen
+          options={{
+            title: formatQuestDisplayLabel(
+              selectedQuest.name,
+              selectedQuest.metadata
+            )
+          }}
+        />
       )}
       {isPlayAllPlayerActive && <KeepAwakeGuard />}
       <View className="flex flex-row items-center justify-between">
@@ -4053,6 +4140,32 @@ export default function BibleAssetsView() {
                       membership={membership}
                     />
                   )}
+                  {enableAssetImport &&
+                    allowImportAssets &&
+                    questId &&
+                    projectId &&
+                    selectedQuest && (
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        disabled={isPublishing || !isMember}
+                        onPress={() => setShowImportWizard(true)}
+                        className="border-2 border-primary bg-primary/10"
+                      >
+                        <Icon
+                          as={DownloadIcon}
+                          size={18}
+                          className="font-bold text-primary"
+                        />
+                        {/*
+
+
+                      <Text className="text-sm font-medium text-primary">
+                        Import
+                      </Text>
+                        */}
+                      </Button>
+                    )}
                 </>
               )
             )}
@@ -4292,6 +4405,14 @@ export default function BibleAssetsView() {
                   onPress={() => setShowDeleteAllDrawer(true)}
                 />
               )}
+              {!isPublished && currentUser && (
+                <SpeedDialItem
+                  className="rounded-full"
+                  icon={FilePenIcon}
+                  variant="outline"
+                  onPress={() => setShowRenameQuestLabelDrawer(true)}
+                />
+              )}
               {/* Info button always visible */}
               <SpeedDialItem
                 icon={InfoIcon}
@@ -4345,6 +4466,7 @@ export default function BibleAssetsView() {
               allowAssignVerse={true}
               onAssignVerse={() => setShowVerseAssignerDrawer(true)}
               showMerge={enableMerge}
+              canMerge={canMergeSelection}
             />
           </View>
         ) : (
@@ -4411,6 +4533,34 @@ export default function BibleAssetsView() {
       )}
       {/* )} */}
 
+      {enableAssetImport && allowImportAssets && selectedQuest && projectId && (
+        <ImportWizard
+          visible={showImportWizard}
+          onClose={() => setShowImportWizard(false)}
+          projectId={projectId}
+          currentQuest={selectedQuest}
+          currentAssets={assets}
+          availableVerses={getAvailableVerses()}
+          verseCount={verseCount}
+          targetVerseLabels={importWizardVerseLabels}
+          formatVerse={formatVersePositionRef.current}
+          chapterSequence={pericopeSequence ?? undefined}
+          onImported={(linkedSnapshots) => {
+            if (linkedSnapshots.length === 0) return;
+            pushUndoHistory({
+              domain: 'asset',
+              action: 'import',
+              previousData: [],
+              newData: linkedSnapshots,
+              canUndo: true
+            });
+            // Refresh quest so lastRecordingSessionId updates and old NEW badges clear
+            void refetchQuest();
+            void refetch();
+          }}
+        />
+      )}
+
       {allowSettings && isOwner && showSettingsModal && (
         <QuestSettingsModal
           isVisible={showSettingsModal}
@@ -4430,6 +4580,34 @@ export default function BibleAssetsView() {
           title="Delete All Assets?"
           description="All assets in this quest will be permanently deleted. This action is irreversible and cannot be undone."
           confirmationString={selectedQuest?.name || 'DELETE'}
+        />
+      )}
+      {showRenameQuestLabelDrawer && selectedQuest && (
+        <QuestLabelHandler
+          isOpen={showRenameQuestLabelDrawer}
+          questId={questId}
+          questName={selectedQuest.name}
+          metadata={selectedQuest.metadata}
+          isPublished={isPublished}
+          onOpenChange={(open) => {
+            setShowRenameQuestLabelDrawer(open);
+            if (!open) {
+              setAwaitingVersionLabel(false);
+            }
+          }}
+          onSaved={() => {
+            void queryClient.invalidateQueries({ queryKey: ['quest'] });
+            void queryClient.invalidateQueries({
+              queryKey: ['current-quest']
+            });
+            void refetchQuest();
+            void queryClient.invalidateQueries({
+              queryKey: ['bible-chapters']
+            });
+            void queryClient.invalidateQueries({
+              queryKey: ['fia-pericope-quests']
+            });
+          }}
         />
       )}
       {showDetailsModal && selectedQuest && (
@@ -4509,6 +4687,8 @@ export default function BibleAssetsView() {
               existingLabels={existingLabels}
               getMaxToForFrom={getMaxToForFrom}
               verseCount={verseCount}
+              formatLabel={formatVersePositionRef.current ?? undefined}
+              chapterSequence={pericopeSequence ?? undefined}
               onApply={(from, to) => {
                 void handleAssignVerseToSelected(from, to);
               }}

@@ -80,9 +80,28 @@ export default defineConfig(
       '@typescript-eslint/no-non-null-assertion': 'off',
       '@typescript-eslint/prefer-nullish-coalescing': 'off',
       'import/consistent-type-specifier-style': ['error', 'prefer-top-level'],
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@legendapp/list',
+              message:
+                'Import from `@/components/ui/legend-list` so lists clear the Android nav bar / home indicator.'
+            }
+          ]
+        }
+      ],
       ...reactPlugin.configs['jsx-runtime'].rules,
       ...hooksPlugin.configs.recommended.rules,
       'react-compiler/react-compiler': 'error'
+    }
+  },
+  {
+    // Only the wrapper may import the upstream package.
+    files: ['components/ui/legend-list.tsx'],
+    rules: {
+      'no-restricted-imports': 'off'
     }
   }
 );
