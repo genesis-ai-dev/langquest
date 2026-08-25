@@ -11,7 +11,8 @@ import { getRawTableName, rawTableExists } from './utils';
  * Notes:
  * - These columns are defined in the Drizzle schema; do not ALTER TABLE.
  * - PowerSync stores local rows as JSON in raw ps_data_local__* tables.
- * - Existing local quest links inherit values from their linked local asset.
+ * - order_index: copy from asset when link is NULL/0 and asset has a non-zero
+ *   order (matches server backfill_quest_asset_link_placement).
  */
 export const migration_2_3_to_2_4: Migration = {
   fromVersion: '2.3',
@@ -38,24 +39,6 @@ export const migration_2_3_to_2_4: Migration = {
     const questAssetLinkTable = getRawTableName('quest_asset_link_local');
     const assetTable = getRawTableName('asset_local');
 
-    if (onProgress) {
-      onProgress(1, 2, 'Setting defaults on local quest asset links');
-    }
-
-    await db.execute(`
-      UPDATE ${questAssetLinkTable}
-      SET data = json_set(
-        data,
-        '$.order_index',
-        coalesce(json_extract(data, '$.order_index'), 0)
-      )
-      WHERE json_extract(data, '$.order_index') IS NULL
-    `);
-
-    console.log(
-      '[Migration 2.3->2.4] ✓ Default order_index set on quest_asset_link_local'
-    );
-
     const assetLocalExists = await rawTableExists(db, 'asset_local');
 
     if (!assetLocalExists) {
@@ -66,9 +49,11 @@ export const migration_2_3_to_2_4: Migration = {
     }
 
     if (onProgress) {
-      onProgress(2, 2, 'Backfilling quest asset link fields from local assets');
+      onProgress(1, 1, 'Backfilling quest asset link fields from local assets');
     }
 
+    // order_index logic mirrors public.backfill_quest_asset_link_placement:
+    // replace legacy default 0 on the link when the linked asset has a real order.
     await db.execute(`
       UPDATE ${questAssetLinkTable}
       SET data = json_set(
@@ -84,16 +69,34 @@ export const migration_2_3_to_2_4: Migration = {
           )
         ),
         '$.order_index',
-        coalesce(
-          json_extract(data, '$.order_index'),
-          (
+        CASE
+          WHEN coalesce(json_extract(data, '$.order_index'), 0) = 0
+            AND coalesce(
+              (
+                SELECT json_extract(a.data, '$.order_index')
+                FROM ${assetTable} a
+                WHERE a.id = json_extract(${questAssetLinkTable}.data, '$.asset_id')
+                LIMIT 1
+              ),
+              0
+            ) <> 0
+          THEN (
             SELECT json_extract(a.data, '$.order_index')
             FROM ${assetTable} a
             WHERE a.id = json_extract(${questAssetLinkTable}.data, '$.asset_id')
             LIMIT 1
-          ),
-          0
-        ),
+          )
+          ELSE coalesce(
+            json_extract(data, '$.order_index'),
+            (
+              SELECT json_extract(a.data, '$.order_index')
+              FROM ${assetTable} a
+              WHERE a.id = json_extract(${questAssetLinkTable}.data, '$.asset_id')
+              LIMIT 1
+            ),
+            0
+          )
+        END,
         '$.metadata',
         coalesce(
           json_extract(data, '$.metadata'),
@@ -106,8 +109,17 @@ export const migration_2_3_to_2_4: Migration = {
         )
       )
       WHERE json_extract(data, '$.name') IS NULL
-         OR json_extract(data, '$.order_index') IS NULL
          OR json_extract(data, '$.metadata') IS NULL
+         OR json_extract(data, '$.order_index') IS NULL
+         OR (
+           coalesce(json_extract(data, '$.order_index'), 0) = 0
+           AND EXISTS (
+             SELECT 1
+             FROM ${assetTable} a
+             WHERE a.id = json_extract(${questAssetLinkTable}.data, '$.asset_id')
+               AND coalesce(json_extract(a.data, '$.order_index'), 0) <> 0
+           )
+         )
     `);
 
     console.log(
