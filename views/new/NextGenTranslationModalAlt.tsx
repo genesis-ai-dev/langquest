@@ -16,15 +16,15 @@ import type { asset_content_link } from '@/db/drizzleSchema';
 import { asset } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useProjectById } from '@/hooks/db/useProjects';
-import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useHasUserReported } from '@/hooks/useReports';
 import { useTranscription } from '@/hooks/useTranscription';
+import { resolveExistingAudioUri } from '@/utils/attachmentPaths';
 import { resolveTable } from '@/utils/dbUtils';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
-import { fileExists, getLocalUri } from '@/utils/fileUtils';
+import { fileExists } from '@/utils/fileUtils';
 import { cn, getThemeColor } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
@@ -189,14 +189,6 @@ export default function NextGenTranslationModal({
 
   const { data: translationData, isLoading } = useNextGenTranslation(assetId);
 
-  const audioIds = React.useMemo(() => {
-    return translationData.flatMap((t) =>
-      t.content.flatMap((c) => c.audio ?? [])
-    );
-  }, [translationData]);
-
-  const { attachmentStates } = useAttachmentStates(audioIds);
-
   const asset = translationData[0];
   const assetText = asset?.content[0]?.text;
   // Calculate vote counts
@@ -250,26 +242,30 @@ export default function NextGenTranslationModal({
   const [audioSegments, setAudioSegments] = useState<string[]>([]);
 
   useEffect(() => {
-    const loadAudioSegments = () => {
+    let cancelled = false;
+    const loadAudioSegments = async () => {
       if (!asset?.content) {
         setAudioSegments([]);
         return;
       }
-      const audioIds = asset.content
+      const audioValues = asset.content
         .flatMap((c) => c.audio ?? [])
         .filter(Boolean);
-      // Use getLocalUri directly - local_uri already includes the path prefix
-      // Only include segments where attachmentStates has a valid local_uri
-      const segments = audioIds
-        .map((audio) => {
-          const localUri = attachmentStates.get(audio)?.local_uri;
-          return localUri ? getLocalUri(localUri) : null;
-        })
-        .filter((uri): uri is string => uri !== null);
-      setAudioSegments(segments);
+      // Only include segments whose files exist on this device
+      const resolved = await Promise.all(
+        audioValues.map((audio) => resolveExistingAudioUri(audio))
+      );
+      if (!cancelled) {
+        setAudioSegments(
+          resolved.filter((uri): uri is string => uri !== null)
+        );
+      }
     };
-    loadAudioSegments();
-  }, [asset?.content, attachmentStates]);
+    void loadAudioSegments();
+    return () => {
+      cancelled = true;
+    };
+  }, [asset?.content]);
 
   const isOwnTranslation = currentUser?.id === asset?.creator_id;
 

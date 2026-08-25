@@ -80,6 +80,25 @@ export default defineConfig(
       '@typescript-eslint/no-non-null-assertion': 'off',
       '@typescript-eslint/prefer-nullish-coalescing': 'off',
       'import/consistent-type-specifier-style': ['error', 'prefer-top-level'],
+      // uploaded_at / audio_uploaded_at are server-owned confirmation fields,
+      // stamped by Postgres triggers. Clients must never write them: local
+      // copies would be lies, and the sync pipeline strips + the server
+      // rejects them anyway. Flags `.values({...})` and `.set({...})` writes.
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            "CallExpression[callee.property.name='values'] ObjectExpression > Property[key.name=/^(uploaded_at|audio_uploaded_at)$/]",
+          message:
+            'uploaded_at/audio_uploaded_at are server-owned (trigger-stamped) fields. Never write them from the client.'
+        },
+        {
+          selector:
+            "CallExpression[callee.property.name='set'] ObjectExpression > Property[key.name=/^(uploaded_at|audio_uploaded_at)$/]",
+          message:
+            'uploaded_at/audio_uploaded_at are server-owned (trigger-stamped) fields. Never write them from the client.'
+        }
+      ],
       'no-restricted-imports': [
         'error',
         {

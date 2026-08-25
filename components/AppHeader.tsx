@@ -1,5 +1,5 @@
 import { Icon } from '@/components/ui/icon';
-import { useAttachmentStates } from '@/hooks/useAttachmentStates';
+import { useAudioSyncStatus } from '@/hooks/useAudioSyncStatus';
 import { useBreadcrumbs } from '@/hooks/useBreadcrumbs';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
@@ -7,7 +7,6 @@ import { useNotifications } from '@/hooks/useNotifications';
 import { useSyncState } from '@/hooks/useSyncState';
 import { cn, useThemeToken } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
-import { AttachmentState } from '@powersync/attachments';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import {
@@ -19,7 +18,7 @@ import {
   MenuIcon,
   RefreshCw
 } from 'lucide-react-native';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import Animated, {
@@ -70,23 +69,9 @@ export default function AppHeader({
     uploadError
   } = useSyncState();
 
-  // Get attachment states to monitor download queue
-  const { attachmentStates } = useAttachmentStates([]);
-
-  // Calculate if there are downloads in progress
-  const hasDownloadsInProgress = useMemo(() => {
-    if (attachmentStates.size === 0) return false;
-
-    for (const record of attachmentStates.values()) {
-      if (
-        record.state === AttachmentState.QUEUED_DOWNLOAD ||
-        record.state === AttachmentState.QUEUED_SYNC
-      ) {
-        return true;
-      }
-    }
-    return false;
-  }, [attachmentStates]);
+  // Audio files still to download (derived from the audio sync workers)
+  const { pendingDownloads, activeDownloads } = useAudioSyncStatus();
+  const hasDownloadsInProgress = pendingDownloads > 0 || activeDownloads > 0;
 
   const hasSyncError = !!(downloadError || uploadError);
   // Don't show syncing state if there's an error - prevents eternal syncing loop
@@ -98,20 +83,21 @@ export default function AppHeader({
       hasDownloadsInProgress);
   const isConnected = useNetworkStatus();
 
-  // Debounce sync status to prevent flickering and allow animations to complete
+  // Debounce sync status to prevent flickering and allow animations to
+  // complete: show immediately when syncing starts (adjusted during render,
+  // per react.dev "adjusting state when a prop changes"), hide after a delay.
   const [isSyncing, setIsSyncing] = useState(rawIsSyncing);
+  if (rawIsSyncing && !isSyncing) {
+    setIsSyncing(true);
+  }
 
   useEffect(() => {
-    if (rawIsSyncing) {
-      // Immediately show syncing when it starts
-      setIsSyncing(true);
-    } else {
-      // Delay hiding sync indicator to allow animation to complete smoothly
-      const timeout = setTimeout(() => {
-        setIsSyncing(false);
-      }, 500);
-      return () => clearTimeout(timeout);
-    }
+    if (rawIsSyncing) return;
+    // Delay hiding sync indicator to allow animation to complete smoothly
+    const timeout = setTimeout(() => {
+      setIsSyncing(false);
+    }, 500);
+    return () => clearTimeout(timeout);
   }, [rawIsSyncing]);
 
   // Handler for sync error tap

@@ -28,6 +28,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import type { asset_content_link, language } from '@/db/drizzleSchema';
 import { project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
+import { promoteLocalAudio } from '@/services/attachments/promoteLocalAudio';
 import { useLanguageById } from '@/hooks/db/useLanguages';
 import { useLanguoidById } from '@/hooks/db/useLanguoids';
 import { useLocalization } from '@/hooks/useLocalization';
@@ -472,20 +473,24 @@ export default function NextGenNewTranslationModal({
 
         let audioAttachment: string | null = null;
         if (data.audioUri) {
-          // Ensure attachment queues are ready before saving audio
-          // This handles the case where the app started offline and queues weren't initialized
-          await system.ensureAttachmentQueuesReady();
+          // Convert recording to local attachment path
+          // - On web: converts blob URL to OPFS file
+          // - On native: moves from cache dir to local attachments dir
+          const localAudioPath = await saveAudioLocally(data.audioUri);
 
-          if (system.permAttachmentQueue) {
-            // Convert recording to local attachment path
-            // - On web: converts blob URL to OPFS file
-            // - On native: moves from cache dir to local attachments dir
-            const localAudioPath = await saveAudioLocally(data.audioUri);
-
-            const attachment = await system.permAttachmentQueue.saveAudio(
+          if (isLocalSource) {
+            // Pre-publish content: keep the 'local/…' value so the recording
+            // stays on-device. Publishing the quest strips the prefix and
+            // promotes the file — upload happens when the user publishes.
+            audioAttachment = localAudioPath;
+          } else {
+            // The row goes straight to the synced tables and syncs now, so
+            // the file must take its published filename now; the acl row
+            // (audio_uploaded_at null) is what makes the AudioUploader
+            // pick it up.
+            audioAttachment = await promoteLocalAudio(
               getLocalAttachmentUri(localAudioPath)
             );
-            audioAttachment = attachment.filename;
           }
         }
 

@@ -2,10 +2,7 @@ import { resolveTable } from '@/utils/dbUtils';
 import { saveAudioLocally } from '@/utils/fileUtils';
 import { eq } from 'drizzle-orm';
 import uuid from 'react-native-uuid';
-import { asset_content_link } from '../db/drizzleSchema';
 import { system } from '../db/powersync/system';
-
-const { db } = system;
 
 export interface AudioSegmentData {
   id: string;
@@ -27,18 +24,9 @@ export class AudioSegmentService {
     projectId: string
   ): Promise<{ assetId: string; audioUri: string }> {
     try {
-      // Save the recorded audio via the permanent attachment queue
-      if (!system.permAttachmentQueue) {
-        throw new Error('Permanent attachment queue not initialized');
-      }
-
       const localUri = await saveAudioLocally(segment.uri);
 
       console.log('[AUDIO SEGMENT SERVICE] Local URI:', localUri);
-
-      // const attachment = await system.permAttachmentQueue.saveAudio(
-      //   segment.uri
-      // );
 
       const newAsset = await system.db.transaction(async (tx) => {
         const [newAsset] = await tx
@@ -173,35 +161,12 @@ export class AudioSegmentService {
       // Collect all asset IDs to delete (children + parent)
       const allAssetIds = [...childAssets.map((c) => c.id), assetId];
 
-      // Collect audio files to delete from attachment queue BEFORE transaction
-      const allAssetContent = await db
-        .select()
-        .from(asset_content_link)
-        .where(eq(asset_content_link.asset_id, assetId));
-
-      // Also get content from child assets
-      for (const child of childAssets) {
-        const childContent = await db
-          .select()
-          .from(asset_content_link)
-          .where(eq(asset_content_link.asset_id, child.id));
-        allAssetContent.push(...childContent);
-      }
-
-      // Delete audio files from queue (file system ops, outside transaction)
-      // SKIP if preserveAudioFiles is true (used during merge when audio is being transferred)
-      if (!preserveAudioFiles) {
-        for (const content of allAssetContent) {
-          if (content.audio) {
-            for (const audio of content.audio) {
-              await system.permAttachmentQueue?.deleteFromQueue(audio);
-            }
-          }
-        }
-      } else {
-        console.log(
-          `⏭️ Preserving ${allAssetContent.length} audio files (merge operation)`
-        );
+      // NOTE: local audio files are intentionally NOT deleted here. There is
+      // no release mechanism yet — see the never-delete rule in the attachment
+      // plan. Orphaned files stay on disk until a mechanism gated on
+      // audio_uploaded_at exists. (preserveAudioFiles kept for API stability.)
+      if (preserveAudioFiles) {
+        console.log('⏭️ Preserving audio files (merge operation)');
       }
 
       // CRITICAL: Delete all related records in a single transaction

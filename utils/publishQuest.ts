@@ -24,6 +24,7 @@ import {
 } from '@/db/drizzleSchemaSynced';
 import { system } from '@/db/powersync/system';
 import { getNetworkStatus } from '@/hooks/useNetworkStatus';
+import { promoteLocalAudio } from '@/services/attachments/promoteLocalAudio';
 import {
   and,
   eq,
@@ -587,21 +588,18 @@ export async function publishQuest(
           AND EXISTS (SELECT 1 FROM tag_local t WHERE t.id = atl.tag_id)`;
       await tx.run(sql.raw(assetTagLinkQuery));
 
-      // Queue audio attachments for upload
+      // Promote audio files to their published location. No queue record is
+      // created: the acl rows just written (audio set, audio_uploaded_at
+      // null) ARE the upload work list for the AudioUploader.
       const audioUploadResults = await Promise.allSettled(
-        localAudioFilesForAssets.map(async (audio) => {
-          const record = await system.permAttachmentQueue?.saveAudio(audio, tx);
-          if (!record?.size) {
-            return Promise.reject(
-              new Error(`Could not find size for audio attachment: ${audio}`)
-            );
-          }
-          return audio;
-        })
+        localAudioFilesForAssets.map((audio) => promoteLocalAudio(audio))
       );
 
       return audioUploadResults;
     });
+
+    // File moves are done; give the uploader an immediate pass.
+    system.audioUploader?.trigger();
 
     // ========================================================================
     // PHASE 4: REPORT

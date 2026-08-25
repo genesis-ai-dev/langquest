@@ -1,4 +1,11 @@
+import {
+  asset_content_link_synced,
+  asset_synced,
+  quest_asset_link_synced,
+  quest_synced
+} from '@/db/drizzleSchemaSynced';
 import { system } from '@/db/powersync/system';
+import { eq, inArray, sql } from 'drizzle-orm';
 import React from 'react';
 
 export interface UploadCategoryProgress {
@@ -41,14 +48,11 @@ export interface QuestUploadProgress {
 }
 
 interface CountsRow {
-  quest_total: number;
-  quest_confirmed: number;
-  qal_total: number;
-  qal_confirmed: number;
-  asset_total: number;
-  asset_confirmed: number;
-  acl_total: number;
-  acl_confirmed: number;
+  total: number;
+  confirmed: number;
+}
+
+interface AclCountsRow extends CountsRow {
   audio_total: number;
   audio_confirmed: number;
 }
@@ -73,56 +77,25 @@ const EMPTY: QuestUploadProgress = {
   isEmpty: true
 };
 
-// Only the spline tables that carry uploaded_at are counted (quest, quest_asset_link,
-// asset, asset_content_link). Tag-link tables have no uploaded_at column. Published
-// records live in the *_synced tables, which is exactly what an upload flushes.
-const COUNTS_SQL = `
-WITH aset AS (
-  SELECT asset_id FROM quest_asset_link_synced WHERE quest_id = ?
-)
-SELECT
-  (SELECT COUNT(*) FROM quest_synced WHERE id = ?) AS quest_total,
-  (SELECT COUNT(*) FROM quest_synced WHERE id = ? AND uploaded_at IS NOT NULL)
-    AS quest_confirmed,
-  (SELECT COUNT(*) FROM quest_asset_link_synced WHERE quest_id = ?) AS qal_total,
-  (SELECT COUNT(*) FROM quest_asset_link_synced WHERE quest_id = ? AND uploaded_at IS NOT NULL)
-    AS qal_confirmed,
-  (SELECT COUNT(*) FROM asset_synced WHERE id IN (SELECT asset_id FROM aset)) AS asset_total,
-  (SELECT COUNT(*) FROM asset_synced WHERE id IN (SELECT asset_id FROM aset) AND uploaded_at IS NOT NULL)
-    AS asset_confirmed,
-  (SELECT COUNT(*) FROM asset_content_link_synced WHERE asset_id IN (SELECT asset_id FROM aset))
-    AS acl_total,
-  (SELECT COUNT(*) FROM asset_content_link_synced WHERE asset_id IN (SELECT asset_id FROM aset) AND uploaded_at IS NOT NULL)
-    AS acl_confirmed,
-  (SELECT COUNT(*) FROM asset_content_link_synced
-     WHERE asset_id IN (SELECT asset_id FROM aset)
-       AND audio IS NOT NULL AND audio != '[]' AND audio != '') AS audio_total,
-  (SELECT COUNT(*) FROM asset_content_link_synced
-     WHERE asset_id IN (SELECT asset_id FROM aset)
-       AND audio IS NOT NULL AND audio != '[]' AND audio != ''
-       AND audio_uploaded_at IS NOT NULL) AS audio_confirmed
-`;
+function toCategory(row: CountsRow | undefined): UploadCategoryProgress {
+  return { total: row?.total ?? 0, confirmed: row?.confirmed ?? 0 };
+}
 
-const PARAM_COUNT = 5;
-
-function toProgress(row: CountsRow | undefined): QuestUploadProgress {
-  if (!row) return EMPTY;
-
+function toProgress(
+  quest: CountsRow | undefined,
+  questAssetLinks: CountsRow | undefined,
+  assets: CountsRow | undefined,
+  acl: AclCountsRow | undefined
+): QuestUploadProgress {
   const breakdown: QuestUploadBreakdown = {
-    quest: { total: row.quest_total ?? 0, confirmed: row.quest_confirmed ?? 0 },
-    questAssetLinks: {
-      total: row.qal_total ?? 0,
-      confirmed: row.qal_confirmed ?? 0
-    },
-    assets: {
-      total: row.asset_total ?? 0,
-      confirmed: row.asset_confirmed ?? 0
-    },
-    contentLinks: {
-      total: row.acl_total ?? 0,
-      confirmed: row.acl_confirmed ?? 0
-    },
-    audio: { total: row.audio_total ?? 0, confirmed: row.audio_confirmed ?? 0 }
+    quest: toCategory(quest),
+    questAssetLinks: toCategory(questAssetLinks),
+    assets: toCategory(assets),
+    contentLinks: toCategory(acl),
+    audio: {
+      total: acl?.audio_total ?? 0,
+      confirmed: acl?.audio_confirmed ?? 0
+    }
   };
 
   const totalRecords =
@@ -171,6 +144,11 @@ function toProgress(row: CountsRow | undefined): QuestUploadProgress {
  * plus a per-table breakdown. Both signals are stamped server-side and synced
  * back down, so watching the local SQLite *_synced tables reflects real server
  * confirmation, not just the optimistic "queued" state at publish time.
+ *
+ * Only the spline tables that carry uploaded_at are counted (quest,
+ * quest_asset_link, asset, asset_content_link). Tag-link tables have no
+ * uploaded_at column. Published records live in the *_synced tables, which is
+ * exactly what an upload flushes.
  */
 export function useQuestUploadProgress(
   questId: string | null | undefined
@@ -184,31 +162,93 @@ export function useQuestUploadProgress(
     }
 
     const abortController = new AbortController();
-    let isMounted = true;
-    const shouldProceed = () => !abortController.signal.aborted && isMounted;
-    const params = Array(PARAM_COUNT).fill(questId) as string[];
 
-    // watch() fires onResult immediately with the initial query result, so no
-    // separate initial fetch is needed.
-    system.powersync.watch(
-      COUNTS_SQL,
-      params,
-      {
-        onResult: (result) => {
-          if (!shouldProceed()) return;
-          const row = result.rows?._array?.[0] as CountsRow | undefined;
-          setProgress(toProgress(row));
+    // Aggregate-only queries always return exactly one row, even when the
+    // quest has nothing published yet.
+    const questCounts = system.db
+      .select({
+        total: sql<number>`count(*)`,
+        confirmed: sql<number>`count(*) filter (where ${quest_synced.uploaded_at} is not null)`
+      })
+      .from(quest_synced)
+      .where(eq(quest_synced.id, questId));
+
+    const qalCounts = system.db
+      .select({
+        total: sql<number>`count(*)`,
+        confirmed: sql<number>`count(*) filter (where ${quest_asset_link_synced.uploaded_at} is not null)`
+      })
+      .from(quest_asset_link_synced)
+      .where(eq(quest_asset_link_synced.quest_id, questId));
+
+    const questAssetIds = system.db
+      .select({ asset_id: quest_asset_link_synced.asset_id })
+      .from(quest_asset_link_synced)
+      .where(eq(quest_asset_link_synced.quest_id, questId));
+
+    const assetCounts = system.db
+      .select({
+        total: sql<number>`count(*)`,
+        confirmed: sql<number>`count(*) filter (where ${asset_synced.uploaded_at} is not null)`
+      })
+      .from(asset_synced)
+      .where(inArray(asset_synced.id, questAssetIds));
+
+    // audio is JSON-as-text in SQLite; '' / '[]' mean "no audio referenced".
+    const hasAudio = sql`${asset_content_link_synced.audio} is not null
+      and ${asset_content_link_synced.audio} != '[]'
+      and ${asset_content_link_synced.audio} != ''`;
+    const aclCounts = system.db
+      .select({
+        total: sql<number>`count(*)`,
+        confirmed: sql<number>`count(*) filter (where ${asset_content_link_synced.uploaded_at} is not null)`,
+        audio_total: sql<number>`count(*) filter (where ${hasAudio})`,
+        audio_confirmed: sql<number>`count(*) filter (where ${hasAudio} and ${asset_content_link_synced.audio_uploaded_at} is not null)`
+      })
+      .from(asset_content_link_synced)
+      .where(inArray(asset_content_link_synced.asset_id, questAssetIds));
+
+    // Hold partial results and only publish once every watch has reported, so
+    // consumers never see a mix of fresh and missing categories.
+    const rows: {
+      quest?: CountsRow;
+      qal?: CountsRow;
+      asset?: CountsRow;
+      acl?: AclCountsRow;
+    } = {};
+
+    const publish = () => {
+      if (abortController.signal.aborted) return;
+      if (!rows.quest || !rows.qal || !rows.asset || !rows.acl) return;
+      setProgress(toProgress(rows.quest, rows.qal, rows.asset, rows.acl));
+    };
+
+    const watch = <T,>(
+      query: Parameters<typeof system.db.watch<T>>[0],
+      assign: (row: T | undefined) => void
+    ) => {
+      system.db.watch<T>(
+        query,
+        {
+          onResult: (results) => {
+            assign(results[0]);
+            publish();
+          },
+          onError: (err) => {
+            if (abortController.signal.aborted) return;
+            console.error('Quest upload progress watch error:', err);
+          }
         },
-        onError: (err) => {
-          if (!shouldProceed()) return;
-          console.error('Quest upload progress watch error:', err);
-        }
-      },
-      { signal: abortController.signal }
-    );
+        { signal: abortController.signal }
+      );
+    };
+
+    watch<CountsRow>(questCounts, (row) => (rows.quest = row));
+    watch<CountsRow>(qalCounts, (row) => (rows.qal = row));
+    watch<CountsRow>(assetCounts, (row) => (rows.asset = row));
+    watch<AclCountsRow>(aclCounts, (row) => (rows.acl = row));
 
     return () => {
-      isMounted = false;
       abortController.abort();
     };
   }, [questId]);

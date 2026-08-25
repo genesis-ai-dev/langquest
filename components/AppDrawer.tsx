@@ -81,11 +81,9 @@ export default function AppDrawer({
           ? 'notifications'
           : pathname.includes('/settings')
             ? 'settings'
-            : pathname.includes('/corrupted-attachments')
-              ? 'corrupted-attachments'
-              : pathname.includes('/download-status')
-                ? 'download-status'
-                : undefined;
+            : pathname.includes('/download-status')
+              ? 'download-status'
+              : undefined;
 
   // Always call hooks (Rules of Hooks), but only subscribe when drawer is visible
   // The hooks themselves handle memoization to prevent re-renders
@@ -258,11 +256,6 @@ export default function AppDrawer({
     () => closeDrawerAndExecute(() => router.push('/(app)/settings')),
     [closeDrawerAndExecute, router]
   );
-  const handleGoToCorruptedAttachments = useCallback(
-    () =>
-      closeDrawerAndExecute(() => router.push('/(app)/corrupted-attachments')),
-    [closeDrawerAndExecute, router]
-  );
   const handleGoToDownloadStatus = useCallback(
     () => closeDrawerAndExecute(() => router.push('/(app)/download-status')),
     [closeDrawerAndExecute, router]
@@ -370,16 +363,6 @@ export default function AppDrawer({
     //   onPress: handleGoToDownloadStatus
     // });
 
-    // Add diagnostics menu item in dev mode
-    if (__DEV__) {
-      items.push({
-        name: 'Diagnostics',
-        view: 'corrupted-attachments',
-        icon: AlertTriangle,
-        onPress: handleGoToCorruptedAttachments
-      });
-    }
-
     // Add logout for development
     if (__DEV__) {
       items.push({
@@ -398,7 +381,6 @@ export default function AppDrawer({
     handleGoToNotifications,
     handleGoToProfile,
     handleGoToSettings,
-    handleGoToCorruptedAttachments,
     handleSignIn,
     handleSignOut
   ]);

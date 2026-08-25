@@ -695,6 +695,10 @@ export function createAssetContentLinkTable<
           table.source_language_id
         ),
         index('idx_acl_asset_order').on(table.asset_id, table.order_index),
+        // The audio sync workers' work-list queries filter on this column on
+        // every pass (and via db.watch during sync); IS NULL matches ~0 rows
+        // in steady state, so this turns a full scan into an index seek.
+        index('idx_acl_audio_uploaded_at').on(table.audio_uploaded_at),
         ...normalizeParams(extraConfig, table)
       ];
     }

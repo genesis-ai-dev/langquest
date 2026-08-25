@@ -1,12 +1,9 @@
 import { useAuth } from '@/contexts/AuthContext';
-import { useAttachmentStates } from '@/hooks/useAttachmentStates';
+import { useAudioSyncStatus } from '@/hooks/useAudioSyncStatus';
 import type { LocalState } from '@/store/localStore';
 import { useLocalStore } from '@/store/localStore';
-import { AttachmentState } from '@powersync/attachments';
 import { useMemo } from 'react';
 import { useShallow } from 'zustand/react/shallow';
-
-const EMPTY_IDS: string[] = [];
 
 export interface AttachmentProgress {
   total: number;
@@ -63,21 +60,30 @@ function attachmentProgressSelector(state: LocalState) {
 }
 
 /**
- * Hook that provides attachment progress tracking with throttling and memoization
- * to prevent cascading re-renders.
+ * Attachment progress for the drawer/status UI, derived from the
+ * domain-driven audio sync workers (no attachments table):
  *
- * @param enabled - Only query attachment states when enabled (e.g., when drawer is open)
+ * - total: audio files that should be on this device (present + confirmed
+ *   remote files still to download)
+ * - synced: files present locally AND not awaiting upload confirmation
+ * - downloading/uploading: current work-list sizes
+ *
+ * `syncProgress` (current batch counters) still comes from the local store,
+ * which the workers update while a batch runs.
  */
 export function useAttachmentProgress(enabled = true): {
   progress: AttachmentProgress;
-  syncProgress: ReturnType<typeof attachmentProgressSelector>;
+  syncProgress: ReturnType<typeof attachmentProgressSelector> & {
+    downloadSpeed: number;
+    uploadSpeed: number;
+    downloadBytesPerSec: number;
+    uploadBytesPerSec: number;
+  };
   isLoading: boolean;
 } {
   const { isAuthenticated } = useAuth();
 
-  // Get attachment states only when enabled
-  const { attachmentStates, isLoading: attachmentStatesLoading } =
-    useAttachmentStates(EMPTY_IDS, enabled && isAuthenticated);
+  const audioStatus = useAudioSyncStatus();
 
   // Stable empty progress object for anonymous users (never changes)
   const emptySyncProgress = useMemo(
@@ -96,13 +102,10 @@ export function useAttachmentProgress(enabled = true): {
     []
   );
 
-  // Always call the hook (Rules of Hooks)
   // Use a stable selector that excludes frequently-changing values
   // Use shallow comparison to prevent re-renders when values haven't changed
   const rawSyncProgress = useLocalStore(useShallow(attachmentProgressSelector));
 
-  // Stable reference for syncProgress - only create new object when values change
-  // Compare individual values to prevent unnecessary object creation
   const syncProgress = useMemo(() => {
     if (!isAuthenticated) {
       return emptySyncProgress;
@@ -116,15 +119,14 @@ export function useAttachmentProgress(enabled = true): {
       downloadTotal: rawSyncProgress.downloadTotal,
       uploadCurrent: rawSyncProgress.uploadCurrent,
       uploadTotal: rawSyncProgress.uploadTotal,
-      downloadSpeed: 0, // Not used in drawer, set to 0 to avoid re-renders
-      uploadSpeed: 0, // Not used in drawer, set to 0 to avoid re-renders
-      downloadBytesPerSec: 0, // Not used in drawer, set to 0 to avoid re-renders
-      uploadBytesPerSec: 0 // Not used in drawer, set to 0 to avoid re-renders
+      downloadSpeed: 0,
+      uploadSpeed: 0,
+      downloadBytesPerSec: 0,
+      uploadBytesPerSec: 0
     };
   }, [
     isAuthenticated,
     emptySyncProgress,
-    // Compare individual values instead of whole object to prevent unnecessary updates
     rawSyncProgress.downloading,
     rawSyncProgress.uploading,
     rawSyncProgress.downloadCurrent,
@@ -147,62 +149,38 @@ export function useAttachmentProgress(enabled = true): {
     []
   );
 
-  // Calculate attachment progress stats
-  // useMemo will prevent recalculation when dependencies don't change
   const attachmentProgress = useMemo(() => {
-    // Short-circuit when disabled or not authenticated
-    if (!enabled || !isAuthenticated || attachmentStatesLoading) {
+    if (!enabled || !isAuthenticated) {
       return emptyProgress;
     }
 
-    // Calculate counts efficiently in a single pass
-    // Note: ARCHIVED attachments are already filtered out by useAttachmentStates query
-    const total = attachmentStates.size;
-    let synced = 0;
-    let downloading = 0;
-    let uploading = 0;
-    let queued = 0;
+    const {
+      pendingUploads,
+      pendingDownloads,
+      localFileCount,
+      hasActivity
+    } = audioStatus;
 
-    for (const record of attachmentStates.values()) {
-      if (record.state === AttachmentState.SYNCED) {
-        synced++;
-      } else if (record.state === AttachmentState.QUEUED_DOWNLOAD) {
-        downloading++;
-      } else if (record.state === AttachmentState.QUEUED_UPLOAD) {
-        uploading++;
-      } else if (record.state === AttachmentState.QUEUED_SYNC) {
-        // QUEUED_SYNC can be either download or upload, but we'll count it as queued
-        // The actual direction is determined by whether local_uri exists
-        queued++;
-      }
-    }
+    // Files that belong on this device: everything already here plus
+    // confirmed remote files still to download.
+    const total = localFileCount + pendingDownloads;
+    const unsynced = pendingUploads + pendingDownloads;
+    const synced = Math.max(0, total - unsynced);
 
-    const hasActivity = downloading > 0 || uploading > 0 || queued > 0;
-    const unsynced = total - synced;
-
-    // Create new object - useMemo ensures this only happens when dependencies change
     return {
       total,
       synced,
-      downloading,
-      uploading,
-      queued,
-      hasActivity,
-      unsynced
+      downloading: pendingDownloads,
+      uploading: pendingUploads,
+      queued: 0,
+      unsynced,
+      hasActivity
     };
-  }, [
-    enabled,
-    isAuthenticated,
-    attachmentStatesLoading,
-    attachmentStates,
-    emptyProgress
-  ]);
+  }, [enabled, isAuthenticated, audioStatus, emptyProgress]);
 
-  // Return progress directly - useMemo already handles memoization
-  // The batching in AbstractSharedAttachmentQueue reduces update frequency
   return {
     progress: attachmentProgress,
     syncProgress,
-    isLoading: attachmentStatesLoading
+    isLoading: false
   };
 }
