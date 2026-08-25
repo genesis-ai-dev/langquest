@@ -1841,63 +1841,60 @@ export function ImportWizard({
               )}
             </Button>
           </View>
-        </View>
-      </Modal>
 
-      <Modal
-        visible={assetIdToAssignRange !== null}
-        transparent
-        animationType="slide"
-        statusBarTranslucent
-        navigationBarTranslucent
-        onRequestClose={() => setAssetIdToAssignRange(null)}
-      >
-        <View className="flex-1 justify-end">
-          <Pressable
-            className="absolute inset-0 bg-black/50"
-            onPress={() => setAssetIdToAssignRange(null)}
-            accessibilityRole="button"
-            accessibilityLabel="Close verse range selector"
-          />
-          <View
-            className="gap-4 rounded-t-3xl bg-background px-4 pt-4"
-            style={{ paddingBottom: insets.bottom + 16 }}
-          >
-            <View className="flex-row items-start justify-between gap-4 px-2">
-              <View className="flex-1 gap-1">
-                <Text className="text-lg font-semibold">
-                  Assign verse label
-                </Text>
-                <Text className="text-sm text-muted-foreground">
-                  This assignment will only be applied when the assets are
-                  imported.
-                </Text>
-              </View>
+          {assetIdToAssignRange !== null && (
+            <View className="absolute inset-0 justify-end">
               <Pressable
+                className="absolute inset-0 bg-black/50"
                 onPress={() => setAssetIdToAssignRange(null)}
-                hitSlop={10}
                 accessibilityRole="button"
                 accessibilityLabel="Close verse range selector"
-              >
-                <Icon as={XIcon} size={22} className="text-muted-foreground" />
-              </Pressable>
-            </View>
-            {assetIdToAssignRange && (
-              <VerseAssigner
-                key={assetIdToAssignRange}
-                availableVerses={availableVerses}
-                existingLabels={assignerExistingLabels}
-                verseCount={verseCount}
-                selectedFrom={activeVerseRange?.from}
-                selectedTo={activeVerseRange?.to}
-                getMaxToForFrom={getMaxAssignableTo}
-                formatLabel={formatVerse}
-                chapterSequence={chapterSequence}
-                onApply={handleApplyVerseRange}
-                onCancel={() => setAssetIdToAssignRange(null)}
               />
-            )}
-          </View>
+              <View
+                className="gap-4 rounded-t-3xl bg-background px-4 pt-4"
+                style={{ paddingBottom: insets.bottom + 16 }}
+              >
+                <View className="flex-row items-start justify-between gap-4 px-2">
+                  <View className="flex-1 gap-1">
+                    <Text className="text-lg font-semibold">
+                      Assign verse label
+                    </Text>
+                    <Text className="text-sm text-muted-foreground">
+                      This assignment will only be applied when the assets are
+                      imported.
+                    </Text>
+                  </View>
+                  <Pressable
+                    onPress={() => setAssetIdToAssignRange(null)}
+                    hitSlop={10}
+                    accessibilityRole="button"
+                    accessibilityLabel="Close verse range selector"
+                  >
+                    <Icon
+                      as={XIcon}
+                      size={22}
+                      className="text-muted-foreground"
+                    />
+                  </Pressable>
+                </View>
+                {assetIdToAssignRange && (
+                  <VerseAssigner
+                    key={assetIdToAssignRange}
+                    availableVerses={availableVerses}
+                    existingLabels={assignerExistingLabels}
+                    verseCount={verseCount}
+                    selectedFrom={activeVerseRange?.from}
+                    selectedTo={activeVerseRange?.to}
+                    getMaxToForFrom={getMaxAssignableTo}
+                    formatLabel={formatVerse}
+                    chapterSequence={chapterSequence}
+                    onApply={handleApplyVerseRange}
+                    onCancel={() => setAssetIdToAssignRange(null)}
+                  />
+                )}
+              </View>
+            </View>
+          )}
         </View>
       </Modal>
 
