@@ -1,19 +1,34 @@
 appId: ${MAESTRO_APP_ID}
+onFlowStart:
+  - runScript: ../api.js
+onFlowComplete:
+  # create-records.yaml sets skipSignInCleanup so it can keep using this session.
+  - evalScript: ${output.skipSignInCleanup !== true && output.api.deleteUserIfExists(output.signInEmail)}
 ---
+# iOS and Android Maestro jobs run in parallel against the same Supabase
+# project. Each run gets its own user so they cannot fight over one password.
+
 # - runFlow:
 #     when:
 #       platform: iOS
 #     file: _ios-toggle-autofill-passwords.yaml
+- evalScript: ${output.signInEmail = output.api.uniqueEmail("signin")}
+- evalScript: ${output.signInPassword = output.api.uniquePassword("signin")}
+- evalScript: ${output.api.createConfirmedUser(output.signInEmail, output.signInPassword)}
 - runFlow: _launch-and-onboard.yaml
 - tapOn:
     text: Sign In
     index: -1
-- tapOn: Enter your email
-- inputText: ${MAESTRO_TEST_EMAIL}
-- tapOn: Enter your password
-- inputText: ${MAESTRO_TEST_PASSWORD}
 - tapOn:
-    point: 95%,30%
+    id: sign-in-email
+- eraseText
+- inputText: ${output.signInEmail}
+- hideKeyboard
+- tapOn:
+    id: sign-in-password
+- eraseText
+- inputText: ${output.signInPassword}
+- hideKeyboard
 - tapOn:
     text: Sign In
     below: I forgot my password
@@ -23,4 +38,4 @@ appId: ${MAESTRO_APP_ID}
 - assertVisible:
     text: Profile
     above:
-      text: ${MAESTRO_TEST_EMAIL}
+      text: ${output.signInEmail}

@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm';
 // import { db } from '../db/database';
 import type { QuestMetadata } from '@/db/drizzleSchemaColumns';
 import { resolveTable } from '@/utils/dbUtils';
+import { withQuestVersionLabel } from '@/utils/questVersionLabel';
 import uuid from 'react-native-uuid';
 import { quest } from '../db/drizzleSchema';
 import { system } from '../db/powersync/system';
@@ -29,6 +30,20 @@ export class QuestService {
 }
 
 export const questService = new QuestService();
+
+export async function updateQuestVersionLabel(
+  quest_id: string,
+  versionLabel: string,
+  existingMetadata: unknown
+): Promise<void> {
+  const trimmed = versionLabel.trim();
+  if (!trimmed) {
+    throw new Error('Version label cannot be empty');
+  }
+
+  const parsed = parseQuestMetadata(existingMetadata);
+  await updateQuestMetadata(quest_id, withQuestVersionLabel(parsed, trimmed));
+}
 
 export async function updateQuestMetadata(
   quest_id: string,

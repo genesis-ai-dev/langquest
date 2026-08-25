@@ -34,6 +34,8 @@ interface RecordSelectionControlsProps {
   allowAssignVerse?: boolean;
   onAssignVerse?: () => void;
   showMerge?: boolean;
+  /** When false, merge stays disabled even with 2+ selected (e.g. imported assets). */
+  canMerge?: boolean;
 }
 
 export const RecordSelectionControls = React.memo(
@@ -47,7 +49,8 @@ export const RecordSelectionControls = React.memo(
     onSelectAll,
     allowAssignVerse = false,
     onAssignVerse,
-    showMerge = true
+    showMerge = true,
+    canMerge = true
   }: RecordSelectionControlsProps) {
     const { t } = useLocalization();
     return (
@@ -75,7 +78,7 @@ export const RecordSelectionControls = React.memo(
               <Button
                 variant="default"
                 size="default"
-                disabled={selectedCount < 2}
+                disabled={selectedCount < 2 || !canMerge}
                 onPress={onMerge}
                 className="p-1"
               >

@@ -18,6 +18,7 @@ function getOperationCount(
 ): number {
   switch (operation.action) {
     case 'create':
+    case 'import':
       return operation.newData.length;
     case 'delete':
       return operation.previousData.length;
@@ -66,6 +67,9 @@ export function getAssetOperationMessage(
       case 'move':
         message = { key: 'assetRedoMoveMessage', count };
         break;
+      case 'import':
+        message = { key: 'assetRedoImportMessage', count };
+        break;
       default:
         message = { key: 'assetRedoDeleteMessage', count };
         break;
@@ -89,6 +93,9 @@ export function getAssetOperationMessage(
         break;
       case 'move':
         message = { key: 'assetUndoMoveMessage', count };
+        break;
+      case 'import':
+        message = { key: 'assetUndoImportMessage', count };
         break;
       default:
         message = { key: 'assetUndoDeleteMessage', count };

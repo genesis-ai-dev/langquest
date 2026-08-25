@@ -57,18 +57,12 @@ jobs:
       SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PRODUCTION_PROJECT_ID }}
     steps:
       - uses: actions/checkout@v4
+      - uses: ./tooling/github/setup-ci
 
-      - uses: supabase/setup-cli@v1
-        with:
-          version: latest
-
-      - name: Get Branch Environment Variables
+      - name: Get POSTGRES_URL Environment Variable for this branch from Supabase
         run: |
-          supabase --experimental branches get "$GITHUB_HEAD_REF" -o env >> $GITHUB_ENV
-          # Mask JWT secret in logs immediately after retrieval
-          if [ -n "$SUPABASE_JWT_SECRET" ]; then
-            echo "::add-mask::${SUPABASE_JWT_SECRET}"
-          fi
+          npm ci
+          npx supabase branches get "$GITHUB_HEAD_REF" -o env | grep "^POSTGRES_URL=" >> $GITHUB_ENV
 
       - name: Setup PowerSync Environment
         run: |
@@ -77,7 +71,6 @@ jobs:
           DB_URL=$(echo "$POSTGRES_URL" | sed "s|:6543|:5432|g" | sed 's|?.*||')
           echo "DB_URL=${DB_URL}" >> $GITHUB_ENV
           echo "PS_DATA_SOURCE_URI=${DB_URL}" >> $GITHUB_ENV
-          echo "PS_SUPABASE_JWT_SECRET=${SUPABASE_JWT_SECRET}" >> $GITHUB_ENV
 
       - name: Run PowerSync Container
         uses: hoverkraft-tech/compose-action@v2.2.0

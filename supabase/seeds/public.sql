@@ -499,6 +499,45 @@ SELECT set_config('search_path', 'public', true);
 SELECT set_config('search_path', '', true);
 
 --
+-- Data for: book quest dedupe demo (migration 20260705120000_dedupe_book_quests)
+--
+-- NOTE: the Supabase CLI loads seeds with session_replication_role=replica,
+-- which disables user triggers — so trg_handle_duplicate_book_quests does NOT
+-- fire here and both "Ruth" books land live. That mirrors the pre-migration
+-- production state. To exercise the dedupe backfill locally, run:
+--
+--   select * from public.dedupe_book_quests(false);  -- preview
+--   select * from public.dedupe_book_quests(true);   -- apply
+--
+-- Expected after apply: book A ('...000a', most chapters) survives with 3
+-- chapters (two "Ruth 1" versions); book B ('...000d') is tombstoned
+-- (active=false, download_profiles=NULL, duplicate_of=A).
+--
+
+INSERT INTO "public"."project" ("id", "created_at", "last_updated", "name", "description", "target_language_id", "creator_id", "download_profiles", "active", "template") VALUES
+	('ddddd001-0000-4000-8000-000000000001', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Dedupe Demo (Ruth)', 'Demo project with a duplicate book quest for the dedupe trigger', '9e3f8bd9-c2e5-4f5a-b98d-123456789012', 'c111d43b-5983-4342-9d9e-5fc8d09d77b9', ARRAY['c111d43b-5983-4342-9d9e-5fc8d09d77b9']::uuid[], true, 'bible');
+
+-- 1. Live book quest (first in wins)
+INSERT INTO "public"."quest" ("id", "created_at", "last_updated", "name", "description", "project_id", "active", "creator_id", "download_profiles", "parent_id", "metadata") VALUES
+	('ddddd001-0000-4000-8000-00000000000a', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Ruth', '4 chapters', 'ddddd001-0000-4000-8000-000000000001', true, 'c111d43b-5983-4342-9d9e-5fc8d09d77b9', ARRAY['c111d43b-5983-4342-9d9e-5fc8d09d77b9']::uuid[], NULL, '{"bible":{"book":"rut"}}');
+
+-- Chapters under the live book
+INSERT INTO "public"."quest" ("id", "created_at", "last_updated", "name", "description", "project_id", "active", "creator_id", "download_profiles", "parent_id", "metadata") VALUES
+	('ddddd001-0000-4000-8000-00000000000b', '2024-01-02 00:00:00+00', '2024-01-02 00:00:00+00', 'Ruth 1', '22 verses', 'ddddd001-0000-4000-8000-000000000001', true, 'c111d43b-5983-4342-9d9e-5fc8d09d77b9', ARRAY['c111d43b-5983-4342-9d9e-5fc8d09d77b9']::uuid[], 'ddddd001-0000-4000-8000-00000000000a', '{"bible":{"book":"rut","chapter":1}}'),
+	('ddddd001-0000-4000-8000-00000000000c', '2024-01-02 00:00:00+00', '2024-01-02 00:00:00+00', 'Ruth 2', '23 verses', 'ddddd001-0000-4000-8000-000000000001', true, 'c111d43b-5983-4342-9d9e-5fc8d09d77b9', ARRAY['c111d43b-5983-4342-9d9e-5fc8d09d77b9']::uuid[], 'ddddd001-0000-4000-8000-00000000000a', '{"bible":{"book":"rut","chapter":2}}');
+
+-- 2. Duplicate book quest (as if created offline by another member).
+--    The trigger tombstones this row as it inserts.
+INSERT INTO "public"."quest" ("id", "created_at", "last_updated", "name", "description", "project_id", "active", "creator_id", "download_profiles", "parent_id", "metadata") VALUES
+	('ddddd001-0000-4000-8000-00000000000d', '2024-02-01 00:00:00+00', '2024-02-01 00:00:00+00', 'Ruth', '4 chapters', 'ddddd001-0000-4000-8000-000000000001', true, 'f2adf435-fd35-4927-8644-9b03785722b5', ARRAY['f2adf435-fd35-4927-8644-9b03785722b5']::uuid[], NULL, '{"bible":{"book":"rut"}}');
+
+-- 3. Chapter created under the duplicate book.
+--    The trigger re-points parent_id to the live book, making it a second
+--    version of "Ruth 1".
+INSERT INTO "public"."quest" ("id", "created_at", "last_updated", "name", "description", "project_id", "active", "creator_id", "download_profiles", "parent_id", "metadata") VALUES
+	('ddddd001-0000-4000-8000-00000000000e', '2024-02-02 00:00:00+00', '2024-02-02 00:00:00+00', 'Ruth 1', '22 verses', 'ddddd001-0000-4000-8000-000000000001', true, 'f2adf435-fd35-4927-8644-9b03785722b5', ARRAY['f2adf435-fd35-4927-8644-9b03785722b5']::uuid[], 'ddddd001-0000-4000-8000-00000000000d', '{"bible":{"book":"rut","chapter":1}}');
+
+--
 -- PostgreSQL database dump complete
 --
 
