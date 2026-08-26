@@ -20,7 +20,6 @@
 import type * as drizzleSchema from '@/db/drizzleSchema';
 import { asset_content_link_synced } from '@/db/drizzleSchemaSynced';
 import type { SupabaseStorageAdapter } from '@/db/supabase/SupabaseStorageAdapter';
-import { useLocalStore } from '@/store/localStore';
 import {
   isInvalidAudioValue,
   isLocalOnlyAudio
@@ -35,6 +34,8 @@ const CONCURRENCY = 25;
 const PERIODIC_TICK_MS = 60_000;
 /** Backoff after a failed download: 30s → 2m → 10m (cap). */
 const BACKOFF_STEPS_MS = [30_000, 120_000, 600_000];
+/** Cap on listener notifications (UI re-renders) during a busy batch. */
+const NOTIFY_THROTTLE_MS = 100;
 
 interface FileAttemptState {
   failures: number;
@@ -49,6 +50,10 @@ export interface AudioDownloaderStatus {
   active: number;
   /** Pending files whose last attempt failed (retrying with backoff). */
   failing: number;
+  /** Files in the current transfer batch (0 when idle). */
+  batchTotal: number;
+  /** Files completed in the current transfer batch. */
+  batchDone: number;
 }
 
 export interface AudioDownloaderOptions {
@@ -66,7 +71,15 @@ export class AudioDownloader {
   private started = false;
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
   private tickTimer: ReturnType<typeof setInterval> | null = null;
-  private status: AudioDownloaderStatus = { pending: 0, active: 0, failing: 0 };
+  private notifyTimer: ReturnType<typeof setTimeout> | null = null;
+  private lastNotifyAt = 0;
+  private status: AudioDownloaderStatus = {
+    pending: 0,
+    active: 0,
+    failing: 0,
+    batchTotal: 0,
+    batchDone: 0
+  };
   private listeners = new Set<(status: AudioDownloaderStatus) => void>();
 
   constructor(private options: AudioDownloaderOptions) {}
@@ -78,6 +91,11 @@ export class AudioDownloader {
     this.options.db.watch(this.confirmedAudioQuery(), {
       onResult: () => this.schedule()
     });
+    // The work list is "confirmed rows minus files on device", so index
+    // changes (including our own downloads landing) must re-derive it —
+    // otherwise the final published `pending` count goes stale until the
+    // periodic tick.
+    this.options.fileIndex.subscribe(() => this.schedule());
 
     this.tickTimer = setInterval(() => this.schedule(), PERIODIC_TICK_MS);
     this.schedule();
@@ -107,8 +125,10 @@ export class AudioDownloader {
   stop(): void {
     if (this.tickTimer) clearInterval(this.tickTimer);
     if (this.debounceTimer) clearTimeout(this.debounceTimer);
+    if (this.notifyTimer) clearTimeout(this.notifyTimer);
     this.tickTimer = null;
     this.debounceTimer = null;
+    this.notifyTimer = null;
     this.started = false;
   }
 
@@ -177,7 +197,7 @@ export class AudioDownloader {
     }
 
     if (workList.length === 0) {
-      this.updateStatus({ pending: 0, active: 0, failing: 0 });
+      this.publishWorkStatus(workList, 0);
       return;
     }
 
@@ -200,13 +220,6 @@ export class AudioDownloader {
     console.log(
       `[AudioDownloader] Downloading ${ready.length} of ${workList.length} missing file(s)`
     );
-    useLocalStore.getState().setAttachmentSyncProgress({
-      downloading: true,
-      downloadCurrent: 0,
-      downloadTotal: ready.length,
-      downloadStartTime: now,
-      lastDownloadUpdate: now
-    });
 
     let completed = 0;
     const queue = [...ready];
@@ -216,17 +229,13 @@ export class AudioDownloader {
       const filename = queue.shift();
       if (filename === undefined) return;
       active++;
-      this.publishWorkStatus(workList, active);
+      this.publishWorkStatus(workList, active, ready.length, completed);
       try {
         await this.downloadOne(filename);
       } finally {
         active--;
         completed++;
-        useLocalStore.getState().setAttachmentSyncProgress({
-          downloadCurrent: completed,
-          lastDownloadUpdate: Date.now()
-        });
-        this.publishWorkStatus(workList, active);
+        this.publishWorkStatus(workList, active, ready.length, completed);
       }
       return runNext();
     };
@@ -238,9 +247,6 @@ export class AudioDownloader {
         )
       );
     } finally {
-      useLocalStore.getState().setAttachmentSyncProgress({
-        downloading: false
-      });
       this.publishWorkStatus(workList, 0);
     }
   }
@@ -274,23 +280,59 @@ export class AudioDownloader {
     }
   }
 
-  private publishWorkStatus(workList: string[], active: number): void {
+  private publishWorkStatus(
+    workList: string[],
+    active: number,
+    batchTotal = 0,
+    batchDone = 0
+  ): void {
     const failing = workList.filter(
       (name) => (this.attempts.get(name)?.failures ?? 0) > 0
     ).length;
-    this.updateStatus({ pending: workList.length, active, failing });
+    this.updateStatus({
+      pending: workList.length,
+      active,
+      failing,
+      batchTotal,
+      batchDone
+    });
   }
 
   private updateStatus(status: AudioDownloaderStatus): void {
+    const current = this.status;
     const changed =
-      status.pending !== this.status.pending ||
-      status.active !== this.status.active ||
-      status.failing !== this.status.failing;
+      status.pending !== current.pending ||
+      status.active !== current.active ||
+      status.failing !== current.failing ||
+      status.batchTotal !== current.batchTotal ||
+      status.batchDone !== current.batchDone;
     if (!changed) return;
     this.status = status;
+    this.notifyThrottled();
+  }
+
+  /**
+   * Batch completions can arrive many times per second; throttle listener
+   * notifications while guaranteeing a trailing notify with the final state.
+   */
+  private notifyThrottled(): void {
+    if (this.notifyTimer) return;
+    const wait = NOTIFY_THROTTLE_MS - (Date.now() - this.lastNotifyAt);
+    if (wait <= 0) {
+      this.notifyListeners();
+      return;
+    }
+    this.notifyTimer = setTimeout(() => {
+      this.notifyTimer = null;
+      this.notifyListeners();
+    }, wait);
+  }
+
+  private notifyListeners(): void {
+    this.lastNotifyAt = Date.now();
     for (const listener of this.listeners) {
       try {
-        listener(status);
+        listener(this.status);
       } catch (error) {
         console.error('[AudioDownloader] listener error:', error);
       }

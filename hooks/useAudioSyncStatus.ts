@@ -14,33 +14,43 @@ export interface AudioSyncStatus {
   pendingUploads: number;
   activeUploads: number;
   failingUploads: number;
+  /** Current upload batch: size and completions (0/0 when idle). */
+  uploadBatchTotal: number;
+  uploadBatchDone: number;
   /** Server-confirmed files not yet on this device. */
   pendingDownloads: number;
   activeDownloads: number;
   failingDownloads: number;
+  /** Current download batch: size and completions (0/0 when idle). */
+  downloadBatchTotal: number;
+  downloadBatchDone: number;
   /** Audio files currently on this device. */
   localFileCount: number;
   hasActivity: boolean;
 }
 
+const IDLE_WORKER_STATUS = {
+  pending: 0,
+  active: 0,
+  failing: 0,
+  batchTotal: 0,
+  batchDone: 0
+};
+
 function snapshot(): AudioSyncStatus {
-  const upload = system.audioUploader?.getStatus() ?? {
-    pending: 0,
-    active: 0,
-    failing: 0
-  };
-  const download = system.audioDownloader?.getStatus() ?? {
-    pending: 0,
-    active: 0,
-    failing: 0
-  };
+  const upload = system.audioUploader?.getStatus() ?? IDLE_WORKER_STATUS;
+  const download = system.audioDownloader?.getStatus() ?? IDLE_WORKER_STATUS;
   return {
     pendingUploads: upload.pending,
     activeUploads: upload.active,
     failingUploads: upload.failing,
+    uploadBatchTotal: upload.batchTotal,
+    uploadBatchDone: upload.batchDone,
     pendingDownloads: download.pending,
     activeDownloads: download.active,
     failingDownloads: download.failing,
+    downloadBatchTotal: download.batchTotal,
+    downloadBatchDone: download.batchDone,
     localFileCount: localFileIndex.size,
     hasActivity:
       upload.pending > 0 ||

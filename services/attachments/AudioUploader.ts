@@ -26,7 +26,6 @@
 import type * as drizzleSchema from '@/db/drizzleSchema';
 import { asset_content_link_synced } from '@/db/drizzleSchemaSynced';
 import type { SupabaseStorageAdapter } from '@/db/supabase/SupabaseStorageAdapter';
-import { useLocalStore } from '@/store/localStore';
 import {
   isInvalidAudioValue,
   isLocalOnlyAudio
@@ -47,6 +46,8 @@ const BACKOFF_STEPS_MS = [30_000, 60_000, 300_000, 1_800_000];
  * the confirmation was lost.
  */
 const CONFIRMATION_GRACE_MS = 10 * 60_000;
+/** Cap on listener notifications (UI re-renders) during a busy batch. */
+const NOTIFY_THROTTLE_MS = 100;
 
 const MEDIA_TYPES: Record<string, string> = {
   m4a: 'audio/mp4',
@@ -76,6 +77,10 @@ export interface AudioUploaderStatus {
   active: number;
   /** Pending files whose last attempt failed (retrying with backoff). */
   failing: number;
+  /** Files in the current transfer batch (0 when idle). */
+  batchTotal: number;
+  /** Files completed in the current transfer batch. */
+  batchDone: number;
 }
 
 export interface AudioUploaderOptions {
@@ -95,7 +100,15 @@ export class AudioUploader {
   private started = false;
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
   private tickTimer: ReturnType<typeof setInterval> | null = null;
-  private status: AudioUploaderStatus = { pending: 0, active: 0, failing: 0 };
+  private notifyTimer: ReturnType<typeof setTimeout> | null = null;
+  private lastNotifyAt = 0;
+  private status: AudioUploaderStatus = {
+    pending: 0,
+    active: 0,
+    failing: 0,
+    batchTotal: 0,
+    batchDone: 0
+  };
   private listeners = new Set<(status: AudioUploaderStatus) => void>();
 
   constructor(private options: AudioUploaderOptions) {}
@@ -138,8 +151,10 @@ export class AudioUploader {
   stop(): void {
     if (this.tickTimer) clearInterval(this.tickTimer);
     if (this.debounceTimer) clearTimeout(this.debounceTimer);
+    if (this.notifyTimer) clearTimeout(this.notifyTimer);
     this.tickTimer = null;
     this.debounceTimer = null;
+    this.notifyTimer = null;
     this.started = false;
   }
 
@@ -214,7 +229,7 @@ export class AudioUploader {
     }
 
     if (workList.length === 0) {
-      this.updateStatus({ pending: 0, active: 0, failing: 0 });
+      this.publishWorkStatus(workList, 0);
       return;
     }
 
@@ -229,7 +244,7 @@ export class AudioUploader {
       console.log(
         `[AudioUploader] ${workList.length} file(s) pending but no auth session; will retry`
       );
-      this.updateStatus({ pending: workList.length, active: 0, failing: 0 });
+      this.publishWorkStatus(workList, 0);
       return;
     }
 
@@ -245,13 +260,6 @@ export class AudioUploader {
     console.log(
       `[AudioUploader] Uploading ${ready.length} of ${workList.length} pending file(s)`
     );
-    useLocalStore.getState().setAttachmentSyncProgress({
-      uploading: true,
-      uploadCurrent: 0,
-      uploadTotal: ready.length,
-      uploadStartTime: now,
-      lastUploadUpdate: now
-    });
 
     let completed = 0;
     const queue = [...ready];
@@ -261,17 +269,13 @@ export class AudioUploader {
       const filename = queue.shift();
       if (filename === undefined) return;
       active++;
-      this.publishWorkStatus(workList, active);
+      this.publishWorkStatus(workList, active, ready.length, completed);
       try {
         await this.uploadOne(filename);
       } finally {
         active--;
         completed++;
-        useLocalStore.getState().setAttachmentSyncProgress({
-          uploadCurrent: completed,
-          lastUploadUpdate: Date.now()
-        });
-        this.publishWorkStatus(workList, active);
+        this.publishWorkStatus(workList, active, ready.length, completed);
       }
       return runNext();
     };
@@ -283,7 +287,6 @@ export class AudioUploader {
         )
       );
     } finally {
-      useLocalStore.getState().setAttachmentSyncProgress({ uploading: false });
       this.publishWorkStatus(workList, 0);
     }
   }
@@ -321,23 +324,59 @@ export class AudioUploader {
     }
   }
 
-  private publishWorkStatus(workList: string[], active: number): void {
+  private publishWorkStatus(
+    workList: string[],
+    active: number,
+    batchTotal = 0,
+    batchDone = 0
+  ): void {
     const failing = workList.filter(
       (name) => (this.attempts.get(name)?.failures ?? 0) > 0
     ).length;
-    this.updateStatus({ pending: workList.length, active, failing });
+    this.updateStatus({
+      pending: workList.length,
+      active,
+      failing,
+      batchTotal,
+      batchDone
+    });
   }
 
   private updateStatus(status: AudioUploaderStatus): void {
+    const current = this.status;
     const changed =
-      status.pending !== this.status.pending ||
-      status.active !== this.status.active ||
-      status.failing !== this.status.failing;
+      status.pending !== current.pending ||
+      status.active !== current.active ||
+      status.failing !== current.failing ||
+      status.batchTotal !== current.batchTotal ||
+      status.batchDone !== current.batchDone;
     if (!changed) return;
     this.status = status;
+    this.notifyThrottled();
+  }
+
+  /**
+   * Batch completions can arrive many times per second; throttle listener
+   * notifications while guaranteeing a trailing notify with the final state.
+   */
+  private notifyThrottled(): void {
+    if (this.notifyTimer) return;
+    const wait = NOTIFY_THROTTLE_MS - (Date.now() - this.lastNotifyAt);
+    if (wait <= 0) {
+      this.notifyListeners();
+      return;
+    }
+    this.notifyTimer = setTimeout(() => {
+      this.notifyTimer = null;
+      this.notifyListeners();
+    }, wait);
+  }
+
+  private notifyListeners(): void {
+    this.lastNotifyAt = Date.now();
     for (const listener of this.listeners) {
       try {
-        listener(status);
+        listener(this.status);
       } catch (error) {
         console.error('[AudioUploader] listener error:', error);
       }
