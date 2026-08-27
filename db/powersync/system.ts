@@ -10,21 +10,18 @@ import {
 } from '@powersync/drizzle-driver';
 import type { Table } from 'drizzle-orm';
 import { getTableColumns, getTableName, is } from 'drizzle-orm';
+import { AppState } from 'react-native';
 import 'react-native-url-polyfill/auto';
 import uuid from 'react-native-uuid';
 
 // Import from native SDK - will be empty on web
 import {
-  Column as ColumnNative,
-  ColumnType as ColumnTypeNative,
   PowerSyncDatabase as PowerSyncDatabaseNative,
   Schema as SchemaNative
 } from '@powersync/react-native';
 
 // Import from web SDK - will be empty on native
 import {
-  ColumnType as ColumnTypeWeb,
-  Column as ColumnWeb,
   PowerSyncDatabase as PowerSyncDatabaseWeb,
   Schema as SchemaWeb,
   WASQLiteOpenFactory
@@ -32,8 +29,9 @@ import {
 
 import { SupabaseStorageAdapter } from '../supabase/SupabaseStorageAdapter';
 
-import type { AttachmentRecord } from '@powersync/attachments';
-import { AttachmentTable } from '@powersync/attachments';
+import { AudioDownloader } from '@/services/attachments/AudioDownloader';
+import { AudioUploader } from '@/services/attachments/AudioUploader';
+import { localFileIndex } from '@/services/attachments/LocalFileIndex';
 import { OPSqliteOpenFactory } from '@powersync/op-sqlite';
 import { SQLiteTable } from 'drizzle-orm/sqlite-core';
 import Logger from 'js-logger';
@@ -41,9 +39,6 @@ import * as drizzleSchema from '../drizzleSchema';
 import * as drizzleSchemaLocal from '../drizzleSchemaLocal';
 import { AppConfig } from '../supabase/AppConfig';
 import { SupabaseConnector } from '../supabase/SupabaseConnector';
-import { AbstractSharedAttachmentQueue } from './AbstractSharedAttachmentQueue';
-import { PermAttachmentQueue } from './PermAttachmentQueue';
-import { ATTACHMENT_QUEUE_LIMITS } from './constants';
 import { getDefaultOpMetadata } from './opMetadata';
 
 import { initializeFiaQueue } from '@/services/FiaAttachmentQueue';
@@ -64,10 +59,6 @@ type InsertAssetContentLink = InferInsertModel<
 type InsertVote = InferInsertModel<typeof drizzleSchema.vote>;
 // Use the correct imports based on platform
 // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-const Column = ColumnNative || ColumnWeb;
-// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-const ColumnType = ColumnTypeNative || ColumnTypeWeb;
-// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
 const Schema = SchemaNative || SchemaWeb;
 // const SyncClientImplementation =
 
@@ -82,8 +73,8 @@ export class System {
   storage: SupabaseStorageAdapter;
   supabaseConnector: SupabaseConnector;
   powersync: PowerSyncDatabaseNative | PowerSyncDatabaseWeb;
-  permAttachmentQueue: PermAttachmentQueue | undefined = undefined;
-  // tempAttachmentQueue: TempAttachmentQueue | undefined = undefined;
+  audioUploader: AudioUploader | undefined = undefined;
+  audioDownloader: AudioDownloader | undefined = undefined;
   db: PowerSyncSQLiteDatabase<typeof drizzleSchema>;
   migrationDb: {
     getAll: (sql: string, params?: unknown[]) => Promise<unknown[]>;
@@ -206,13 +197,11 @@ export class System {
       )
     };
 
+    // Note: the old PowerSync AttachmentTable ('attachments') is intentionally
+    // no longer registered. PowerSync drops its local table; audio files on
+    // disk are untouched and the new domain-driven audio sync picks them up.
     const schema = new Schema([
-      ...new DrizzleAppSchema(drizzleSchemaWithOptions).tables,
-      new AttachmentTable({
-        additionalColumns: [
-          new Column({ name: 'storage_type', type: ColumnType.TEXT })
-        ]
-      })
+      ...new DrizzleAppSchema(drizzleSchemaWithOptions).tables
     ]);
 
     Logger.setLevel(Logger.DEBUG);
@@ -370,121 +359,24 @@ export class System {
     this.db = dbWithMetadata;
 
     if (AppConfig.supabaseBucket) {
-      this.permAttachmentQueue = new PermAttachmentQueue({
-        powersync: this.powersync,
-        storage: this.storage,
+      this.audioUploader = new AudioUploader({
         db: this.db,
-        supabaseConnector: this.supabaseConnector,
-        attachmentDirectoryName: AbstractSharedAttachmentQueue.SHARED_DIRECTORY,
-        cacheLimit: ATTACHMENT_QUEUE_LIMITS.PERMANENT,
-        // eslint-disable-next-line
-        onDownloadError: async (
-          attachment: AttachmentRecord,
-          exception: { toString: () => string; status?: number }
-        ) => {
-          // Don't retry corrupted attachments with blob URLs
-          if (
-            attachment.id?.includes('blob:') ||
-            attachment.local_uri?.includes('blob:') ||
-            attachment.filename?.includes('blob:')
-          ) {
-            console.error(
-              '[PermAttachmentQueue] Corrupted attachment with blob URL detected - not retrying:',
-              attachment.id
-            );
-            return { retry: false };
-          }
-
-          if (
-            exception.toString() === 'StorageApiError: Object not found' ||
-            exception.status === 400 ||
-            exception.toString().includes('status":400')
-          ) {
-            return { retry: false };
-          }
-
-          console.log(
-            '[PermAttachmentQueue] onDownloadError',
-            attachment,
-            exception
-          );
-          return { retry: true };
+        storage: this.storage,
+        fileIndex: localFileIndex,
+        hasSession: async () => {
+          const session = await this.supabaseConnector.client.auth.getSession();
+          return !!session.data.session;
         },
-        // eslint-disable-next-line
-        onUploadError: async (
-          _attachment: AttachmentRecord,
-          exception: { toString: () => string }
-        ) => {
-          // Don't retry corrupted attachments with blob URLs
-          if (
-            _attachment.id?.includes('blob:') ||
-            _attachment.local_uri?.includes('blob:') ||
-            _attachment.filename?.includes('blob:')
-          ) {
-            console.error(
-              '[PermAttachmentQueue] Corrupted attachment with blob URL detected - not retrying:',
-              _attachment.id
-            );
-            return { retry: false };
-          }
-
-          const errorMsg = exception.toString();
-
-          if (
-            errorMsg === 'StorageApiError: The resource already exists' ||
-            errorMsg.includes('row-level security policy')
-          ) {
-            console.log(
-              '[PermAttachmentQueue] Permanent upload error (not retrying):',
-              _attachment.id,
-              errorMsg
-            );
-            return { retry: false };
-          }
-
-          console.log(
-            '[PermAttachmentQueue] onUploadError',
-            JSON.stringify(_attachment, null, 2),
-            errorMsg
-          );
-          return { retry: true };
-        }
+        // Network store, not powersync.connected: storage transfers are plain
+        // HTTPS and can proceed while the sync websocket is still connecting.
+        isOnline: () => useNetworkStore.getState().isConnected
       });
-
-      // this.tempAttachmentQueue = new TempAttachmentQueue({
-      //   powersync: this.powersync,
-      //   storage: this.storage,
-      //   db: this.db,
-      //   attachmentDirectoryName: AbstractSharedAttachmentQueue.SHARED_DIRECTORY,
-      //   cacheLimit: ATTACHMENT_QUEUE_LIMITS.TEMPORARY,
-      //   // eslint-disable-next-line
-      //   onDownloadError: async (
-      //     attachment: AttachmentRecord,
-      //     exception: { toString: () => string; status?: number }
-      //   ) => {
-      //     console.log(
-      //       'TempAttachmentQueue onDownloadError',
-      //       attachment,
-      //       exception
-      //     );
-      //     if (
-      //       exception.toString() === 'StorageApiError: Object not found' ||
-      //       exception.status === 400 ||
-      //       exception.toString().includes('status":400')
-      //     ) {
-      //       return { retry: false };
-      //     }
-
-      //     return { retry: true };
-      //   },
-      //   // eslint-disable-next-line
-      //   onUploadError: async (
-      //     _attachment: AttachmentRecord,
-      //     _exception: unknown
-      //   ) => {
-      //     return { retry: true };
-      //   }
-      // });
+      this.audioDownloader = new AudioDownloader({
+        db: this.db,
+        storage: this.storage,
+        fileIndex: localFileIndex,
+        isOnline: () => useNetworkStore.getState().isConnected
+      });
     }
   }
 
@@ -745,6 +637,12 @@ export class System {
     }
 
     if (this.powersync.connected) return;
+
+    // Connectivity regained: give the audio workers an immediate pass (resets
+    // their backoff waits). Independent of the PowerSync connect outcome —
+    // storage transfers are plain HTTPS, not the sync websocket.
+    this.audioUploader?.trigger();
+    this.audioDownloader?.trigger();
 
     try {
       await this.powersync.connect(this.supabaseConnector);
@@ -1379,71 +1277,38 @@ export class System {
 
   private async _initializeAttachmentQueues(): Promise<void> {
     try {
-      console.log('Initializing attachment queues...');
+      console.log('Starting audio sync workers...');
 
       // Check if bucket is configured
       if (!AppConfig.supabaseBucket) {
         console.warn(
-          'No Supabase bucket configured, attachment queues will be disabled'
+          'No Supabase bucket configured, audio sync will be disabled'
         );
         this.attachmentQueuesInitialized = true;
         return;
       }
 
-      // Clean up any corrupted attachments before initializing queues
-      // This prevents infinite retry loops on app startup
-      // Fast check first - most users won't have corrupted attachments
-      console.log('[System] Checking for corrupted attachments...');
-      try {
-        const { getCorruptedCount, cleanupAllCorrupted } =
-          await import('@/services/corruptedAttachmentsService');
-        const corruptedCount = await getCorruptedCount();
+      // One directory listing builds the on-device file inventory that both
+      // workers derive their work lists from.
+      await localFileIndex.init();
 
-        if (corruptedCount > 0) {
-          console.warn(
-            `[System] Found ${corruptedCount} corrupted attachment(s) with blob URLs. Cleaning up...`
-          );
-          // Run cleanup asynchronously to not block initialization
-          void cleanupAllCorrupted().then((result) => {
-            console.log(
-              `[System] Cleanup complete: ${result.cleaned} cleaned, ${result.errors.length} errors`
-            );
-            if (result.errors.length > 0) {
-              console.error('[System] Cleanup errors:', result.errors);
-            }
-          });
-          // Don't await - let it run in background
-          console.log('[System] Cleanup running in background...');
-        } else {
-          console.log('[System] No corrupted attachments found');
+      this.audioUploader?.start();
+      this.audioDownloader?.start();
+
+      // Safety net: re-derive work lists when the app returns to the
+      // foreground (backgrounded uploads/downloads may have been suspended
+      // mid-flight; the pass is a cheap query, harmless when idle).
+      AppState.addEventListener('change', (state) => {
+        if (state === 'active') {
+          this.audioUploader?.trigger();
+          this.audioDownloader?.trigger();
         }
-      } catch (error) {
-        // Don't fail initialization if cleanup fails
-        console.error(
-          '[System] Error during corrupted attachment cleanup:',
-          error
-        );
-      }
-
-      // Initialize both queues in parallel if they exist
-      const initPromises: Promise<void>[] = [];
-
-      if (this.permAttachmentQueue) {
-        initPromises.push(this.permAttachmentQueue.init());
-      }
-
-      // if (this.tempAttachmentQueue && Platform.OS !== 'web') {
-      //   initPromises.push(this.tempAttachmentQueue.init());
-      // }
-
-      if (initPromises.length > 0) {
-        await Promise.all(initPromises);
-        console.log('Attachment queues initialized successfully');
-      }
+      });
 
       this.attachmentQueuesInitialized = true;
+      console.log('[System] ✓ Audio sync workers started');
     } catch (error) {
-      console.error('Failed to initialize attachment queues:', error);
+      console.error('Failed to start audio sync workers:', error);
       this.attachmentQueuesInitialized = false;
       throw error;
     }
@@ -1529,28 +1394,9 @@ export class System {
 
   async cleanup() {
     try {
-      // Cleanup attachment queues first
-      if (this.permAttachmentQueue) {
-        try {
-          // Call destroy method if it exists
-          (
-            this.permAttachmentQueue as unknown as { destroy?: () => void }
-          ).destroy?.();
-        } catch (error) {
-          console.warn('Error destroying permanent attachment queue:', error);
-        }
-      }
-
-      // if (this.tempAttachmentQueue) {
-      //   try {
-      //     // Call destroy method if it exists
-      //     (
-      //       this.tempAttachmentQueue as unknown as { destroy?: () => void }
-      //     ).destroy?.();
-      //   } catch (error) {
-      //     console.warn('Error destroying temporary attachment queue:', error);
-      //   }
-      // }
+      // Stop audio sync workers first
+      this.audioUploader?.stop();
+      this.audioDownloader?.stop();
 
       // Disconnect PowerSync
       if (this.powersync.connected) {
@@ -1932,7 +1778,7 @@ export const system = new Proxy({} as System, {
     // Authenticated users will see other errors if PowerSync isn't properly initialized
     if (
       !instance.isPowerSyncInitialized() &&
-      (prop === 'db' || prop === 'powersync' || prop === 'permAttachmentQueue')
+      (prop === 'db' || prop === 'powersync' || prop === 'audioUploader')
     ) {
       // Suppress warning - PowerSync not being initialized is expected for anonymous users
       // and will cause actual errors for authenticated users that need to be fixed anyway

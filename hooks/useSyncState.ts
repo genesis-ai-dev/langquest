@@ -1,8 +1,6 @@
 import { system } from '@/db/powersync/system';
-import { AttachmentState } from '@powersync/attachments';
 import { useEffect, useState } from 'react';
-import { InteractionManager } from 'react-native';
-import { useAttachmentStates } from './useAttachmentStates';
+import { useAudioSyncStatus } from './useAudioSyncStatus';
 
 interface SyncState {
   isConnected: boolean;
@@ -18,39 +16,19 @@ interface SyncState {
 }
 
 /**
- * Returns the number of attachments that are not yet fully synced.
- * Uses InteractionManager to prevent blocking the main thread during counting.
- * @returns { unsyncedCount: number, isLoading: boolean }
+ * Number of audio files not yet fully synced: pending uploads (on device,
+ * awaiting server confirmation) plus pending downloads (confirmed remote
+ * files not yet on device). Derived from the audio sync workers.
  */
 function useUnsyncedAttachmentsCount(): {
   unsyncedCount: number;
   isLoading: boolean;
 } {
-  const { attachmentStates, isLoading } = useAttachmentStates([]);
-  const [unsyncedCount, setUnsyncedCount] = useState(0);
-
-  // Move attachment state iteration off main thread to prevent blocking
-  useEffect(() => {
-    if (isLoading || attachmentStates.size === 0) {
-      setUnsyncedCount(0);
-      return;
-    }
-
-    // Defer counting to prevent blocking UI interactions
-    const handle = InteractionManager.runAfterInteractions(() => {
-      let count = 0;
-      for (const record of attachmentStates.values()) {
-        if (record.state < AttachmentState.SYNCED) {
-          count++;
-        }
-      }
-      setUnsyncedCount(count);
-    });
-
-    return () => handle.cancel();
-  }, [attachmentStates, isLoading]);
-
-  return { unsyncedCount, isLoading };
+  const { pendingUploads, pendingDownloads } = useAudioSyncStatus();
+  return {
+    unsyncedCount: pendingUploads + pendingDownloads,
+    isLoading: false
+  };
 }
 
 /**

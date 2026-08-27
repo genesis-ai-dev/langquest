@@ -17,7 +17,6 @@ import { useNotifications } from '@/hooks/useNotifications';
 import { usePowerSyncStatus } from '@/hooks/usePowerSyncStatus';
 import { isDegradedMode } from '@/services/degradedModeService';
 import { useFiaAttachmentQueueSummary } from '@/services/FiaAttachmentQueue';
-import { useLocalStore } from '@/store/localStore';
 import { cn, useThemeColor } from '@/utils/styleUtils';
 import * as Updates from 'expo-updates';
 import type { LucideIcon } from 'lucide-react-native';
@@ -81,11 +80,9 @@ export default function AppDrawer({
           ? 'notifications'
           : pathname.includes('/settings')
             ? 'settings'
-            : pathname.includes('/corrupted-attachments')
-              ? 'corrupted-attachments'
-              : pathname.includes('/download-status')
-                ? 'download-status'
-                : undefined;
+            : pathname.includes('/download-status')
+              ? 'download-status'
+              : undefined;
 
   // Always call hooks (Rules of Hooks), but only subscribe when drawer is visible
   // The hooks themselves handle memoization to prevent re-renders
@@ -175,11 +172,11 @@ export default function AppDrawer({
   }));
 
   const downloadBarStyle = useAnimatedStyle(() => ({
-    height: `${animatedDownloadProgress.value}%`
+    width: `${animatedDownloadProgress.value}%`
   }));
 
   const uploadBarStyle = useAnimatedStyle(() => ({
-    height: `${animatedUploadProgress.value}%`
+    width: `${animatedUploadProgress.value}%`
   }));
 
   // Memoize progress values to prevent re-renders when object reference changes
@@ -256,11 +253,6 @@ export default function AppDrawer({
   );
   const handleGoToSettings = useCallback(
     () => closeDrawerAndExecute(() => router.push('/(app)/settings')),
-    [closeDrawerAndExecute, router]
-  );
-  const handleGoToCorruptedAttachments = useCallback(
-    () =>
-      closeDrawerAndExecute(() => router.push('/(app)/corrupted-attachments')),
     [closeDrawerAndExecute, router]
   );
   const handleGoToDownloadStatus = useCallback(
@@ -370,16 +362,6 @@ export default function AppDrawer({
     //   onPress: handleGoToDownloadStatus
     // });
 
-    // Add diagnostics menu item in dev mode
-    if (__DEV__) {
-      items.push({
-        name: 'Diagnostics',
-        view: 'corrupted-attachments',
-        icon: AlertTriangle,
-        onPress: handleGoToCorruptedAttachments
-      });
-    }
-
     // Add logout for development
     if (__DEV__) {
       items.push({
@@ -398,7 +380,6 @@ export default function AppDrawer({
     handleGoToNotifications,
     handleGoToProfile,
     handleGoToSettings,
-    handleGoToCorruptedAttachments,
     handleSignIn,
     handleSignOut
   ]);
@@ -554,58 +535,34 @@ export default function AppDrawer({
                               </Text>
                             </View>
                           ) : null}
-                          {stableProgress.queued > 0 &&
-                            !syncProgress.downloading &&
-                            !syncProgress.uploading && (
-                              <View className="flex-row items-center gap-0.5">
-                                <Icon
-                                  as={RefreshCw}
-                                  size={10}
-                                  className="text-muted-foreground"
-                                />
-                                <Text className="text-xs text-muted-foreground">
-                                  {stableProgress.queued}
-                                </Text>
-                              </View>
-                            )}
                         </View>
                       )}
                     </View>
-                    {/* Stacked progress bars - download from top, upload from bottom */}
-                    <View className="mt-1.5 h-3 w-full overflow-hidden rounded-full bg-muted-foreground/20">
-                      {/* Overall sync progress background (shows synced/total) */}
-                      {stableProgress.total > 0 && (
+                    {/* Overall sync progress (synced/total) */}
+                    <View className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-muted-foreground/20">
+                      <Animated.View
+                        className="h-full rounded-full bg-primary/60"
+                        style={syncBarStyle}
+                      />
+                    </View>
+                    {/* Download batch progress (blue) */}
+                    {showDownloadBar && (
+                      <View className="mt-1 h-2 w-full overflow-hidden rounded-full bg-blue-500/20">
                         <Animated.View
-                          className="absolute left-0 right-0 bg-primary/30"
-                          style={[
-                            {
-                              top: 0,
-                              bottom: 0
-                            },
-                            syncBarStyle
-                          ]}
+                          className="h-full rounded-full bg-blue-500"
+                          style={downloadBarStyle}
                         />
-                      )}
-                      {/* Download progress bar (from top, blue) - overlays on top */}
-                      {showDownloadBar && (
+                      </View>
+                    )}
+                    {/* Upload batch progress (green) */}
+                    {showUploadBar && (
+                      <View className="mt-1 h-2 w-full overflow-hidden rounded-full bg-green-500/20">
                         <Animated.View
-                          className="absolute left-0 right-0 bg-blue-500"
-                          style={[
-                            {
-                              top: 0
-                            },
-                            downloadBarStyle
-                          ]}
-                        />
-                      )}
-                      {/* Upload progress bar (from bottom, green) - overlays on bottom */}
-                      {showUploadBar && (
-                        <Animated.View
-                          className="absolute bottom-0 left-0 right-0 bg-green-500"
+                          className="h-full rounded-full bg-green-500"
                           style={uploadBarStyle}
                         />
-                      )}
-                    </View>
+                      </View>
+                    )}
                     {/* FIA Content Queue — aligned with progress bar */}
                     {fiaQueueSummary.total > 0 && (
                       <View className="mt-1.5 flex-row flex-wrap items-center gap-1.5">
