@@ -45,9 +45,10 @@
 -- ============================================================================
 
 -- Index build + backfills exceed the default statement timeout at current
--- table sizes (~800k acl rows). SET LOCAL scopes this to the migration's
--- transaction only.
-set local statement_timeout = '1h';
+-- table sizes (~800k acl rows). Session-level SET (not SET LOCAL): the CLI
+-- applies migration statements outside an explicit transaction block, where
+-- SET LOCAL warns and does nothing. Reset at the end of the file.
+set statement_timeout = '1h';
 
 -- ----------------------------------------------------------------------------
 -- PART 1: Column + index
@@ -220,3 +221,5 @@ as $$
     'notes', 'Clients must be at least version 2.1 to sync. Version 2.5 adds asset_content_link.audio_uploaded_at (server-confirmed audio upload time).'
   );
 $$;
+
+reset statement_timeout;
