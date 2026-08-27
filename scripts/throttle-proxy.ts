@@ -51,7 +51,10 @@ const waiters: (() => void)[] = [];
 
 setInterval(() => {
   if (rateKBps <= 0) return;
-  tokens = Math.min(rateKBps * 1024 * (TICK_MS / 1000) * 2, tokens + rateKBps * 1024 * (TICK_MS / 1000));
+  tokens = Math.min(
+    rateKBps * 1024 * (TICK_MS / 1000) * 2,
+    tokens + rateKBps * 1024 * (TICK_MS / 1000)
+  );
   while (waiters.length > 0 && tokens > 0) waiters.shift()!();
 }, TICK_MS).unref();
 
@@ -68,7 +71,11 @@ async function throttledWrite(dest: net.Socket, chunk: Buffer): Promise<void> {
     while (tokens <= 0) {
       await new Promise<void>((r) => waiters.push(r));
     }
-    const allowance = Math.min(Math.floor(tokens), chunk.length - offset, 16384);
+    const allowance = Math.min(
+      Math.floor(tokens),
+      chunk.length - offset,
+      16384
+    );
     tokens -= allowance;
     if (!dest.write(chunk.subarray(offset, offset + allowance))) {
       await new Promise((r) => dest.once('drain', r));
@@ -83,8 +90,12 @@ function pipe(source: net.Socket, dest: net.Socket): void {
     source.pause();
     chain = chain
       .then(() => throttledWrite(dest, chunk))
-      .then(() => source.resume())
-      .catch(() => source.destroy());
+      .then(() => {
+        source.resume();
+      })
+      .catch(() => {
+        source.destroy();
+      });
   });
   source.on('end', () => {
     void chain.then(() => dest.end());
@@ -120,9 +131,7 @@ function status(): void {
   console.log(`   ${state} | rate: ${rate} | active sockets: ${sockets.size}`);
 }
 
-console.log(
-  '\nCommands: rate <KB/s> | unlimited | off | on | status | quit\n'
-);
+console.log('\nCommands: rate <KB/s> | unlimited | off | on | status | quit\n');
 status();
 
 const rl = readline.createInterface({ input: process.stdin });

@@ -256,9 +256,7 @@ export default function NextGenTranslationModal({
         audioValues.map((audio) => resolveExistingAudioUri(audio))
       );
       if (!cancelled) {
-        setAudioSegments(
-          resolved.filter((uri): uri is string => uri !== null)
-        );
+        setAudioSegments(resolved.filter((uri): uri is string => uri !== null));
       }
     };
     void loadAudioSegments();

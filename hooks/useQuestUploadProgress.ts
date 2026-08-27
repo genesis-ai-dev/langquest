@@ -223,7 +223,7 @@ export function useQuestUploadProgress(
       setProgress(toProgress(rows.quest, rows.qal, rows.asset, rows.acl));
     };
 
-    const watch = <T,>(
+    const watch = <T>(
       query: Parameters<typeof system.db.watch<T>>[0],
       assign: (row: T | undefined) => void
     ) => {

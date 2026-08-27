@@ -169,7 +169,10 @@ async function main() {
       ...stamp
     });
 
-    const assetsInQuest = Math.min(COUNT - q * ASSETS_PER_QUEST, ASSETS_PER_QUEST);
+    const assetsInQuest = Math.min(
+      COUNT - q * ASSETS_PER_QUEST,
+      ASSETS_PER_QUEST
+    );
     for (let a = 0; a < assetsInQuest; a++) {
       const assetId = randomUUID();
       const filename = `${randomUUID()}.wav`;

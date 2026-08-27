@@ -859,7 +859,6 @@ export default function NextGenAssetsView() {
     return `${isOnline ? '🟢' : '🔴'} Offline: ${offlineCount} | Cloud: ${isOnline ? cloudCount : 'N/A'} | Total: ${assets.length}`;
   }, [isOnline, assets]);
 
-
   const {
     hasReported,
     // isLoading: isReportLoading,

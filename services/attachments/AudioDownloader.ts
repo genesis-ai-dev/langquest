@@ -20,10 +20,7 @@
 import type * as drizzleSchema from '@/db/drizzleSchema';
 import { asset_content_link_synced } from '@/db/drizzleSchemaSynced';
 import type { SupabaseStorageAdapter } from '@/db/supabase/SupabaseStorageAdapter';
-import {
-  isInvalidAudioValue,
-  isLocalOnlyAudio
-} from '@/utils/attachmentPaths';
+import { isInvalidAudioValue, isLocalOnlyAudio } from '@/utils/attachmentPaths';
 import { getLocalAttachmentUri, writeFile } from '@/utils/fileUtils';
 import type { PowerSyncSQLiteDatabase } from '@powersync/drizzle-driver';
 import { and, isNotNull } from 'drizzle-orm';
@@ -222,6 +219,7 @@ export class AudioDownloader {
     );
 
     let completed = 0;
+    let succeeded = 0;
     const queue = [...ready];
     let active = 0;
 
@@ -229,13 +227,25 @@ export class AudioDownloader {
       const filename = queue.shift();
       if (filename === undefined) return;
       active++;
-      this.publishWorkStatus(workList, active, ready.length, completed);
+      this.publishWorkStatus(
+        workList,
+        active,
+        ready.length,
+        completed,
+        succeeded
+      );
       try {
-        await this.downloadOne(filename);
+        if (await this.downloadOne(filename)) succeeded++;
       } finally {
         active--;
         completed++;
-        this.publishWorkStatus(workList, active, ready.length, completed);
+        this.publishWorkStatus(
+          workList,
+          active,
+          ready.length,
+          completed,
+          succeeded
+        );
       }
       return runNext();
     };
@@ -247,11 +257,12 @@ export class AudioDownloader {
         )
       );
     } finally {
-      this.publishWorkStatus(workList, 0);
+      this.publishWorkStatus(workList, 0, 0, 0, succeeded);
     }
   }
 
-  private async downloadOne(filename: string): Promise<void> {
+  /** @returns true if the file is now on disk. */
+  private async downloadOne(filename: string): Promise<boolean> {
     try {
       const blob = await this.options.storage.downloadFile(filename);
       const base64Data = await blobToBase64(blob);
@@ -261,13 +272,13 @@ export class AudioDownloader {
       });
       this.attempts.delete(filename);
       this.options.fileIndex.add(filename);
+      return true;
     } catch (error) {
       const previous = this.attempts.get(filename);
       const failures = (previous?.failures ?? 0) + 1;
       const backoff =
-        BACKOFF_STEPS_MS[
-          Math.min(failures, BACKOFF_STEPS_MS.length) - 1
-        ] ?? BACKOFF_STEPS_MS[BACKOFF_STEPS_MS.length - 1]!;
+        BACKOFF_STEPS_MS[Math.min(failures, BACKOFF_STEPS_MS.length) - 1] ??
+        BACKOFF_STEPS_MS[BACKOFF_STEPS_MS.length - 1]!;
       this.attempts.set(filename, {
         failures,
         nextAttemptAt: Date.now() + backoff,
@@ -277,6 +288,7 @@ export class AudioDownloader {
         `[AudioDownloader] Download failed for ${filename} (attempt ${failures}, retry in ${Math.round(backoff / 1000)}s):`,
         error
       );
+      return false;
     }
   }
 
@@ -284,13 +296,17 @@ export class AudioDownloader {
     workList: string[],
     active: number,
     batchTotal = 0,
-    batchDone = 0
+    batchDone = 0,
+    batchSucceeded = 0
   ): void {
     const failing = workList.filter(
       (name) => (this.attempts.get(name)?.failures ?? 0) > 0
     ).length;
     this.updateStatus({
-      pending: workList.length,
+      // The work list is derived once per pass, so subtract this pass's
+      // successes to keep the count moving during a long batch instead of
+      // freezing at the pass-start value. Failures stay pending.
+      pending: Math.max(0, workList.length - batchSucceeded),
       active,
       failing,
       batchTotal,

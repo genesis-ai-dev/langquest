@@ -34,12 +34,36 @@ const SAMPLE_MS = 2000;
 /** Logcat lines that mark stage boundaries (matched against ReactNativeJS output). */
 const MARKERS: { pattern: RegExp; label: string; once: boolean }[] = [
   { pattern: /Auth state changed: SIGNED_IN/, label: 'signed in', once: true },
-  { pattern: /Attachment queues initialized/, label: 'queues ready (old system)', once: true },
-  { pattern: /Audio sync workers started/, label: 'workers ready (new system)', once: true },
-  { pattern: /\[AudioUploader\] Uploading \d+/, label: 'first upload pass (new)', once: true },
-  { pattern: /\[AudioDownloader\] Downloading \d+/, label: 'first download pass (new)', once: true },
-  { pattern: /\[WATCH IDS\]|watchAttachmentIds/, label: 'first reconcile (old)', once: true },
-  { pattern: /Migration.*needed|Running migration/, label: 'migration', once: true }
+  {
+    pattern: /Attachment queues initialized/,
+    label: 'queues ready (old system)',
+    once: true
+  },
+  {
+    pattern: /Audio sync workers started/,
+    label: 'workers ready (new system)',
+    once: true
+  },
+  {
+    pattern: /\[AudioUploader\] Uploading \d+/,
+    label: 'first upload pass (new)',
+    once: true
+  },
+  {
+    pattern: /\[AudioDownloader\] Downloading \d+/,
+    label: 'first download pass (new)',
+    once: true
+  },
+  {
+    pattern: /\[WATCH IDS\]|watchAttachmentIds/,
+    label: 'first reconcile (old)',
+    once: true
+  },
+  {
+    pattern: /Migration.*needed|Running migration/,
+    label: 'migration',
+    once: true
+  }
 ];
 
 function arg(name: string, fallback: string): string {
@@ -74,14 +98,18 @@ async function countDeviceFiles(): Promise<number> {
     // The remote command must be a single arg so quoting survives adb shell.
     execFile(
       'adb',
-      ['shell',
-        `run-as ${PACKAGE} sh -c 'ls files/shared_attachments files/shared_attachments/local 2>/dev/null; true'`],
+      [
+        'shell',
+        `run-as ${PACKAGE} sh -c 'ls files/shared_attachments files/shared_attachments/local 2>/dev/null; true'`
+      ],
       { maxBuffer: 16 * 1024 * 1024 },
       (error, stdout) => {
         if (error) return resolve(-1);
         const count = stdout
           .split('\n')
-          .filter((line) => /\.(wav|m4a|mp3|aac|ogg)$/.test(line.trim())).length;
+          .filter((line) =>
+            /\.(wav|m4a|mp3|aac|ogg)$/.test(line.trim())
+          ).length;
         resolve(count);
       }
     );
@@ -142,7 +170,7 @@ function detectPhase(
   ];
 }
 
-function writeReport(): void {
+function buildReport(): string {
   const lines: string[] = [
     `# Attachment benchmark: ${LABEL}`,
     ``,
@@ -167,13 +195,23 @@ function writeReport(): void {
     ``
   ];
 
-  const report = lines.join('\n');
-  console.log('\n' + report);
+  return lines.join('\n');
+}
 
+const stamp = new Date(startedAt)
+  .toISOString()
+  .replace(/[:.]/g, '-')
+  .slice(0, 19);
+const base = join('benchmark-reports', `${LABEL}-${stamp}`);
+
+/**
+ * Saves the report and CSV. Called after every sample (not just at exit), so
+ * the files on disk are always current no matter how the process dies —
+ * tsx can force-kill its child on Ctrl+C before exit handlers finish.
+ */
+function flushToDisk(): void {
   mkdirSync('benchmark-reports', { recursive: true });
-  const stamp = new Date(startedAt).toISOString().replace(/[:.]/g, '-').slice(0, 19);
-  const base = join('benchmark-reports', `${LABEL}-${stamp}`);
-  writeFileSync(`${base}.md`, report);
+  writeFileSync(`${base}.md`, buildReport());
   writeFileSync(
     `${base}.csv`,
     'elapsed_s,device_files,confirmed_uploads\n' +
@@ -185,17 +223,22 @@ function writeReport(): void {
         .join('\n') +
       '\n'
   );
-  console.log(`📝 Saved ${base}.md and .csv`);
 }
 
 async function main() {
-  console.log(`🚀 Benchmark "${LABEL}" recording — Ctrl+C to stop and report\n`);
+  console.log(
+    `🚀 Benchmark "${LABEL}" recording — Ctrl+C to stop\n   (report continuously saved to ${base}.md)\n`
+  );
   watchLogcat();
 
-  process.on('SIGINT', () => {
-    writeReport();
-    process.exit(0);
-  });
+  for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP'] as const) {
+    process.on(signal, () => {
+      flushToDisk();
+      console.log('\n' + buildReport());
+      console.log(`📝 Saved ${base}.md and .csv`);
+      process.exit(0);
+    });
+  }
 
   let lastPrinted = '';
   for (;;) {
@@ -204,6 +247,7 @@ async function main() {
       countConfirmedUploads()
     ]);
     samples.push({ time: Date.now(), deviceFiles, confirmedUploads });
+    flushToDisk();
     const line = `files on device: ${deviceFiles} | confirmed uploads: ${confirmedUploads}`;
     if (line !== lastPrinted) {
       console.log(`   ${elapsed(Date.now())}  ${line}`);

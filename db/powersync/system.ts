@@ -364,8 +364,7 @@ export class System {
         storage: this.storage,
         fileIndex: localFileIndex,
         hasSession: async () => {
-          const session =
-            await this.supabaseConnector.client.auth.getSession();
+          const session = await this.supabaseConnector.client.auth.getSession();
           return !!session.data.session;
         },
         // Network store, not powersync.connected: storage transfers are plain
