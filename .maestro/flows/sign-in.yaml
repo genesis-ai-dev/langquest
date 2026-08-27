@@ -2,13 +2,11 @@ appId: ${MAESTRO_APP_ID}
 onFlowStart:
   - runScript: ../api.js
 onFlowComplete:
-  # Throwaway user — never share MAESTRO_TEST_EMAIL across iOS/Android/jobs.
   # create-records.yaml sets skipSignInCleanup so it can keep using this session.
   - evalScript: ${output.skipSignInCleanup !== true && output.api.deleteUserIfExists(output.signInEmail)}
 ---
-# Sign in with a throwaway user. iOS and Android Maestro jobs run in parallel
-# against the same Supabase project; sharing test@langquest.org caused
-# "Invalid login credentials" and GoTrue same_password errors.
+# iOS and Android Maestro jobs run in parallel against the same Supabase
+# project. Each run gets its own user so they cannot fight over one password.
 
 # - runFlow:
 #     when:
