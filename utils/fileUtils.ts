@@ -1,7 +1,9 @@
-import { AbstractSharedAttachmentQueue } from '@/db/powersync/AbstractSharedAttachmentQueue';
 import { decode as decodeBase64 } from 'base64-arraybuffer';
 import { Directory, File, Paths } from 'expo-file-system';
 import uuid from 'react-native-uuid';
+
+/** Directory (under the document directory) holding all audio attachment files. */
+export const SHARED_ATTACHMENTS_DIRECTORY = 'shared_attachments';
 
 /**
  * Extracts the filename from a URI path.
@@ -115,7 +117,10 @@ export function fileExists(uri: string | null | undefined): boolean {
 export function ensureDir(uri: string) {
   const dir = new Directory(uri);
   if (!dir.exists) {
-    dir.create();
+    // intermediates: parents may not exist (nothing pre-creates
+    // shared_attachments/ since the attachment queue was removed).
+    // idempotent: concurrent saves can race past the exists check.
+    dir.create({ intermediates: true, idempotent: true });
   }
 }
 
@@ -306,7 +311,27 @@ export function getLocalUri(filePath: string) {
 }
 
 export function getLocalFilePathSuffix(filename: string): string {
-  return `${AbstractSharedAttachmentQueue.SHARED_DIRECTORY}/${filename}`;
+  return `${SHARED_ATTACHMENTS_DIRECTORY}/${filename}`;
+}
+
+/**
+ * List the plain filenames (not directories) directly inside a directory.
+ * Returns [] when the directory does not exist.
+ */
+// eslint-disable-next-line @typescript-eslint/require-await
+export async function listDirectoryFilenames(
+  dirUri: string
+): Promise<string[]> {
+  try {
+    const dir = new Directory(dirUri);
+    if (!dir.exists) return [];
+    return dir
+      .list()
+      .filter((entry): entry is File => entry instanceof File)
+      .map((file) => file.name);
+  } catch {
+    return [];
+  }
 }
 
 // eslint-disable-next-line @typescript-eslint/require-await

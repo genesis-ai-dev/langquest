@@ -13960,6 +13960,86 @@ export const localizations = {
     burmese: 'ရွေးထားသော ပိုင်ဆိုင်မှုများ',
     thai: 'สินทรัพย์ที่เลือก',
     mandarin: '已选资产'
+  },
+  uploadStatus: {
+    english: 'Upload status',
+    french: 'État du téléversement',
+    spanish: 'Estado de subida',
+    brazilian_portuguese: 'Status do envio',
+    tok_pisin: 'Statas bilong aplod',
+    indonesian: 'Status unggahan',
+    nepali: 'अपलोड स्थिति',
+    hindi: 'अपलोड स्थिति',
+    burmese: 'အပ်လုဒ် အခြေအနေ',
+    thai: 'สถานะการอัปโหลด',
+    mandarin: '上传状态'
+  },
+  nothingPublishedYet: {
+    english: 'Nothing has been published yet',
+    french: "Rien n'a encore été publié",
+    spanish: 'Aún no se ha publicado nada',
+    brazilian_portuguese: 'Nada foi publicado ainda',
+    tok_pisin: 'I no gat wanpela samting i pablis yet',
+    indonesian: 'Belum ada yang dipublikasikan',
+    nepali: 'अहिलेसम्म केही प्रकाशित गरिएको छैन',
+    hindi: 'अभी तक कुछ प्रकाशित नहीं हुआ है',
+    burmese: 'ဘာမှ မထုတ်ဝေရသေးပါ',
+    thai: 'ยังไม่มีการเผยแพร่ใดๆ',
+    mandarin: '尚未发布任何内容'
+  },
+  allUploadsConfirmed: {
+    english: 'All records and files are confirmed uploaded',
+    french: 'Tous les enregistrements et fichiers sont confirmés téléversés',
+    spanish: 'Todos los registros y archivos están confirmados como subidos',
+    brazilian_portuguese:
+      'Todos os registros e arquivos foram confirmados como enviados',
+    tok_pisin: 'Olgeta rekod na fail i aplod pinis',
+    indonesian: 'Semua catatan dan file telah dikonfirmasi terunggah',
+    nepali: 'सबै रेकर्ड र फाइलहरू अपलोड भएको पुष्टि भयो',
+    hindi: 'सभी रिकॉर्ड और फ़ाइलें अपलोड होने की पुष्टि हो गई है',
+    burmese:
+      'မှတ်တမ်းများနှင့် ဖိုင်များအားလုံး အပ်လုဒ်တင်ပြီးကြောင်း အတည်ပြုပြီးပါပြီ',
+    thai: 'บันทึกและไฟล์ทั้งหมดได้รับการยืนยันว่าอัปโหลดแล้ว',
+    mandarin: '所有记录和文件均已确认上传'
+  },
+  percentConfirmedByServer: {
+    english: '{percent}% confirmed by the server',
+    french: '{percent}% confirmé par le serveur',
+    spanish: '{percent}% confirmado por el servidor',
+    brazilian_portuguese: '{percent}% confirmado pelo servidor',
+    tok_pisin: 'Sava i konfemim {percent}%',
+    indonesian: '{percent}% dikonfirmasi oleh server',
+    nepali: 'सर्भरद्वारा {percent}% पुष्टि भयो',
+    hindi: 'सर्वर द्वारा {percent}% की पुष्टि हुई',
+    burmese: 'ဆာဗာမှ {percent}% အတည်ပြုပြီးပါပြီ',
+    thai: 'เซิร์ฟเวอร์ยืนยันแล้ว {percent}%',
+    mandarin: '服务器已确认 {percent}%'
+  },
+  informationRecords: {
+    english: 'Information records',
+    french: "Enregistrements d'informations",
+    spanish: 'Registros de información',
+    brazilian_portuguese: 'Registros de informação',
+    tok_pisin: 'Ol infomesen rekod',
+    indonesian: 'Catatan informasi',
+    nepali: 'जानकारी रेकर्डहरू',
+    hindi: 'जानकारी रिकॉर्ड',
+    burmese: 'အချက်အလက် မှတ်တမ်းများ',
+    thai: 'บันทึกข้อมูล',
+    mandarin: '信息记录'
+  },
+  audioFiles: {
+    english: 'Audio Files',
+    french: 'Fichiers audio',
+    spanish: 'Archivos de audio',
+    brazilian_portuguese: 'Arquivos de áudio',
+    tok_pisin: 'Ol audio fail',
+    indonesian: 'File audio',
+    nepali: 'अडियो फाइलहरू',
+    hindi: 'ऑडियो फ़ाइलें',
+    burmese: 'အသံဖိုင်များ',
+    thai: 'ไฟล์เสียง',
+    mandarin: '音频文件'
   }
 } as const;
 

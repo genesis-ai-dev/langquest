@@ -16,7 +16,6 @@ import { useLocalization } from '@/hooks/useLocalization';
 // import { useTagStore } from '@/hooks/useTagStore';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import { cn } from '@/utils/styleUtils';
-import type { AttachmentRecord } from '@powersync/attachments';
 import {
   EyeOffIcon,
   HardDriveIcon,
@@ -45,7 +44,6 @@ export interface AssetListItemProps {
   isPublished: boolean;
   questId: string;
   onUpdate?: () => void;
-  attachmentState?: AttachmentRecord;
   isCurrentlyPlaying?: boolean;
   // Selection props (visual highlight for playAll)
   isSelected?: boolean;
@@ -58,7 +56,6 @@ export const AssetListItem: React.FC<AssetListItemProps> = ({
   isCurrentlyPlaying = false,
   isPublished: _isPublished,
   onUpdate: _onUpdate,
-  attachmentState: _attachmentState,
   isSelected = false,
   onToggleSelect
 }) => {

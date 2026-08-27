@@ -28,9 +28,12 @@ import { useSingleAudioController } from '@/hooks/useSingleAudioController';
 import type { LocalizationKey } from '@/services/localizations';
 import { syncCallbackService } from '@/services/syncCallbackService';
 import { useLocalStore } from '@/store/localStore';
+import {
+  isLocalOnlyAudio,
+  resolveExistingAudioUri
+} from '@/utils/attachmentPaths';
 import { bulkDownloadQuest } from '@/utils/bulkDownload';
 import { resolveTable, type WithSource } from '@/utils/dbUtils';
-import { fileExists, getLocalAttachmentUriWithOPFS } from '@/utils/fileUtils';
 import { formatQuestDisplayLabel } from '@/utils/questVersionLabel';
 import { cn, useThemeColor } from '@/utils/styleUtils';
 import { useHybridData } from '@/views/new/useHybridData';
@@ -1471,41 +1474,19 @@ export function ImportWizard({
 
         const uris: string[] = [];
         for (const audioValue of audioValues) {
-          if (audioValue.startsWith('local/')) {
-            const uri = await getLocalAttachmentUriWithOPFS(audioValue);
-            if (await fileExists(uri)) {
-              uris.push(uri);
-            }
+          const localUri = await resolveExistingAudioUri(audioValue);
+          if (localUri) {
+            uris.push(localUri);
             continue;
           }
 
-          if (audioValue.startsWith('file://')) {
-            if (await fileExists(audioValue)) {
-              uris.push(audioValue);
-            }
-            continue;
-          }
-
-          if (system.permAttachmentQueue) {
-            const attachment = await system.powersync.getOptional<{
-              id: string;
-              local_uri: string | null;
-            }>(
-              `SELECT * FROM ${system.permAttachmentQueue.table} WHERE id = ?`,
-              [audioValue]
-            );
-            if (attachment?.local_uri) {
-              const localUri = system.permAttachmentQueue.getLocalUri(
-                attachment.local_uri
-              );
-              if (await fileExists(localUri)) {
-                uris.push(localUri);
-                continue;
-              }
-            }
-          }
-
-          if (AppConfig.supabaseBucket) {
+          // Only published filenames can be streamed from storage; local-only
+          // and file:// values have no remote counterpart.
+          if (
+            !isLocalOnlyAudio(audioValue) &&
+            !audioValue.startsWith('file://') &&
+            AppConfig.supabaseBucket
+          ) {
             const { data } = system.supabaseConnector.client.storage
               .from(AppConfig.supabaseBucket)
               .getPublicUrl(audioValue);

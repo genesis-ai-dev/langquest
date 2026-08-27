@@ -22,6 +22,7 @@ import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { asset_content_link } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
+import { resolveExistingAudioUri } from '@/utils/attachmentPaths';
 import { getThemeColor } from '@/utils/styleUtils';
 import { asc, eq } from 'drizzle-orm';
 import { Pause, Play, ScissorsIcon, Trash2 } from 'lucide-react-native';
@@ -90,31 +91,13 @@ export function VerseSegmentModal({
     void loadSegments();
   }, [isOpen, assetId]);
 
-  const getSegmentUri = React.useCallback(
-    async (audioId: string): Promise<string | null> => {
-      if (!system.permAttachmentQueue) return null;
-
-      const attachment = await system.powersync.getOptional<{
-        id: string;
-        local_uri: string | null;
-      }>(`SELECT * FROM ${system.permAttachmentQueue.table} WHERE id = ?`, [
-        audioId
-      ]);
-
-      if (!attachment?.local_uri) return null;
-
-      return system.permAttachmentQueue.getLocalUri(attachment.local_uri);
-    },
-    []
-  );
-
   const handlePlaySegment = async (segment: Segment) => {
-    const audioId = segment.audio?.[0];
-    if (!audioId) return;
+    const audioValue = segment.audio?.[0];
+    if (!audioValue) return;
 
-    const uri = await getSegmentUri(audioId);
+    const uri = await resolveExistingAudioUri(audioValue);
     if (!uri) {
-      console.error('No URI found for segment');
+      console.warn('No audio file found on device for segment');
       return;
     }
 

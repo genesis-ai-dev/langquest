@@ -25,6 +25,8 @@ Run this check on every migration diff:
 
 **Default = Path A.** If you cannot point to a specific client code change (a Drizzle column the app reads/writes, a sync-rules change clients must satisfy, a renamed table the client queries), do not touch `APP_SCHEMA_VERSION` or `get_schema_info()`. Incorrectly bumping either blocks sync for users on current app builds.
 
+**⛔ Every `APP_SCHEMA_VERSION` bump also requires a registered local migration in `db/migrations/` — even a no-op.** `findMigrationPath()` (`db/migrations/index.ts`) demands a registered migration for every version hop. If you bump the version without one, every user with existing local records is sent to the migration screen, which then fails with "No migration path found" — they are permanently stuck until a fixed build ships. If no data transformation is needed, create a no-op migration whose `migrate()` does nothing (the framework bumps `_metadata.schema_version` automatically); see `db/migrations/2.4-to-2.5.ts` for the pattern.
+
 > **Real incidents this prevents.** `20260529120000_rename_project_language_suggestion_to_languoid.sql` shipped a `get_schema_info()` bump to `2.5 / min 2.4` while `APP_SCHEMA_VERSION` stayed at `2.3` — blocked sync for every user on the current build and required `20260530120000_revert_schema_info_to_2_3.sql` to undo. `20260520210000_invite_bounce_type_and_reason.sql` made the same mistake (server-only `bounce_type`/`bounce_reason` columns, bumped to `2.4` anyway).
 
 ## Decision: Path A or Path B?
@@ -161,9 +163,11 @@ update asset set new_field = deprecated_field where deprecated_field is not null
 alter table asset drop column deprecated_field;
 ```
 
-### 5. Create the local migration (when needed)
+### 5. Create the local migration (always, when the version bumps)
 
-Required for: local-only columns on existing tables; synced columns the client actively reads/writes with non-nullable semantics; data backfills/transformations on existing local records. Not required for nullable columns the client doesn't actively use, server-only Postgres columns, or schema-only changes (PowerSync handles those automatically).
+A registered migration file is **always required when `APP_SCHEMA_VERSION` bumps** (see hard rule above) — the only question is whether it transforms data or is a no-op.
+
+Data transformation needed for: local-only columns on existing tables; synced columns the client actively reads/writes with non-nullable semantics; data backfills/transformations on existing local records. A no-op migration suffices for nullable columns the client doesn't actively use or schema-only changes (PowerSync handles those automatically; see `db/migrations/2.4-to-2.5.ts`).
 
 File: `db/migrations/MAJOR_MINOR-to-MAJOR_MINOR.ts` (e.g., `2.0-to-2.1.ts`).
 

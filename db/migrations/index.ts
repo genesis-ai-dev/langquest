@@ -24,6 +24,7 @@ import { migration_2_0_to_2_1 } from './2.0-to-2.1';
 import { migration_2_1_to_2_2 } from './2.1-to-2.2';
 import { migration_2_2_to_2_3 } from './2.2-to-2.3';
 import { migration_2_3_to_2_4 } from './2.3-to-2.4';
+import { migration_2_4_to_2_5 } from './2.4-to-2.5';
 import { updateMetadataVersion } from './utils';
 
 // Type for database instance used in migrations
@@ -87,7 +88,9 @@ export const migrations: Migration[] = [
   // Add order_index to asset_content_link for segment ordering
   migration_2_2_to_2_3,
   // Backfill quest-specific asset placement fields
-  migration_2_3_to_2_4
+  migration_2_3_to_2_4,
+  // Version bump only: audio_uploaded_at reads NULL on existing rows (no-op)
+  migration_2_4_to_2_5
   // Add future migrations here:
 ];
 
