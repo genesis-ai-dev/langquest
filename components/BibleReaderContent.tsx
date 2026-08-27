@@ -597,8 +597,8 @@ export function BibleReaderContent({
     }
   }, [content, contentLoading, contentError, selectedBible]);
 
-  // Pericope bounds on the combined audio timeline (ms + tick percentages)
-  const pericopeBounds = useMemo(() => {
+  // Pericope playback window on the combined chapter audio timeline (ms)
+  const pericopeWindow = useMemo(() => {
     const audio = content?.audio;
     if (!audio?.length || !verseRange) return null;
     if (audio.some((ch) => !ch.timestamps?.length)) return null;
@@ -635,11 +635,7 @@ export function BibleReaderContent({
 
     if (startMs == null || endMs == null) return null;
 
-    const ticks: { pct: number }[] = [];
-    if (startMs > 0) ticks.push({ pct: (startMs / cumulativeMs) * 100 });
-    if (endMs < cumulativeMs) ticks.push({ pct: (endMs / cumulativeMs) * 100 });
-
-    return { startMs, endMs, ticks: ticks.length > 0 ? ticks : undefined };
+    return { startMs, endMs };
   }, [content?.audio, verseRange]);
 
   const bibleModelKeyPart = selectedBible?.id
@@ -747,9 +743,9 @@ export function BibleReaderContent({
           checkpointKey={bibleAudioCheckpointKey}
           audioUris={audioUrls}
           seekStepMs={AUDIO_SEEK_STEP_MS}
-          ticks={pericopeBounds?.ticks}
-          initialPositionMs={pericopeBounds?.startMs}
-          autoStopMs={pericopeBounds?.endMs}
+          windowStartMs={pericopeWindow?.startMs}
+          windowEndMs={pericopeWindow?.endMs}
+          initialPositionMs={pericopeWindow?.startMs}
         />
       )}
 

@@ -20,6 +20,17 @@ interface CheckpointMediaPlayerProps {
   ticks?: { pct: number }[];
   initialPositionMs?: number;
   autoStopMs?: number;
+  /** When set with windowEndMs, the player UI and seeks are scoped to this passage window. */
+  windowStartMs?: number;
+  windowEndMs?: number;
+}
+
+function clampToWindow(
+  positionMs: number,
+  windowStart: number,
+  windowEnd: number
+): number {
+  return Math.max(windowStart, Math.min(positionMs, windowEnd));
 }
 
 export function CheckpointMediaPlayer({
@@ -32,16 +43,29 @@ export function CheckpointMediaPlayer({
   loading: externalLoading = false,
   ticks,
   initialPositionMs,
-  autoStopMs
+  autoStopMs,
+  windowStartMs,
+  windowEndMs
 }: CheckpointMediaPlayerProps) {
   const audioContext = useAudio({ stopOnUnmount: false });
   const [isLoadingAudio, setIsLoadingAudio] = React.useState(false);
 
-  // Ref so the stable checkpointStore closure reads the latest value
+  const hasWindow =
+    typeof windowStartMs === 'number' &&
+    typeof windowEndMs === 'number' &&
+    windowEndMs > windowStartMs;
+
+  const effectiveAutoStopMs = hasWindow ? windowEndMs : autoStopMs;
+
+  // Refs so the stable checkpointStore closure reads the latest values
   const initialPositionMsRef = React.useRef(initialPositionMs);
+  const windowStartMsRef = React.useRef(windowStartMs);
+  const windowEndMsRef = React.useRef(windowEndMs);
   React.useEffect(() => {
     initialPositionMsRef.current = initialPositionMs;
-  }, [initialPositionMs]);
+    windowStartMsRef.current = windowStartMs;
+    windowEndMsRef.current = windowEndMs;
+  }, [initialPositionMs, windowStartMs, windowEndMs]);
 
   const checkpointStore = React.useMemo(
     () => ({
@@ -52,12 +76,29 @@ export function CheckpointMediaPlayer({
       ) => {
         if (!assetId || !Number.isFinite(positionMs)) return;
         const normalizedPosition = Math.max(0, Math.floor(positionMs));
-        const shouldClearForStart = normalizedPosition < MIN_VALID_POSITION_MS;
+
+        const windowStart = windowStartMsRef.current;
+        const windowEnd = windowEndMsRef.current;
+        const inWindow =
+          typeof windowStart === 'number' &&
+          typeof windowEnd === 'number' &&
+          windowEnd > windowStart;
+
+        const shouldClearForStart = inWindow
+          ? normalizedPosition <= windowStart + MIN_VALID_POSITION_MS
+          : normalizedPosition < MIN_VALID_POSITION_MS;
+
+        const endBoundary = inWindow
+          ? windowEnd
+          : typeof durationMs === 'number' &&
+              Number.isFinite(durationMs) &&
+              durationMs > 0
+            ? durationMs
+            : null;
+
         const shouldClearForEnd =
-          typeof durationMs === 'number' &&
-          Number.isFinite(durationMs) &&
-          durationMs > 0 &&
-          normalizedPosition >= Math.max(0, durationMs - END_MARGIN_MS);
+          endBoundary != null &&
+          normalizedPosition >= Math.max(0, endBoundary - END_MARGIN_MS);
 
         const { setBibleAudioPosition } = useLocalStore.getState();
         if (shouldClearForStart || shouldClearForEnd) {
@@ -72,7 +113,21 @@ export function CheckpointMediaPlayer({
         const saved = Number.isFinite(position)
           ? Math.max(0, Math.floor(position))
           : 0;
-        return saved > 0 ? saved : (initialPositionMsRef.current ?? 0);
+
+        const windowStart = windowStartMsRef.current;
+        const windowEnd = windowEndMsRef.current;
+        const inWindow =
+          typeof windowStart === 'number' &&
+          typeof windowEnd === 'number' &&
+          windowEnd > windowStart;
+
+        const fallback = inWindow
+          ? windowStart
+          : (initialPositionMsRef.current ?? 0);
+
+        const resolved = saved > 0 ? saved : fallback;
+        if (!inWindow) return resolved;
+        return clampToWindow(resolved, windowStart, windowEnd);
       },
       clearAssetCheckpoint: (assetId: string) => {
         const { setBibleAudioPosition } = useLocalStore.getState();
@@ -229,23 +284,131 @@ export function CheckpointMediaPlayer({
       return;
     }
     if (
-      autoStopMs &&
+      effectiveAutoStopMs &&
       audioContext.isPlaying &&
-      audioContext.position >= autoStopMs &&
+      audioContext.position >= effectiveAutoStopMs &&
       !hasAutoStoppedRef.current
     ) {
       hasAutoStoppedRef.current = true;
       void audioContext.pauseSound();
     }
-    if (autoStopMs && audioContext.position < autoStopMs - 1000) {
+    if (
+      effectiveAutoStopMs &&
+      audioContext.position < effectiveAutoStopMs - 1000
+    ) {
       hasAutoStoppedRef.current = false;
     }
   }, [
     isThisActive,
-    autoStopMs,
+    effectiveAutoStopMs,
     audioContext.isPlaying,
     audioContext.position,
     audioContext.pauseSound
+  ]);
+
+  // Keep playback inside the passage window when active
+  React.useEffect(() => {
+    if (!isThisActive || !hasWindow) return;
+    const { position } = audioContext;
+    if (position < windowStartMs! || position > windowEndMs!) {
+      void seekCurrentAssetTo(
+        clampToWindow(position, windowStartMs!, windowEndMs!)
+      );
+    }
+  }, [
+    isThisActive,
+    hasWindow,
+    windowStartMs,
+    windowEndMs,
+    audioContext.position,
+    seekCurrentAssetTo
+  ]);
+
+  const effectiveSeekStepMs =
+    typeof seekStepMs === 'number' &&
+    Number.isFinite(seekStepMs) &&
+    seekStepMs > 0
+      ? seekStepMs
+      : 5000;
+
+  const windowDurationMs = hasWindow ? windowEndMs! - windowStartMs! : 0;
+
+  const displayPositionMs = React.useMemo(() => {
+    if (!hasWindow) {
+      return isThisActive ? audioContext.position : 0;
+    }
+    if (!isThisActive) return 0;
+    return Math.max(
+      0,
+      Math.min(audioContext.position - windowStartMs!, windowDurationMs)
+    );
+  }, [
+    hasWindow,
+    isThisActive,
+    audioContext.position,
+    windowStartMs,
+    windowDurationMs
+  ]);
+
+  const displayDurationMs = React.useMemo(() => {
+    if (hasWindow) return windowDurationMs;
+    return isThisActive ? audioContext.duration : 0;
+  }, [hasWindow, isThisActive, audioContext.duration, windowDurationMs]);
+
+  const handleSeek = React.useCallback(
+    (displayMs: number) => {
+      if (!hasWindow) {
+        void seekCurrentAssetTo(displayMs);
+        return;
+      }
+      const absoluteMs = clampToWindow(
+        displayMs + windowStartMs!,
+        windowStartMs!,
+        windowEndMs!
+      );
+      void seekCurrentAssetTo(absoluteMs);
+    },
+    [hasWindow, windowStartMs, windowEndMs, seekCurrentAssetTo]
+  );
+
+  const handleRewind = React.useCallback(() => {
+    if (!hasWindow || !isThisActive) {
+      void rewindCurrentAsset();
+      return;
+    }
+    const target = Math.max(
+      windowStartMs!,
+      audioContext.position - effectiveSeekStepMs
+    );
+    void seekCurrentAssetTo(target);
+  }, [
+    hasWindow,
+    isThisActive,
+    windowStartMs,
+    audioContext.position,
+    effectiveSeekStepMs,
+    rewindCurrentAsset,
+    seekCurrentAssetTo
+  ]);
+
+  const handleForward = React.useCallback(() => {
+    if (!hasWindow || !isThisActive) {
+      void forwardCurrentAsset();
+      return;
+    }
+    const target = Math.min(
+      windowEndMs!,
+      audioContext.position + effectiveSeekStepMs
+    );
+    void seekCurrentAssetTo(target);
+  }, [
+    hasWindow,
+    isThisActive,
+    windowEndMs,
+    audioContext.position,
+    effectiveSeekStepMs,
+    forwardCurrentAsset,
+    seekCurrentAssetTo
   ]);
 
   if (!checkpointKey || audioUris.length === 0) return null;
@@ -257,15 +420,15 @@ export function CheckpointMediaPlayer({
       isPlaying={isThisActive && audioContext.isPlaying}
       isPaused={isThisActive && audioContext.isPaused}
       loading={externalLoading || isLoadingAudio}
-      positionMs={isThisActive ? audioContext.position : 0}
-      durationMs={isThisActive ? audioContext.duration : 0}
-      onSeek={(ms) => void seekCurrentAssetTo(ms)}
-      onRewind={() => void rewindCurrentAsset()}
+      positionMs={displayPositionMs}
+      durationMs={displayDurationMs}
+      onSeek={handleSeek}
+      onRewind={handleRewind}
       onPlayPause={handlePlayPause}
       onStop={() => void stopAndResetCurrentAsset()}
-      onForward={() => void forwardCurrentAsset()}
+      onForward={handleForward}
       disabled={disabled}
-      ticks={ticks}
+      ticks={hasWindow ? undefined : ticks}
     />
   );
 }
