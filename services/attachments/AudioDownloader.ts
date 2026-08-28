@@ -222,8 +222,23 @@ export class AudioDownloader {
     let succeeded = 0;
     const queue = [...ready];
     let active = 0;
+    let pausedMidBatch = false;
 
     const runNext = async (): Promise<void> => {
+      // The pass-start offline guard can't protect a batch already in
+      // flight. Re-check before pulling each file so going offline mid-batch
+      // stops the pass instead of burning through thousands of failing
+      // attempts; reconnect trigger()s a fresh pass.
+      if (!this.options.isOnline()) {
+        if (!pausedMidBatch && queue.length > 0) {
+          pausedMidBatch = true;
+          console.log(
+            `[AudioDownloader] Pausing batch with ${queue.length} file(s) unstarted (offline)`
+          );
+        }
+        queue.length = 0;
+        return;
+      }
       const filename = queue.shift();
       if (filename === undefined) return;
       active++;

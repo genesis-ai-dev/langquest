@@ -25,7 +25,9 @@
  * Transfers pause while PowerSync is downloading sync data (isSyncingDown):
  * until the stream settles, locally-null audio_uploaded_at values may just be
  * confirmations that haven't arrived yet, and uploading against them wastes
- * bandwidth re-sending files the server already has.
+ * bandwidth re-sending files the server already has. The pause (and the
+ * offline check) applies both at pass start and before each file within a
+ * batch, so even a huge in-flight batch stops within CONCURRENCY files.
  */
 
 import type * as drizzleSchema from '@/db/drizzleSchema';
@@ -292,8 +294,25 @@ export class AudioUploader {
     let succeeded = 0;
     const queue = [...ready];
     let active = 0;
+    let pausedMidBatch = false;
 
     const runNext = async (): Promise<void> => {
+      // The pass-start guards can't protect a batch already in flight, and a
+      // batch can be huge (tens of thousands of stale rows right after an app
+      // upgrade). Re-check before pulling each file: workers stop pulling,
+      // the (≤ CONCURRENCY) in-flight uploads finish, and the pass ends
+      // early. Whatever ends the pause (settle nudge, reconnect trigger, row
+      // watcher) re-derives a fresh work list.
+      if (!this.options.isOnline() || this.options.isSyncingDown()) {
+        if (!pausedMidBatch && queue.length > 0) {
+          pausedMidBatch = true;
+          console.log(
+            `[AudioUploader] Pausing batch with ${queue.length} file(s) unstarted (offline or sync stream active)`
+          );
+        }
+        queue.length = 0;
+        return;
+      }
       const filename = queue.shift();
       if (filename === undefined) return;
       active++;
