@@ -48,7 +48,9 @@
 -- table sizes (~800k acl rows). Session-level SET (not SET LOCAL): the CLI
 -- applies migration statements outside an explicit transaction block, where
 -- SET LOCAL warns and does nothing. Reset at the end of the file.
-set statement_timeout = '1h';
+-- 2h: the prod run reached the 4a/4b backfills at ~16 min before failing on
+-- disk space, so 1h is likely enough — 2h is margin against a slow re-run.
+set statement_timeout = '2h';
 
 -- ----------------------------------------------------------------------------
 -- PART 1: Column + index
