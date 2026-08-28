@@ -205,7 +205,9 @@ update public.asset_content_link acl
 update public.quest set uploaded_at = created_at where uploaded_at is null;
 update public.quest_asset_link set uploaded_at = created_at where uploaded_at is null;
 update public.asset set uploaded_at = created_at where uploaded_at is null;
-update public.asset_content_link set uploaded_at = created_at where uploaded_at is null;
+-- asset_content_link.created_at is text (not timestamptz like the other three
+-- tables), so it needs an explicit cast.
+update public.asset_content_link set uploaded_at = created_at::timestamptz where uploaded_at is null;
 
 -- ----------------------------------------------------------------------------
 -- PART 5: Schema version bump (client reads the new column)
