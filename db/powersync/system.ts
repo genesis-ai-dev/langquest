@@ -369,7 +369,12 @@ export class System {
         },
         // Network store, not powersync.connected: storage transfers are plain
         // HTTPS and can proceed while the sync websocket is still connecting.
-        isOnline: () => useNetworkStore.getState().isConnected
+        isOnline: () => useNetworkStore.getState().isConnected,
+        // While the sync stream is applying server changes, local
+        // audio_uploaded_at values lag the server; pause uploads so we don't
+        // re-send files whose confirmations are still on the wire.
+        isSyncingDown: () =>
+          this.powersync.currentStatus.dataFlowStatus.downloading ?? false
       });
       this.audioDownloader = new AudioDownloader({
         db: this.db,
@@ -1294,6 +1299,21 @@ export class System {
 
       this.audioUploader?.start();
       this.audioDownloader?.start();
+
+      // The uploader skips transfers while the sync stream is downloading
+      // (stale local confirmations). If the stream's last batch touched no
+      // watched rows, nothing re-schedules a pass until the periodic tick —
+      // so nudge (backoff-preserving) whenever downloading settles.
+      let wasSyncingDown = false;
+      this.powersync.registerListener({
+        statusChanged: (status) => {
+          const downloading = status.dataFlowStatus.downloading ?? false;
+          if (wasSyncingDown && !downloading) {
+            this.audioUploader?.nudge();
+          }
+          wasSyncingDown = downloading;
+        }
+      });
 
       // Safety net: re-derive work lists when the app returns to the
       // foreground (backgrounded uploads/downloads may have been suspended
