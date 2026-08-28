@@ -21,6 +21,11 @@
  *
  * Failures are never terminal. Each file gets an in-memory exponential
  * backoff; nothing here ever touches a local file.
+ *
+ * Transfers pause while PowerSync is downloading sync data (isSyncingDown):
+ * until the stream settles, locally-null audio_uploaded_at values may just be
+ * confirmations that haven't arrived yet, and uploading against them wastes
+ * bandwidth re-sending files the server already has.
  */
 
 import type * as drizzleSchema from '@/db/drizzleSchema';
@@ -88,6 +93,14 @@ export interface AudioUploaderOptions {
   hasSession: () => Promise<boolean>;
   /** No transfer attempts while offline (work list is still derived). */
   isOnline: () => boolean;
+  /**
+   * No transfer attempts while PowerSync is actively downloading sync data:
+   * the local audio_uploaded_at values are known-stale until the stream
+   * settles, so uploading against them re-uploads files the server already
+   * confirmed (harmless but wasteful — after a server-side backfill this
+   * could be thousands of redundant uploads on a metered connection).
+   */
+  isSyncingDown: () => boolean;
 }
 
 export class AudioUploader {
@@ -134,6 +147,16 @@ export class AudioUploader {
       state.nextAttemptAt = 0;
     }
     this.schedule(0);
+  }
+
+  /**
+   * Request a pass WITHOUT clearing backoff waits (unlike trigger()). Used
+   * when the sync download stream settles: a drain skipped by isSyncingDown
+   * may have no follow-up event until the periodic tick, but confirmation
+   * grace periods and failure backoffs must survive.
+   */
+  nudge(): void {
+    this.schedule();
   }
 
   getStatus(): AudioUploaderStatus {
@@ -233,6 +256,13 @@ export class AudioUploader {
     // Offline: report honest pending counts but attempt nothing — backoff
     // state stays untouched, and reconnect trigger()s an immediate pass.
     if (!this.options.isOnline()) {
+      this.publishWorkStatus(workList, 0);
+      return;
+    }
+
+    // Sync stream busy: local confirmations are stale, so wait it out.
+    // system.ts nudge()s a pass when the download stream settles.
+    if (this.options.isSyncingDown()) {
       this.publishWorkStatus(workList, 0);
       return;
     }
