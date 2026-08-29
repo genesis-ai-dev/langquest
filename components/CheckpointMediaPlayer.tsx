@@ -13,6 +13,7 @@ interface CheckpointMediaPlayerProps {
   checkpointKey: string | null;
   audioUris: string[];
   title?: string | null;
+  subtitle?: string | null;
   seekStepMs?: number;
   className?: string;
   disabled?: boolean;
@@ -37,6 +38,7 @@ export function CheckpointMediaPlayer({
   checkpointKey,
   audioUris,
   title,
+  subtitle,
   seekStepMs,
   className,
   disabled = false,
@@ -417,6 +419,7 @@ export function CheckpointMediaPlayer({
     <MiniMediaPlayer
       className={className}
       currentAssetName={title ?? 'Audio'}
+      subtitle={subtitle}
       isPlaying={isThisActive && audioContext.isPlaying}
       isPaused={isThisActive && audioContext.isPaused}
       loading={externalLoading || isLoadingAudio}

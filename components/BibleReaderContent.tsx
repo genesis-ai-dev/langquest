@@ -14,10 +14,15 @@ import {
   type BibleBrainCopyright,
   type BibleBrainVerse
 } from '@/hooks/useBibleBrainContent';
+import { useBibleBookNameGetter } from '@/hooks/useBibleBookName';
 import {
   useLocalStore,
   type BibleDownloadTranslation
 } from '@/store/localStore';
+import {
+  getBibleBookIdFromFia,
+  parseFiaVerseRange
+} from '@/utils/fiaUtils';
 import { cn, getThemeColor, useThemeColor } from '@/utils/styleUtils';
 import {
   BookOpenIcon,
@@ -468,6 +473,7 @@ export function BibleReaderContent({
   verseRange,
   onOpenTranslationDrawer
 }: BibleReaderContentProps) {
+  const getBookName = useBibleBookNameGetter();
   const {
     bibles: apiBibles,
     isLoading: biblesLoading,
@@ -638,6 +644,32 @@ export function BibleReaderContent({
     return { startMs, endMs };
   }, [content?.audio, verseRange]);
 
+  const audioPassageLabel = useMemo(() => {
+    if (!fiaBookId || !verseRange) return null;
+
+    const { name: bookName } = getBookName(getBibleBookIdFromFia(fiaBookId));
+
+    if (pericopeWindow) {
+      return `${bookName} ${verseRange}`;
+    }
+
+    const chapters = content?.audio?.map((a) => a.chapter) ?? [];
+    if (chapters.length > 0) {
+      const first = chapters[0]!;
+      const last = chapters[chapters.length - 1]!;
+      return first === last
+        ? `${bookName} ${first}`
+        : `${bookName} ${first}-${last}`;
+    }
+
+    const parsed = parseFiaVerseRange(verseRange);
+    if (!parsed) return null;
+    const { startChapter, endChapter } = parsed;
+    return startChapter === endChapter
+      ? `${bookName} ${startChapter}`
+      : `${bookName} ${startChapter}-${endChapter}`;
+  }, [fiaBookId, verseRange, pericopeWindow, content?.audio, getBookName]);
+
   const bibleModelKeyPart = selectedBible?.id
     ? `bible-model:${selectedBible.id}`
     : 'bible-model:default';
@@ -740,6 +772,7 @@ export function BibleReaderContent({
         <CheckpointMediaPlayer
           className="rounded-none border-0 border-b border-border bg-card px-4 py-2"
           title={formatBibleLabel(selectedBible)}
+          subtitle={audioPassageLabel}
           checkpointKey={bibleAudioCheckpointKey}
           audioUris={audioUrls}
           seekStepMs={AUDIO_SEEK_STEP_MS}
