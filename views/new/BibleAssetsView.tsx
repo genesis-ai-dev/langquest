@@ -20,7 +20,6 @@ import { project, quest as questTable } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useProjectById } from '@/hooks/db/useProjects';
 import { useDebouncedState } from '@/hooks/use-debounced-state';
-import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useAudioPlaybackCheckpoint } from '@/hooks/useAudioPlaybackCheckpoint';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNavigationHelpers } from '@/hooks/useNavigation';
@@ -39,8 +38,6 @@ import {
   BookmarkPlusIcon,
   BookOpenIcon,
   BrushCleaning,
-  CheckCheck,
-  CloudUpload,
   DownloadIcon,
   FilePenIcon,
   FlagIcon,
@@ -84,6 +81,7 @@ import { ModalDetails } from '@/components/ModalDetails';
 import { ReportModal } from '@/components/NewReportModal';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { PublishQuestButton } from '@/components/PublishQuestButton';
+import { QuestSyncedBadge } from '@/components/QuestSyncedBadge';
 import { QuestLabelHandler } from '@/components/questLabelHandler';
 import { QuestOffloadVerificationDrawer } from '@/components/QuestOffloadVerificationDrawer';
 import { RecordButton } from '@/components/RecordButton';
@@ -138,8 +136,11 @@ import { useQuestOffloadVerification } from '@/hooks/useQuestOffloadVerification
 import { useHasUserReported } from '@/hooks/useReports';
 import { useUndoHistory } from '@/hooks/useUndoHistory';
 import { isFiaPericopeCached } from '@/services/FiaAttachmentQueue';
+import {
+  isLocalOnlyAudio,
+  resolveExistingAudioUri
+} from '@/utils/attachmentPaths';
 import { resolveTable } from '@/utils/dbUtils';
-import { fileExists, getLocalAttachmentUriWithOPFS } from '@/utils/fileUtils';
 import { publishQuest as publishQuestUtils } from '@/utils/publishQuest';
 import { offloadQuest } from '@/utils/questOffloadUtils';
 import { formatQuestDisplayLabel } from '@/utils/questVersionLabel';
@@ -2548,33 +2549,7 @@ export default function BibleAssetsView() {
     getAssetMetadata
   ]);
 
-  const assetIds = React.useMemo(() => {
-    return assets.map((asset) => asset.id).filter((id): id is string => !!id);
-  }, [assets]);
-
-  const { attachmentStates, isLoading: isAttachmentStatesLoading } =
-    useAttachmentStates(assetIds);
-
-  const safeAttachmentStates = attachmentStates;
-
   const _blockedCount = useBlockedAssetsCount(questId || '');
-
-  const attachmentStateSummary = React.useMemo(() => {
-    if (safeAttachmentStates.size === 0) {
-      return {};
-    }
-
-    const states = Array.from(safeAttachmentStates.values());
-    const summary = states.reduce(
-      (acc, attachment) => {
-        acc[attachment.state] = (acc[attachment.state] || 0) + 1;
-        return acc;
-      },
-      {} as Record<number, number>
-    );
-    return summary;
-    // Use memo key instead of Map reference for stable dependencies (always 1 string)
-  }, [safeAttachmentStates]);
 
   const handleAssetUpdate = React.useCallback(async () => {
     // await queryClient.invalidateQueries({
@@ -3157,21 +3132,6 @@ export default function BibleAssetsView() {
     return `${isOnline ? '🟢' : '🔴'} Offline: ${offlineCount} | Cloud: ${isOnline ? cloudCount : 'N/A'} | Total: ${assets.length}`;
   }, [isOnline, assets]);
 
-  const attachmentSummaryText = React.useMemo(() => {
-    return Object.entries(attachmentStateSummary)
-      .map(([state, count]) => {
-        const stateNames = {
-          '0': `⏳ ${t('queued')}`,
-          '1': `🔄 ${t('syncing')}`,
-          '2': `✅ ${t('synced')}`,
-          '3': `❌ ${t('failed')}`,
-          '4': `📥 ${t('downloading')}`
-        };
-        return `${stateNames[state as keyof typeof stateNames] || `${t('state')} ${state}`}: ${count}`;
-      })
-      .join(' | ');
-  }, [attachmentStateSummary, t]);
-
   const {
     hasReported,
     // isLoading: isReportLoading,
@@ -3238,219 +3198,37 @@ export default function BibleAssetsView() {
           return [];
         }
 
-        // Process each audio value - can be either a local URI or an attachment ID
+        // Resolve each audio value deterministically from disk
         const uris: string[] = [];
         for (const audioValue of audioValues) {
-          // Check if this is already a local URI (starts with 'local/' or 'file://')
-          if (audioValue.startsWith('local/')) {
-            // It's a direct local URI from saveAudioLocally()
-            const constructedUri =
-              await getLocalAttachmentUriWithOPFS(audioValue);
-            // Check if file exists at constructed path
-            if (await fileExists(constructedUri)) {
-              uris.push(constructedUri);
-            } else {
-              // File doesn't exist at expected path - try to find it in attachment queue
-              console.log(
-                `⚠️ Local URI ${audioValue} not found at ${constructedUri}, searching attachment queue...`
-              );
+          const localUri = await resolveExistingAudioUri(audioValue);
+          if (localUri) {
+            uris.push(localUri);
+            continue;
+          }
 
-              if (system.permAttachmentQueue) {
-                // Extract filename from local path (e.g., "local/uuid.wav" -> "uuid.wav")
-                const filename = audioValue.replace(/^local\//, '');
-                // Extract UUID part (without extension) for more flexible matching
-                const uuidPart = filename.split('.')[0];
+          // Pre-publish and legacy file:// values only ever exist on-device
+          if (
+            isLocalOnlyAudio(audioValue) ||
+            audioValue.startsWith('file://')
+          ) {
+            console.warn(`Local audio file not found: ${audioValue}`);
+            continue;
+          }
 
-                // Search attachment queue by filename or UUID
-                let attachment = await system.powersync.getOptional<{
-                  id: string;
-                  filename: string | null;
-                  local_uri: string | null;
-                }>(
-                  `SELECT * FROM ${system.permAttachmentQueue.table} WHERE filename = ? OR filename LIKE ? OR id = ? OR id LIKE ? LIMIT 1`,
-                  [filename, `%${uuidPart}%`, filename, `%${uuidPart}%`]
-                );
-
-                // If not found, try searching all attachments for this asset's content links
-                if (!attachment && uniqueLinks.length > 0) {
-                  const allAttachmentIds = uniqueLinks
-                    .flatMap((link) => link.audio ?? [])
-                    .filter(
-                      (av): av is string =>
-                        typeof av === 'string' &&
-                        !av.startsWith('local/') &&
-                        !av.startsWith('file://')
-                    );
-                  if (allAttachmentIds.length > 0) {
-                    const placeholders = allAttachmentIds
-                      .map(() => '?')
-                      .join(',');
-                    attachment = await system.powersync.getOptional<{
-                      id: string;
-                      filename: string | null;
-                      local_uri: string | null;
-                    }>(
-                      `SELECT * FROM ${system.permAttachmentQueue.table} WHERE id IN (${placeholders}) LIMIT 1`,
-                      allAttachmentIds
-                    );
-                  }
-                }
-
-                if (attachment?.local_uri) {
-                  const foundUri = system.permAttachmentQueue.getLocalUri(
-                    attachment.local_uri
-                  );
-                  // Verify the found file actually exists
-                  if (await fileExists(foundUri)) {
-                    uris.push(foundUri);
-                    console.log(
-                      `✅ Found attachment in queue for local URI ${audioValue.slice(0, 20)}`
-                    );
-                  } else {
-                    console.warn(
-                      `⚠️ Attachment found in queue but file doesn't exist: ${foundUri}`
-                    );
-                  }
-                } else {
-                  // Try fallback to local table for alternative audio values
-                  const fallbackLink = contentLinksLocal.find(
-                    (link) => link.asset_id === assetId
-                  );
-                  if (fallbackLink?.audio) {
-                    for (const fallbackAudioValue of fallbackLink.audio) {
-                      if (fallbackAudioValue.startsWith('file://')) {
-                        if (await fileExists(fallbackAudioValue)) {
-                          uris.push(fallbackAudioValue);
-                          console.log(`✅ Found fallback file URI`);
-                          break;
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          } else if (audioValue.startsWith('file://')) {
-            // Already a full file URI - verify it exists
-            if (await fileExists(audioValue)) {
-              uris.push(audioValue);
-            } else {
-              console.warn(`File URI does not exist: ${audioValue}`);
-              // Try to find in attachment queue by extracting filename from path
-              if (system.permAttachmentQueue) {
-                const filename = audioValue.split('/').pop();
-                if (filename) {
-                  const attachment = await system.powersync.getOptional<{
-                    id: string;
-                    filename: string | null;
-                    local_uri: string | null;
-                  }>(
-                    `SELECT * FROM ${system.permAttachmentQueue.table} WHERE filename = ? OR id = ? LIMIT 1`,
-                    [filename, filename]
-                  );
-
-                  if (attachment?.local_uri) {
-                    const foundUri = system.permAttachmentQueue.getLocalUri(
-                      attachment.local_uri
-                    );
-                    if (await fileExists(foundUri)) {
-                      uris.push(foundUri);
-                      console.log(`✅ Found attachment in queue for file URI`);
-                    }
-                  }
-                }
-              }
-            }
-          } else {
-            // It's an attachment ID - look it up in the attachment queue
-            if (!system.permAttachmentQueue) {
-              // No attachment queue - try fallback to local table
-              const fallbackLink = contentLinksLocal.find(
-                (link) => link.asset_id === assetId
-              );
-              if (fallbackLink?.audio) {
-                for (const fallbackAudioValue of fallbackLink.audio) {
-                  if (fallbackAudioValue.startsWith('local/')) {
-                    const fallbackUri =
-                      await getLocalAttachmentUriWithOPFS(fallbackAudioValue);
-                    if (await fileExists(fallbackUri)) {
-                      uris.push(fallbackUri);
-                      break;
-                    }
-                  } else if (fallbackAudioValue.startsWith('file://')) {
-                    if (await fileExists(fallbackAudioValue)) {
-                      uris.push(fallbackAudioValue);
-                      break;
-                    }
-                  }
-                }
-              }
+          // Published audio not on this device - fall back to cloud URL
+          try {
+            if (!AppConfig.supabaseBucket) {
               continue;
             }
-
-            const attachment = await system.powersync.getOptional<{
-              id: string;
-              local_uri: string | null;
-            }>(
-              `SELECT * FROM ${system.permAttachmentQueue.table} WHERE id = ?`,
-              [audioValue]
-            );
-
-            if (attachment?.local_uri) {
-              const localUri = system.permAttachmentQueue.getLocalUri(
-                attachment.local_uri
-              );
-              if (await fileExists(localUri)) {
-                uris.push(localUri);
-              }
-            } else {
-              // Attachment ID not found in queue - try fallback to local table
-              console.log(
-                `⚠️ Attachment ID ${audioValue.slice(0, 8)} not found in queue, checking local table fallback...`
-              );
-
-              const fallbackLink = contentLinksLocal.find(
-                (link) => link.asset_id === assetId
-              );
-              if (fallbackLink?.audio) {
-                for (const fallbackAudioValue of fallbackLink.audio) {
-                  if (fallbackAudioValue.startsWith('local/')) {
-                    const fallbackUri =
-                      await getLocalAttachmentUriWithOPFS(fallbackAudioValue);
-                    if (await fileExists(fallbackUri)) {
-                      uris.push(fallbackUri);
-                      console.log(
-                        `✅ Found fallback local URI for attachment ${audioValue.slice(0, 8)}`
-                      );
-                      break;
-                    }
-                  } else if (fallbackAudioValue.startsWith('file://')) {
-                    if (await fileExists(fallbackAudioValue)) {
-                      uris.push(fallbackAudioValue);
-                      console.log(
-                        `✅ Found fallback file URI for attachment ${audioValue.slice(0, 8)}`
-                      );
-                      break;
-                    }
-                  }
-                }
-              } else {
-                // Try to get cloud URL if local not available
-                try {
-                  if (!AppConfig.supabaseBucket) {
-                    continue;
-                  }
-                  const { data } = system.supabaseConnector.client.storage
-                    .from(AppConfig.supabaseBucket)
-                    .getPublicUrl(audioValue);
-                  if (data.publicUrl) {
-                    uris.push(data.publicUrl);
-                  }
-                } catch (error) {
-                  console.error('Failed to get cloud audio URL:', error);
-                }
-              }
+            const { data } = system.supabaseConnector.client.storage
+              .from(AppConfig.supabaseBucket)
+              .getPublicUrl(audioValue);
+            if (data.publicUrl) {
+              uris.push(data.publicUrl);
             }
+          } catch (error) {
+            console.error('Failed to get cloud audio URL:', error);
           }
         }
 
@@ -3824,10 +3602,6 @@ export default function BibleAssetsView() {
         void refetch();
 
         console.log('✅ [Publish Quest] All queries invalidated');
-
-        RNAlert.alert(t('success'), result.message, [
-          { text: t('ok'), isPreferred: true }
-        ]);
       } else {
         RNAlert.alert(t('error'), result.message || t('error'), [
           { text: t('ok'), isPreferred: true }
@@ -4082,18 +3856,10 @@ export default function BibleAssetsView() {
               // Show cloud badge and export button if user is creator, member, or owner
               canSeePublishedBadge ? (
                 <>
-                  <Button
-                    variant="outline"
-                    className="h-10 border-border/50 px-4 py-0"
-                    onPress={() => {
-                      RNAlert.alert(t('questSyncedToCloud'));
-                    }}
-                  >
-                    <View className="flex-row items-center gap-0.5">
-                      <Icon as={CloudUpload} size={18} />
-                      <Icon as={CheckCheck} size={14} />
-                    </View>
-                  </Button>
+                  <QuestSyncedBadge
+                    questId={questId}
+                    questName={selectedQuest?.name}
+                  />
                   {questId && projectId && (
                     <ExportButton
                       questId={questId}
@@ -4123,6 +3889,7 @@ export default function BibleAssetsView() {
               currentUser && (
                 <>
                   <PublishQuestButton
+                    questId={questId}
                     questName={selectedQuest?.name}
                     disabled={isPublishing || !isOnline || !isMember}
                     isPublishing={isPublishing}
@@ -4304,19 +4071,6 @@ export default function BibleAssetsView() {
       {SHOW_DEV_ELEMENTS && (
         <Text className="text-sm text-muted-foreground">{statusText}</Text>
       )}
-
-      {SHOW_DEV_ELEMENTS &&
-        !isAttachmentStatesLoading &&
-        safeAttachmentStates.size > 0 && (
-          <View className="rounded-md bg-muted p-3">
-            <Text className="mb-1 font-semibold">
-              📎 {t('liveAttachmentStates')}:
-            </Text>
-            <Text className="text-muted-foreground">
-              {attachmentSummaryText}
-            </Text>
-          </View>
-        )}
 
       {isLoading || (isFetching && assets.length === 0) ? (
         searchQuery.trim().length > 0 ? (

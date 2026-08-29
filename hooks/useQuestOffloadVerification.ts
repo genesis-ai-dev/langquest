@@ -1,7 +1,6 @@
 import { system } from '@/db/powersync/system';
 import { AppConfig } from '@/db/supabase/AppConfig';
 import { getDirectory } from '@/utils/fileUtils';
-import { AttachmentState } from '@powersync/attachments';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSharedValue } from 'react-native-reanimated';
 
@@ -237,13 +236,10 @@ export function useQuestOffloadVerification(
       }>(`SELECT COUNT(*) as count FROM ps_crud`);
       const pendingDbRecords = pendingRecordsResult[0]?.count || 0;
 
-      // Check attachment upload queue
-      const pendingAttachmentsResult = await system.powersync.getAll<{
-        count: number;
-      }>(`SELECT COUNT(*) as count FROM attachments WHERE state = ?`, [
-        String(AttachmentState.QUEUED_UPLOAD)
-      ]);
-      const pendingAttachmentRecords = pendingAttachmentsResult[0]?.count || 0;
+      // Check pending audio uploads (files on device whose acl rows lack
+      // server-confirmed audio_uploaded_at)
+      const pendingAttachmentRecords =
+        system.audioUploader?.getStatus().pending ?? 0;
 
       const totalPending = pendingDbRecords + pendingAttachmentRecords;
 

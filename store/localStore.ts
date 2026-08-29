@@ -209,26 +209,6 @@ export interface LocalState {
   recentQuests: RecentQuest[];
   recentAssets: RecentAsset[];
 
-  // Attachment sync progress
-  attachmentSyncProgress: {
-    downloading: boolean;
-    uploading: boolean;
-    downloadCurrent: number;
-    downloadTotal: number;
-    uploadCurrent: number;
-    uploadTotal: number;
-    // Speed tracking
-    downloadSpeed: number; // files per second
-    uploadSpeed: number; // files per second
-    downloadBytesPerSec: number; // bytes per second
-    uploadBytesPerSec: number; // bytes per second
-    // Timestamps for speed calculation
-    downloadStartTime: number | null;
-    uploadStartTime: number | null;
-    lastDownloadUpdate: number | null;
-    lastUploadUpdate: number | null;
-  };
-
   // OTA Update dismissal tracking
   dismissedUpdateTimestamp: number | null;
   dismissedUpdateVersion: string | null;
@@ -270,12 +250,6 @@ export interface LocalState {
   addRecentProject: (project: RecentProject) => void;
   addRecentQuest: (quest: RecentQuest) => void;
   addRecentAsset: (asset: RecentAsset) => void;
-
-  // Attachment sync methods
-  setAttachmentSyncProgress: (
-    progress: Partial<LocalState['attachmentSyncProgress']>
-  ) => void;
-  resetAttachmentSyncProgress: () => void;
 
   theme: Theme;
   setTheme: (theme: Theme) => void;
@@ -423,24 +397,6 @@ export const useLocalStore = create<LocalState>()(
       recentQuests: [],
       recentAssets: [],
 
-      // Attachment sync progress
-      attachmentSyncProgress: {
-        downloading: false,
-        uploading: false,
-        downloadCurrent: 0,
-        downloadTotal: 0,
-        uploadCurrent: 0,
-        uploadTotal: 0,
-        downloadSpeed: 0,
-        uploadSpeed: 0,
-        downloadBytesPerSec: 0,
-        uploadBytesPerSec: 0,
-        downloadStartTime: null,
-        uploadStartTime: null,
-        lastDownloadUpdate: null,
-        lastUploadUpdate: null
-      },
-
       // OTA Update dismissal tracking
       dismissedUpdateTimestamp: null,
       dismissedUpdateVersion: null,
@@ -583,72 +539,6 @@ export const useLocalStore = create<LocalState>()(
         set((state) => {
           const filtered = state.recentAssets.filter((a) => a.id !== asset.id);
           return { recentAssets: [asset, ...filtered].slice(0, 5) };
-        }),
-
-      setAttachmentSyncProgress: (() => {
-        let pendingUpdate: Partial<
-          LocalState['attachmentSyncProgress']
-        > | null = null;
-        let timeoutId: ReturnType<typeof setTimeout> | null = null;
-        const BATCH_DELAY_MS = 100;
-
-        return (progress: Partial<LocalState['attachmentSyncProgress']>) => {
-          pendingUpdate = pendingUpdate
-            ? { ...pendingUpdate, ...progress }
-            : progress;
-
-          if (timeoutId) {
-            clearTimeout(timeoutId);
-          }
-
-          timeoutId = setTimeout(() => {
-            // Capture and clear BEFORE set() so re-entrant calls during
-            // synchronous React renders don't get discarded
-            const update = pendingUpdate;
-            pendingUpdate = null;
-            timeoutId = null;
-
-            if (update) {
-              set((state) => {
-                const current = state.attachmentSyncProgress;
-                const hasChanges = Object.keys(update).some(
-                  (key) =>
-                    current[
-                      key as keyof LocalState['attachmentSyncProgress']
-                    ] !==
-                    update[key as keyof LocalState['attachmentSyncProgress']]
-                );
-
-                if (!hasChanges) {
-                  return state;
-                }
-
-                return {
-                  attachmentSyncProgress: { ...current, ...update }
-                };
-              });
-            }
-          }, BATCH_DELAY_MS);
-        };
-      })(),
-      resetAttachmentSyncProgress: () =>
-        set({
-          attachmentSyncProgress: {
-            downloading: false,
-            uploading: false,
-            downloadCurrent: 0,
-            downloadTotal: 0,
-            uploadCurrent: 0,
-            uploadTotal: 0,
-            downloadSpeed: 0,
-            uploadSpeed: 0,
-            downloadBytesPerSec: 0,
-            uploadBytesPerSec: 0,
-            downloadStartTime: null,
-            uploadStartTime: null,
-            lastDownloadUpdate: null,
-            lastUploadUpdate: null
-          }
         }),
 
       // Bible reader preferences

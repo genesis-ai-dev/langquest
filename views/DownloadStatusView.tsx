@@ -38,8 +38,7 @@ export default function DownloadStatusView() {
   const powerSyncStatus = usePowerSyncStatus();
 
   // Get attachment progress (only when authenticated)
-  const { progress, syncProgress, isLoading } =
-    useAttachmentProgress(isAuthenticated);
+  const { progress, syncProgress } = useAttachmentProgress(isAuthenticated);
 
   // Format last sync time
   const formattedLastSync = useMemo(() => {
@@ -52,47 +51,6 @@ export default function DownloadStatusView() {
       return powerSyncStatus.lastSyncedAt.toISOString();
     }
   }, [powerSyncStatus.lastSyncedAt, t]);
-
-  // Format download speed
-  const formattedDownloadSpeed = useMemo(() => {
-    if (!syncProgress.downloading || !('downloadSpeed' in syncProgress)) {
-      return null;
-    }
-
-    const speed = (
-      syncProgress as typeof syncProgress & {
-        downloadSpeed: number;
-        downloadBytesPerSec: number;
-      }
-    ).downloadSpeed;
-    if (speed <= 0) {
-      return null;
-    }
-
-    const bytesPerSec =
-      (
-        syncProgress as typeof syncProgress & {
-          downloadSpeed: number;
-          downloadBytesPerSec: number;
-        }
-      ).downloadBytesPerSec ?? 0;
-
-    const filesPerSec = speed.toFixed(1);
-
-    if (bytesPerSec > 1024 * 1024) {
-      return `${filesPerSec} files/s • ${(bytesPerSec / (1024 * 1024)).toFixed(1)} MB/s`;
-    } else if (bytesPerSec > 1024) {
-      return `${filesPerSec} files/s • ${(bytesPerSec / 1024).toFixed(1)} KB/s`;
-    } else if (bytesPerSec > 0) {
-      return `${filesPerSec} files/s`;
-    }
-
-    return `${filesPerSec} files/s`;
-  }, [
-    syncProgress.downloading,
-    'downloadSpeed' in syncProgress ? syncProgress.downloadSpeed : 0,
-    'downloadBytesPerSec' in syncProgress ? syncProgress.downloadBytesPerSec : 0
-  ]);
 
   // Calculate download progress percentage
   const downloadProgressPercentage = useMemo(() => {
@@ -253,11 +211,7 @@ export default function DownloadStatusView() {
                 <Text className="ml-1">{t('attachmentDownloadProgress')}</Text>
               </CardTitle>
               <CardDescription>
-                {isLoading
-                  ? t('loading')
-                  : progress.hasActivity
-                    ? t('downloading')
-                    : t('allSynced')}
+                {progress.hasActivity ? t('downloading') : t('allSynced')}
               </CardDescription>
             </CardHeader>
             <View className="gap-4 p-4 pt-0">
@@ -290,15 +244,6 @@ export default function DownloadStatusView() {
                     value={downloadProgressPercentage}
                     className="h-2"
                   />
-                  {formattedDownloadSpeed && (
-                    <View className="flex-row justify-end">
-                      <Badge className="bg-muted px-2 py-1">
-                        <Text className="text-xs text-muted-foreground">
-                          {formattedDownloadSpeed}
-                        </Text>
-                      </Badge>
-                    </View>
-                  )}
                 </View>
               )}
 
@@ -351,13 +296,6 @@ export default function DownloadStatusView() {
                     <Badge variant="default" className="bg-green-500 px-3 py-1">
                       <Text className="text-xs">
                         {t('uploading')}: {progress.uploading}
-                      </Text>
-                    </Badge>
-                  )}
-                  {progress.queued > 0 && (
-                    <Badge variant="secondary" className="px-3 py-1">
-                      <Text className="text-xs">
-                        {t('queued')}: {progress.queued}
                       </Text>
                     </Badge>
                   )}

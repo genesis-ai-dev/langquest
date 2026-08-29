@@ -9,8 +9,9 @@ import { and, eq, isNotNull } from 'drizzle-orm';
 // import { eq } from 'drizzle-orm'; // Removed drizzle import
 // Import the specific translation types
 import { asset, asset_content_link } from '@/db/drizzleSchema';
-import { AbstractSharedAttachmentQueue } from '@/db/powersync/AbstractSharedAttachmentQueue';
+import { promoteLocalAudio } from '@/services/attachments/promoteLocalAudio';
 import type { LocalizationKey } from '@/services/localizations';
+import { SHARED_ATTACHMENTS_DIRECTORY } from '@/utils/fileUtils';
 import { resolveTable } from './dbUtils';
 // Removed InterpolationOptions as node-polyglot is not a direct/typed dependency here or its types are missing
 
@@ -166,7 +167,7 @@ async function restoreFromBackup(
       // This will always be true now
       console.log('[restoreFromBackup] Starting audio file restore');
       const docDir = Paths.document.uri;
-      const localAttachmentsDir = `${docDir}/${AbstractSharedAttachmentQueue.SHARED_DIRECTORY}/`; // Target shared_attachments
+      const localAttachmentsDir = `${docDir}/${SHARED_ATTACHMENTS_DIRECTORY}/`; // Target shared_attachments
       try {
         const attachmentsDirectory = new Directory(localAttachmentsDir);
         if (!attachmentsDirectory.exists) {
@@ -309,18 +310,14 @@ async function restoreFromBackup(
           const tempFile = new File(Paths.cache, fileName);
           sourceFile.copy(tempFile);
           const tempFileUri = tempFile.uri;
-          // Ensure attachment queues are ready before saving audio
-          await system.ensureAttachmentQueuesReady();
-          if (!system.permAttachmentQueue) {
-            throw new Error('Permanent attachment queue not initialized');
-          }
-          const attachmentRecord =
-            await system.permAttachmentQueue.saveAudio(tempFileUri);
+          // Move the restored file to the published location; the acl row
+          // below (audio_uploaded_at null) makes the AudioUploader pick it up.
+          const restoredFilename = await promoteLocalAudio(tempFileUri);
 
           // Insert into asset_content_link table instead of translation
           await system.db.insert(resolveTable('asset_content_link')).values({
             asset_id: assetIdFromFile,
-            audio: [attachmentRecord.id], // Use the new audio ID
+            audio: [restoredFilename],
             source_language_id: targetLanguageId,
             download_profiles: [creatorId]
           });

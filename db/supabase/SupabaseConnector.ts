@@ -509,6 +509,14 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
           }
         }
 
+        // Server-owned confirmation fields: stamped by server triggers, never
+        // written by clients. Strip them so a stale local copy can't clobber
+        // the server's truth (guard triggers server-side reject them too).
+        if (record) {
+          delete record.uploaded_at;
+          delete record.audio_uploaded_at;
+        }
+
         batchOps.push({
           table_name: op.table,
           op: opName,

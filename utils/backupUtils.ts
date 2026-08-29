@@ -5,7 +5,7 @@ import {
   quest,
   quest_asset_link
 } from '@/db/drizzleSchema';
-import { AbstractSharedAttachmentQueue } from '@/db/powersync/AbstractSharedAttachmentQueue';
+import { SHARED_ATTACHMENTS_DIRECTORY } from '@/utils/fileUtils';
 import type { System } from '@/db/powersync/system'; // Import System type
 import { eq, inArray, isNotNull } from 'drizzle-orm';
 import { Directory, File } from 'expo-file-system';
@@ -340,7 +340,7 @@ export async function backupUnsyncedAudio(
           sourceUri = await getLocalAttachmentUriWithOPFS(audioId);
         } else {
           // Synced file: directly in shared_attachments
-          sourceUri = `${getDocumentDirectory()}/${AbstractSharedAttachmentQueue.SHARED_DIRECTORY}/${cleanAudioId}`;
+          sourceUri = `${getDocumentDirectory()}/${SHARED_ATTACHMENTS_DIRECTORY}/${cleanAudioId}`;
         }
 
         try {
