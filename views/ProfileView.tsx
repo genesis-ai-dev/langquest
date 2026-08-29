@@ -29,15 +29,8 @@ import {
 import { useLocalStore } from '@/store/localStore';
 import { colors, sharedStyles, spacing } from '@/styles/theme';
 import { resetDatabase } from '@/utils/dbUtils';
-import {
-  deleteIfExists,
-  ensureDir,
-  getLocalFilePathSuffix,
-  getLocalUri
-} from '@/utils/fileUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { AttachmentState } from '@powersync/attachments';
 import { useMutation } from '@tanstack/react-query';
 import { Link } from 'expo-router';
 import {
@@ -193,21 +186,6 @@ export default function ProfileView() {
     });
 
   const {
-    mutateAsync: deleteAttachments,
-    isPending: deleteAttachmentsPending
-  } = useMutation({
-    mutationFn: async () => {
-      await system.powersync.execute(
-        `DELETE FROM attachments WHERE state <> ${AttachmentState.SYNCED} OR state <> ${AttachmentState.ARCHIVED}`
-      );
-      const path = getLocalFilePathSuffix('local');
-      await deleteIfExists(getLocalUri(path));
-      await ensureDir(getLocalUri(path));
-      await system.permAttachmentQueue?.init();
-    }
-  });
-
-  const {
     mutateAsync: clearDegradedModeState,
     isPending: clearDegradedModePending
   } = useMutation({
@@ -291,30 +269,6 @@ export default function ProfileView() {
                 <Text>Wipe local db</Text>
               </Button>
             </View>
-            <Button
-              variant="secondary"
-              loading={deleteAttachmentsPending}
-              className="w-full"
-              onPress={() => {
-                RNAlert.alert(
-                  'Delete local attachments',
-                  'This will reset local attachments. Continue?',
-                  [
-                    { text: t('cancel'), style: 'cancel' },
-                    {
-                      text: t('confirm'),
-                      style: 'destructive',
-                      isPreferred: true,
-                      onPress: () => {
-                        void deleteAttachments();
-                      }
-                    }
-                  ]
-                );
-              }}
-            >
-              <Text>Wipe local attachments</Text>
-            </Button>
             {isDegraded && (
               <Button
                 variant="secondary"

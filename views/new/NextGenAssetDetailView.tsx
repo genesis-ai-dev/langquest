@@ -26,7 +26,6 @@ import {
 } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { AppConfig } from '@/db/supabase/AppConfig';
-import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useOrthographyExamples } from '@/hooks/useOrthographyExamples';
@@ -36,10 +35,10 @@ import { useTranscriptionLocalization } from '@/hooks/useTranscriptionLocalizati
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useLocalStore } from '@/store/localStore';
 import {
-  fileExists,
-  getLocalAttachmentUriWithOPFS,
-  getLocalUri
-} from '@/utils/fileUtils';
+  isLocalOnlyAudio,
+  resolveExistingAudioUri
+} from '@/utils/attachmentPaths';
+import { fileExists, getLocalAttachmentUri } from '@/utils/fileUtils';
 import { cn } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { useFocusEffect } from '@react-navigation/native';
@@ -454,23 +453,12 @@ export default function NextGenAssetDetailView() {
         questId
       );
 
-  const allAttachmentIds = React.useMemo(() => {
-    if (!activeAsset) return [];
-    const audioIds = (activeAsset.content ?? [])
-      .flatMap((content) => content.audio ?? [])
-      .filter(Boolean);
-    return [...audioIds, ...(activeAsset.images ?? [])];
-  }, [activeAsset]);
-
   // Check if source asset has any audio (needed to determine if transcription is available)
   const sourceHasAudio = React.useMemo(() => {
     return (activeAsset?.content ?? []).some(
       (content) => content.audio && content.audio.length > 0
     );
   }, [activeAsset?.content]);
-
-  const { attachmentStates, isLoading: isLoadingAttachments } =
-    useAttachmentStates(allAttachmentIds);
 
   // Collect content-level languoid IDs for this asset (prefer languoid_id, fallback to source_language_id)
   const contentLanguoidIds = React.useMemo(() => {
@@ -552,95 +540,21 @@ export default function NextGenAssetDetailView() {
 
       const resolved = await Promise.all(
         audioValues.map(async (audioValue: string): Promise<string | null> => {
-          // Handle full file URIs
-          if (audioValue.startsWith('file://')) {
-            if (await fileExists(audioValue)) {
-              return audioValue;
-            }
-            console.warn(`File URI does not exist: ${audioValue}`);
-            return null;
+          const localUri = await resolveExistingAudioUri(audioValue);
+          if (localUri) {
+            return localUri;
           }
 
-          // Handle local URIs (from saveAudioLocally for unpublished content)
-          if (audioValue.startsWith('local/')) {
-            const constructedUri =
-              await getLocalAttachmentUriWithOPFS(audioValue);
-            // Check if file exists at constructed path
-            if (await fileExists(constructedUri)) {
-              return constructedUri;
-            }
-
-            // File doesn't exist at expected path - try to find it in attachment queue
-            console.log(
-              `⚠️ Local URI ${audioValue} not found at ${constructedUri}, searching attachment queue...`
-            );
-
-            if (system.permAttachmentQueue) {
-              // Extract filename from local path (e.g., "local/uuid.wav" -> "uuid.wav")
-              const filename = audioValue.replace(/^local\//, '');
-              // Extract UUID part (without extension) for more flexible matching
-              const uuidPart = filename.split('.')[0];
-
-              // Search attachment queue by filename or UUID
-              const attachment = await system.powersync.getOptional<{
-                id: string;
-                filename: string | null;
-                local_uri: string | null;
-              }>(
-                `SELECT * FROM ${system.permAttachmentQueue.table} WHERE filename = ? OR filename LIKE ? OR id = ? OR id LIKE ? LIMIT 1`,
-                [filename, `%${uuidPart}%`, filename, `%${uuidPart}%`]
-              );
-
-              if (attachment?.local_uri) {
-                const foundUri = system.permAttachmentQueue.getLocalUri(
-                  attachment.local_uri
-                );
-                // Verify the found file actually exists
-                if (await fileExists(foundUri)) {
-                  console.log(
-                    `✅ Found attachment in queue for local URI ${audioValue.slice(0, 20)}`
-                  );
-                  return foundUri;
-                }
-                console.warn(
-                  `⚠️ Attachment found in queue but file doesn't exist: ${foundUri}`
-                );
-              }
-            }
-
-            // Local file not found
+          // Pre-publish and legacy file:// values only ever exist on-device
+          if (
+            isLocalOnlyAudio(audioValue) ||
+            audioValue.startsWith('file://')
+          ) {
             console.warn(`Local audio file not found: ${audioValue}`);
             return null;
           }
 
-          // For anonymous users, get cloud URLs from Supabase storage
-          const isPowerSyncReady = system.isPowerSyncInitialized();
-          if (!isAuthenticated || !isPowerSyncReady) {
-            // Get public URL from Supabase storage
-            try {
-              if (!AppConfig.supabaseBucket) {
-                console.warn('Supabase bucket not configured');
-                return null;
-              }
-              const { data } = system.supabaseConnector.client.storage
-                .from(AppConfig.supabaseBucket)
-                .getPublicUrl(audioValue);
-              return data.publicUrl;
-            } catch (error) {
-              console.error('Failed to get cloud audio URL:', error);
-              return null;
-            }
-          }
-
-          // Handle attachment IDs (look up in attachment queue) for authenticated users
-          const attachmentState = attachmentStates.get(audioValue);
-          if (attachmentState?.local_uri && attachmentState.filename) {
-            return await getLocalAttachmentUriWithOPFS(
-              attachmentState.filename
-            );
-          }
-
-          // Fallback: try to get cloud URL if local not available
+          // Published audio not on this device - fall back to cloud URL
           try {
             if (!AppConfig.supabaseBucket) {
               console.warn('Supabase bucket not configured');
@@ -651,7 +565,7 @@ export default function NextGenAssetDetailView() {
               .getPublicUrl(audioValue);
             return data.publicUrl;
           } catch (error) {
-            console.error('Failed to get fallback cloud audio URL:', error);
+            console.error('Failed to get cloud audio URL:', error);
             return null;
           }
         })
@@ -661,12 +575,7 @@ export default function NextGenAssetDetailView() {
     };
 
     void resolveUris();
-  }, [
-    activeAsset?.content,
-    currentContentIndex,
-    attachmentStates,
-    isAuthenticated
-  ]);
+  }, [activeAsset?.content, currentContentIndex]);
 
   const { hasReported, isLoading: isReportLoading } = useHasUserReported(
     assetId || '',
@@ -1002,7 +911,6 @@ export default function NextGenAssetDetailView() {
                           audioSegments={
                             isCurrentItem ? resolvedAudioUris : undefined
                           }
-                          isLoading={isCurrentItem && isLoadingAttachments}
                           onTranscribe={
                             isCurrentItem &&
                             enableTranscription &&
@@ -1155,13 +1063,9 @@ export default function NextGenAssetDetailView() {
             {activeAsset.images && activeAsset.images.length > 0 ? (
               <View className="h-48 overflow-hidden rounded-lg">
                 <ImageCarousel
-                  uris={activeAsset.images
-                    .map((imageId) => {
-                      const attachment = attachmentStates.get(imageId);
-                      const localUri = attachment?.local_uri;
-                      return localUri ? getLocalUri(localUri) : null;
-                    })
-                    .filter((uri): uri is string => uri !== null)}
+                  uris={activeAsset.images.map((imageId) =>
+                    getLocalAttachmentUri(imageId)
+                  )}
                 />
               </View>
             ) : (

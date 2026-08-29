@@ -19,7 +19,6 @@ import { useNavigationHelpers } from '@/hooks/useNavigation';
 // import { useTagStore } from '@/hooks/useTagStore';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import { cn } from '@/utils/styleUtils';
-import type { AttachmentRecord } from '@powersync/attachments';
 import {
   CheckSquareIcon,
   EyeOffIcon,
@@ -54,7 +53,6 @@ export interface BibleAssetListItemProps {
   questId: string;
   onUpdate?: () => void;
   onPlay?: (assetId: string) => void | Promise<void>;
-  attachmentState?: AttachmentRecord;
   isCurrentlyPlaying?: boolean;
   // Drag & Drop props
   showDragHandle?: boolean; // Whether to show drag handle (not in selection mode, not published)
@@ -80,7 +78,6 @@ const BibleAssetListItemComponent: React.FC<BibleAssetListItemProps> = ({
   isPublished,
   onUpdate: _onUpdate,
   onPlay,
-  attachmentState: _attachmentState,
   showDragHandle = false,
   isDragFixed = false,
   onDrag,
@@ -522,13 +519,6 @@ const arePropsEqual = (
   const nextMetadata = JSON.stringify(nextAsset.metadata);
   if (prevMetadata !== nextMetadata) {
     return false; // Metadata changed, need to re-render
-  }
-
-  // 4. Compare attachmentState (only the state field matters for UI)
-  const prevState = prevProps.attachmentState?.state;
-  const nextState = nextProps.attachmentState?.state;
-  if (prevState !== nextState) {
-    return false; // Attachment state changed, need to re-render
   }
 
   // 5. Ignore function props (they're stable from Part 2 optimization)

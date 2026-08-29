@@ -3,8 +3,10 @@
  * file URIs directly on the web, so these become safe no-ops.
  */
 
-import { AbstractSharedAttachmentQueue } from '@/db/powersync/AbstractSharedAttachmentQueue';
 import { getOPFSHandle, opfsFileToBlobUrl } from './opfsUtils.web';
+
+/** Directory (in OPFS) holding all audio attachment files. */
+export const SHARED_ATTACHMENTS_DIRECTORY = 'shared_attachments';
 
 export function getFileName(uri: string) {
   return uri.split('/').pop();
@@ -157,13 +159,7 @@ export function getDocumentDirectory(): string {
 
 export function getLocalUri(filePath: string) {
   console.log('getLocalUri', filePath);
-  // const { data } = system.supabaseConnector.client.storage
-  //   .from(AppConfig.supabaseBucket)
-  //   .getPublicUrl(
-  //     filePath.replace(`${AbstractSharedAttachmentQueue.SHARED_DIRECTORY}/`, '')
-  //   );
   return `${getDocumentDirectory()}${filePath}`;
-  // return data.publicUrl;
 }
 
 export async function getFileInfo(_uri: string | null | undefined) {
@@ -192,7 +188,32 @@ export async function getFileInfo(_uri: string | null | undefined) {
 }
 
 export function getLocalFilePathSuffix(filename: string): string {
-  return `${AbstractSharedAttachmentQueue.SHARED_DIRECTORY}/${filename}`;
+  return `${SHARED_ATTACHMENTS_DIRECTORY}/${filename}`;
+}
+
+/**
+ * List the plain filenames (not directories) directly inside an OPFS directory.
+ * Returns [] when the directory does not exist.
+ */
+export async function listDirectoryFilenames(
+  dirPath: string
+): Promise<string[]> {
+  try {
+    const dir = await getOPFSHandle(dirPath, 'directory');
+    if (!dir) return [];
+    const names: string[] = [];
+    const entries = (
+      dir as unknown as {
+        entries(): AsyncIterableIterator<[string, FileSystemHandle]>;
+      }
+    ).entries();
+    for await (const [name, handle] of entries) {
+      if (handle.kind === 'file') names.push(name);
+    }
+    return names;
+  } catch {
+    return [];
+  }
 }
 
 export async function getLocalAttachmentUriWithOPFS(filePath: string) {

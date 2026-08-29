@@ -5,14 +5,13 @@ import { Switch } from '@/components/ui/switch';
 import { Text } from '@/components/ui/text';
 import type { AssetWithVoteCount } from '@/hooks/db/useTranslations';
 import { useTargetAssetsWithVoteCountByAssetId } from '@/hooks/db/useTranslations';
-import { useAttachmentStates } from '@/hooks/useAttachmentStates';
 import { useBlockedTranslationsCount } from '@/hooks/useBlockedCount';
 import { useLocalization } from '@/hooks/useLocalization';
 import type { MembershipRole } from '@/hooks/useUserPermissions';
 import { useLocalStore } from '@/store/localStore';
 import type { SortOrder, WithSource } from '@/utils/dbUtils';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
-import { getLocalUri } from '@/utils/fileUtils';
+import { getLocalAttachmentUri } from '@/utils/fileUtils';
 import { getThemeColor } from '@/utils/styleUtils';
 import { LegendList } from '@/components/ui/legend-list';
 import {
@@ -97,12 +96,6 @@ export default function NextGenTranslationsList({
   const isPrivateProject = projectData?.private || false;
   const canVote = canVoteProp !== undefined ? canVoteProp : !isPrivateProject;
 
-  const audioIds = React.useMemo(() => {
-    return assets.flatMap((trans) => trans.audio).filter(Boolean);
-  }, [assets]);
-
-  const { attachmentStates } = useAttachmentStates(audioIds);
-
   const getPreviewText = (fullText: string, maxLength = 50) => {
     if (!fullText) return '';
     if (fullText.length <= maxLength) return fullText;
@@ -111,10 +104,7 @@ export default function NextGenTranslationsList({
 
   const getAudioSegments = (asset: WithSource<AssetWithVoteCount>) => {
     if (!asset.audio) return undefined;
-    const localUris = asset.audio.map((c) =>
-      getLocalUri(attachmentStates.get(c)?.local_uri ?? '')
-    );
-    return localUris;
+    return asset.audio.map((c) => getLocalAttachmentUri(c));
   };
 
   const handleTranslationPress = (translationId: string) => {

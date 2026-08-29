@@ -356,25 +356,14 @@ export async function offloadQuest(params: OffloadQuestParams): Promise<void> {
         );
       }
 
-      // Step 6: Delete attachments from attachment queue - only for non-shared assets
-      updateProgress('Cleaning up attachments...');
+      // Step 6: Audio files are intentionally kept on disk. There is no
+      // attachment queue anymore, and no release mechanism exists yet (see
+      // the never-delete rule in the attachment plan). Once the offloaded
+      // acl rows sync away, the files become invisible orphans; a future
+      // audio_uploaded_at-gated cleanup can reclaim the space.
       if (filteredVerifiedIds.attachmentIds.length > 0) {
-        // Delete from attachments table
-        for (const attachmentId of filteredVerifiedIds.attachmentIds) {
-          try {
-            await system.powersync.execute(
-              'DELETE FROM attachments WHERE id = ?',
-              [attachmentId]
-            );
-          } catch (error) {
-            console.warn(
-              `⚠️ [Offload] Failed to delete attachment ${attachmentId}:`,
-              error
-            );
-          }
-        }
         console.log(
-          `✅ [Offload] Cleaned up ${filteredVerifiedIds.attachmentIds.length} attachments (${verifiedIds.attachmentIds.length - filteredVerifiedIds.attachmentIds.length} preserved for shared assets)`
+          `⏭️ [Offload] Keeping ${filteredVerifiedIds.attachmentIds.length} audio files on disk (no release mechanism yet)`
         );
       }
 
