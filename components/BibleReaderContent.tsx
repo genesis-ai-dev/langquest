@@ -19,10 +19,7 @@ import {
   useLocalStore,
   type BibleDownloadTranslation
 } from '@/store/localStore';
-import {
-  getBibleBookIdFromFia,
-  parseFiaVerseRange
-} from '@/utils/fiaUtils';
+import { getBibleBookIdFromFia, parseFiaVerseRange } from '@/utils/fiaUtils';
 import { cn, getThemeColor, useThemeColor } from '@/utils/styleUtils';
 import {
   BookOpenIcon,
