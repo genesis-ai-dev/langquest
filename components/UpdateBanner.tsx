@@ -1,9 +1,11 @@
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
+import { openAppStore } from '@/constants/storeUrls';
 import { useExpoUpdates } from '@/hooks/useExpoUpdates';
 import { useLocalization } from '@/hooks/useLocalization';
-import { CloudDownload, XIcon } from 'lucide-react-native';
+import { useStoreUpdate } from '@/hooks/useStoreUpdate';
+import { CloudDownload, Store, XIcon } from 'lucide-react-native';
 import React from 'react';
 import { ActivityIndicator, View } from 'react-native';
 
@@ -13,40 +15,67 @@ import { ActivityIndicator, View } from 'react-native';
 // const USE_MOCK = true;
 
 export function UpdateBanner() {
-  // useLocalization has built-in fallbacks to English, so it should work even before login
   const { t } = useLocalization();
   const {
-    updateInfo,
+    updateInfo: otaUpdateInfo,
     isDownloadingUpdate,
     downloadUpdate,
     downloadError,
-    dismissBanner
-  } = useExpoUpdates(); // In production, always use real updates
+    dismissBanner: dismissOtaBanner
+  } = useExpoUpdates();
+  const { updateInfo: storeUpdateInfo, dismissBanner: dismissStoreBanner } =
+    useStoreUpdate();
 
-  // For testing, replace above with: USE_MOCK ? useExpoUpdatesMock() : useExpoUpdates()
+  const isOtaUpdate = otaUpdateInfo.isUpdateAvailable;
+  const isStoreUpdate = !isOtaUpdate && storeUpdateInfo.isUpdateAvailable;
 
-  if (!updateInfo.isUpdateAvailable) {
+  if (!isOtaUpdate && !isStoreUpdate) {
     return null;
   }
 
-  const handleDownload = async () => {
+  const handleOtaDownload = async () => {
     try {
       await downloadUpdate();
     } catch (error) {
-      console.error('[UpdateBanner] Download failed:', error);
-      // Error is tracked in downloadError, will show in UI
+      console.error('[UpdateBanner] OTA download failed:', error);
     }
   };
+
+  const handleStoreUpdate = async () => {
+    try {
+      await openAppStore();
+    } catch (error) {
+      console.error('[UpdateBanner] Failed to open store:', error);
+    }
+  };
+
+  const message = isOtaUpdate
+    ? downloadError
+      ? t('updateFailed')
+      : t('updateAvailable')
+    : t('storeUpdateAvailable');
+
+  const handlePrimaryAction = isOtaUpdate
+    ? handleOtaDownload
+    : handleStoreUpdate;
+  const handleDismiss = isOtaUpdate ? dismissOtaBanner : dismissStoreBanner;
 
   return (
     <View className="mt-safe flex-row items-center justify-between border-b border-border bg-card px-4 py-3">
       <View className="flex-1 flex-row items-center gap-2">
-        <Icon as={CloudDownload} size={20} className="text-primary" />
+        <Icon
+          as={isOtaUpdate ? CloudDownload : Store}
+          size={20}
+          className="text-primary"
+        />
         <View className="flex-1">
-          <Text className="text-sm font-medium">
-            {downloadError ? t('updateFailed') : t('updateAvailable')}
-          </Text>
-          {downloadError && (
+          <Text className="text-sm font-medium">{message}</Text>
+          {(isStoreUpdate || (isOtaUpdate && !downloadError)) && (
+            <Text className="mt-0.5 text-xs text-muted-foreground">
+              {t('storeUpdateWorkPreserved')}
+            </Text>
+          )}
+          {isOtaUpdate && downloadError && (
             <Text className="mt-0.5 text-xs text-destructive">
               {t('updateErrorTryAgain')}
             </Text>
@@ -56,26 +85,30 @@ export function UpdateBanner() {
       <View className="flex-row items-center gap-2">
         <Button
           size="sm"
-          onPress={handleDownload}
-          disabled={isDownloadingUpdate}
+          onPress={handlePrimaryAction}
+          disabled={isOtaUpdate && isDownloadingUpdate}
           className="h-8"
         >
-          {isDownloadingUpdate ? (
+          {isOtaUpdate && isDownloadingUpdate ? (
             <ActivityIndicator
               size="small"
               className="text-primary-foreground"
             />
           ) : (
             <Text className="text-sm font-medium text-primary-foreground">
-              {downloadError ? t('retry') : t('updateNow')}
+              {isOtaUpdate && downloadError
+                ? t('retry')
+                : isOtaUpdate
+                  ? t('updateNow')
+                  : t('update')}
             </Text>
           )}
         </Button>
         <Button
-          variant="plain"
-          onPress={dismissBanner}
-          disabled={isDownloadingUpdate}
-          className="p-1"
+          variant="ghost"
+          size="icon-sm"
+          onPress={handleDismiss}
+          disabled={isOtaUpdate && isDownloadingUpdate}
         >
           <Icon as={XIcon} size={20} className="text-muted-foreground" />
         </Button>

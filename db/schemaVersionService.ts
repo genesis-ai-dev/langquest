@@ -53,6 +53,7 @@ export class AppUpgradeNeededError extends Error {
 interface ServerSchemaInfo {
   schema_version: string;
   min_required_schema_version?: string; // Minimum client version required
+  latest_app_version?: string; // Latest version published in app stores (optional banner)
   notes?: string | null;
 }
 
@@ -64,7 +65,7 @@ interface ServerSchemaInfo {
  * Compare two semantic version strings
  * @returns negative if a < b, 0 if equal, positive if a > b
  */
-function compareVersions(a: string, b: string): number {
+export function compareVersions(a: string, b: string): number {
   const aParts = a.split('.').map(Number);
   const bParts = b.split('.').map(Number);
 

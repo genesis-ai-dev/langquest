@@ -11,9 +11,10 @@
  * 4. Cannot be dismissed - app cannot proceed without upgrade
  */
 
+import { openAppStore } from '@/constants/storeUrls';
 import { useLocalization } from '@/hooks/useLocalization';
 import React from 'react';
-import { Linking, Platform, View } from 'react-native';
+import { View } from 'react-native';
 import { Button } from './ui/button';
 import { Text } from './ui/text';
 
@@ -31,22 +32,8 @@ export function AppUpgradeScreen({
   const { t } = useLocalization();
 
   const handleUpgrade = async () => {
-    // Direct user to appropriate app store based on platform
     try {
-      if (Platform.OS === 'ios') {
-        // Replace with your actual App Store URL
-        await Linking.openURL('https://apps.apple.com/app/6752446665');
-      } else if (Platform.OS === 'android') {
-        // Replace with your actual Play Store URL
-        await Linking.openURL(
-          'https://play.google.com/store/apps/details?id=com.etengenesis.langquest'
-        );
-      } else {
-        // For web, reload the page to get latest version
-        if (typeof window !== 'undefined') {
-          window.location.reload();
-        }
-      }
+      await openAppStore();
     } catch (error) {
       console.error('[AppUpgradeScreen] Failed to open store:', error);
     }
