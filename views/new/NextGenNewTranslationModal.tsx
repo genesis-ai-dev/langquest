@@ -88,7 +88,7 @@ interface NextGenNewTranslationModalProps {
   assetName?: string | null;
   assetContent?: AssetContent[];
   sourceLanguage?: typeof language.$inferSelect | null;
-  translationLanguageId: string; // The language of the new translation asset being created
+  translationLanguageId: string; // Target languoid_id from project_language_link
   isLocalSource?: boolean; // Whether the source asset is local (prepublished) - translations will be stored locally
   initialContentType?: 'translation' | 'transcription'; // Initial content type from parent toggle
   initialText?: string; // Initial text to populate the text field (e.g., from AI transcription)
@@ -383,8 +383,8 @@ export default function NextGenNewTranslationModal({
   const { language: sourceLanguageData } = useLanguageById(
     visible ? sourceLanguageId || undefined : undefined
   );
-  const { language: targetLanguageData } = useLanguageById(
-    visible ? translationLanguageId : ''
+  const { languoid: targetLanguoidData } = useLanguoidById(
+    visible ? translationLanguageId || undefined : undefined
   );
 
   // Query languoid for transcription placeholder
@@ -659,7 +659,7 @@ export default function NextGenNewTranslationModal({
       return;
     }
 
-    if (!targetLanguageData) {
+    if (!targetLanguoidData) {
       RNAlert.alert(
         'Missing Language Info',
         'Target language information is not available. Please select a target language.',
@@ -681,10 +681,7 @@ export default function NextGenNewTranslationModal({
         sourceLanguage?.native_name ||
         sourceLanguage?.english_name ||
         'Unknown';
-      const targetLanguageName =
-        targetLanguageData.native_name ||
-        targetLanguageData.english_name ||
-        'Unknown';
+      const targetLanguageName = targetLanguoidData.name || 'Unknown';
 
       const result = await predictTranslation({
         sourceText,
@@ -1221,9 +1218,7 @@ export default function NextGenNewTranslationModal({
                             </Text>
                             <Text className="mt-1 text-xs text-muted-foreground">
                               • No translations exist yet in{' '}
-                              {targetLanguageData?.native_name ||
-                                targetLanguageData?.english_name ||
-                                'the target language'}{' '}
+                              {targetLanguoidData?.name || 'the target language'}{' '}
                               for assets in this quest
                             </Text>
                             <Text className="mt-1 text-xs text-muted-foreground">
