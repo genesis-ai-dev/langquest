@@ -81,9 +81,9 @@ import { ModalDetails } from '@/components/ModalDetails';
 import { ReportModal } from '@/components/NewReportModal';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { PublishQuestButton } from '@/components/PublishQuestButton';
-import { QuestSyncedBadge } from '@/components/QuestSyncedBadge';
 import { QuestLabelHandler } from '@/components/questLabelHandler';
 import { QuestOffloadVerificationDrawer } from '@/components/QuestOffloadVerificationDrawer';
+import { QuestSyncedBadge } from '@/components/QuestSyncedBadge';
 import { RecordButton } from '@/components/RecordButton';
 import {
   Drawer,

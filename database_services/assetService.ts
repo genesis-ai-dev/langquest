@@ -515,20 +515,32 @@ export async function batchUpdateAssetVerse(
 ): Promise<void> {
   if (updates.length === 0) return;
 
-  try {
-    for (const update of updates) {
+  // Each placement is independent. An immutable (published) link must not stop
+  // the remaining updates, otherwise order_index is left half normalized and
+  // later insertions land between assets instead of at the end.
+  const failedAssetIds: string[] = [];
+
+  for (const update of updates) {
+    try {
       await updateAssetVerse(
         questId,
         update.assetId,
         update.metadata,
         update.order_index
       );
+    } catch {
+      failedAssetIds.push(update.assetId);
     }
+  }
 
-    // console.log(`✅ Updated ${updates.length} asset verse placement(s)`);
-  } catch (error) {
-    console.error('Failed to batch update asset verses:', error);
-    throw error;
+  if (failedAssetIds.length > 0) {
+    console.error(
+      `Failed to update ${failedAssetIds.length} of ${updates.length} asset verse placement(s):`,
+      failedAssetIds
+    );
+    throw new Error(
+      `Failed to update ${failedAssetIds.length} of ${updates.length} asset verse placement(s)`
+    );
   }
 }
 
