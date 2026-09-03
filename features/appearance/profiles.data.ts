@@ -34,12 +34,6 @@ export function getThemeProfile(id: string): ThemeProfile | undefined {
   return getThemeProfiles().find((p) => p.id === id);
 }
 
-export function getThemeProfileByAlias(
-  aliasName: string
-): ThemeProfile | undefined {
-  return getThemeProfiles().find((p) => p.aliasName === aliasName);
-}
-
 /** Decoded display label for a family (used as the entry-surface title). */
 export function getFamilyLabel(family: ThemeFamily): string {
   return getThemeProfiles().find((p) => p.family === family)?.label ?? '';

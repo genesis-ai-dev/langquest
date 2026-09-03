@@ -3,9 +3,6 @@ import { and, eq } from 'drizzle-orm';
 import { blocked_content, blocked_users } from '../db/drizzleSchema';
 import { system } from '../db/powersync/system';
 
-export type BlockedUser = typeof blocked_users.$inferSelect;
-export type BlockedContent = typeof blocked_content.$inferSelect;
-
 const { db } = system;
 
 export type BlockedUserInsert = Omit<typeof blocked_users.$inferInsert, 'id'>;
@@ -52,18 +49,6 @@ export class BlockService {
     await db.insert(resolveTable('blocked_content')).values(data);
 
     return data;
-  }
-
-  async getUserBlockedUsers(profileId: string) {
-    return db.query.blocked_users.findMany({
-      where: eq(blocked_users.blocker_id, profileId)
-    });
-  }
-
-  async getUserBlockedContent(profileId: string) {
-    return db.query.blocked_content.findMany({
-      where: eq(blocked_content.profile_id, profileId)
-    });
   }
 }
 

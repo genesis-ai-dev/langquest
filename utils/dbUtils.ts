@@ -3,8 +3,8 @@ import * as drizzleSchemaLocal from '@/db/drizzleSchemaLocal';
 import * as drizzleSchemaSynced from '@/db/drizzleSchemaSynced';
 import type { System } from '@/db/powersync/system';
 import type { HybridDataSource } from '@/views/new/useHybridData';
-import type { AnyColumn, GetColumnData, SQL, Table } from 'drizzle-orm';
-import { and, eq, getOrderByOperators, is } from 'drizzle-orm';
+import type { AnyColumn, GetColumnData, SQL } from 'drizzle-orm';
+import { and, eq, is } from 'drizzle-orm';
 import { SQLiteTable } from 'drizzle-orm/sqlite-core';
 
 const {
@@ -74,15 +74,6 @@ export type WithSource<T> = T extends readonly unknown[]
   : T & { source: HybridDataSource };
 
 export type SortOrder = 'asc' | 'desc';
-
-export function sortingHelper<
-  T extends Table,
-  K extends keyof T['_']['columns']
->(table: T, sortField: K, sortOrder: SortOrder) {
-  const orderByOperators = getOrderByOperators();
-  const column = table[sortField as keyof T] as unknown as AnyColumn;
-  return orderByOperators[sortOrder](column);
-}
 
 export function blockedContentQuery(profileId: string, contentTable: string) {
   // Lazy import to avoid circular dependency

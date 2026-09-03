@@ -76,24 +76,6 @@ export class VoteService {
       throw error;
     }
   }
-
-  async getUserVoteForTranslation(asset_id: string, userId: string) {
-    const result = await db.query.vote.findFirst({
-      where: and(
-        eq(vote.asset_id, asset_id),
-        eq(vote.creator_id, userId),
-        eq(vote.active, true)
-      )
-    });
-    return result;
-  }
-
-  async getVotesByAssetId(asset_id: string) {
-    const result = await db.query.vote.findMany({
-      where: and(eq(vote.asset_id, asset_id), eq(vote.active, true))
-    });
-    return result;
-  }
 }
 
 export const voteService = new VoteService();

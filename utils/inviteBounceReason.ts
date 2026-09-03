@@ -109,12 +109,6 @@ export function getInviteBounceReason(
   return parseLegacyBounceReason(bounceReason);
 }
 
-export function isInviteBounceUserNotFound(
-  bounceReason: string | null | undefined
-): boolean {
-  return getInviteBounceReason(bounceReason) === 'user_not_found';
-}
-
 /** Permanent bounces should not be retried from the client (transient may retry). */
 export function inviteBounceBlocksRetry(
   emailStatus: string | null | undefined,

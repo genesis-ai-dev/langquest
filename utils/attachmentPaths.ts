@@ -33,16 +33,6 @@ export function isInvalidAudioValue(audioValue: string): boolean {
 }
 
 /**
- * The playable local URI for an audio value, without checking existence.
- * On web this returns an OPFS blob URL and throws if the file is missing;
- * prefer resolveExistingAudioUri unless you already know the file exists.
- */
-export async function resolveAudioUri(audioValue: string): Promise<string> {
-  if (audioValue.startsWith('file://')) return audioValue;
-  return getLocalAttachmentUriWithOPFS(audioValue);
-}
-
-/**
  * Resolve an audio value to a playable local URI, returning null when the
  * file is not on this device.
  *

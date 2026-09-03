@@ -79,50 +79,6 @@ export class AudioSegmentService {
   }
 
   /**
-   * Save multiple audio segments as a batch
-   */
-  async saveAudioSegments(
-    segments: AudioSegmentData[],
-    questId: string,
-    sourceLanguageId: string,
-    creatorId: string,
-    projectId: string
-  ): Promise<{ assetIds: string[]; audioUris: string[] }> {
-    const results = await Promise.allSettled(
-      segments.map((segment) =>
-        this.saveAudioSegment(
-          segment,
-          questId,
-          sourceLanguageId,
-          creatorId,
-          projectId
-        )
-      )
-    );
-
-    const assetIds: string[] = [];
-    const audioUris: string[] = [];
-    const errors: string[] = [];
-
-    results.forEach((result, index) => {
-      if (result.status === 'fulfilled') {
-        assetIds.push(result.value.assetId);
-        audioUris.push(result.value.audioUri);
-      } else {
-        errors.push(
-          `Failed to save segment ${segments[index]?.name}: ${result.reason}`
-        );
-      }
-    });
-
-    if (errors.length > 0) {
-      console.warn('Some audio segments failed to save:', errors);
-    }
-
-    return { assetIds, audioUris };
-  }
-
-  /**
    * Delete audio segment and all associated records (including child translations)
    *
    * Deletion order (children before parents to maintain referential integrity):

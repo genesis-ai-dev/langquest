@@ -15,13 +15,7 @@ const { db } = system;
 
 const MAX_RECORDING_SESSIONS = 10;
 
-export type Quest = typeof quest.$inferSelect;
-
 export class QuestService {
-  async getQuestsByProjectId(project_id: string): Promise<Quest[]> {
-    return db.select().from(quest).where(eq(quest.project_id, project_id));
-  }
-
   async getQuestById(quest_id: string) {
     return (
       await db.select().from(quest).where(eq(quest.id, quest_id)).limit(1)
@@ -45,7 +39,7 @@ export async function updateQuestVersionLabel(
   await updateQuestMetadata(quest_id, withQuestVersionLabel(parsed, trimmed));
 }
 
-export async function updateQuestMetadata(
+async function updateQuestMetadata(
   quest_id: string,
   metadata: QuestMetadata
 ): Promise<void> {

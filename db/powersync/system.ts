@@ -1739,7 +1739,7 @@ export class System {
 // Create and export the system singleton safely
 let systemInstance: System | null = null;
 
-export function getSystem(): System {
+function getSystem(): System {
   if (!systemInstance) {
     try {
       systemInstance = System.getInstance();

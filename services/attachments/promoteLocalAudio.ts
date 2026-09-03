@@ -8,7 +8,6 @@
  * the enqueue.
  */
 
-import { LOCAL_AUDIO_PREFIX } from '@/utils/attachmentPaths';
 import {
   ensureDir,
   fileExists,
@@ -62,14 +61,4 @@ export async function promoteLocalAudio(sourceUri: string): Promise<string> {
     `[promoteLocalAudio] Source file missing: ${sourceUri} (continuing; will show as pending upload)`
   );
   return filename;
-}
-
-/** Convenience for values shaped like 'local/{uuid}.{ext}'. */
-export async function promoteLocalAudioValue(
-  audioValue: string
-): Promise<string> {
-  const relative = audioValue.startsWith(LOCAL_AUDIO_PREFIX)
-    ? audioValue
-    : `${LOCAL_AUDIO_PREFIX}${audioValue}`;
-  return promoteLocalAudio(getLocalAttachmentUri(relative));
 }

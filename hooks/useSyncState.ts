@@ -152,28 +152,3 @@ export function useSyncState(): SyncState {
 
   return syncState;
 }
-
-/**
- * Returns true if any sync operation is in progress
- */
-export function useIsSyncing(): boolean {
-  const { isDownloadOperationInProgress, isUpdateInProgress, isConnecting } =
-    useSyncState();
-  return isDownloadOperationInProgress || isUpdateInProgress || isConnecting;
-}
-
-/**
- * Returns true if there are any sync errors
- */
-export function useHasSyncErrors(): boolean {
-  const { downloadError, uploadError } = useSyncState();
-  return !!(downloadError || uploadError);
-}
-
-/**
- * Returns the most recent sync error if any
- */
-export function useSyncError(): Error | undefined {
-  const { downloadError, uploadError } = useSyncState();
-  return downloadError || uploadError;
-}

@@ -133,5 +133,3 @@ export function ToggleButton({
     </View>
   );
 }
-
-export type { ToggleButtonProps, ToggleSide };

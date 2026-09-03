@@ -4,7 +4,7 @@
 
 import { system } from '@/db/powersync/system';
 import { resolveTable } from '@/utils/dbUtils';
-import { and, asc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
+import { and, asc, eq, gte, inArray, lte } from 'drizzle-orm';
 import uuid from 'react-native-uuid';
 import { enqueue as enqueueAssetGc } from './assetGarbageCollectorService';
 import type { AssetOperationDataItem } from './types';
@@ -167,126 +167,6 @@ export async function renameAsset(
     console.log(`✅ Asset ${assetId.slice(0, 8)} renamed to: ${trimmedName}`);
   } catch (error) {
     console.error('Failed to rename asset:', error);
-    throw error;
-  }
-}
-
-/**
- * Update asset content text - ONLY for local-only assets
- * @param assetId - The ID of the asset whose content to update
- * @param contentId - The ID of the specific content link record to update (optional - updates first content if not provided)
- * @param newText - The new text content
- * @throws Error if asset content is synced (immutable)
- */
-export async function updateAssetContentText(
-  assetId: string,
-  newText: string,
-  contentId?: string
-): Promise<void> {
-  try {
-    // CRITICAL: Only allow updating local-only asset content
-    // Synced asset content is immutable once published
-    const assetContentLocalTable = resolveTable('asset_content_link', {
-      localOverride: true
-    });
-
-    // First, verify this asset content exists in the LOCAL table only
-    const whereCondition = contentId
-      ? and(
-          eq(assetContentLocalTable.asset_id, assetId),
-          eq(assetContentLocalTable.id, contentId)
-        )
-      : eq(assetContentLocalTable.asset_id, assetId);
-
-    const localAssetContent = await system.db
-      .select()
-      .from(assetContentLocalTable)
-      .where(whereCondition)
-      .limit(1);
-
-    if (localAssetContent.length === 0) {
-      throw new Error(
-        'Asset content not found in local table - cannot edit synced content'
-      );
-    }
-
-    const targetContentId = localAssetContent[0]!.id;
-
-    // Verify it doesn't exist in synced table (double-check it's not published)
-    const syncedTable = resolveTable('asset_content_link', {
-      localOverride: false
-    });
-    const syncedAssetContent = await system.db
-      .select()
-      .from(syncedTable)
-      .where(eq(syncedTable.id, targetContentId))
-      .limit(1);
-
-    if (syncedAssetContent.length > 0) {
-      throw new Error(
-        'Cannot edit synced asset content - it is immutable once published'
-      );
-    }
-
-    // Safe to update - it's local only
-    await system.db
-      .update(assetContentLocalTable)
-      .set({ text: newText.trim() })
-      .where(eq(assetContentLocalTable.id, targetContentId));
-
-    console.log(
-      `✅ Asset content ${targetContentId.slice(0, 8)} updated for asset ${assetId.slice(0, 8)}`
-    );
-  } catch (error: unknown) {
-    console.error('Failed to update asset content text:', error);
-    throw error;
-  }
-}
-
-export async function updateAssetMetadata(
-  assetId: string,
-  metadata: AssetMetadata | null
-): Promise<void> {
-  try {
-    const assetLocalTable = resolveTable('asset', { localOverride: true });
-
-    // Verify this asset exists in the LOCAL table
-    const localAsset = await system.db
-      .select()
-      .from(assetLocalTable)
-      .where(eq(assetLocalTable.id, assetId))
-      .limit(1);
-
-    if (localAsset.length === 0) {
-      throw new Error(
-        'Asset not found in local table - cannot update synced assets'
-      );
-    }
-
-    // Verify it doesn't exist in synced table (double-check it's not published)
-    const syncedTable = resolveTable('asset', { localOverride: false });
-    const syncedAsset = await system.db
-      .select()
-      .from(syncedTable)
-      .where(eq(syncedTable.id, assetId))
-      .limit(1);
-
-    if (syncedAsset.length > 0) {
-      throw new Error(
-        'Cannot update synced assets - they are immutable once published'
-      );
-    }
-
-    // Safe to update - it's local only
-    const metadataStr = metadata ? JSON.stringify(metadata) : null;
-    await system.db
-      .update(assetLocalTable)
-      .set({ metadata: metadataStr })
-      .where(eq(assetLocalTable.id, assetId));
-
-    console.log(`✅ Asset ${assetId.slice(0, 8)} metadata updated`);
-  } catch (error) {
-    console.error('Failed to update asset metadata:', error);
     throw error;
   }
 }
@@ -926,30 +806,6 @@ export async function updateContentLinkOrder(
         and(eq(aclTable.id, orderedIds[i]!), eq(aclTable.asset_id, assetId))
       );
   }
-}
-
-/**
- * Get the next available order_index for a given asset's content links.
- * Useful when inserting new content links (e.g. during merge).
- *
- * @param assetId - The asset to check
- * @returns The next order_index value (max + 1, or 1 if no content links exist)
- */
-export async function getNextOrderIndex(
-  assetId: string,
-  options?: { localOverride?: boolean }
-): Promise<number> {
-  const aclTable = resolveTable('asset_content_link', {
-    localOverride: options?.localOverride ?? false
-  });
-
-  const result = await system.db
-    .select({ maxOrder: sql<number>`MAX(${aclTable.order_index})` })
-    .from(aclTable)
-    .where(eq(aclTable.asset_id, assetId));
-
-  const maxOrder = result[0]?.maxOrder;
-  return (maxOrder ?? 0) + 1;
 }
 
 export interface LinkExistingAssetToQuestItem {

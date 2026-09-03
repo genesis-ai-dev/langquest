@@ -407,7 +407,7 @@ function getMetadataVerseForFiaCsv(
   return getMetadataVerseForCsv(assetMetadata);
 }
 
-export async function generateExportAssetsCSVFile(
+async function generateExportAssetsCSVFile(
   items: ExportAssetsCSVItem[],
   fileNamePrefix = 'export-assets',
   projectTemplate?: string | null,
@@ -673,7 +673,7 @@ export async function shareExport(
   }
 }
 
-export async function downloadExportAndroid(
+async function downloadExportAndroid(
   artifacts: Pick<BuiltExportArtifacts, 'files'>,
   directoryUri?: string
 ): Promise<AndroidDownloadResult | ExportActionResult> {
@@ -727,7 +727,7 @@ export async function downloadExportAndroid(
   };
 }
 
-export async function downloadExportIOS(
+async function downloadExportIOS(
   artifacts: Pick<BuiltExportArtifacts, 'files'>,
   dialogTitle = 'Save export'
 ): Promise<ExportActionResult> {

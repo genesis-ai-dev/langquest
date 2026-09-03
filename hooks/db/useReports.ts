@@ -47,36 +47,3 @@ export function useHasUserReported(
 
   return { hasReported, isLoading: isReportLoading };
 }
-
-/**
- * Returns { reports, isLoading, error }
- * Fetches all reports for a specific record from Supabase (online) or local Drizzle DB (offline)
- */
-export function useReportsByRecord(record_id: string, record_table: string) {
-  const { data: reportsList, isLoading: isReportsLoading } = useHybridData({
-    dataType: 'reports',
-    queryKeyParams: ['by-record', record_id, record_table],
-    offlineQuery: toCompilableQuery(
-      system.db.query.reports.findMany({
-        where: and(
-          eq(reports.record_id, record_id),
-          eq(reports.record_table, record_table)
-        )
-      })
-    ),
-    cloudQueryFn: async () => {
-      const { data, error } = await system.supabaseConnector.client
-        .from('reports')
-        .select('*')
-        .eq('record_id', record_id)
-        .eq('record_table', record_table)
-        .overrideTypes<Report[]>();
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!record_id && !!record_table,
-    getItemId: (item) => item.id
-  });
-
-  return { reports: reportsList, isLoading: isReportsLoading };
-}

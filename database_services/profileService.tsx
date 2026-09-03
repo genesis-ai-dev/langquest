@@ -6,7 +6,7 @@ import { system } from '../db/powersync/system';
 
 export type Profile = typeof profile.$inferSelect;
 
-const { supabaseConnector, db } = system;
+const { supabaseConnector } = system;
 
 // Debug flag
 const DEBUG = false;
@@ -20,108 +20,6 @@ function debug(...args: unknown[]) {
 }
 
 export class ProfileService {
-  async getProfileByUserId(id: string) {
-    debug('Getting user by ID:', id);
-    const results = await db.select().from(profile).where(eq(profile.id, id));
-    return results[0];
-  }
-
-  async validateCredentials(credentials: { email: string; password: string }) {
-    try {
-      // 1. Sign in with existing credentials
-      const { user } = await supabaseConnector.login(
-        credentials.email,
-        credentials.password
-      );
-
-      // 2. Fetch the profile data directly from Supabase
-      const { data: profile, error: profileError } =
-        await supabaseConnector.client
-          .from('profile')
-          .select()
-          .eq('id', user.id)
-          .single<Profile>();
-
-      if (profileError) {
-        console.log('Profile fetch error:', profileError);
-        return null;
-      }
-
-      return profile; // Return the same format as createNew
-    } catch (error) {
-      console.error('Login error:', error);
-      return null;
-    }
-  }
-
-  async createNew(input: {
-    credentials: {
-      username: string;
-      email: string;
-      password: string;
-    };
-    ui_language_id?: string; // Deprecated, use ui_languoid_id
-    ui_languoid_id?: string;
-    terms_accepted?: boolean;
-    terms_version?: string;
-  }) {
-    try {
-      // Update the anonymous user with email and password
-      const { data: updateData, error: updateError } =
-        await supabaseConnector.client.auth.updateUser({
-          email: input.credentials.email,
-          password: input.credentials.password
-        });
-
-      if (updateError) throw updateError;
-
-      // Update profile with username and ui_languoid_id (prefer ui_languoid_id over ui_language_id)
-      const profileUpdate: Record<string, unknown> = {
-        username: input.credentials.username,
-        terms_accepted: input.terms_accepted ?? false,
-        terms_version: input.terms_version ?? null
-      };
-
-      if (input.ui_languoid_id) {
-        profileUpdate.ui_languoid_id = input.ui_languoid_id;
-      } else if (input.ui_language_id) {
-        // Backward compatibility: still accept ui_language_id
-        profileUpdate.ui_language_id = input.ui_language_id;
-      }
-
-      const { error: profileError } = await supabaseConnector.client
-        .from('profile')
-        .update(profileUpdate)
-        .eq('id', updateData.user.id);
-
-      if (profileError) throw profileError;
-
-      // Update auth metadata with ui_languoid_id
-      if (input.ui_languoid_id) {
-        await supabaseConnector.client.auth.updateUser({
-          data: {
-            ui_languoid_id: input.ui_languoid_id
-          }
-        });
-      }
-
-      // Fetch the complete profile
-      const { data: profile, error: fetchError } =
-        await supabaseConnector.client
-          .from('profile')
-          .select()
-          .eq('id', updateData.user.id)
-          .single<Profile>();
-
-      if (fetchError) throw fetchError;
-
-      return profile; // Just return the profile
-    } catch (error) {
-      console.error('Error in createNew:', error);
-      throw error;
-    }
-  }
-
   async updateProfile(data: {
     id: string;
     ui_language_id?: string; // Deprecated, use ui_languoid_id

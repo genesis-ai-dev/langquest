@@ -28,19 +28,3 @@ export async function applyTheme(themeId: string | null): Promise<void> {
 
   await setAlternateAppIcon(alias);
 }
-
-/**
- * Returns the id of the currently applied theme, or null when the default icon
- * is active. Derives the id from the native alias name so it stays correct even
- * if the OS reset the alias.
- */
-export function currentTheme(): string | null {
-  if (Platform.OS === 'web') return null;
-
-  const alias = getAppIconName();
-  if (!alias) return null;
-
-  // Alias names are "Theme" + slug-in-caps (e.g. ThemeA01 -> a01).
-  const match = /^Theme([A-Z]\d{2})$/.exec(alias);
-  return match?.[1] ? match[1].toLowerCase() : null;
-}

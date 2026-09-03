@@ -6,12 +6,7 @@ import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { InferSelectModel } from 'drizzle-orm';
 import { and, eq } from 'drizzle-orm';
 import { useCallback } from 'react';
-import {
-  convertToFetchConfig,
-  createHybridQueryConfig,
-  hybridFetch,
-  useHybridQuery
-} from '../useHybridQuery';
+import { createHybridQueryConfig, useHybridQuery } from '../useHybridQuery';
 
 export type Profile = InferSelectModel<typeof profile>;
 export type ProfileProjectLink = InferSelectModel<typeof profile_project_link>;
@@ -35,12 +30,6 @@ function getProfileByUserIdConfig(user_id: string) {
     ),
     enabled: !!user_id
   });
-}
-
-export async function getProfileByUserId(user_id: string) {
-  return (
-    await hybridFetch(convertToFetchConfig(getProfileByUserIdConfig(user_id)))
-  )[0];
 }
 
 /**
@@ -115,63 +104,5 @@ export function useUserMemberships(userId?: string) {
     userMemberships: memberships,
     isUserMembershipsLoading: isLoading,
     getUserMembership
-  };
-}
-
-/**
- * Hook to get user projects from local DB using PowerSync/TanStack Query
- * Replaces useSessionProjects from SessionCacheContext
- */
-export function useUserProjects(userId?: string) {
-  const { currentUser } = useAuth();
-  const user_id = userId || currentUser?.id;
-
-  const { data: projects = [], isLoading } = useHybridQuery({
-    queryKey: ['user-projects', user_id],
-    onlineFn: async () => {
-      if (!user_id) return [];
-
-      const { data, error } = await system.supabaseConnector.client
-        .from('project')
-        .select(
-          `
-          *,
-          profile_project_link!inner(
-            profile_id,
-            membership,
-            active
-          )
-        `
-        )
-        .eq('profile_project_link.profile_id', user_id)
-        .eq('profile_project_link.active', true);
-
-      if (error) throw error;
-      return data;
-    },
-    offlineQuery: toCompilableQuery(
-      system.db.query.project.findMany({
-        with: {
-          profile_project_links: {
-            where: and(
-              eq(profile_project_link.profile_id, user_id || ''),
-              eq(profile_project_link.active, true)
-            )
-          }
-        }
-      })
-    ),
-    enabled: !!user_id
-  });
-
-  // Filter projects to only include those where user has active membership
-  const userProjects = projects.filter(
-    (project) =>
-      project.profile_project_link && project.profile_project_link.length > 0
-  );
-
-  return {
-    userProjects,
-    isUserProjectsLoading: isLoading
   };
 }

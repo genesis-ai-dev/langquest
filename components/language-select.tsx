@@ -33,7 +33,7 @@ interface LanguageSelectProps {
   uiReadyOnly?: boolean;
 }
 
-export function getAllLanguageOption(
+function getAllLanguageOption(
   languoid?: Languoid | null,
   endonymMap?: Map<string, string>
 ): Option {

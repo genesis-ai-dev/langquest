@@ -65,22 +65,10 @@ const CardContent = React.forwardRef<ViewRef, ViewProps>(
 );
 CardContent.displayName = 'CardContent';
 
-const CardFooter = React.forwardRef<ViewRef, ViewProps>(
-  ({ className, ...props }, ref) => (
-    <View
-      ref={ref}
-      className={cn('flex flex-row items-center p-6 pt-0', className)}
-      {...props}
-    />
-  )
-);
-CardFooter.displayName = 'CardFooter';
-
 export {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle
 };

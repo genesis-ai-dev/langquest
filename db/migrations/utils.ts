@@ -567,42 +567,6 @@ export async function rawJsonKeyExists(
 }
 
 // ============================================================================
-// COLUMN EXISTENCE CHECK
-// ============================================================================
-
-/**
- * Check if a column exists in a table
- * Useful for idempotent migrations that might run multiple times
- *
- * @param db - Drizzle database instance
- * @param table - View name (e.g., 'asset_local') - will be converted to PowerSync table name
- * @param columnName - Column name to check
- * @returns true if column exists, false otherwise
- */
-export async function columnExists(
-  db: DrizzleDB,
-  table: string,
-  columnName: string
-): Promise<boolean> {
-  const psTableName = getRawTableName(table);
-
-  try {
-    const result = await db.getAll(
-      `SELECT COUNT(*) as count FROM pragma_table_info('${psTableName}') WHERE name = '${columnName}'`,
-      []
-    );
-    const countData = (result[0] as { count?: number }) || null;
-    return (countData?.count ?? 0) > 0;
-  } catch (error) {
-    console.warn(
-      `[Migration] Could not check if column ${columnName} exists in ${table}:`,
-      error
-    );
-    return false;
-  }
-}
-
-// ============================================================================
 // BATCH OPERATIONS
 // ============================================================================
 
@@ -661,69 +625,4 @@ export async function updateInBatches(
   }
 
   console.log(`[Migration] ✓ Batch update complete`);
-}
-
-/**
- * TESTING UTILITY: Reset all metadata to a specific version
- * Use this to force migrations to re-run during development/testing
- *
- * @param db - Database instance
- * @param version - Version to reset to (e.g., '1.0' or '0.0')
- */
-export async function resetMetadataVersionForTesting(
-  db: DrizzleDB,
-  version: string
-): Promise<void> {
-  console.log(
-    `[Migration] ⚠️  TESTING: Resetting all *_local metadata to version ${version}...`
-  );
-
-  const tables = [
-    'profile_local',
-    'language_local',
-    'project_local',
-    'quest_local',
-    'asset_local',
-    'tag_local',
-    'quest_asset_link_local',
-    'quest_tag_link_local',
-    'asset_tag_link_local',
-    'asset_content_link_local',
-    'vote_local',
-    'reports_local',
-    'invite_local',
-    'request_local',
-    'notification_local',
-    'profile_project_link_local',
-    'project_language_link_local',
-    'subscription_local',
-    'blocked_users_local',
-    'blocked_content_local',
-    // Languoid/region tables (v1.1+)
-    'languoid_local',
-    'languoid_alias_local',
-    'languoid_source_local',
-    'languoid_property_local',
-    'region_local',
-    'region_alias_local',
-    'region_source_local',
-    'region_property_local',
-    'languoid_region_local'
-  ];
-
-  for (const table of tables) {
-    try {
-      await db.execute(`
-                UPDATE ${table}
-                SET _metadata = json_object('schema_version', '${version}')
-                WHERE _metadata IS NOT NULL
-            `);
-
-      console.log(`[Migration]   - Reset ${table}`);
-    } catch (error) {
-      console.log(`[Migration]   - Skipping ${table}: ${String(error)}`);
-    }
-  }
-
-  console.log(`[Migration] ✓ Metadata reset complete`);
 }

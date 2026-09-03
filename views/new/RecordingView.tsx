@@ -260,17 +260,6 @@ const AssetListRow = React.memo(function AssetListRow({
 // The extra *1000 leaves space for future insertions between assets
 const DEFAULT_ORDER_INDEX = 999001000;
 
-// Verse metadata type
-interface VerseRange {
-  from: number;
-  to: number;
-}
-
-// Asset metadata type (prefixed with _ to allow unused)
-interface _AssetMetadata {
-  verse?: VerseRange;
-}
-
 const RecordingView = () => {
   // Guard ref to prevent post-unmount state updates (memory leak prevention)
   const mountedRef = React.useRef(true);

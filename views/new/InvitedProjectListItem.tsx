@@ -1,4 +1,3 @@
-import type { invite } from '@/db/drizzleSchema';
 import { project as projectTable } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import type { Project } from '@/hooks/db/useProjects';
@@ -9,8 +8,6 @@ import { eq } from 'drizzle-orm';
 import React from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { ProjectListItem } from './ProjectListItem';
-
-type Invite = typeof invite.$inferSelect;
 
 export function InvitedProjectListItem({
   projectId,

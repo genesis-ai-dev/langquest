@@ -20,11 +20,9 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useHasUserReported } from '@/hooks/useReports';
-import { useTranscription } from '@/hooks/useTranscription';
 import { resolveExistingAudioUri } from '@/utils/attachmentPaths';
 import { resolveTable } from '@/utils/dbUtils';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
-import { fileExists } from '@/utils/fileUtils';
 import { cn, getThemeColor } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
@@ -183,9 +181,6 @@ export default function NextGenTranslationModal({
   const [editedText, setEditedText] = useState('');
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
-
-  const { mutateAsync: transcribeAudio, isPending: isTranscribing } =
-    useTranscription();
 
   const { data: translationData, isLoading } = useNextGenTranslation(assetId);
 
@@ -439,44 +434,6 @@ export default function NextGenTranslationModal({
   );
 
   const { stopCurrentSound, isPlaying } = useAudio();
-
-  const handleTranscribe = async (uri: string) => {
-    if (!isAuthenticated) {
-      RNAlert.alert(t('error'), t('pleaseLogInToTranscribe'));
-      return;
-    }
-
-    // Validate the audio file exists before attempting transcription
-    if (!uri) {
-      RNAlert.alert(t('error'), t('audioNotAvailable'));
-      return;
-    }
-
-    const exists = await fileExists(uri);
-    if (!exists) {
-      console.log('[Transcription] Audio file not found at URI:', uri);
-      RNAlert.alert(t('error'), t('audioNotAvailable'));
-      return;
-    }
-
-    console.log('[Transcription] Starting transcription for URI:', uri);
-
-    try {
-      const result = await transcribeAudio({ uri, mimeType: 'audio/wav' });
-      if (result.text) {
-        setEditedText(result.text);
-        setIsEditing(true);
-      }
-    } catch (error) {
-      console.error('Transcription error:', error);
-      const errorMessage =
-        error instanceof Error ? error.message : 'Unknown error';
-      RNAlert.alert(
-        t('error'),
-        `${t('transcriptionFailed')}\n\n${errorMessage}`
-      );
-    }
-  };
 
   const handleClose = async () => {
     onOpenChange(false);

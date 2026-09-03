@@ -428,37 +428,3 @@ export async function offloadQuest(params: OffloadQuestParams): Promise<void> {
     throw error;
   }
 }
-
-/**
- * Estimate storage space that will be freed by offloading a quest.
- *
- * @param questId - Quest to estimate
- * @returns Estimated bytes to be freed
- */
-export async function estimateOffloadSize(questId: string): Promise<number> {
-  try {
-    // Query local database for approximate sizes
-    const result = await system.powersync.get<{ total_size: number }>(
-      `
-      SELECT SUM(length) as total_size
-      FROM (
-        SELECT length(text) as length FROM asset_content_link_local
-        WHERE asset_id IN (
-          SELECT asset_id FROM quest_asset_link_local WHERE quest_id = ?
-        )
-        UNION ALL
-        SELECT length(audio) as length FROM asset_content_link_local
-        WHERE asset_id IN (
-          SELECT asset_id FROM quest_asset_link_local WHERE quest_id = ?
-        )
-      )
-      `,
-      [questId, questId]
-    );
-
-    return result?.total_size || 0;
-  } catch (error) {
-    console.error('❌ [Offload] Error estimating size:', error);
-    return 0;
-  }
-}

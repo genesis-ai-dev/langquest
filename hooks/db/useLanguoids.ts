@@ -373,30 +373,3 @@ export function useLanguoidSearch(
   };
 }
 
-// Standalone function for use outside React components (like Zustand stores)
-export async function getLanguoidById(
-  languoid_id: string
-): Promise<Languoid | null> {
-  try {
-    // Try online first
-    const { data, error } = await system.supabaseConnector.client
-      .from('languoid')
-      .select('*')
-      .eq('id', languoid_id)
-      .single<Languoid>();
-
-    if (!error) {
-      return data;
-    }
-
-    // Fallback to offline
-    const offlineResult = await system.db.query.languoid.findFirst({
-      where: eq(languoid.id, languoid_id)
-    });
-
-    return offlineResult || null;
-  } catch (error) {
-    console.error('Error fetching languoid by ID:', error);
-    return null;
-  }
-}

@@ -111,7 +111,7 @@ export function getCachedFiaPericope(
   }
 }
 
-export function getCachedImageUri(remoteUrl: string): string | null {
+function getCachedImageUri(remoteUrl: string): string | null {
   const path = imageCachePath(remoteUrl);
   return fileExists(path) ? path : null;
 }

@@ -86,7 +86,7 @@ function compareVersions(a: string, b: string): number {
  * @returns Server schema info including minimum required version
  * @throws Error if RPC call fails
  */
-export async function fetchServerSchemaInfo(
+async function fetchServerSchemaInfo(
   supabaseClient: SupabaseClient
 ): Promise<ServerSchemaInfo> {
   console.log('[SchemaVersionService] Fetching server schema info...');
@@ -150,38 +150,7 @@ export async function fetchServerSchemaInfo(
   }
 }
 
-/**
- * Fetch server schema version from Supabase RPC (backwards compatibility)
- * @deprecated Use fetchServerSchemaInfo instead
- * @param supabaseClient - Supabase client instance
- * @returns Server schema version string
- * @throws Error if RPC call fails
- */
-export async function fetchServerSchemaVersion(
-  supabaseClient: SupabaseClient
-): Promise<string> {
-  const schemaInfo = await fetchServerSchemaInfo(supabaseClient);
-  return schemaInfo.schema_version;
-}
-
-/**
- * Get the local schema version to compare with server
- *
- * IMPORTANT: This returns the app's expected schema version (APP_SCHEMA_VERSION),
- * NOT the version of data in the local database. The local data version is only
- * relevant for migrations, not for app upgrade checks.
- *
- * For app upgrade checks, we compare:
- * - App's expected version (APP_SCHEMA_VERSION) - what the code supports
- * - Server's version - what the server requires
- *
- * If these don't match, the app needs to be upgraded. Local data migrations
- * happen separately and don't affect this check.
- *
- * @param db - Drizzle database instance (unused, kept for API compatibility)
- * @returns Local schema version string (always APP_SCHEMA_VERSION)
- */
-export function getLocalSchemaVersion(_db: DrizzleDB): Promise<string> {
+function getLocalSchemaVersion(_db: DrizzleDB): Promise<string> {
   console.log(
     '[SchemaVersionService] Getting local schema version (app expected version)...'
   );

@@ -36,7 +36,6 @@ import { Text } from '@/components/ui/text';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/contexts/AuthContext';
 
-import type { quest } from '@/db/drizzleSchema';
 import { invite, profile_project_link } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useProjectById } from '@/hooks/db/useProjects';
@@ -502,8 +501,6 @@ export default function ProjectDirectoryView() {
       // Query client will automatically rollback if we return context
     }
   });
-
-  type _Quest = typeof quest.$inferSelect;
 
   const formSchema = z.object({
     name: z.string(t('nameRequired')).nonempty(t('nameRequired')).trim(),

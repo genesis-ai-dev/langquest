@@ -4,8 +4,7 @@ import {
   downloadFile,
   ensureDir,
   fileExists,
-  getDocumentDirectory,
-  getFileSize
+  getDocumentDirectory
 } from '@/utils/fileUtils';
 
 const CACHE_DIR_NAME = 'audio_cache';
@@ -130,32 +129,4 @@ export function expireAudioCache(): void {
     store.removeAudioCacheEntries(expired);
     console.log(`[AudioCache] Expired ${expired.length} cached audio file(s)`);
   }
-}
-
-/**
- * Returns the number of entries and approximate disk usage of the audio cache.
- */
-export function getAudioCacheStats(): { count: number; sizeBytes: number } {
-  const entries = useLocalStore.getState().audioCacheEntries;
-  let totalSize = 0;
-
-  for (const entry of Object.values(entries)) {
-    totalSize += getFileSize(cachedFilePath(entry.filename));
-  }
-
-  return { count: Object.keys(entries).length, sizeBytes: totalSize };
-}
-
-/**
- * Removes all cached audio files and resets the manifest.
- */
-export function clearAudioCache(): void {
-  const store = useLocalStore.getState();
-
-  for (const entry of Object.values(store.audioCacheEntries)) {
-    deleteIfExists(cachedFilePath(entry.filename));
-  }
-
-  store.clearAudioCacheEntries();
-  console.log('[AudioCache] Cache cleared');
 }

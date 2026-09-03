@@ -1,11 +1,5 @@
 import { useAuth } from '@/contexts/AuthContext';
-import type {
-  blocked_content,
-  language,
-  quest_asset_link
-} from '@/db/drizzleSchema';
 import { asset, asset_content_link, vote } from '@/db/drizzleSchema';
-import type { project_synced, quest_synced } from '@/db/drizzleSchemaSynced';
 import { system } from '@/db/powersync/system';
 import type { SortOrder } from '@/utils/dbUtils';
 import { blockedContentQuery, blockedUsersQuery } from '@/utils/dbUtils';
@@ -22,13 +16,6 @@ import {
 } from 'drizzle-orm';
 
 export type Asset = InferSelectModel<typeof asset>;
-export type Vote = InferSelectModel<typeof vote>;
-export type Language = InferSelectModel<typeof language>;
-export type QuestAssetLink = InferSelectModel<typeof quest_asset_link>;
-export type Quest = InferSelectModel<typeof quest_synced>;
-export type Project = InferSelectModel<typeof project_synced>;
-export type BlockedContent = InferSelectModel<typeof blocked_content>;
-
 export type AssetWithVoteCount = Asset & {
   text: string | null;
   audio: string[] | null;

@@ -7,20 +7,9 @@ import { Platform, StyleSheet, View } from 'react-native';
 import { ScrollView as GHScrollView } from 'react-native-gesture-handler';
 import { Icon } from './icon';
 
-export function getOptionFromValue(value?: string | null): Option {
-  if (value) {
-    return {
-      value: value,
-      label: value
-    };
-  }
-}
-
 type Option = SelectPrimitive.Option;
 
 const Select = SelectPrimitive.Root;
-
-const SelectGroup = SelectPrimitive.Group;
 
 const SelectValue = React.forwardRef<
   React.ComponentRef<typeof SelectPrimitive.Value>,
@@ -162,21 +151,6 @@ const SelectContent = React.forwardRef<
 });
 SelectContent.displayName = SelectPrimitive.Content.displayName;
 
-const SelectLabel = React.forwardRef<
-  SelectPrimitive.LabelRef,
-  SelectPrimitive.LabelProps
->(({ className, ...props }, ref) => (
-  <SelectPrimitive.Label
-    ref={ref}
-    className={cn(
-      'native:pb-2 native:pl-10 native:text-base py-1.5 pl-8 pr-2 text-sm font-semibold text-popover-foreground',
-      className
-    )}
-    {...props}
-  />
-));
-SelectLabel.displayName = SelectPrimitive.Label.displayName;
-
 const SelectItem = React.forwardRef<
   SelectPrimitive.ItemRef,
   SelectPrimitive.ItemProps & {
@@ -216,27 +190,10 @@ const SelectItem = React.forwardRef<
 ));
 SelectItem.displayName = SelectPrimitive.Item.displayName;
 
-const SelectSeparator = React.forwardRef<
-  SelectPrimitive.SeparatorRef,
-  SelectPrimitive.SeparatorProps
->(({ className, ...props }, ref) => (
-  <SelectPrimitive.Separator
-    ref={ref}
-    className={cn('-mx-1 my-1 h-px bg-muted', className)}
-    {...props}
-  />
-));
-SelectSeparator.displayName = SelectPrimitive.Separator.displayName;
-
 export {
   Select,
   SelectContent,
-  SelectGroup,
   SelectItem,
-  SelectLabel,
-  SelectScrollDownButton,
-  SelectScrollUpButton,
-  SelectSeparator,
   SelectTrigger,
   SelectValue,
   type Option

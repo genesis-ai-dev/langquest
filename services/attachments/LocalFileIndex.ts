@@ -33,12 +33,6 @@ export class LocalFileIndex {
     return this.initPromise;
   }
 
-  /** Re-list the directories (e.g. after a restore). Additive only. */
-  async refresh(): Promise<void> {
-    await this.init();
-    await this.scan();
-  }
-
   private async scan(): Promise<void> {
     const rootDir = getLocalUri(SHARED_ATTACHMENTS_DIRECTORY);
     const localDir = getLocalUri(

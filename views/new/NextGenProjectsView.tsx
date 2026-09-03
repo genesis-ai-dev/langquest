@@ -621,14 +621,6 @@ export default function NextGenProjectsView() {
     !isAuthenticated || activeTab === 'all' ? allProjects : myProjectsQuery;
   const { data: projectData, isLoading } = currentQuery;
 
-  // Get the first project for onboarding navigation
-  const firstProject = React.useMemo(() => {
-    if (Array.isArray(projectData) && projectData.length > 0) {
-      return projectData[0];
-    }
-    return null;
-  }, [projectData]);
-
   // Get fetching state for search indicator
   const isFetchingProjects = React.useMemo(() => {
     // For anonymous users or "all" tab, use allProjects fetching state
@@ -733,38 +725,6 @@ export default function NextGenProjectsView() {
 
   const dimensions = useWindowDimensions();
   const { bottom } = useSafeAreaInsets();
-
-  // Handlers for onboarding flow (kept for potential future use)
-  const _handleOnboardingCreateProject = () => {
-    if (currentUser) {
-      setIsCreateOpen(true);
-    } else {
-      // For anonymous users, just advance to next step
-      // They can see the flow but can't actually create projects
-    }
-  };
-
-  const _handleOnboardingCreateQuest = () => {
-    if (firstProject) {
-      router.push(`/(app)/project/${firstProject.id}`);
-      // The onboarding will close and user can create quest in ProjectDirectoryView
-    }
-  };
-
-  const _handleOnboardingStartRecording = () => {
-    if (firstProject) {
-      // Navigate to project - user can then navigate to a quest and start recording
-      router.push(`/(app)/project/${firstProject.id}`);
-      // The recording view will be shown when user navigates to a quest
-    }
-  };
-
-  const _handleOnboardingInviteCollaborators = () => {
-    if (firstProject) {
-      router.push(`/(app)/project/${firstProject.id}`);
-      // User can access project membership modal from project settings
-    }
-  };
 
   return (
     <>

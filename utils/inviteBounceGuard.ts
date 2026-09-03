@@ -6,27 +6,6 @@
  */
 export const DEFAULT_INVITE_MAX_RESEND_ATTEMPTS = 3;
 
-/** @deprecated Use DEFAULT_INVITE_MAX_RESEND_ATTEMPTS */
-export const DEFAULT_INVITE_MAX_OUTBOUND_SENDS =
-  DEFAULT_INVITE_MAX_RESEND_ATTEMPTS;
-
-export function isTransientBounce(
-  bounceType: string | null | undefined,
-  bounceReason?: string | null | undefined
-): boolean {
-  if (bounceType?.trim().toLowerCase() === 'transient') return true;
-  const r = bounceReason?.trim();
-  if (!r) return false;
-  return /^transient\s*:/i.test(r) || /soft bounce/i.test(r);
-}
-
-/** @deprecated Use isTransientBounce */
-export function isTransientBounceReason(
-  bounceReason: string | null | undefined
-): boolean {
-  return isTransientBounce(null, bounceReason);
-}
-
 export interface EmailSuppressionSnapshot {
   suppressed_at?: string | null;
   soft_suppressed_at?: string | null;
@@ -48,7 +27,7 @@ export function isEmailSuppressionActive(
 }
 
 /** True when this address is blocked for all invite emails (server `email_suppression`). */
-export function inviteEmailGloballySuppressed(
+function inviteEmailGloballySuppressed(
   globallySuppressed: boolean | undefined
 ): boolean {
   return !!globallySuppressed;
@@ -64,14 +43,3 @@ export function inviteMaySendAnotherOutboundEmail(
   return (count ?? 0) < maxSends;
 }
 
-export function inviteBouncedOutboundRetryAllowed(
-  count: number | null | undefined,
-  emailGloballySuppressed?: boolean,
-  maxSends: number = DEFAULT_INVITE_MAX_RESEND_ATTEMPTS
-): boolean {
-  return inviteMaySendAnotherOutboundEmail(
-    count,
-    emailGloballySuppressed,
-    maxSends
-  );
-}

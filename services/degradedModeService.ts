@@ -47,13 +47,6 @@ function getCurrentUpdateId(): string {
 }
 
 /**
- * Get current update ID (exported for testing/debugging)
- */
-export function getCurrentUpdateIdForTesting(): string {
-  return getCurrentUpdateId();
-}
-
-/**
  * Get current app version from Constants
  */
 function getCurrentAppVersion(): string {
@@ -65,16 +58,9 @@ function getCurrentAppVersion(): string {
 }
 
 /**
- * Get current app version (exported for testing/debugging)
- */
-export function getCurrentAppVersionForTesting(): string {
-  return getCurrentAppVersion();
-}
-
-/**
  * Get degraded mode state from local store
  */
-export async function getDegradedModeState(): Promise<DegradedModeState> {
+async function getDegradedModeState(): Promise<DegradedModeState> {
   try {
     const store = useLocalStore.getState();
 
@@ -162,7 +148,7 @@ function hasAppVersionChanged(): boolean {
  * Check if either OTA update or app version has changed
  * This allows retry when either an OTA update is applied OR a new app build is installed
  */
-export function hasUpdateOrVersionChanged(): boolean {
+function hasUpdateOrVersionChanged(): boolean {
   const otaUpdateApplied = hasOTAUpdateBeenApplied();
   const appVersionChanged = hasAppVersionChanged();
 
@@ -315,36 +301,3 @@ export async function isDegradedMode(): Promise<boolean> {
   return state.isDegraded;
 }
 
-/**
- * TESTING ONLY: Simulate an OTA update by changing the stored update ID
- * This allows testing degraded mode retry without needing a real OTA update
- *
- * Usage:
- * ```typescript
- * import { simulateOTAUpdate } from '@/services/degradedModeService';
- * simulateOTAUpdate();
- * // Then restart app - degraded mode should detect the "update" and retry migration
- * ```
- */
-export function simulateOTAUpdate(): void {
-  try {
-    const currentUpdateId = getCurrentUpdateId();
-    // Set stored update ID to something different to simulate an update
-    const simulatedOldUpdateId =
-      currentUpdateId === 'embedded'
-        ? 'old-update-12345678'
-        : `old-${currentUpdateId}`;
-
-    const store = useLocalStore.getState();
-    store.setLastUpdateId(simulatedOldUpdateId);
-
-    console.log(
-      `[DegradedModeService] TESTING: Simulated OTA update - stored old update ID: ${simulatedOldUpdateId}`
-    );
-    console.log(
-      `[DegradedModeService] Current update ID: ${currentUpdateId} - will be detected as new update on next check`
-    );
-  } catch (error) {
-    console.error('[DegradedModeService] Error simulating OTA update:', error);
-  }
-}
