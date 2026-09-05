@@ -192,7 +192,7 @@ interface ListItemSeparator {
 }
 
 type ListItem = ListItemAsset | ListItemSeparator;
-const ENABLE_BIBLE_ASSET_LIST_TRANSITIONS = true;
+const ENABLE_BIBLE_ASSET_LIST_TRANSITIONS = false;
 
 // Manual separator type used for verse grouping
 interface ManualSeparator {
