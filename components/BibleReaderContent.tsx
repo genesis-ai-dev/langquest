@@ -14,10 +14,12 @@ import {
   type BibleBrainCopyright,
   type BibleBrainVerse
 } from '@/hooks/useBibleBrainContent';
+import { useBibleBookNameGetter } from '@/hooks/useBibleBookName';
 import {
   useLocalStore,
   type BibleDownloadTranslation
 } from '@/store/localStore';
+import { getBibleBookIdFromFia, parseFiaVerseRange } from '@/utils/fiaUtils';
 import { cn, getThemeColor, useThemeColor } from '@/utils/styleUtils';
 import {
   BookOpenIcon,
@@ -468,6 +470,7 @@ export function BibleReaderContent({
   verseRange,
   onOpenTranslationDrawer
 }: BibleReaderContentProps) {
+  const getBookName = useBibleBookNameGetter();
   const {
     bibles: apiBibles,
     isLoading: biblesLoading,
@@ -597,8 +600,8 @@ export function BibleReaderContent({
     }
   }, [content, contentLoading, contentError, selectedBible]);
 
-  // Pericope bounds on the combined audio timeline (ms + tick percentages)
-  const pericopeBounds = useMemo(() => {
+  // Pericope playback window on the combined chapter audio timeline (ms)
+  const pericopeWindow = useMemo(() => {
     const audio = content?.audio;
     if (!audio?.length || !verseRange) return null;
     if (audio.some((ch) => !ch.timestamps?.length)) return null;
@@ -635,12 +638,34 @@ export function BibleReaderContent({
 
     if (startMs == null || endMs == null) return null;
 
-    const ticks: { pct: number }[] = [];
-    if (startMs > 0) ticks.push({ pct: (startMs / cumulativeMs) * 100 });
-    if (endMs < cumulativeMs) ticks.push({ pct: (endMs / cumulativeMs) * 100 });
-
-    return { startMs, endMs, ticks: ticks.length > 0 ? ticks : undefined };
+    return { startMs, endMs };
   }, [content?.audio, verseRange]);
+
+  const audioPassageLabel = useMemo(() => {
+    if (!fiaBookId || !verseRange) return null;
+
+    const { name: bookName } = getBookName(getBibleBookIdFromFia(fiaBookId));
+
+    if (pericopeWindow) {
+      return `${bookName} ${verseRange}`;
+    }
+
+    const chapters = content?.audio?.map((a) => a.chapter) ?? [];
+    if (chapters.length > 0) {
+      const first = chapters[0]!;
+      const last = chapters[chapters.length - 1]!;
+      return first === last
+        ? `${bookName} ${first}`
+        : `${bookName} ${first}-${last}`;
+    }
+
+    const parsed = parseFiaVerseRange(verseRange);
+    if (!parsed) return null;
+    const { startChapter, endChapter } = parsed;
+    return startChapter === endChapter
+      ? `${bookName} ${startChapter}`
+      : `${bookName} ${startChapter}-${endChapter}`;
+  }, [fiaBookId, verseRange, pericopeWindow, content?.audio, getBookName]);
 
   const bibleModelKeyPart = selectedBible?.id
     ? `bible-model:${selectedBible.id}`
@@ -744,12 +769,13 @@ export function BibleReaderContent({
         <CheckpointMediaPlayer
           className="rounded-none border-0 border-b border-border bg-card px-4 py-2"
           title={formatBibleLabel(selectedBible)}
+          subtitle={audioPassageLabel}
           checkpointKey={bibleAudioCheckpointKey}
           audioUris={audioUrls}
           seekStepMs={AUDIO_SEEK_STEP_MS}
-          ticks={pericopeBounds?.ticks}
-          initialPositionMs={pericopeBounds?.startMs}
-          autoStopMs={pericopeBounds?.endMs}
+          windowStartMs={pericopeWindow?.startMs}
+          windowEndMs={pericopeWindow?.endMs}
+          initialPositionMs={pericopeWindow?.startMs}
         />
       )}
 
