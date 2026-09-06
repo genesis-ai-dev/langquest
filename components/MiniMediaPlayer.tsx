@@ -15,6 +15,7 @@ import { ActivityIndicator, View } from 'react-native';
 
 interface MiniMediaPlayerProps {
   currentAssetName?: string | null;
+  subtitle?: string | null;
   isPlaying: boolean;
   isPaused?: boolean;
   loading?: boolean;
@@ -41,6 +42,7 @@ function formatTime(ms: number): string {
 
 export const MiniMediaPlayer = React.memo(function MiniMediaPlayer({
   currentAssetName,
+  subtitle,
   isPlaying,
   isPaused = false,
   loading = false,
@@ -76,9 +78,16 @@ export const MiniMediaPlayer = React.memo(function MiniMediaPlayer({
         className
       )}
     >
-      <Text numberOfLines={1} className="mb-2 text-sm font-medium">
-        {assetName}
-      </Text>
+      <View className="mb-2">
+        <Text numberOfLines={1} className="text-sm font-medium">
+          {assetName}
+        </Text>
+        {subtitle ? (
+          <Text numberOfLines={1} className="text-xs text-muted-foreground">
+            {subtitle}
+          </Text>
+        ) : null}
+      </View>
 
       <View style={{ position: 'relative' }}>
         <Slider
