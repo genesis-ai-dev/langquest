@@ -4,7 +4,12 @@ export const APP_STORE_URL = 'https://apps.apple.com/app/6752446665';
 export const PLAY_STORE_URL =
   'https://play.google.com/store/apps/details?id=com.etengenesis.langquest';
 
-export async function openAppStore(): Promise<void> {
+export async function openAppStore(url?: string | null): Promise<void> {
+  if (url) {
+    await Linking.openURL(url);
+    return;
+  }
+
   if (Platform.OS === 'ios') {
     await Linking.openURL(APP_STORE_URL);
     return;

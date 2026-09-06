@@ -43,7 +43,7 @@ export function UpdateBanner() {
 
   const handleStoreUpdate = async () => {
     try {
-      await openAppStore();
+      await openAppStore(storeUpdateInfo.storeUrl);
     } catch (error) {
       console.error('[UpdateBanner] Failed to open store:', error);
     }
