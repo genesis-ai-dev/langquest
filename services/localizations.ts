@@ -7842,17 +7842,17 @@ export const localizations = {
     mandarin: '有新版本可用'
   },
   storeUpdateWorkPreserved: {
-    english: 'All your work will be preserved',
-    french: 'Tout votre travail sera préservé',
-    spanish: 'Todo tu trabajo se conservará',
-    brazilian_portuguese: 'Todo o seu trabalho será preservado',
-    tok_pisin: 'Ol wok bilong yu bai i stap',
-    indonesian: 'Semua pekerjaan Anda akan tetap aman',
-    nepali: 'तपाईंको सबै काम सुरक्षित रहनेछ',
-    hindi: 'आपका सारा काम सुरक्षित रहेगा',
-    burmese: 'သင့်လုပ်ဆောင်ချက်အားလုံး ထိန်းသိမ်းထားပါမည်',
-    thai: 'งานทั้งหมดของคุณจะถูกเก็บไว้',
-    mandarin: '您的所有工作都会被保留'
+    english: 'Update now! Your work will be safe',
+    french: 'Mettez à jour ! Votre travail est sauvegardé.',
+    spanish: 'Actualiza ahora! Tu trabajo será seguro',
+    brazilian_portuguese: 'Atualize agora! Seu trabalho estará seguro',
+    tok_pisin: 'Apdeit nau! Wok bilong yu i no inap lus.',
+    indonesian: 'Perbarui sekarang! Pekerjaan Anda aman.',
+    nepali: 'अहिले अपडेट गर्नुहोस्! तपाईंको काम सुरक्षित छ।',
+    hindi: 'अभी अपडेट करें! आपका काम सुरक्षित है।',
+    burmese: 'အခုပဲ အပ်ဒိတ်လုပ်ပါ! သင့်အလုပ် လုံခြုံပါတယ်။',
+    thai: 'อัปเดตเลย! งานของคุณปลอดภัย',
+    mandarin: '立即更新！您的工作不会丢失。'
   },
   updateNow: {
     english: 'Update Now',

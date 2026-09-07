@@ -109,6 +109,7 @@ export function UpdateBanner() {
           size="icon-sm"
           onPress={handleDismiss}
           disabled={isOtaUpdate && isDownloadingUpdate}
+          className="ml-2"
         >
           <Icon as={XIcon} size={20} className="text-muted-foreground" />
         </Button>
