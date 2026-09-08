@@ -19,7 +19,7 @@
  *
  * ⚠️  WARNING: DO NOT USE addColumn() FOR SCHEMA-DEFINED COLUMNS!
  * ================================================================
- * PowerSync creates local-only tables with ALL columns from the Drizzle schema.
+ * PowerSync creates replica tables with ALL columns from the Drizzle schema.
  * If a column is already defined in drizzleSchemaColumns.ts, it will already
  * exist in the raw PowerSync table. Using addColumn() will corrupt the table
  * by adding a duplicate column with a different structure.
@@ -48,7 +48,7 @@ import type { DrizzleDB } from './index';
  * for existing columns will corrupt the table structure.
  *
  * @param db - Drizzle database instance (contains .powersync for raw access)
- * @param table - View name (e.g., 'asset_local') - will be converted to PowerSync table name
+ * @param table - View name (e.g. 'asset', or 'asset_local' on a 2.5 hop)
  * @param columnDef - Full column definition (e.g., 'new_field TEXT DEFAULT NULL')
  */
 export async function addColumn(
@@ -58,8 +58,8 @@ export async function addColumn(
 ): Promise<void> {
   console.log(`[Migration] Adding column to ${table}: ${columnDef}`);
 
-  // Convert view name to PowerSync table name
-  // 'asset_local' -> 'ps_data_local__asset_local'
+  // 'asset' -> 'ps_data__asset'
+  // leftover 2.5: 'asset_local' -> 'ps_data_local__asset_local'
   const psTableName = getRawTableName(table);
 
   try {
@@ -87,7 +87,7 @@ export async function addColumn(
  * CRITICAL: This modifies the underlying PowerSync table, not the view!
  *
  * @param db - Drizzle database instance (contains .powersync for raw access)
- * @param table - View name (e.g., 'asset_local') - will be converted to PowerSync table name
+ * @param table - View name (e.g. 'asset', or 'asset_local' on a 2.5 hop)
  * @param oldName - Current column name
  * @param newName - New column name
  */
@@ -127,7 +127,7 @@ export async function renameColumn(
  * CRITICAL: This modifies the underlying PowerSync table, not the view!
  *
  * @param db - Drizzle database instance (contains .powersync for raw access)
- * @param table - View name (e.g., 'asset_local') - will be converted to PowerSync table name
+ * @param table - View name (e.g. 'asset', or 'asset_local' on a 2.5 hop)
  * @param columnName - Column to drop
  */
 export async function dropColumn(
@@ -225,29 +225,25 @@ export async function copyColumn(
 // ============================================================================
 
 /**
- * Update _metadata.schema_version on all LOCAL-ONLY tables
- * This should be called after each successful migration
+ * Stamp _metadata.schema_version on rows this client owns.
  *
- * NOTE: We only update *_local tables because:
- * - Synced tables are migrated server-side via RPC (ps_transform_v1_to_v2)
- * - When local data is uploaded, server RPC transforms it
- * - Local tables never go to server except via synced tables
- * - Updating synced tables would create conflicts with server migrations
+ * Touches leftover 2.5 `*_local` raw tables (if still on disk during a hop)
+ * and unsuffixed `ps_data__*` tables (2.6+). Skips tables that are missing.
  *
- * @param db - Drizzle database instance
- * @param version - New schema version to stamp
+ * @param db - Raw SQLite adapter used by migrations
+ * @param version - Schema version to stamp
  */
 export async function updateMetadataVersion(
   db: DrizzleDB,
   version: string
 ): Promise<void> {
   console.log(
-    `[Migration] Updating all *_local raw PowerSync tables _metadata to version ${version}...`
+    `[Migration] Updating _metadata.schema_version to ${version}...`
   );
 
-  // CRITICAL: Update raw PowerSync tables directly, not views
-  // PowerSync stores data as JSON in the 'data' column of raw tables (ps_data_local__*)
-  // We must update the JSON structure directly so getMinimumSchemaVersion can read it
+  // Update raw PowerSync JSON (`data`), not views, so getMinimumSchemaVersion
+  // can read the stamp. Leftover *_local names are for 2.5 hops; unsuffixed
+  // names are the 2.6+ single tables.
   const tables = [
     'profile_local',
     'language_local',
@@ -278,7 +274,42 @@ export async function updateMetadataVersion(
     'region_alias_local',
     'region_source_local',
     'region_property_local',
-    'languoid_region_local'
+    'languoid_region_local',
+    // Post-2.6 single tables
+    'profile',
+    'language',
+    'project',
+    'quest',
+    'asset',
+    'tag',
+    'quest_asset_link',
+    'quest_tag_link',
+    'asset_tag_link',
+    'asset_content_link',
+    'vote',
+    'reports',
+    'feedback',
+    'invite',
+    'request',
+    'notification',
+    'profile_project_link',
+    'project_language_link',
+    'subscription',
+    'blocked_users',
+    'blocked_content',
+    'languoid',
+    'languoid_alias',
+    'languoid_source',
+    'languoid_property',
+    'region',
+    'region_alias',
+    'region_source',
+    'region_property',
+    'languoid_region',
+    'languoid_link_suggestion',
+    'project_languoid_suggestion',
+    'quest_closure',
+    'project_closure'
   ];
 
   let updatedTables = 0;
@@ -410,7 +441,8 @@ export async function getOutdatedRecordCount(
  * These utilities allow migrations to read legacy fields even after they've been removed
  * from Drizzle views, enabling v0→latest migrations.
  *
- * PowerSync stores data as JSON in `ps_data_local__{view}` and `ps_data__{view}` tables.
+ * PowerSync stores data as JSON in leftover `ps_data_local__{view}` tables
+ * (2.5 hops) and unsuffixed `ps_data__{view}` tables (2.6+).
  * The `data` column contains the full JSON object with all fields.
  */
 
@@ -418,15 +450,16 @@ type RawPowerSyncScope = 'local' | 'synced';
 
 /**
  * Get the raw PowerSync table name for a view
- * @param viewName - View name (e.g., 'project_local' or 'project')
- * @param scope - Optional override. If not provided, auto-detected from '_local' suffix
+ * @param viewName - View name. `*_local` maps to leftover 2.5 storage;
+ *   unsuffixed names map to `ps_data__{view}` (2.6+).
+ * @param scope - Optional override. If omitted, `*_local` → local storage.
  * @returns Raw PowerSync table name (e.g., 'ps_data_local__project_local' or 'ps_data__project')
  */
 export function getRawTableName(
   viewName: string,
   scope?: RawPowerSyncScope
 ): string {
-  // Auto-detect scope from _local suffix if not explicitly provided
+  // Leftover 2.5 tables keep the _local suffix in the raw name.
   const detectedScope: RawPowerSyncScope =
     scope ?? (viewName.endsWith('_local') ? 'local' : 'synced');
 
@@ -447,7 +480,7 @@ export function getRawTableName(
  * hasn't created yet (e.g., when migrations run before PowerSync.init() completes)
  *
  * @param db - Drizzle database instance
- * @param viewName - View name (e.g., 'languoid_local')
+ * @param viewName - View name (e.g. 'languoid', or 'languoid_local' on a 2.5 hop)
  * @param scope - 'local' or 'synced' (default: 'local')
  */
 export async function ensureTableExists(
@@ -507,7 +540,7 @@ export function jsonExtractColumns(
  * Uses sqlite_master to check table existence
  *
  * @param db - Drizzle database instance
- * @param viewName - View name (e.g., 'project_local')
+ * @param viewName - View name (e.g. 'project', or 'project_local' on a 2.5 hop)
  * @param scope - 'local' or 'synced' (default: 'local')
  * @returns true if table exists, false otherwise
  */
@@ -539,7 +572,7 @@ export async function rawTableExists(
  * Checks if json_extract returns a non-null value for any record
  *
  * @param db - Drizzle database instance
- * @param viewName - View name (e.g., 'project_local')
+ * @param viewName - View name (e.g. 'project', or 'project_local' on a 2.5 hop)
  * @param jsonPath - JSON path (e.g., '$.target_language_id')
  * @param scope - 'local' or 'synced' (default: 'local')
  * @returns true if key exists in at least one record, false otherwise

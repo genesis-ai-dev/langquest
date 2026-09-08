@@ -7,7 +7,6 @@ import {
   project as projectTable,
   request
 } from '@/db/drizzleSchema';
-import { request_synced } from '@/db/drizzleSchemaSynced';
 import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
 import type { PrivateAccessAction } from '@/hooks/useUserPermissions';
@@ -287,16 +286,16 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
       if (existingRequest) {
         // Update existing request via synced table - PowerSync will sync to Supabase
         await db
-          .update(request_synced)
+          .update(request)
           .set({
             status: 'pending',
             count: (existingRequest.count || 0) + 1,
             last_updated: new Date().toISOString()
           })
-          .where(eq(request_synced.id, existingRequest.id));
+          .where(eq(request.id, existingRequest.id));
       } else {
         // Create new request via synced table - PowerSync will sync to Supabase
-        await db.insert(request_synced).values({
+        await db.insert(request).values({
           sender_profile_id: currentUser.id,
           project_id: projectId,
           status: 'pending',
@@ -331,12 +330,12 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
             try {
               // Update request via synced table - PowerSync will sync to Supabase
               await db
-                .update(request_synced)
+                .update(request)
                 .set({
                   status: 'withdrawn',
                   last_updated: new Date().toISOString()
                 })
-                .where(eq(request_synced.id, existingRequest.id));
+                .where(eq(request.id, existingRequest.id));
 
               // Trigger refresh
               setRefreshKey((prev) => prev + 1);

@@ -11,7 +11,8 @@ import { useLocalStore } from '@/store/localStore';
 import { normalizeUuid } from '@/utils/uuidUtils';
 import type { HybridDataSource } from '@/views/new/useHybridData';
 import { useQuery } from '@tanstack/react-query';
-import { eq, inArray } from 'drizzle-orm';
+import { publishedOrOwnQuest } from '@/utils/dbUtils';
+import { and, eq, inArray } from 'drizzle-orm';
 import React from 'react';
 import { useNetworkStatus } from './useNetworkStatus';
 
@@ -73,14 +74,15 @@ function parseMetadata(raw: unknown): BibleMetadata | null {
 
 async function fetchLocalChapters(
   projectId: string,
-  bookId: string
+  bookId: string,
+  userId?: string
 ): Promise<QuestWithMetadata[]> {
   const allQuests = await system.db.query.quest.findMany({
-    where: eq(quest.project_id, projectId),
+    where: and(eq(quest.project_id, projectId), publishedOrOwnQuest(userId)),
     columns: {
       id: true,
       name: true,
-      source: true,
+      published_at: true,
       created_at: true,
       download_profiles: true,
       metadata: true,
@@ -90,7 +92,7 @@ async function fetchLocalChapters(
   });
 
   return allQuests
-    .map((q) => {
+    .map((q): QuestWithMetadata | null => {
       const meta = parseMetadata(q.metadata);
       if (meta?.bible?.book !== bookId || meta.bible.chapter == null)
         return null;
@@ -124,7 +126,7 @@ async function fetchLocalChapters(
         quest_id: q.id,
         quest_name: q.name,
         quest_version_label: meta.versionLabel ?? null,
-        quest_source: q.source,
+        quest_source: q.published_at == null ? 'local' : 'synced',
         quest_created_at: createdAt,
         quest_download_profiles: parsedProfiles,
         quest_creator_id: q.creator_id ?? null,
@@ -137,16 +139,22 @@ async function fetchLocalChapters(
 
 async function fetchCloudChapters(
   projectId: string,
-  bookId: string
+  bookId: string,
+  userId?: string
 ): Promise<QuestWithMetadata[]> {
   try {
     const { data, error } = await system.supabaseConnector.client
       .from('quest')
       .select(
-        'id, name, created_at, download_profiles, metadata, creator_id, visible'
+        'id, name, created_at, download_profiles, metadata, creator_id, visible, published_at'
       )
       .eq('project_id', projectId)
-      .not('metadata', 'is', null);
+      .not('metadata', 'is', null)
+      .or(
+        userId
+          ? `published_at.not.is.null,creator_id.eq.${userId}`
+          : 'published_at.not.is.null'
+      );
 
     if (error || !data) return [];
 
@@ -318,14 +326,14 @@ export function useBibleChapters(projectId: string, bookId: string) {
     error: localError
   } = useQuery({
     queryKey: ['bible-chapters', 'local', projectId, bookId],
-    queryFn: () => fetchLocalChapters(projectId, bookId),
+    queryFn: () => fetchLocalChapters(projectId, bookId, currentUser?.id),
     enabled: !!projectId && !!bookId,
     staleTime: 30000
   });
 
   const { data: cloudResults = [], isLoading: isLoadingCloud } = useQuery({
     queryKey: ['bible-chapters', 'cloud', projectId, bookId],
-    queryFn: () => fetchCloudChapters(projectId, bookId),
+    queryFn: () => fetchCloudChapters(projectId, bookId, currentUser?.id),
     enabled: !!projectId && !!bookId && isOnline,
     staleTime: 60000
   });

@@ -22,13 +22,13 @@ import {
 } from '@/components/ui/tooltip';
 import { useAuth } from '@/contexts/AuthContext';
 import { emailStatusOptions } from '@/db/constants';
-import type { profile, request } from '@/db/drizzleSchema';
-import { invite, project as projectTable } from '@/db/drizzleSchema';
+import type { profile } from '@/db/drizzleSchema';
 import {
-  invite_synced,
-  profile_project_link_synced,
-  request_synced
-} from '@/db/drizzleSchemaSynced';
+  invite,
+  profile_project_link,
+  project as projectTable,
+  request
+} from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
@@ -119,8 +119,6 @@ const isValidEmail = (email: string): boolean => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return emailRegex.test(email);
 };
-
-const { db } = system;
 
 interface ProjectInviteMembersSectionProps {
   isVisible: boolean;
@@ -274,7 +272,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
 
     // Only offline query - no cloud query needed
     offlineQuery: toCompilableQuery(
-      db.query.project.findMany({
+      system.db.query.project.findMany({
         where: eq(projectTable.id, projectId),
         limit: 1
       })
@@ -285,14 +283,14 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
 
   // Query for active project members - get links first
   const { data: memberLinks } = useHybridData<
-    typeof profile_project_link_synced.$inferSelect
+    typeof profile_project_link.$inferSelect
   >({
     dataType: 'project-member-links',
     queryKeyParams: [projectId],
 
     // Only offline query - no cloud query needed
     offlineQuery: toCompilableQuery(
-      db.query.profile_project_link.findMany({
+      system.db.query.profile_project_link.findMany({
         where: (table) =>
           and(eq(table.project_id, projectId), eq(table.active, true))
       })
@@ -313,7 +311,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
     offlineQuery:
       profileIds.length > 0
         ? toCompilableQuery(
-            db.query.profile.findMany({
+            system.db.query.profile.findMany({
               where: (profile, { inArray }) => inArray(profile.id, profileIds)
             })
           )
@@ -374,7 +372,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
 
     // Only offline query - no cloud query needed
     offlineQuery: toCompilableQuery(
-      db.query.invite.findMany({
+      system.db.query.invite.findMany({
         where: eq(invite.project_id, projectId)
       })
     )
@@ -401,7 +399,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
       offlineQuery:
         receiverProfileIds.length > 0
           ? toCompilableQuery(
-              db.query.profile.findMany({
+              system.db.query.profile.findMany({
                 where: (profile, { inArray }) =>
                   inArray(profile.id, receiverProfileIds)
               })
@@ -459,7 +457,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
     queryKeyParams: [...senderProfileIds],
 
     offlineQuery: toCompilableQuery(
-      db.query.profile.findMany({
+      system.db.query.profile.findMany({
         where: (profile, { inArray }) => inArray(profile.id, senderProfileIds)
       })
     ),
@@ -535,7 +533,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
     queryKeyParams: [projectId],
 
     offlineQuery: toCompilableQuery(
-      db.query.request.findMany({
+      system.db.query.request.findMany({
         where: (table) =>
           and(
             eq(table.project_id, projectId),
@@ -563,7 +561,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
     offlineQuery:
       requesterIds.length > 0
         ? toCompilableQuery(
-            db.query.profile.findMany({
+            system.db.query.profile.findMany({
               where: (profile, { inArray }) => inArray(profile.id, requesterIds)
             })
           )
@@ -596,7 +594,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
             void (async () => {
               try {
                 await db
-                  .update(profile_project_link_synced)
+                  .update(profile_project_link)
                   .set({
                     active: false,
                     membership: 'member', // Demote to member when removed
@@ -604,8 +602,8 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                   })
                   .where(
                     and(
-                      eq(profile_project_link_synced.profile_id, memberId),
-                      eq(profile_project_link_synced.project_id, projectId)
+                      eq(profile_project_link.profile_id, memberId),
+                      eq(profile_project_link.project_id, projectId)
                     )
                   );
                 // void refetchMembers(); // Removed refetch
@@ -633,15 +631,15 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
             void (async () => {
               try {
                 await db
-                  .update(profile_project_link_synced)
+                  .update(profile_project_link)
                   .set({
                     membership: 'owner',
                     last_updated: new Date().toISOString()
                   })
                   .where(
                     and(
-                      eq(profile_project_link_synced.profile_id, memberId),
-                      eq(profile_project_link_synced.project_id, projectId)
+                      eq(profile_project_link.profile_id, memberId),
+                      eq(profile_project_link.project_id, projectId)
                     )
                   );
                 // void refetchMembers(); // Removed refetch
@@ -676,7 +674,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
           void (async () => {
             try {
               await db
-                .update(profile_project_link_synced)
+                .update(profile_project_link)
                 .set({
                   active: false,
                   membership: 'member', // Demote to member when leaving
@@ -684,8 +682,8 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                 })
                 .where(
                   and(
-                    eq(profile_project_link_synced.profile_id, currentUser.id),
-                    eq(profile_project_link_synced.project_id, projectId)
+                    eq(profile_project_link.profile_id, currentUser.id),
+                    eq(profile_project_link.project_id, projectId)
                   )
                 );
               onClose();
@@ -715,9 +713,9 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
 
     try {
       await db
-        .update(invite_synced)
+        .update(invite)
         .set({ status: 'withdrawn', last_updated: new Date().toISOString() })
-        .where(eq(invite_synced.id, inviteId));
+        .where(eq(invite.id, inviteId));
       // void refetchInvitations(); // Removed refetch
     } catch (error) {
       reportWithdrawError(error);
@@ -730,12 +728,12 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
 
     try {
       await db
-        .update(profile_project_link_synced)
+        .update(profile_project_link)
         .set({ active: false, last_updated: new Date().toISOString() })
         .where(
           and(
-            eq(profile_project_link_synced.profile_id, receiverProfileId),
-            eq(profile_project_link_synced.project_id, projectId)
+            eq(profile_project_link.profile_id, receiverProfileId),
+            eq(profile_project_link.project_id, projectId)
           )
         );
     } catch (error) {
@@ -806,7 +804,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
 
     try {
       await db
-        .update(invite_synced)
+        .update(invite)
         .set({
           status: 'pending',
           count: inviteCount + 1,
@@ -821,7 +819,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
           bounce_reason: null,
           bounce_notice_dismissed_at: null
         })
-        .where(eq(invite_synced.id, inviteId));
+        .where(eq(invite.id, inviteId));
       // void refetchInvitations(); // Removed refetch
     } catch (error) {
       console.error('Error resending invitation:', error);
@@ -850,12 +848,12 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
 
     try {
       await db
-        .update(invite_synced)
+        .update(invite)
         .set({
           bounce_notice_dismissed_at: new Date().toISOString(),
           last_updated: new Date().toISOString()
         })
-        .where(eq(invite_synced.id, invitation.id));
+        .where(eq(invite.id, invitation.id));
 
       await Promise.all([
         queryClient.invalidateQueries({
@@ -895,27 +893,27 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
               try {
                 // Update request status to accepted
                 await db
-                  .update(request_synced)
+                  .update(request)
                   .set({
                     status: 'accepted',
                     last_updated: new Date().toISOString()
                   })
-                  .where(eq(request_synced.id, requestId));
+                  .where(eq(request.id, requestId));
 
-                // Create or update profile_project_link_synced
+                // Create or update profile_project_link
                 const existingLink = await db
                   .select()
-                  .from(profile_project_link_synced)
+                  .from(profile_project_link)
                   .where(
                     and(
-                      eq(profile_project_link_synced.profile_id, senderId),
-                      eq(profile_project_link_synced.project_id, projectId)
+                      eq(profile_project_link.profile_id, senderId),
+                      eq(profile_project_link.project_id, projectId)
                     )
                   );
 
                 if (existingLink.length > 0) {
                   await db
-                    .update(profile_project_link_synced)
+                    .update(profile_project_link)
                     .set({
                       active: true,
                       membership: 'member',
@@ -923,12 +921,12 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                     })
                     .where(
                       and(
-                        eq(profile_project_link_synced.profile_id, senderId),
-                        eq(profile_project_link_synced.project_id, projectId)
+                        eq(profile_project_link.profile_id, senderId),
+                        eq(profile_project_link.project_id, projectId)
                       )
                     );
                 } else {
-                  await db.insert(profile_project_link_synced).values({
+                  await system.db.insert(profile_project_link).values({
                     id: `${senderId}_${projectId}`,
                     profile_id: senderId,
                     project_id: projectId,
@@ -966,12 +964,12 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
               setIsSubmitting(true);
               try {
                 await db
-                  .update(request_synced)
+                  .update(request)
                   .set({
                     status: 'declined',
                     last_updated: new Date().toISOString()
                   })
-                  .where(eq(request_synced.id, requestId));
+                  .where(eq(request.id, requestId));
 
                 RNAlert.alert(t('success'), t('requestDenied'));
               } catch (error) {
@@ -1024,11 +1022,11 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
       const normalizedInput = inviteEmail.trim().toLowerCase();
 
       type InviteQueryRow = Awaited<
-        ReturnType<typeof db.query.invite.findMany>
+        ReturnType<typeof system.db.query.invite.findMany>
       >[number];
       let existingInvite: InviteQueryRow | undefined;
       try {
-        const existingInvites = await db.query.invite.findMany({
+        const existingInvites = await system.db.query.invite.findMany({
           where: and(
             eq(invite.email, inviteEmail.trim()),
             eq(invite.project_id, projectId)
@@ -1081,10 +1079,10 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
         const receiverProfileId = existingInvite.receiver_profile_id;
         if (receiverProfileId) {
           let profileLinks: Awaited<
-            ReturnType<typeof db.query.profile_project_link.findMany>
+            ReturnType<typeof system.db.query.profile_project_link.findMany>
           >;
           try {
-            profileLinks = await db.query.profile_project_link.findMany({
+            profileLinks = await system.db.query.profile_project_link.findMany({
               where: (table) =>
                 and(
                   eq(table.profile_id, receiverProfileId),
@@ -1147,7 +1145,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
 
           try {
             await db
-              .update(invite_synced)
+              .update(invite)
               .set({
                 status: 'pending',
                 as_owner: inviteAsOwner,
@@ -1163,7 +1161,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                 bounce_reason: null,
                 bounce_notice_dismissed_at: null
               })
-              .where(eq(invite_synced.id, existingInvite.id));
+              .where(eq(invite.id, existingInvite.id));
           } catch (error) {
             reportSendInvitationError(error);
             return false;
@@ -1211,7 +1209,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
       }
 
       try {
-        await db.insert(invite_synced).values({
+        await system.db.insert(invite).values({
           sender_profile_id: currentUser.id,
           email: inviteEmail,
           project_id: projectId,

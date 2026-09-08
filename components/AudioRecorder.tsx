@@ -159,9 +159,26 @@ const AudioRecorder = React.forwardRef<AudioRecorderRef, AudioRecorderProps>(
       }
     }, []);
 
+    // Android refuses to prepare a recorder that is already prepared, so a start
+    // that never reached record() has to hand the session back explicitly.
+    const releasePreparedSession = useCallback(async () => {
+      try {
+        const status = recorder.getStatus();
+        if (status.canRecord && !status.isRecording) {
+          await recorder.stop();
+        }
+      } catch (error) {
+        console.warn('Failed to release prepared recorder session:', error);
+      }
+    }, [recorder]);
+
     const stopRecording = useCallback(async (): Promise<string | null> => {
-      // Allow stopping from both active-recording and paused states
-      if (!recorder.isRecording && !isRecordingPaused) return null;
+      // Allow stopping from both active-recording and paused states. A prepared
+      // but unstarted session also has to be released so the next start can prepare.
+      if (!recorder.isRecording && !isRecordingPaused) {
+        await releasePreparedSession();
+        return null;
+      }
 
       try {
         await recorder.stop();
@@ -184,7 +201,13 @@ const AudioRecorder = React.forwardRef<AudioRecorderRef, AudioRecorderProps>(
         console.error('Failed to stop recording:', error);
         return null;
       }
-    }, [recorder, recordingUri, onRecordingComplete, isRecordingPaused]);
+    }, [
+      recorder,
+      recordingUri,
+      onRecordingComplete,
+      isRecordingPaused,
+      releasePreparedSession
+    ]);
 
     // Expose imperative handle for parent to programmatically stop recording
     useImperativeHandle(ref, () => ({
@@ -238,6 +261,7 @@ const AudioRecorder = React.forwardRef<AudioRecorderRef, AudioRecorderProps>(
           playsInSilentMode: true
         });
 
+        await releasePreparedSession();
         await recorder.prepareToRecordAsync(RecordingPresets[quality]);
         recorder.record({ forDuration: maxDuration / 1000 });
 
@@ -245,6 +269,7 @@ const AudioRecorder = React.forwardRef<AudioRecorderRef, AudioRecorderProps>(
         setIsRecordingPaused(false);
       } catch (error) {
         console.error('Failed to start recording:', error);
+        await releasePreparedSession();
       }
     };
 

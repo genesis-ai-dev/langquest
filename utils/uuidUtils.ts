@@ -32,3 +32,17 @@ export function normalizeUuid(
   if (uuid === undefined || uuid === null) return '';
   return uuid.toString().replace(/-/g, '');
 }
+
+/**
+ * Restore dashed UUID form. PowerSync's raw `id` column may omit hyphens;
+ * Drizzle `$defaultFn` also mints a new id when `values.id` is missing.
+ */
+export function toDashedUuid(
+  uuid: string | number | undefined | null
+): string {
+  const compact = normalizeUuid(uuid).toLowerCase();
+  if (!/^[0-9a-f]{32}$/.test(compact)) {
+    return uuid == null ? '' : uuid.toString();
+  }
+  return `${compact.slice(0, 8)}-${compact.slice(8, 12)}-${compact.slice(12, 16)}-${compact.slice(16, 20)}-${compact.slice(20)}`;
+}

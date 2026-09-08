@@ -2,11 +2,14 @@ import { useAuth } from '@/contexts/AuthContext';
 import {
   asset,
   asset_tag_link,
+  blocked_content,
+  blocked_users,
   quest_asset_link
 } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { blockedContentQuery, blockedUsersQuery } from '@/utils/dbUtils';
+import type { HybridDataSource } from '@/views/new/useHybridData';
 import { useSimpleHybridInfiniteData } from '@/views/new/useHybridData';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useQuery } from '@tanstack/react-query';
@@ -16,6 +19,7 @@ import {
   asc,
   eq,
   getTableColumns,
+  getTableName,
   isNull,
   like,
   notInArray,
@@ -65,6 +69,7 @@ type AssetQuestLink = Asset & {
   quest_active: boolean;
   quest_visible: boolean;
   tag_ids?: string[];
+  source?: HybridDataSource;
 };
 
 type QuestAssetLinkAssetRow = Asset & {
@@ -163,7 +168,7 @@ export function useAssetsByQuest(
     refetch
   } = useSimpleHybridInfiniteData<AssetQuestLink>(
     'assets',
-    ['by-quest', quest_id || '', searchQuery],
+    ['by-quest', quest_id || '', searchQuery, showHiddenContent],
     async ({ pageParam, pageSize }) => {
       if (!quest_id) return [];
 
@@ -175,14 +180,19 @@ export function useAssetsByQuest(
         const conditions = [
           eq(quest_asset_link.quest_id, quest_id),
           isNull(asset.source_asset_id),
-          or(
-            !showHiddenContent ? eq(asset.visible, true) : undefined,
-            eq(asset.creator_id, currentUser!.id)
-          ),
-          or(
-            !showHiddenContent ? eq(quest_asset_link.visible, true) : undefined,
-            eq(asset.creator_id, currentUser!.id)
-          ),
+          // The ternary has to wrap the whole or(): with it inside, drizzle
+          // drops the undefined operand when showing hidden content and the
+          // clause collapses to "creator_id = me", hiding other people's
+          // assets entirely.
+          !showHiddenContent
+            ? or(eq(asset.visible, true), eq(asset.creator_id, currentUser!.id))
+            : undefined,
+          !showHiddenContent
+            ? or(
+                eq(quest_asset_link.visible, true),
+                eq(asset.creator_id, currentUser!.id)
+              )
+            : undefined,
           notInArray(asset.id, blockedContentQuery(currentUser!.id, 'asset')),
           notInArray(asset.creator_id, blockedUsersQuery(currentUser!.id)),
           searchTerm && like(displayName, `%${searchTerm}%`)
@@ -292,7 +302,14 @@ export function useAssetsByQuest(
         } as QuestAssetLinkAssetRow)
       );
     },
-    20 // pageSize
+    20, // pageSize
+    [
+      getTableName(quest_asset_link),
+      getTableName(asset),
+      getTableName(asset_tag_link),
+      getTableName(blocked_content),
+      getTableName(blocked_users)
+    ]
   );
 
   return {
@@ -316,7 +333,13 @@ export function useLocalAssetsByQuest(
   const isOnline = useNetworkStatus();
 
   const simpleQuery = useQuery({
-    queryKey: ['assets', 'by-quest-local-simple', quest_id || '', searchQuery],
+    queryKey: [
+      'assets',
+      'by-quest-local-simple',
+      quest_id || '',
+      searchQuery,
+      showHiddenContent
+    ],
     queryFn: async () => {
       if (!quest_id || !currentUser) return [];
 
@@ -327,14 +350,16 @@ export function useLocalAssetsByQuest(
         const conditions = [
           eq(quest_asset_link.quest_id, quest_id),
           isNull(asset.source_asset_id),
-          or(
-            !showHiddenContent ? eq(asset.visible, true) : undefined,
-            eq(asset.creator_id, currentUser.id)
-          ),
-          or(
-            !showHiddenContent ? eq(quest_asset_link.visible, true) : undefined,
-            eq(asset.creator_id, currentUser.id)
-          ),
+          // See useAssetsByQuest: the ternary must wrap the whole or().
+          !showHiddenContent
+            ? or(eq(asset.visible, true), eq(asset.creator_id, currentUser.id))
+            : undefined,
+          !showHiddenContent
+            ? or(
+                eq(quest_asset_link.visible, true),
+                eq(asset.creator_id, currentUser.id)
+              )
+            : undefined,
           notInArray(asset.id, blockedContentQuery(currentUser.id, 'asset')),
           notInArray(asset.creator_id, blockedUsersQuery(currentUser.id)),
           searchTerm && like(displayName, `%${searchTerm}%`)

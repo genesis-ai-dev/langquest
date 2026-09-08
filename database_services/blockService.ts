@@ -3,14 +3,12 @@ import { and, eq } from 'drizzle-orm';
 import { blocked_content, blocked_users } from '../db/drizzleSchema';
 import { system } from '../db/powersync/system';
 
-const { db } = system;
-
 export type BlockedUserInsert = Omit<typeof blocked_users.$inferInsert, 'id'>;
 
 export class BlockService {
   async blockUser(data: BlockedUserInsert) {
     // Check if already blocked to avoid duplicates
-    const existingBlock = await db.query.blocked_users.findFirst({
+    const existingBlock = await system.db.query.blocked_users.findFirst({
       where: and(
         eq(blocked_users.blocker_id, data.blocker_id),
         eq(blocked_users.blocked_id, data.blocked_id)
@@ -22,7 +20,7 @@ export class BlockService {
     }
 
     // With composite primary key, returning the inserted record directly
-    await db.insert(resolveTable('blocked_users')).values({
+    await system.db.insert(resolveTable('blocked_users')).values({
       ...data,
       id: `${data.blocker_id}_${data.blocked_id}`
     });
@@ -32,7 +30,7 @@ export class BlockService {
 
   async blockContent(data: typeof blocked_content.$inferInsert) {
     // Check if already blocked to avoid duplicates
-    const existingBlock = await db.query.blocked_content.findFirst({
+    const existingBlock = await system.db.query.blocked_content.findFirst({
       where: and(
         eq(blocked_content.profile_id, data.profile_id),
         eq(blocked_content.content_id, data.content_id),
@@ -46,7 +44,7 @@ export class BlockService {
 
     // Insert the data and return with generated ID
 
-    await db.insert(resolveTable('blocked_content')).values(data);
+    await system.db.insert(resolveTable('blocked_content')).values(data);
 
     return data;
   }

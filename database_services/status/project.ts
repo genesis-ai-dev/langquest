@@ -29,8 +29,7 @@ export function useProjectStatuses(projectId: string): ProjectStatusHook {
         columns: {
           private: true,
           active: true,
-          visible: true,
-          source: true
+          visible: true
         },
         where: eq(project.id, projectId)
       })
@@ -48,7 +47,9 @@ export function useProjectStatuses(projectId: string): ProjectStatusHook {
   });
 
   return {
-    data: projectData[0] || undefined,
+    data: projectData[0]
+      ? { ...projectData[0], source: 'synced' as const }
+      : undefined,
     isLoading,
     isError,
     refetch

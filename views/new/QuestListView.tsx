@@ -5,9 +5,13 @@ import { quest } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
-import type { WithSource } from '@/utils/dbUtils';
+import {
+  publishedOrOwnQuest,
+  publishedOrOwnQuestFilter,
+  type WithSource
+} from '@/utils/dbUtils';
 import { LegendList } from '@/components/ui/legend-list';
-import { and, eq, like, or } from 'drizzle-orm';
+import { and, eq, getTableName, like, or } from 'drizzle-orm';
 import React from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { QuestTreeRow } from './QuestTreeRow';
@@ -66,6 +70,7 @@ export function QuestListView({
 
       const conditions = [
         eq(quest.project_id, projectId),
+        publishedOrOwnQuest(currentUser?.id),
         or(
           !showHiddenContent ? eq(quest.visible, true) : undefined,
           currentUser ? eq(quest.creator_id, currentUser.id) : undefined
@@ -83,7 +88,7 @@ export function QuestListView({
           name: true,
           description: true,
           parent_id: true,
-          source: true,
+          published_at: true,
           visible: true,
           download_profiles: true
         },
@@ -98,13 +103,13 @@ export function QuestListView({
 
       let query = system.supabaseConnector.client
         .from('quest')
-        .select('id, name, description, parent_id, visible, download_profiles')
-        .eq('project_id', projectId);
+        .select(
+          'id, name, description, parent_id, visible, download_profiles, published_at, creator_id'
+        )
+        .eq('project_id', projectId)
+        .or(publishedOrOwnQuestFilter(currentUser?.id));
 
       // Match offline query filtering: show visible quests OR quests created by current user
-      // When showHiddenContent is false, filter to visible quests OR user's quests
-      // Note: Supabase doesn't easily support complex OR conditions, so we filter by visible
-      // which matches most other hooks. User's own hidden quests will still appear when showHiddenContent=true
       if (!showHiddenContent) {
         query = query.or(
           currentUser?.id
@@ -132,6 +137,7 @@ export function QuestListView({
       return data;
     },
     enableCloudQuery: projectSource !== 'local',
+    watchTables: [getTableName(quest)],
     offlineQueryOptions: {
       enabled: !!projectId
     }

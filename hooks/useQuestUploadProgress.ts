@@ -1,9 +1,9 @@
 import {
-  asset_content_link_synced,
-  asset_synced,
-  quest_asset_link_synced,
-  quest_synced
-} from '@/db/drizzleSchemaSynced';
+  asset,
+  asset_content_link,
+  quest,
+  quest_asset_link
+} from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { eq, inArray, sql } from 'drizzle-orm';
 import React from 'react';
@@ -50,6 +50,11 @@ export interface QuestUploadProgress {
 interface CountsRow {
   total: number;
   confirmed: number;
+}
+
+interface QuestCountsRow extends CountsRow {
+  /** 1 when the quest row exists and is published, 0 for a draft. */
+  published: number;
 }
 
 interface AclCountsRow extends CountsRow {
@@ -139,16 +144,18 @@ function toProgress(
 /**
  * Live upload-confirmation progress for a published quest.
  *
- * Counts the quest's synced spline records (confirmed via uploaded_at) and its
+ * Counts the quest's spline records (confirmed via uploaded_at) and its
  * audio files (confirmed via audio_uploaded_at) and returns a combined percent
  * plus a per-table breakdown. Both signals are stamped server-side and synced
- * back down, so watching the local SQLite *_synced tables reflects real server
+ * back down, so watching these rows in local SQLite reflects real server
  * confirmation, not just the optimistic "queued" state at publish time.
  *
  * Only the spline tables that carry uploaded_at are counted (quest,
  * quest_asset_link, asset, asset_content_link). Tag-link tables have no
- * uploaded_at column. Published records live in the *_synced tables, which is
- * exactly what an upload flushes.
+ * uploaded_at column.
+ *
+ * Drafts report EMPTY. Drafts and published quests share the same tables
+ * (`published_at` distinguishes them).
  */
 export function useQuestUploadProgress(
   questId: string | null | undefined
@@ -168,50 +175,51 @@ export function useQuestUploadProgress(
     const questCounts = system.db
       .select({
         total: sql<number>`count(*)`,
-        confirmed: sql<number>`count(*) filter (where ${quest_synced.uploaded_at} is not null)`
+        confirmed: sql<number>`count(*) filter (where ${quest.uploaded_at} is not null)`,
+        published: sql<number>`count(*) filter (where ${quest.published_at} is not null)`
       })
-      .from(quest_synced)
-      .where(eq(quest_synced.id, questId));
+      .from(quest)
+      .where(eq(quest.id, questId));
 
     const qalCounts = system.db
       .select({
         total: sql<number>`count(*)`,
-        confirmed: sql<number>`count(*) filter (where ${quest_asset_link_synced.uploaded_at} is not null)`
+        confirmed: sql<number>`count(*) filter (where ${quest_asset_link.uploaded_at} is not null)`
       })
-      .from(quest_asset_link_synced)
-      .where(eq(quest_asset_link_synced.quest_id, questId));
+      .from(quest_asset_link)
+      .where(eq(quest_asset_link.quest_id, questId));
 
     const questAssetIds = system.db
-      .select({ asset_id: quest_asset_link_synced.asset_id })
-      .from(quest_asset_link_synced)
-      .where(eq(quest_asset_link_synced.quest_id, questId));
+      .select({ asset_id: quest_asset_link.asset_id })
+      .from(quest_asset_link)
+      .where(eq(quest_asset_link.quest_id, questId));
 
     const assetCounts = system.db
       .select({
         total: sql<number>`count(*)`,
-        confirmed: sql<number>`count(*) filter (where ${asset_synced.uploaded_at} is not null)`
+        confirmed: sql<number>`count(*) filter (where ${asset.uploaded_at} is not null)`
       })
-      .from(asset_synced)
-      .where(inArray(asset_synced.id, questAssetIds));
+      .from(asset)
+      .where(inArray(asset.id, questAssetIds));
 
     // audio is JSON-as-text in SQLite; '' / '[]' mean "no audio referenced".
-    const hasAudio = sql`${asset_content_link_synced.audio} is not null
-      and ${asset_content_link_synced.audio} != '[]'
-      and ${asset_content_link_synced.audio} != ''`;
+    const hasAudio = sql`${asset_content_link.audio} is not null
+      and ${asset_content_link.audio} != '[]'
+      and ${asset_content_link.audio} != ''`;
     const aclCounts = system.db
       .select({
         total: sql<number>`count(*)`,
-        confirmed: sql<number>`count(*) filter (where ${asset_content_link_synced.uploaded_at} is not null)`,
+        confirmed: sql<number>`count(*) filter (where ${asset_content_link.uploaded_at} is not null)`,
         audio_total: sql<number>`count(*) filter (where ${hasAudio})`,
-        audio_confirmed: sql<number>`count(*) filter (where ${hasAudio} and ${asset_content_link_synced.audio_uploaded_at} is not null)`
+        audio_confirmed: sql<number>`count(*) filter (where ${hasAudio} and ${asset_content_link.audio_uploaded_at} is not null)`
       })
-      .from(asset_content_link_synced)
-      .where(inArray(asset_content_link_synced.asset_id, questAssetIds));
+      .from(asset_content_link)
+      .where(inArray(asset_content_link.asset_id, questAssetIds));
 
     // Hold partial results and only publish once every watch has reported, so
     // consumers never see a mix of fresh and missing categories.
     const rows: {
-      quest?: CountsRow;
+      quest?: QuestCountsRow;
       qal?: CountsRow;
       asset?: CountsRow;
       acl?: AclCountsRow;
@@ -220,6 +228,13 @@ export function useQuestUploadProgress(
     const publish = () => {
       if (abortController.signal.aborted) return;
       if (!rows.quest || !rows.qal || !rows.asset || !rows.acl) return;
+      // A draft's rows have never been sent, so uploaded_at is null on all of
+      // them by definition. Counting them would report a partial percent for a
+      // quest the user has not published yet.
+      if (!rows.quest.published) {
+        setProgress(EMPTY);
+        return;
+      }
       setProgress(toProgress(rows.quest, rows.qal, rows.asset, rows.acl));
     };
 
@@ -243,7 +258,7 @@ export function useQuestUploadProgress(
       );
     };
 
-    watch<CountsRow>(questCounts, (row) => (rows.quest = row));
+    watch<QuestCountsRow>(questCounts, (row) => (rows.quest = row));
     watch<CountsRow>(qalCounts, (row) => (rows.qal = row));
     watch<CountsRow>(assetCounts, (row) => (rows.asset = row));
     watch<AclCountsRow>(aclCounts, (row) => (rows.acl = row));

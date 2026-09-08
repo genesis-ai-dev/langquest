@@ -42,8 +42,7 @@ export function useAssetStatuses(
       system.db.query.asset.findFirst({
         columns: {
           active: true,
-          visible: true,
-          source: true
+          visible: true
         },
         where: eq(asset.id, assetId)
       })

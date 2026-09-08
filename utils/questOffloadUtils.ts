@@ -1,4 +1,4 @@
-import * as drizzleSchemaLocal from '@/db/drizzleSchemaLocal';
+import * as drizzleSchema from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import type { VerifiedIds } from '@/hooks/useQuestOffloadVerification';
 import { bulkUndownloadQuest } from '@/utils/bulkUndownload';
@@ -280,10 +280,10 @@ export async function offloadQuest(params: OffloadQuestParams): Promise<void> {
       updateProgress('Deleting votes...');
       if (filteredVerifiedIds.voteIds.length > 0) {
         await tx
-          .delete(drizzleSchemaLocal.vote_local)
+          .delete(drizzleSchema.vote)
           .where(
             inArray(
-              drizzleSchemaLocal.vote_local.id,
+              drizzleSchema.vote.id,
               filteredVerifiedIds.voteIds
             )
           );
@@ -304,9 +304,9 @@ export async function offloadQuest(params: OffloadQuestParams): Promise<void> {
         // Delete each link (composite key requires multiple conditions)
         for (const { assetId, tagId } of assetTagPairs) {
           await tx
-            .delete(drizzleSchemaLocal.asset_tag_link_local)
+            .delete(drizzleSchema.asset_tag_link)
             .where(
-              eq(drizzleSchemaLocal.asset_tag_link_local.asset_id, assetId)
+              eq(drizzleSchema.asset_tag_link.asset_id, assetId)
             );
         }
         console.log(
@@ -326,8 +326,8 @@ export async function offloadQuest(params: OffloadQuestParams): Promise<void> {
         // Delete each link
         for (const { questId: qId, tagId } of questTagPairs) {
           await tx
-            .delete(drizzleSchemaLocal.quest_tag_link_local)
-            .where(eq(drizzleSchemaLocal.quest_tag_link_local.quest_id, qId));
+            .delete(drizzleSchema.quest_tag_link)
+            .where(eq(drizzleSchema.quest_tag_link.quest_id, qId));
         }
         console.log(
           `✅ [Offload] Deleted ${questTagPairs.length} quest-tag links`
@@ -344,10 +344,10 @@ export async function offloadQuest(params: OffloadQuestParams): Promise<void> {
       updateProgress('Deleting asset-content links...');
       if (filteredVerifiedIds.assetContentLinkIds.length > 0) {
         await tx
-          .delete(drizzleSchemaLocal.asset_content_link_local)
+          .delete(drizzleSchema.asset_content_link)
           .where(
             inArray(
-              drizzleSchemaLocal.asset_content_link_local.id,
+              drizzleSchema.asset_content_link.id,
               filteredVerifiedIds.assetContentLinkIds
             )
           );
@@ -371,10 +371,10 @@ export async function offloadQuest(params: OffloadQuestParams): Promise<void> {
       updateProgress('Deleting assets...');
       if (filteredVerifiedIds.assetIds.length > 0) {
         await tx
-          .delete(drizzleSchemaLocal.asset_local)
+          .delete(drizzleSchema.asset)
           .where(
             inArray(
-              drizzleSchemaLocal.asset_local.id,
+              drizzleSchema.asset.id,
               filteredVerifiedIds.assetIds
             )
           );
@@ -389,8 +389,8 @@ export async function offloadQuest(params: OffloadQuestParams): Promise<void> {
       updateProgress('Deleting quest-asset links...');
       // Delete all quest-asset links for this quest, not just filtered ones
       await tx
-        .delete(drizzleSchemaLocal.quest_asset_link_local)
-        .where(eq(drizzleSchemaLocal.quest_asset_link_local.quest_id, questId));
+        .delete(drizzleSchema.quest_asset_link)
+        .where(eq(drizzleSchema.quest_asset_link.quest_id, questId));
 
       const deletedLinksCount = verifiedIds.questAssetLinkIds.length;
       console.log(
@@ -400,8 +400,8 @@ export async function offloadQuest(params: OffloadQuestParams): Promise<void> {
       // Step 9: Delete the quest itself
       updateProgress('Deleting quest...');
       await tx
-        .delete(drizzleSchemaLocal.quest_local)
-        .where(eq(drizzleSchemaLocal.quest_local.id, questId));
+        .delete(drizzleSchema.quest)
+        .where(eq(drizzleSchema.quest.id, questId));
       console.log(`✅ [Offload] Deleted quest: ${questId}`);
 
       // Step 10: Clean up languages (only if not used elsewhere)

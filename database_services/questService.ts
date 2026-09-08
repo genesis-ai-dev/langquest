@@ -7,8 +7,6 @@ import uuid from 'react-native-uuid';
 import { quest } from '../db/drizzleSchema';
 import { system } from '../db/powersync/system';
 
-const { db } = system;
-
 // export type QuestWithRelations = typeof quest.$inferSelect & {
 //   tags: (typeof tag.$inferSelect)[];
 // };
@@ -18,7 +16,7 @@ const MAX_RECORDING_SESSIONS = 10;
 export class QuestService {
   async getQuestById(quest_id: string) {
     return (
-      await db.select().from(quest).where(eq(quest.id, quest_id)).limit(1)
+      await system.db.select().from(quest).where(eq(quest.id, quest_id)).limit(1)
     )[0];
   }
 }

@@ -263,6 +263,17 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
 
   async signOut() {
     await this.client.auth.signOut();
+    // Write checkpoint ids are per-user counters on the sync service, so they
+    // run backwards on an account switch. The next user's checkpoints would
+    // lower $local.last_op below the target_op this user left behind, and
+    // nothing can raise it again until that user happens to make a local
+    // write — until then every checkpoint is refused as "local data".
+    // Clearing resets the $local bucket. clearLocal keeps local-only tables.
+    try {
+      await this.system.powersync.disconnectAndClear({ clearLocal: false });
+    } catch (error) {
+      console.error('[SupabaseConnector] Failed to clear PowerSync:', error);
+    }
     const supabaseAuthKey = await getSupabaseAuthKey();
     if (supabaseAuthKey) await AsyncStorage.removeItem(supabaseAuthKey);
     await Updates.reloadAsync();
@@ -662,7 +673,11 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
          * elsewhere instead of discarding, and/or notify the user.
          */
         console.error('Data upload error - discarding:', lastOp, ex);
-        // await transaction.complete();
+        // The transaction MUST be completed. Returning without completing leaves
+        // the ops in ps_crud and pins $local.target_op at MAX_OP_ID, which blocks
+        // every future checkpoint from being applied — sync appears to download
+        // forever with nothing pending.
+        await transaction.complete();
       } else {
         // Error may be retryable - e.g. network error or temporary server error.
         // Throwing an error here causes this call to be retried after a delay.

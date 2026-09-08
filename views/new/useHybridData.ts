@@ -24,6 +24,15 @@ type CompilableQuery<T = unknown> = CompilableQueryNative<T>;
 
 type QueryKeyParam = string | number | boolean | null | undefined;
 
+function inferOfflineSource(item: {
+  source?: OfflineDataSource;
+  published_at?: string | Date | null;
+}): OfflineDataSource {
+  if (item.source) return item.source;
+  if (item.published_at === undefined) return 'synced';
+  return item.published_at == null ? 'local' : 'synced';
+}
+
 export const offlineDataSourceOptions = {
   local: sourceOptions[0],
   synced: sourceOptions[1]
@@ -209,10 +218,12 @@ export function useHybridData<TOfflineData, TCloudData = TOfflineData>(
     return dataArray.filter(Boolean).map((item) => {
       const typedItem = item as unknown as TOfflineData & {
         source?: OfflineDataSource;
+        published_at?: string | Date | null;
       };
+      const inferredSource: OfflineDataSource = inferOfflineSource(typedItem);
       return {
         ...typedItem,
-        source: typedItem.source ?? 'synced' // don't override the source if it comes in from merge query - praise God!
+        source: inferredSource
       } as WithSource<TOfflineData>;
     }) as WithSource<TOfflineData>[];
   }, [rawOfflineData]);
@@ -330,6 +341,14 @@ export interface HybridInfiniteDataOptions<
 
   // Whether to fetch cloud data (defaults to isOnline)
   enableCloudQuery?: boolean;
+
+  /**
+   * Local tables that offlineQueryFn reads. Rows arriving on the sync stream
+   * are invisible to the offline query without these, since it is a one-shot
+   * read rather than a PowerSync watch — the list would only fill on the next
+   * global refetchInterval tick.
+   */
+  watchTables?: string[];
 }
 
 export interface HybridInfiniteDataResult<T> {
@@ -379,8 +398,11 @@ export function useHybridInfiniteData<TOfflineData, TCloudData = TOfflineData>(
     transformCloudData,
     offlineQueryOptions: _offlineQueryOptions = {},
     cloudQueryOptions: _cloudQueryOptions = {},
-    enableCloudQuery
+    enableCloudQuery,
+    watchTables
   } = options;
+
+  const queryClient = useQueryClient();
 
   // Stabilize getItemId to prevent render loops
   const defaultGetItemId = React.useCallback(
@@ -451,6 +473,33 @@ export function useHybridInfiniteData<TOfflineData, TCloudData = TOfflineData>(
     }
   });
 
+  // Serialized so the effect keeps a fixed-size dependency list of primitives;
+  // watchTables is rebuilt on every render.
+  const watchTablesKey = watchTables?.join(',') ?? '';
+
+  React.useEffect(() => {
+    if (!shouldEnableOfflineQuery || !watchTablesKey) return;
+
+    return system.powersync.onChangeWithCallback(
+      {
+        onChange: () => {
+          // Matched by predicate rather than the full offline key: that key is
+          // rebuilt every render, and serializing it to stabilize the deps
+          // would turn undefined params into null, which partial matching
+          // rejects on a type mismatch. Only the mounted list refetches;
+          // sibling lists are inactive and are just marked stale.
+          void queryClient.invalidateQueries({
+            queryKey: [dataType, 'infinite'],
+            predicate: (query) => query.queryKey.at(-1) === 'offline'
+          });
+        },
+        onError: (error) =>
+          console.error(`[${dataType}] Offline table watch failed:`, error)
+      },
+      { tables: watchTablesKey.split(','), throttleMs: 250 }
+    );
+  }, [dataType, queryClient, shouldEnableOfflineQuery, watchTablesKey]);
+
   // Merge pages with local priority
   const mergedData = React.useMemo(() => {
     const offlinePages = offlineQuery.data?.pages || [];
@@ -470,9 +519,12 @@ export function useHybridInfiniteData<TOfflineData, TCloudData = TOfflineData>(
           ? offlinePage.data.map((item) => {
               return {
                 ...item,
-                source:
-                  (item as unknown as { source?: OfflineDataSource }).source ??
-                  'synced'
+                source: inferOfflineSource(
+                  item as unknown as {
+                    source?: OfflineDataSource;
+                    published_at?: string | Date | null;
+                  }
+                )
               } as WithSource<TOfflineData>;
             })
           : [];
@@ -580,14 +632,16 @@ export function useSimpleHybridInfiniteData<T extends { id: string }>(
   queryKeyParams: QueryKeyParam[],
   offlineQueryFn: (context: InfiniteQueryContext) => Promise<T[]>,
   cloudQueryFn: (context: InfiniteQueryContext) => Promise<T[]>,
-  pageSize?: number
+  pageSize?: number,
+  watchTables?: string[]
 ): HybridInfiniteDataResult<T> {
   return useHybridInfiniteData({
     dataType,
     queryKeyParams,
     offlineQueryFn,
     cloudQueryFn,
-    pageSize
+    pageSize,
+    watchTables
   });
 }
 

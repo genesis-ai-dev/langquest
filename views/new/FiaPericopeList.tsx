@@ -521,7 +521,7 @@ export function FiaPericopeList({
 
     const questRow = await system.db.query.quest.findFirst({
       where: (fields, { eq }) => eq(fields.id, version.id),
-      columns: { download_profiles: true, source: true }
+      columns: { download_profiles: true, published_at: true }
     });
 
     const profiles = questRow?.download_profiles;
@@ -531,8 +531,7 @@ export function FiaPericopeList({
         typeof profiles === 'string' ? JSON.parse(profiles) : profiles;
       isDownloaded = Array.isArray(parsed) && parsed.includes(currentUser.id);
     }
-    const isCloudQuest =
-      questRow?.source === 'cloud' || version.source === 'cloud';
+    const isCloudQuest = version.source === 'cloud';
 
     if (isCloudQuest && !isDownloaded) {
       setPickerPericopeId(null);

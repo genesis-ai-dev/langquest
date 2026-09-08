@@ -82,7 +82,8 @@ export function useFiaPericopeCreation() {
             parent_id: bookQuest.id,
             creator_id: currentUser.id,
             download_profiles: [currentUser.id],
-            metadata
+            metadata,
+            published_at: null
           })
           .returning();
 

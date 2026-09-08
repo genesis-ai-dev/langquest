@@ -1,12 +1,10 @@
-import { reports_local } from '../db/drizzleSchemaLocal';
+import { reports } from '../db/drizzleSchema';
 import { system } from '../db/powersync/system';
 
-const { db } = system;
-
 export class ReportService {
-  async createReport(data: typeof reports_local.$inferInsert) {
-    const [newReport] = await db
-      .insert(reports_local)
+  async createReport(data: typeof reports.$inferInsert) {
+    const [newReport] = await system.db
+      .insert(reports)
       .values({
         record_id: data.record_id,
         record_table: data.record_table,

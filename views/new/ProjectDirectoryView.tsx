@@ -920,7 +920,8 @@ export default function ProjectDirectoryView() {
           project_id: projectId,
           parent_id: parentForNewQuest,
           creator_id: currentUser.id,
-          download_profiles: [currentUser.id]
+          download_profiles: [currentUser.id],
+          published_at: null
         })
         .returning();
 

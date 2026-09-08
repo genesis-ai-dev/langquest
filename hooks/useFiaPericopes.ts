@@ -11,7 +11,8 @@ import { useLocalStore } from '@/store/localStore';
 import { normalizeUuid } from '@/utils/uuidUtils';
 import type { HybridDataSource } from '@/views/new/useHybridData';
 import { useQuery } from '@tanstack/react-query';
-import { eq, inArray } from 'drizzle-orm';
+import { publishedOrOwnQuest } from '@/utils/dbUtils';
+import { and, eq, inArray } from 'drizzle-orm';
 import React from 'react';
 import { useNetworkStatus } from './useNetworkStatus';
 
@@ -74,14 +75,15 @@ function parseMetadata(raw: unknown): FiaMetadataShape | null {
 
 async function fetchLocalPericopes(
   projectId: string,
-  bookId: string
+  bookId: string,
+  userId?: string
 ): Promise<QuestWithPericopeMeta[]> {
   const allQuests = await system.db.query.quest.findMany({
-    where: eq(quest.project_id, projectId),
+    where: and(eq(quest.project_id, projectId), publishedOrOwnQuest(userId)),
     columns: {
       id: true,
       name: true,
-      source: true,
+      published_at: true,
       created_at: true,
       download_profiles: true,
       metadata: true,
@@ -91,7 +93,7 @@ async function fetchLocalPericopes(
   });
 
   return allQuests
-    .map((q) => {
+    .map((q): QuestWithPericopeMeta | null => {
       const meta = parseMetadata(q.metadata);
       if (meta?.fia?.bookId !== bookId || !meta.fia.pericopeId) return null;
 
@@ -124,7 +126,7 @@ async function fetchLocalPericopes(
         quest_id: q.id,
         quest_name: q.name,
         quest_version_label: meta.versionLabel ?? null,
-        quest_source: q.source,
+        quest_source: q.published_at == null ? 'local' : 'synced',
         quest_created_at: createdAt,
         quest_download_profiles: parsedProfiles,
         quest_creator_id: q.creator_id ?? null,
@@ -137,16 +139,22 @@ async function fetchLocalPericopes(
 
 async function fetchCloudPericopes(
   projectId: string,
-  bookId: string
+  bookId: string,
+  userId?: string
 ): Promise<QuestWithPericopeMeta[]> {
   try {
     const { data, error } = await system.supabaseConnector.client
       .from('quest')
       .select(
-        'id, name, created_at, download_profiles, metadata, creator_id, visible'
+        'id, name, created_at, download_profiles, metadata, creator_id, visible, published_at'
       )
       .eq('project_id', projectId)
-      .not('metadata', 'is', null);
+      .not('metadata', 'is', null)
+      .or(
+        userId
+          ? `published_at.not.is.null,creator_id.eq.${userId}`
+          : 'published_at.not.is.null'
+      );
 
     if (error || !data) return [];
 
@@ -314,14 +322,14 @@ export function useFiaPericopes(projectId: string, bookId: string) {
     error: localError
   } = useQuery({
     queryKey: ['fia-pericope-quests', 'local', projectId, bookId],
-    queryFn: () => fetchLocalPericopes(projectId, bookId),
+    queryFn: () => fetchLocalPericopes(projectId, bookId, currentUser?.id),
     enabled: !!projectId && !!bookId,
     staleTime: 30000
   });
 
   const { data: cloudResults = [], isLoading: isLoadingCloud } = useQuery({
     queryKey: ['fia-pericope-quests', 'cloud', projectId, bookId],
-    queryFn: () => fetchCloudPericopes(projectId, bookId),
+    queryFn: () => fetchCloudPericopes(projectId, bookId, currentUser?.id),
     enabled: !!projectId && !!bookId && isOnline,
     staleTime: 60000
   });

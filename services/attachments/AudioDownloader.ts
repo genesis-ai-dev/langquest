@@ -3,7 +3,7 @@
  *
  * Work list, derived on every pass:
  *
- *   asset_content_link_synced rows where
+ *   asset_content_link rows where
  *     audio IS NOT NULL AND audio_uploaded_at IS NOT NULL
  *   → flattened to filenames
  *   → minus files already on this device (LocalFileIndex)
@@ -18,7 +18,7 @@
  */
 
 import type * as drizzleSchema from '@/db/drizzleSchema';
-import { asset_content_link_synced } from '@/db/drizzleSchemaSynced';
+import { asset, asset_content_link, quest, quest_asset_link } from '@/db/drizzleSchema';
 import type { SupabaseStorageAdapter } from '@/db/supabase/SupabaseStorageAdapter';
 import { isInvalidAudioValue, isLocalOnlyAudio } from '@/utils/attachmentPaths';
 import { getLocalAttachmentUri, writeFile } from '@/utils/fileUtils';
@@ -131,12 +131,12 @@ export class AudioDownloader {
 
   private confirmedAudioQuery() {
     return this.options.db
-      .select({ audio: asset_content_link_synced.audio })
-      .from(asset_content_link_synced)
+      .select({ audio: asset_content_link.audio })
+      .from(asset_content_link)
       .where(
         and(
-          isNotNull(asset_content_link_synced.audio),
-          isNotNull(asset_content_link_synced.audio_uploaded_at)
+          isNotNull(asset_content_link.audio),
+          isNotNull(asset_content_link.audio_uploaded_at)
         )
       );
   }

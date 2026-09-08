@@ -364,10 +364,13 @@ INSERT INTO "public"."project_language_link" ("project_id", "language_id", "lang
 -- Data for Name: quest; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-INSERT INTO "public"."quest" ("id", "created_at", "last_updated", "name", "description", "project_id", "active") VALUES
-	('bace07b1-41de-4535-9c68-aa81683d9370', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 1:1-5 (Mixteco)', 'Traducir Lucas 1:1-5 al Mixteco de Penasco', 'bace07b1-41de-4535-9c68-aa81683d9370', true),
-	('b819ba73-2274-468d-b18d-330b1ecf49b1', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:1-5 (Mixteco)', 'Traducir Lucas 2:1-5 al Mixteco de Penasco', 'bace07b1-41de-4535-9c68-aa81683d9370', true),
-	('c6d7e8f9-0a1b-2c3d-4e5f-6789abcdef01', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:1-5 (Zapoteco)', 'Traducir Lucas 2:1-5 al Zapoteco de Santiago', 'b819ba73-2274-468d-b18d-330b1ecf49b1', true);
+-- published_at must be explicit: seeds run after migrations, so the backfill in
+-- 20260904000000_quest_published_at.sql never sees these rows. Left null they
+-- are drafts, and the sync rules only send a draft to its creator_id.
+INSERT INTO "public"."quest" ("id", "created_at", "last_updated", "name", "description", "project_id", "active", "published_at") VALUES
+	('bace07b1-41de-4535-9c68-aa81683d9370', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 1:1-5 (Mixteco)', 'Traducir Lucas 1:1-5 al Mixteco de Penasco', 'bace07b1-41de-4535-9c68-aa81683d9370', true, '2024-01-01 00:00:00+00'),
+	('b819ba73-2274-468d-b18d-330b1ecf49b1', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:1-5 (Mixteco)', 'Traducir Lucas 2:1-5 al Mixteco de Penasco', 'bace07b1-41de-4535-9c68-aa81683d9370', true, '2024-01-01 00:00:00+00'),
+	('c6d7e8f9-0a1b-2c3d-4e5f-6789abcdef01', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:1-5 (Zapoteco)', 'Traducir Lucas 2:1-5 al Zapoteco de Santiago', 'b819ba73-2274-468d-b18d-330b1ecf49b1', true, '2024-01-01 00:00:00+00');
 
 -- Link Mixteco project to Universal language as a source via project_language_link
 INSERT INTO "public"."project_language_link" ("project_id", "language_id", "languoid_id", "language_type", "active", "created_at", "last_updated") VALUES
@@ -429,6 +432,18 @@ INSERT INTO "public"."asset" ("id", "created_at", "last_updated", "name", "sourc
 INSERT INTO "public"."asset_content_link" ("id", "created_at", "last_updated", "asset_id", "source_language_id", "text", "audio", "download_profiles", "active") VALUES
 	(gen_random_uuid(), '2025-03-22 00:00:00+00', '2025-03-22 00:00:00+00', '1af7aa51-dc61-965f-e1d3-f8ebc6f5a1f0', '9e3f8bd9-c2e5-4f5a-b98d-123456789012', 'First translation', '["translations/6f1dcec7-50a5-40dc-aad6-8a291b3a6b86.m4a"]'::jsonb, ARRAY['fd56eb4e-0b54-4715-863c-f865aee0b16d']::uuid[], true),
 	(gen_random_uuid(), '2025-03-22 00:00:00+00', '2025-03-22 00:00:00+00', '38003a13-ec16-99cf-1973-c6bf864f63a8', '9e3f8bd9-c2e5-4f5a-b98d-123456789012', 'Second translation', '["translations/432012bd-87f4-43db-be4e-8a7512b800a4.m4a"]'::jsonb, ARRAY['135167eb-7a93-4d90-8b00-85508facac71']::uuid[], true);
+
+-- Seeds run after the audio_uploaded_at backfill. The BEFORE INSERT trigger
+-- only stamps the column when matching storage.objects exist, and this seed
+-- never inserts those objects, so every seeded audio row would stay null and
+-- look like a pending upload. Stamp created_at (postgres role; the client
+-- guard trigger does not fire here).
+UPDATE "public"."asset_content_link"
+SET "audio_uploaded_at" = "created_at"::timestamptz
+WHERE "audio" IS NOT NULL
+  AND jsonb_typeof("audio") = 'array'
+  AND jsonb_array_length("audio") > 0
+  AND "audio_uploaded_at" IS NULL;
 
 -- Create quest_asset_link records to maintain quest relationships
 INSERT INTO "public"."quest_asset_link" ("quest_id", "asset_id", "visible", "download_profiles", "active", "created_at", "last_updated") VALUES
@@ -518,24 +533,24 @@ INSERT INTO "public"."project" ("id", "created_at", "last_updated", "name", "des
 	('ddddd001-0000-4000-8000-000000000001', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Dedupe Demo (Ruth)', 'Demo project with a duplicate book quest for the dedupe trigger', '9e3f8bd9-c2e5-4f5a-b98d-123456789012', 'c111d43b-5983-4342-9d9e-5fc8d09d77b9', ARRAY['c111d43b-5983-4342-9d9e-5fc8d09d77b9']::uuid[], true, 'bible');
 
 -- 1. Live book quest (first in wins)
-INSERT INTO "public"."quest" ("id", "created_at", "last_updated", "name", "description", "project_id", "active", "creator_id", "download_profiles", "parent_id", "metadata") VALUES
-	('ddddd001-0000-4000-8000-00000000000a', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Ruth', '4 chapters', 'ddddd001-0000-4000-8000-000000000001', true, 'c111d43b-5983-4342-9d9e-5fc8d09d77b9', ARRAY['c111d43b-5983-4342-9d9e-5fc8d09d77b9']::uuid[], NULL, '{"bible":{"book":"rut"}}');
+INSERT INTO "public"."quest" ("id", "created_at", "last_updated", "name", "description", "project_id", "active", "creator_id", "download_profiles", "parent_id", "metadata", "published_at") VALUES
+	('ddddd001-0000-4000-8000-00000000000a', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Ruth', '4 chapters', 'ddddd001-0000-4000-8000-000000000001', true, 'c111d43b-5983-4342-9d9e-5fc8d09d77b9', ARRAY['c111d43b-5983-4342-9d9e-5fc8d09d77b9']::uuid[], NULL, '{"bible":{"book":"rut"}}', '2024-01-01 00:00:00+00');
 
 -- Chapters under the live book
-INSERT INTO "public"."quest" ("id", "created_at", "last_updated", "name", "description", "project_id", "active", "creator_id", "download_profiles", "parent_id", "metadata") VALUES
-	('ddddd001-0000-4000-8000-00000000000b', '2024-01-02 00:00:00+00', '2024-01-02 00:00:00+00', 'Ruth 1', '22 verses', 'ddddd001-0000-4000-8000-000000000001', true, 'c111d43b-5983-4342-9d9e-5fc8d09d77b9', ARRAY['c111d43b-5983-4342-9d9e-5fc8d09d77b9']::uuid[], 'ddddd001-0000-4000-8000-00000000000a', '{"bible":{"book":"rut","chapter":1}}'),
-	('ddddd001-0000-4000-8000-00000000000c', '2024-01-02 00:00:00+00', '2024-01-02 00:00:00+00', 'Ruth 2', '23 verses', 'ddddd001-0000-4000-8000-000000000001', true, 'c111d43b-5983-4342-9d9e-5fc8d09d77b9', ARRAY['c111d43b-5983-4342-9d9e-5fc8d09d77b9']::uuid[], 'ddddd001-0000-4000-8000-00000000000a', '{"bible":{"book":"rut","chapter":2}}');
+INSERT INTO "public"."quest" ("id", "created_at", "last_updated", "name", "description", "project_id", "active", "creator_id", "download_profiles", "parent_id", "metadata", "published_at") VALUES
+	('ddddd001-0000-4000-8000-00000000000b', '2024-01-02 00:00:00+00', '2024-01-02 00:00:00+00', 'Ruth 1', '22 verses', 'ddddd001-0000-4000-8000-000000000001', true, 'c111d43b-5983-4342-9d9e-5fc8d09d77b9', ARRAY['c111d43b-5983-4342-9d9e-5fc8d09d77b9']::uuid[], 'ddddd001-0000-4000-8000-00000000000a', '{"bible":{"book":"rut","chapter":1}}', '2024-01-02 00:00:00+00'),
+	('ddddd001-0000-4000-8000-00000000000c', '2024-01-02 00:00:00+00', '2024-01-02 00:00:00+00', 'Ruth 2', '23 verses', 'ddddd001-0000-4000-8000-000000000001', true, 'c111d43b-5983-4342-9d9e-5fc8d09d77b9', ARRAY['c111d43b-5983-4342-9d9e-5fc8d09d77b9']::uuid[], 'ddddd001-0000-4000-8000-00000000000a', '{"bible":{"book":"rut","chapter":2}}', '2024-01-02 00:00:00+00');
 
 -- 2. Duplicate book quest (as if created offline by another member).
 --    The trigger tombstones this row as it inserts.
-INSERT INTO "public"."quest" ("id", "created_at", "last_updated", "name", "description", "project_id", "active", "creator_id", "download_profiles", "parent_id", "metadata") VALUES
-	('ddddd001-0000-4000-8000-00000000000d', '2024-02-01 00:00:00+00', '2024-02-01 00:00:00+00', 'Ruth', '4 chapters', 'ddddd001-0000-4000-8000-000000000001', true, 'f2adf435-fd35-4927-8644-9b03785722b5', ARRAY['f2adf435-fd35-4927-8644-9b03785722b5']::uuid[], NULL, '{"bible":{"book":"rut"}}');
+INSERT INTO "public"."quest" ("id", "created_at", "last_updated", "name", "description", "project_id", "active", "creator_id", "download_profiles", "parent_id", "metadata", "published_at") VALUES
+	('ddddd001-0000-4000-8000-00000000000d', '2024-02-01 00:00:00+00', '2024-02-01 00:00:00+00', 'Ruth', '4 chapters', 'ddddd001-0000-4000-8000-000000000001', true, 'f2adf435-fd35-4927-8644-9b03785722b5', ARRAY['f2adf435-fd35-4927-8644-9b03785722b5']::uuid[], NULL, '{"bible":{"book":"rut"}}', '2024-02-01 00:00:00+00');
 
 -- 3. Chapter created under the duplicate book.
 --    The trigger re-points parent_id to the live book, making it a second
 --    version of "Ruth 1".
-INSERT INTO "public"."quest" ("id", "created_at", "last_updated", "name", "description", "project_id", "active", "creator_id", "download_profiles", "parent_id", "metadata") VALUES
-	('ddddd001-0000-4000-8000-00000000000e', '2024-02-02 00:00:00+00', '2024-02-02 00:00:00+00', 'Ruth 1', '22 verses', 'ddddd001-0000-4000-8000-000000000001', true, 'f2adf435-fd35-4927-8644-9b03785722b5', ARRAY['f2adf435-fd35-4927-8644-9b03785722b5']::uuid[], 'ddddd001-0000-4000-8000-00000000000d', '{"bible":{"book":"rut","chapter":1}}');
+INSERT INTO "public"."quest" ("id", "created_at", "last_updated", "name", "description", "project_id", "active", "creator_id", "download_profiles", "parent_id", "metadata", "published_at") VALUES
+	('ddddd001-0000-4000-8000-00000000000e', '2024-02-02 00:00:00+00', '2024-02-02 00:00:00+00', 'Ruth 1', '22 verses', 'ddddd001-0000-4000-8000-000000000001', true, 'f2adf435-fd35-4927-8644-9b03785722b5', ARRAY['f2adf435-fd35-4927-8644-9b03785722b5']::uuid[], 'ddddd001-0000-4000-8000-00000000000d', '{"bible":{"book":"rut","chapter":1}}', '2024-02-02 00:00:00+00');
 
 --
 -- PostgreSQL database dump complete

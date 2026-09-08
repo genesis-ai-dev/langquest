@@ -35,6 +35,7 @@ import React from 'react';
 import { Pressable, View } from 'react-native';
 // import { TagModal } from '../../components/TagModal';
 import { Text } from '@/components/ui/text';
+import type { HybridDataSource } from './useHybridData';
 import { useItemDownload, useItemDownloadStatus } from './useHybridData';
 
 // Define props locally to avoid require cycle.
@@ -45,6 +46,7 @@ type AssetQuestLink = Asset & {
   quest_active: boolean;
   quest_visible: boolean;
   tag_ids?: string[] | undefined;
+  source?: HybridDataSource;
 };
 
 export interface AssetCardItemProps {
@@ -98,7 +100,7 @@ const AssetCardItemComponent: React.FC<AssetCardItemProps> = ({
   // Check if asset is downloaded
   const isDownloaded = useItemDownloadStatus(asset, currentUser?.id);
   const isImported = isImportedAsset(asset.metadata);
-  const canRenameAsset = asset.source === 'local' || isImported;
+  const canRenameAsset = !isPublished || isImported;
   const canOpenAssetDetails = isPublished || !isImported;
 
   // Tags functionality commented out
@@ -159,7 +161,7 @@ const AssetCardItemComponent: React.FC<AssetCardItemProps> = ({
     {
       visible: asset.visible && asset.quest_visible,
       active: asset.active && asset.quest_active,
-      source: asset.source
+      source: asset.source ?? 'synced'
     },
     questId
   );
@@ -172,7 +174,7 @@ const AssetCardItemComponent: React.FC<AssetCardItemProps> = ({
         active: asset.active,
         quest_active: asset.quest_active,
         quest_visible: asset.quest_visible,
-        source: asset.source
+        source: asset.source ?? 'synced'
       },
       asset.id,
       questId
@@ -318,7 +320,7 @@ const AssetCardItemComponent: React.FC<AssetCardItemProps> = ({
                   {!isPublished && isImported ? (
                     <Icon as={ImportIcon} size={14} />
                   ) : (
-                    asset.source === 'local' && (
+                    !isPublished && (
                       <Icon as={HardDriveIcon} size={14} />
                     )
                   )}

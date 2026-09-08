@@ -40,7 +40,7 @@ import { useHybridData } from '@/views/new/useHybridData';
 import { LegendList } from '@legendapp/list';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { and, eq, getTableColumns, sql } from 'drizzle-orm';
+import { and, eq, getTableColumns, isNotNull, sql } from 'drizzle-orm';
 import {
   CheckIcon,
   CheckSquareIcon,
@@ -1058,7 +1058,8 @@ export function ImportWizard({
           and(
             eq(quest.project_id, projectId),
             eq(quest.active, true),
-            eq(quest.visible, true)
+            eq(quest.visible, true),
+            isNotNull(quest.published_at)
           )
         )
     ),
@@ -1070,6 +1071,7 @@ export function ImportWizard({
           .eq('project_id', projectId)
           .eq('active', true)
           .eq('visible', true)
+          .not('published_at', 'is', null)
           .order('created_at', { ascending: false })
           .overrideTypes<Quest[]>();
 
@@ -1450,25 +1452,13 @@ export function ImportWizard({
   const getAssetAudioUris = React.useCallback(
     async (assetId: string): Promise<string[]> => {
       try {
-        const assetContentLinkSynced = resolveTable('asset_content_link', {
-          localOverride: false
-        });
-        const assetContentLinkLocal = resolveTable('asset_content_link', {
-          localOverride: true
-        });
+        const assetContentLinkTable = resolveTable('asset_content_link');
+        const contentLinks = await system.db
+          .select()
+          .from(assetContentLinkTable)
+          .where(eq(assetContentLinkTable.asset_id, assetId));
 
-        const [syncedLinks, localLinks] = await Promise.all([
-          system.db
-            .select()
-            .from(assetContentLinkSynced)
-            .where(eq(assetContentLinkSynced.asset_id, assetId)),
-          system.db
-            .select()
-            .from(assetContentLinkLocal)
-            .where(eq(assetContentLinkLocal.asset_id, assetId))
-        ]);
-
-        const audioValues = [...syncedLinks, ...localLinks]
+        const audioValues = contentLinks
           .flatMap((link) => link.audio ?? [])
           .filter((value): value is string => Boolean(value));
 

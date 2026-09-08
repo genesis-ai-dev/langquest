@@ -11,6 +11,7 @@ import { useUserRestrictions } from '@/hooks/db/useBlocks';
 
 import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
+import type { WithSource } from '@/utils/dbUtils';
 import { cn, getThemeColor } from '@/utils/styleUtils';
 import {
   useHybridData,
@@ -23,6 +24,7 @@ import {
   desc,
   eq,
   getTableColumns,
+  getTableName,
   like,
   notExists,
   notInArray,
@@ -612,7 +614,8 @@ export default function NextGenProjectsView() {
       if (error) throw error;
       return data;
     },
-    20 // pageSize
+    20, // pageSize
+    [getTableName(project), getTableName(profile_project_link)]
   );
 
   // For anonymous users, always use allProjects query (no "my projects")
@@ -667,7 +670,7 @@ export default function NextGenProjectsView() {
 
   // Process regular projects data
   const data = React.useMemo(() => {
-    let projects: Project[] = [];
+    let projects: WithSource<Project>[] = [];
 
     // Handle paginated data (with pages property)
     if ('pages' in projectData && Array.isArray(projectData.pages)) {
@@ -705,7 +708,7 @@ export default function NextGenProjectsView() {
   const allItems = React.useMemo(() => {
     const items: (
       | { type: 'invite'; projectId: string }
-      | { type: 'project'; project: Project }
+      | { type: 'project'; project: WithSource<Project> }
     )[] = [];
 
     // Add invites first

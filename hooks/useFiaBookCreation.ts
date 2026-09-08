@@ -42,14 +42,16 @@ export function useFiaBookCreation() {
       return await system.db.transaction(async (tx) => {
         // Check if book quest already exists via FIA metadata
         const booksWithMetadata = await tx.run(
-          sql.raw(`
+          sql`
             SELECT id, name, project_id, metadata
             FROM quest
-            WHERE REPLACE(project_id, '-', '') = REPLACE('${projectId}', '-', '')
+            WHERE REPLACE(project_id, '-', '') = REPLACE(${projectId}, '-', '')
               AND parent_id IS NULL
-              AND json_extract(metadata, '$.fia.bookId') = '${bookId}'
+              AND json_extract(json(metadata), '$.fia.bookId') = ${bookId}
+            ORDER BY CASE WHEN published_at IS NULL THEN 0 ELSE 1 END,
+                     created_at DESC
             LIMIT 1
-          `)
+          `
         );
 
         if (
@@ -114,7 +116,8 @@ export function useFiaBookCreation() {
             parent_id: null,
             creator_id: currentUser.id,
             download_profiles: [currentUser.id],
-            metadata
+            metadata,
+            published_at: null
           })
           .returning();
 

@@ -1,12 +1,10 @@
 import { QuestUploadDetailsDrawer } from '@/components/QuestUploadDetailsDrawer';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
-import { Text } from '@/components/ui/text';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useQuestUploadProgress } from '@/hooks/useQuestUploadProgress';
-import { cn } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
-import { CloudUpload, ListChecks } from 'lucide-react-native';
+import { CloudUpload } from 'lucide-react-native';
 import React from 'react';
 
 interface PublishQuestButtonProps {
@@ -72,37 +70,19 @@ export function PublishQuestButton({
     ? 'text-primary-foreground'
     : 'text-foreground';
 
-  // Show queued upload progress whenever there are published records or audio
-  // files still awaiting server confirmation. The button remains the publish
-  // trigger throughout; the percent is purely indicative.
-  const showProgress = !isPublishing && progress.isPending;
-
+  // No percent here: this button only renders for a draft, and a draft has
+  // nothing uploaded to report on. Confirmation progress belongs to
+  // QuestSyncedBadge, which replaces this button once published_at is set.
   return (
     <>
       <Button
         variant={isHighlighted ? 'default' : 'outline'}
-        size={showProgress ? 'auto' : 'icon'}
-        className={cn(
-          showProgress && 'h-10 flex-row items-center gap-1 px-2.5'
-        )}
+        size="icon"
         disabled={disabled}
         loading={isPublishing}
         onPress={() => setIsDrawerOpen(true)}
       >
-        {!isPublishing && showProgress && (
-          <>
-            <Icon as={ListChecks} size={16} className={foregroundClass} />
-            <Text
-              className={cn(
-                'native:text-xs text-xs font-semibold',
-                foregroundClass
-              )}
-            >
-              {progress.percent}%
-            </Text>
-          </>
-        )}
-        {!isPublishing && !showProgress && (
+        {!isPublishing && (
           <Icon as={CloudUpload} size={18} className={foregroundClass} />
         )}
       </Button>

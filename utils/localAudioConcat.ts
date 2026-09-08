@@ -90,9 +90,8 @@ export async function getQuestAudioUrisByAssetList(
           asset_id: true,
           audio: true,
           order_index: true,
-          created_at: true,
           text: true,
-          source: true
+          created_at: true
         },
         with: {
           languoid: true

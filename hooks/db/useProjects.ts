@@ -1,4 +1,4 @@
-import { project_synced as projectTable } from '@/db/drizzleSchemaSynced';
+import { project as projectTable } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useHybridData } from '@/views/new/useHybridData';
 import { toCompilableQuery } from '@powersync/drizzle-driver';

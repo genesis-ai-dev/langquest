@@ -6,8 +6,6 @@ import { system } from '../db/powersync/system';
 
 export type Vote = typeof vote.$inferSelect;
 
-const { db } = system;
-
 export class VoteService {
   async addVote(data: {
     asset_id: string;
@@ -22,7 +20,7 @@ export class VoteService {
       const existingVoteId =
         data.vote_id ??
         (
-          await db.query.vote.findFirst({
+          await system.db.query.vote.findFirst({
             where: and(
               eq(vote.asset_id, data.asset_id),
               eq(vote.creator_id, data.creator_id)
@@ -38,7 +36,7 @@ export class VoteService {
       if (existingVoteId) {
         // Update existing vote
         const startTime = Date.now();
-        await db
+        await system.db
           .update(voteTable)
           .set({
             polarity: data.polarity,
@@ -61,7 +59,7 @@ export class VoteService {
         });
         // Create new vote - let PowerSync handle array serialization
         // Note: download_profiles will be auto-populated by the database trigger
-        await db.insert(voteTable).values({
+        await system.db.insert(voteTable).values({
           asset_id: data.asset_id,
           creator_id: data.creator_id,
           polarity: data.polarity,

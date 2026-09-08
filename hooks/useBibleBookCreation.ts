@@ -62,14 +62,16 @@ export function useBibleBookCreation() {
         // Query using JSON metadata - SQLite json_extract
         // Note: Using raw SQL for JSON operations since Drizzle doesn't have type-safe json_extract yet
         const booksWithMetadata = await tx.run(
-          sql.raw(`
-                        SELECT id, name, project_id, metadata
-                        FROM quest
-                        WHERE REPLACE(project_id, '-', '') = REPLACE('${projectId}', '-', '')
-                          AND parent_id IS NULL
-                          AND json_extract(metadata, '$.bible.book') = '${bookId}'
-                        LIMIT 1
-                    `)
+          sql`
+            SELECT id, name, project_id, metadata
+            FROM quest
+            WHERE REPLACE(project_id, '-', '') = REPLACE(${projectId}, '-', '')
+              AND parent_id IS NULL
+              AND json_extract(json(metadata), '$.bible.book') = ${bookId}
+            ORDER BY CASE WHEN published_at IS NULL THEN 0 ELSE 1 END,
+                     created_at DESC
+            LIMIT 1
+          `
         );
 
         if (
@@ -173,7 +175,8 @@ export function useBibleBookCreation() {
             parent_id: null, // Books have no parent
             creator_id: currentUser.id,
             download_profiles: [currentUser.id],
-            metadata: metadata // Store Bible book in metadata
+            metadata: metadata, // Store Bible book in metadata
+            published_at: null
           })
           .returning();
 
@@ -295,8 +298,7 @@ async function fetchCloudBooks(
  * Filters by metadata.bible.book and excludes quests with metadata.bible.chapter
  */
 export function useBibleBooks(projectId: string) {
-  // Use Drizzle ORM to query the merged quest view (includes quest_local + quest_synced)
-  // This ensures local-only books created offline are included
+  // Unpublished books live in the same quest table (published_at IS NULL) as published books.
   const offlineQueryBuilder = system.db
     .select()
     .from(quest)

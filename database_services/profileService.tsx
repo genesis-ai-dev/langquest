@@ -1,6 +1,5 @@
 import { eq } from 'drizzle-orm';
 // import { db } from '../db/database';
-import { profile_synced } from '@/db/drizzleSchemaSynced';
 import { profile } from '../db/drizzleSchema';
 import { system } from '../db/powersync/system';
 
@@ -126,9 +125,9 @@ export class ProfileService {
 
       // Set active = true to restore account
       await system.db
-        .update(profile_synced)
+        .update(profile)
         .set({ active: true })
-        .where(eq(profile_synced.id, userId));
+        .where(eq(profile.id, userId));
 
       debug('Account restored successfully for user:', userId);
     } catch (error) {

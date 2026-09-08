@@ -1,10 +1,9 @@
 import * as drizzleSchema from '@/db/drizzleSchema';
-import * as drizzleSchemaLocal from '@/db/drizzleSchemaLocal';
-import * as drizzleSchemaSynced from '@/db/drizzleSchemaSynced';
+import { quest } from '@/db/drizzleSchema';
 import type { System } from '@/db/powersync/system';
 import type { HybridDataSource } from '@/views/new/useHybridData';
 import type { AnyColumn, GetColumnData, SQL } from 'drizzle-orm';
-import { and, eq, is } from 'drizzle-orm';
+import { and, eq, is, isNotNull, or } from 'drizzle-orm';
 import { SQLiteTable } from 'drizzle-orm/sqlite-core';
 
 const {
@@ -18,55 +17,44 @@ const {
 
 export { tablesOnly };
 
-// TODO:
-const LOCAL_MODE = false;
-
 type TablesOnlyKeys = Exclude<keyof typeof tablesOnly, `${string}Relations`>;
-type LocalKeyFor<T extends TablesOnlyKeys> = `${Extract<T, string>}_local` &
-  keyof typeof drizzleSchemaLocal;
-type SyncedKeyFor<T extends TablesOnlyKeys> = `${Extract<T, string>}_synced` &
-  keyof typeof drizzleSchemaSynced;
 
-export function localSourceOverrideOptions(source: HybridDataSource) {
-  return { localOverride: source === 'local' };
+/** @deprecated All writes use the single synced table. localOverride is ignored. */
+export function localSourceOverrideOptions(_source: HybridDataSource) {
+  return { localOverride: false as const };
 }
 
 /**
- * Resolves the correct table object (local or remote) for a given table name.
- *
- * This utility determines whether to use the local or remote table variant
- * based on the global LOCAL_MODE setting or a specific override parameter.
- * Useful for database operations that need to target either local or remote storage.
- *
- * @param table - The base table name (without '_local' suffix)
- * @param localOverride - Whether to force using the local table variant
- * @returns The appropriate table reference (local or remote)
+ * Returns the single SQLite table for a domain entity.
+ * localOverride is ignored — unpublished work lives in the same table.
  */
 export function resolveTable<T extends TablesOnlyKeys>(
   table: T,
-  options: { localOverride: true }
-): (typeof drizzleSchemaLocal)[LocalKeyFor<T>];
-export function resolveTable<T extends TablesOnlyKeys>(
-  table: T,
-  options: { localOverride: false }
-): (typeof drizzleSchemaSynced)[SyncedKeyFor<T>];
-export function resolveTable<T extends TablesOnlyKeys>(
-  table: T,
-  options?: { localOverride?: boolean }
-):
-  | (typeof drizzleSchemaLocal)[LocalKeyFor<T>]
-  | (typeof drizzleSchemaSynced)[SyncedKeyFor<T>];
-export function resolveTable<T extends TablesOnlyKeys>(
-  table: T,
-  options: { localOverride?: boolean } = { localOverride: LOCAL_MODE }
-) {
-  return options.localOverride
-    ? (drizzleSchemaLocal[
-        `${table}_local` as LocalKeyFor<T>
-      ] as (typeof drizzleSchemaLocal)[LocalKeyFor<T>])
-    : (drizzleSchemaSynced[
-        `${table}_synced` as SyncedKeyFor<T>
-      ] as (typeof drizzleSchemaSynced)[SyncedKeyFor<T>]);
+  _options?: { localOverride?: boolean }
+): (typeof drizzleSchema)[T] {
+  return drizzleSchema[table];
+}
+
+/** True when a quest has not been published (draft). */
+export function isUnpublishedQuest(row: {
+  published_at?: string | Date | null;
+}): boolean {
+  return row.published_at == null;
+}
+
+/** SQLite: published quests plus the current user's drafts. */
+export function publishedOrOwnQuest(userId: string | undefined) {
+  return or(
+    isNotNull(quest.published_at),
+    userId ? eq(quest.creator_id, userId) : undefined
+  );
+}
+
+/** PostgREST: published quests plus the current user's drafts. */
+export function publishedOrOwnQuestFilter(userId: string | undefined): string {
+  return userId
+    ? `published_at.not.is.null,creator_id.eq.${userId}`
+    : 'published_at.not.is.null';
 }
 
 export type WithSource<T> = T extends readonly unknown[]
@@ -118,8 +106,7 @@ export const resetDatabase = async () => {
 
     const { system } = await import('@/db/powersync/system');
 
-    // Get table names from drizzleSchemaLocal using the same pattern as system.ts
-    const tableNames = Object.entries(drizzleSchemaLocal)
+    const tableNames = Object.entries(drizzleSchema)
       .filter(([_name, obj]) => is(obj as unknown, SQLiteTable))
       .map(([name]) => name);
 
@@ -127,7 +114,6 @@ export const resetDatabase = async () => {
 
     // Drop tables from our schema (SQLite doesn't have types like PostgreSQL)
     for (const tableName of tableNames) {
-      // Remove the _local suffix to get the actual table name
       await system.powersync.execute(
         `DROP TABLE IF EXISTS ps_data__${tableName}`
       );

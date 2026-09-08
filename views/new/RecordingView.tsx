@@ -1234,38 +1234,15 @@ const RecordingView = () => {
   const getAssetAudioUris = React.useCallback(
     async (assetId: string): Promise<string[]> => {
       try {
-        // Get content links from both synced and local tables
-        const assetContentLinkSynced = resolveTable('asset_content_link', {
-          localOverride: false
-        });
-        const contentLinksSynced = await system.db
+        // Get content links for this asset
+        const assetContentLinkTable = resolveTable('asset_content_link');
+        const uniqueLinks = await system.db
           .select()
-          .from(assetContentLinkSynced)
-          .where(eq(assetContentLinkSynced.asset_id, assetId));
-
-        const assetContentLinkLocal = resolveTable('asset_content_link', {
-          localOverride: true
-        });
-        const contentLinksLocal = await system.db
-          .select()
-          .from(assetContentLinkLocal)
-          .where(eq(assetContentLinkLocal.asset_id, assetId));
-
-        // Prefer synced links, but merge with local for fallback
-        const allContentLinks = [...contentLinksSynced, ...contentLinksLocal];
-
-        // Deduplicate by ID (prefer synced over local)
-        const seenIds = new Set<string>();
-        const uniqueLinks = allContentLinks.filter((link) => {
-          if (seenIds.has(link.id)) {
-            return false;
-          }
-          seenIds.add(link.id);
-          return true;
-        });
+          .from(assetContentLinkTable)
+          .where(eq(assetContentLinkTable.asset_id, assetId));
 
         debugLog(
-          `📀 Found ${uniqueLinks.length} content link(s) for asset ${assetId.slice(0, 8)} (${contentLinksSynced.length} synced, ${contentLinksLocal.length} local)`
+          `📀 Found ${uniqueLinks.length} content link(s) for asset ${assetId.slice(0, 8)}`
         );
 
         if (uniqueLinks.length === 0) {

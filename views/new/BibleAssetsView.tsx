@@ -68,6 +68,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ImportWizard, type ImportWizardVerseLabel } from './importWizard';
+import type { HybridDataSource } from './useHybridData';
 import { useHybridData } from './useHybridData';
 
 import { AssetListSkeleton } from '@/components/AssetListSkeleton';
@@ -175,6 +176,7 @@ type AssetQuestLink = Asset & {
   quest_visible: boolean;
   tag_ids?: string[] | undefined;
   metadata?: AssetMetadata | null;
+  source?: HybridDataSource;
 };
 
 // List item types for rendering
@@ -788,7 +790,7 @@ export default function BibleAssetsView() {
   }, [queriedQuestData]);
 
   // Check if quest is published (source is 'synced')
-  const isPublished = selectedQuest?.source === 'synced';
+  const isPublished = selectedQuest?.published_at != null;
   const promptVersionLabelConsumedRef = React.useRef<string | null>(null);
 
   React.useEffect(() => {
@@ -1177,7 +1179,7 @@ export default function BibleAssetsView() {
         assetMap.set(asset.id, asset);
       } else {
         // Prefer synced over local
-        if (asset.source === 'synced' && existing.source !== 'synced') {
+        if (asset.source !== 'cloud' && existing.source === 'cloud') {
           assetMap.set(asset.id, asset);
         }
       }
@@ -3152,35 +3154,11 @@ export default function BibleAssetsView() {
   const getAssetAudioUris = React.useCallback(
     async (assetId: string): Promise<string[]> => {
       try {
-        // Get content links from both synced and local tables
-        const assetContentLinkSynced = resolveTable('asset_content_link', {
-          localOverride: false
-        });
-        const contentLinksSynced = await system.db
+        const assetContentLinkTable = resolveTable('asset_content_link');
+        const uniqueLinks = await system.db
           .select()
-          .from(assetContentLinkSynced)
-          .where(eq(assetContentLinkSynced.asset_id, assetId));
-
-        const assetContentLinkLocal = resolveTable('asset_content_link', {
-          localOverride: true
-        });
-        const contentLinksLocal = await system.db
-          .select()
-          .from(assetContentLinkLocal)
-          .where(eq(assetContentLinkLocal.asset_id, assetId));
-
-        // Prefer synced links, but merge with local for fallback
-        const allContentLinks = [...contentLinksSynced, ...contentLinksLocal];
-
-        // Deduplicate by ID (prefer synced over local)
-        const seenIds = new Set<string>();
-        const uniqueLinks = allContentLinks.filter((link) => {
-          if (seenIds.has(link.id)) {
-            return false;
-          }
-          seenIds.add(link.id);
-          return true;
-        });
+          .from(assetContentLinkTable)
+          .where(eq(assetContentLinkTable.asset_id, assetId));
 
         if (uniqueLinks.length === 0) {
           return [];
@@ -4183,7 +4161,7 @@ export default function BibleAssetsView() {
                   if (
                     isQuestDownloaded &&
                     !verificationState.isVerifying &&
-                    selectedQuest?.source !== 'local'
+                    selectedQuest?.published_at != null
                   ) {
                     verificationState.startVerification();
                   }

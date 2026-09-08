@@ -76,7 +76,8 @@ export function useBibleChapterCreation() {
             parent_id: bookQuestId, // Set parent to book quest
             creator_id: currentUser.id,
             download_profiles: [currentUser.id],
-            metadata: metadata // Store Bible book/chapter in metadata
+            metadata: metadata, // Store Bible book/chapter in metadata
+            published_at: null
           })
           .returning();
 

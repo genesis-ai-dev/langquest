@@ -2,12 +2,30 @@
  * Asset service - Database operations for assets.
  */
 
+import { quest } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import { resolveTable } from '@/utils/dbUtils';
+import { isUnpublishedQuest, resolveTable } from '@/utils/dbUtils';
 import { and, asc, eq, gte, inArray, lte } from 'drizzle-orm';
 import uuid from 'react-native-uuid';
 import { enqueue as enqueueAssetGc } from './assetGarbageCollectorService';
 import type { AssetOperationDataItem } from './types';
+
+async function requireUnpublishedQuest(questId: string): Promise<void> {
+  const [row] = await system.db
+    .select({ published_at: quest.published_at })
+    .from(quest)
+    .where(eq(quest.id, questId))
+    .limit(1);
+
+  if (!row) {
+    throw new Error('Quest not found');
+  }
+  if (!isUnpublishedQuest(row)) {
+    throw new Error(
+      'Cannot modify assets on a published quest - they are immutable once published'
+    );
+  }
+}
 
 /**
  * Asset metadata structure for verse ranges
@@ -33,14 +51,9 @@ export interface QuestAssetLinkMetadata {
 
 /**
  * Update an asset's name within a quest.
- * - Published quest_asset_link rows are immutable.
+ * - Published quests are immutable.
  * - Imported/remixed links only update quest_asset_link.name.
- * - Created links update both quest_asset_link.name and the local asset name.
- *
- * @param questId - The quest where the asset is being renamed
- * @param assetId - The ID of the asset to rename
- * @param newName - The new name for the asset
- * @throws Error if the quest link or created asset is synced (immutable)
+ * - Created links update both quest_asset_link.name and the asset name.
  */
 export async function renameAsset(
   questId: string,
@@ -49,48 +62,24 @@ export async function renameAsset(
 ): Promise<void> {
   try {
     const trimmedName = newName.trim();
-    const questAssetLinkLocalTable = resolveTable('quest_asset_link', {
-      localOverride: true
-    });
-    const questAssetLinkSyncedTable = resolveTable('quest_asset_link', {
-      localOverride: false
-    });
-    const assetLocalTable = resolveTable('asset', { localOverride: true });
+    await requireUnpublishedQuest(questId);
 
-    const syncedQuestAssetLink = await system.db
+    const questAssetLinkTable = resolveTable('quest_asset_link');
+    const assetTable = resolveTable('asset');
+
+    const [questAssetLink] = await system.db
       .select()
-      .from(questAssetLinkSyncedTable)
+      .from(questAssetLinkTable)
       .where(
         and(
-          eq(questAssetLinkSyncedTable.quest_id, questId),
-          eq(questAssetLinkSyncedTable.asset_id, assetId)
+          eq(questAssetLinkTable.quest_id, questId),
+          eq(questAssetLinkTable.asset_id, assetId)
         )
       )
       .limit(1);
-
-    if (syncedQuestAssetLink.length > 0) {
-      throw new Error(
-        'Cannot rename asset in a published quest link - it is immutable once published'
-      );
-    }
-
-    const localQuestAssetLink = await system.db
-      .select()
-      .from(questAssetLinkLocalTable)
-      .where(
-        and(
-          eq(questAssetLinkLocalTable.quest_id, questId),
-          eq(questAssetLinkLocalTable.asset_id, assetId)
-        )
-      )
-      .limit(1);
-
-    const questAssetLink = localQuestAssetLink[0];
 
     if (!questAssetLink) {
-      throw new Error(
-        'Quest asset link not found in local table - cannot rename published links'
-      );
+      throw new Error('Quest asset link not found - cannot rename');
     }
 
     const parsedMetadata =
@@ -105,12 +94,12 @@ export async function renameAsset(
 
     if (!isCreated) {
       await system.db
-        .update(questAssetLinkLocalTable)
+        .update(questAssetLinkTable)
         .set({ name: trimmedName })
         .where(
           and(
-            eq(questAssetLinkLocalTable.quest_id, questId),
-            eq(questAssetLinkLocalTable.asset_id, assetId)
+            eq(questAssetLinkTable.quest_id, questId),
+            eq(questAssetLinkTable.asset_id, assetId)
           )
         );
 
@@ -120,46 +109,29 @@ export async function renameAsset(
       return;
     }
 
-    // Created assets can update the canonical local asset too, as long as it
-    // has not been published.
-    const localAsset = await system.db
-      .select()
-      .from(assetLocalTable)
-      .where(eq(assetLocalTable.id, assetId))
+    const [existingAsset] = await system.db
+      .select({ id: assetTable.id })
+      .from(assetTable)
+      .where(eq(assetTable.id, assetId))
       .limit(1);
 
-    if (localAsset.length === 0) {
-      throw new Error(
-        'Asset not found in local table - cannot rename synced assets'
-      );
-    }
-
-    const syncedTable = resolveTable('asset', { localOverride: false });
-    const syncedAsset = await system.db
-      .select()
-      .from(syncedTable)
-      .where(eq(syncedTable.id, assetId))
-      .limit(1);
-
-    if (syncedAsset.length > 0) {
-      throw new Error(
-        'Cannot rename synced assets - they are immutable once published'
-      );
+    if (!existingAsset) {
+      throw new Error('Asset not found - cannot rename');
     }
 
     await system.db.transaction(async (tx) => {
       await tx
-        .update(assetLocalTable)
+        .update(assetTable)
         .set({ name: trimmedName })
-        .where(eq(assetLocalTable.id, assetId));
+        .where(eq(assetTable.id, assetId));
 
       await tx
-        .update(questAssetLinkLocalTable)
+        .update(questAssetLinkTable)
         .set({ name: trimmedName })
         .where(
           and(
-            eq(questAssetLinkLocalTable.quest_id, questId),
-            eq(questAssetLinkLocalTable.asset_id, assetId)
+            eq(questAssetLinkTable.quest_id, questId),
+            eq(questAssetLinkTable.asset_id, assetId)
           )
         );
     });
@@ -224,48 +196,24 @@ export async function updateAssetVerse(
   orderIndex?: number
 ): Promise<void> {
   try {
-    const questAssetLinkLocalTable = resolveTable('quest_asset_link', {
-      localOverride: true
-    });
-    const questAssetLinkSyncedTable = resolveTable('quest_asset_link', {
-      localOverride: false
-    });
-    const assetLocalTable = resolveTable('asset', { localOverride: true });
+    await requireUnpublishedQuest(questId);
 
-    const syncedQuestAssetLink = await system.db
+    const questAssetLinkTable = resolveTable('quest_asset_link');
+    const assetTable = resolveTable('asset');
+
+    const [questAssetLink] = await system.db
       .select()
-      .from(questAssetLinkSyncedTable)
+      .from(questAssetLinkTable)
       .where(
         and(
-          eq(questAssetLinkSyncedTable.quest_id, questId),
-          eq(questAssetLinkSyncedTable.asset_id, assetId)
+          eq(questAssetLinkTable.quest_id, questId),
+          eq(questAssetLinkTable.asset_id, assetId)
         )
       )
       .limit(1);
-
-    if (syncedQuestAssetLink.length > 0) {
-      throw new Error(
-        'Cannot update verse in a published quest link - it is immutable once published'
-      );
-    }
-
-    const localQuestAssetLink = await system.db
-      .select()
-      .from(questAssetLinkLocalTable)
-      .where(
-        and(
-          eq(questAssetLinkLocalTable.quest_id, questId),
-          eq(questAssetLinkLocalTable.asset_id, assetId)
-        )
-      )
-      .limit(1);
-
-    const questAssetLink = localQuestAssetLink[0];
 
     if (!questAssetLink) {
-      throw new Error(
-        'Quest asset link not found in local table - cannot update published links'
-      );
+      throw new Error('Quest asset link not found - cannot update verse');
     }
 
     const setLinkPayload: {
@@ -294,72 +242,50 @@ export async function updateAssetVerse(
       'created';
 
     if (!isCreated) {
-      console.log('>>>>> Updating quest asset link metadata');
       await system.db
-        .update(questAssetLinkLocalTable)
+        .update(questAssetLinkTable)
         .set(setLinkPayload)
         .where(
           and(
-            eq(questAssetLinkLocalTable.quest_id, questId),
-            eq(questAssetLinkLocalTable.asset_id, assetId)
+            eq(questAssetLinkTable.quest_id, questId),
+            eq(questAssetLinkTable.asset_id, assetId)
           )
         );
-
-      // console.log(`✅ Quest asset link ${assetId.slice(0, 8)} verse updated`);
       return;
     }
 
-    const localAsset = await system.db
+    const [existingAsset] = await system.db
       .select()
-      .from(assetLocalTable)
-      .where(eq(assetLocalTable.id, assetId))
+      .from(assetTable)
+      .where(eq(assetTable.id, assetId))
       .limit(1);
 
-    const asset = localAsset[0];
-
-    if (!asset) {
-      throw new Error(
-        'Asset not found in local table - cannot update synced assets'
-      );
-    }
-
-    const syncedTable = resolveTable('asset', { localOverride: false });
-    const syncedAsset = await system.db
-      .select()
-      .from(syncedTable)
-      .where(eq(syncedTable.id, assetId))
-      .limit(1);
-
-    if (syncedAsset.length > 0) {
-      throw new Error(
-        'Cannot update synced assets - they are immutable once published'
-      );
+    if (!existingAsset) {
+      throw new Error('Asset not found - cannot update verse');
     }
 
     await system.db.transaction(async (tx) => {
       if (metadata !== undefined) {
         const nextAssetMetadata = patchVerseMetadata(
-          asset.metadata,
+          existingAsset.metadata,
           metadata?.verse
         );
         await tx
-          .update(assetLocalTable)
+          .update(assetTable)
           .set({ metadata: JSON.stringify(nextAssetMetadata) })
-          .where(eq(assetLocalTable.id, assetId));
+          .where(eq(assetTable.id, assetId));
       }
 
       await tx
-        .update(questAssetLinkLocalTable)
+        .update(questAssetLinkTable)
         .set(setLinkPayload)
         .where(
           and(
-            eq(questAssetLinkLocalTable.quest_id, questId),
-            eq(questAssetLinkLocalTable.asset_id, assetId)
+            eq(questAssetLinkTable.quest_id, questId),
+            eq(questAssetLinkTable.asset_id, assetId)
           )
         );
     });
-
-    // console.log(`✅ Asset ${assetId.slice(0, 8)} verse updated`);
   } catch (error) {
     console.error('Failed to update asset verse:', error);
     throw error;
@@ -835,34 +761,17 @@ export async function linkExistingAssetsToQuest(params: {
     return { linkedAssetIds: [], skippedAssetIds: [], linkedSnapshots: [] };
   }
 
-  const linkLocal = resolveTable('quest_asset_link', { localOverride: true });
-  const linkSynced = resolveTable('quest_asset_link', { localOverride: false });
+  const linkTable = resolveTable('quest_asset_link');
   const assetIds = items.map((item) => item.assetId);
 
-  const [localLinks, syncedLinks] = await Promise.all([
-    system.db
-      .select({ asset_id: linkLocal.asset_id })
-      .from(linkLocal)
-      .where(
-        and(
-          eq(linkLocal.quest_id, questId),
-          inArray(linkLocal.asset_id, assetIds)
-        )
-      ),
-    system.db
-      .select({ asset_id: linkSynced.asset_id })
-      .from(linkSynced)
-      .where(
-        and(
-          eq(linkSynced.quest_id, questId),
-          inArray(linkSynced.asset_id, assetIds)
-        )
-      )
-  ]);
+  const existingLinks = await system.db
+    .select({ asset_id: linkTable.asset_id })
+    .from(linkTable)
+    .where(
+      and(eq(linkTable.quest_id, questId), inArray(linkTable.asset_id, assetIds))
+    );
 
-  const alreadyLinked = new Set(
-    [...localLinks, ...syncedLinks].map((link) => link.asset_id)
-  );
+  const alreadyLinked = new Set(existingLinks.map((link) => link.asset_id));
 
   const itemsToInsert = items.filter(
     (item) => !alreadyLinked.has(item.assetId)
@@ -887,7 +796,7 @@ export async function linkExistingAssetsToQuest(params: {
 
   await system.db.transaction(async (tx) => {
     for (const item of itemsToInsert) {
-      await tx.insert(linkLocal).values({
+      await tx.insert(linkTable).values({
         id: String(uuid.v4()),
         quest_id: questId,
         asset_id: item.assetId,

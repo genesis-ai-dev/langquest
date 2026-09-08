@@ -4,7 +4,7 @@
  *
  * The work list is derived on every pass:
  *
- *   asset_content_link_synced rows where
+ *   asset_content_link rows where
  *     audio IS NOT NULL AND audio_uploaded_at IS NULL
  *   → flattened to filenames
  *   → minus 'local/…' values (pre-publish recordings never upload)
@@ -31,12 +31,12 @@
  */
 
 import type * as drizzleSchema from '@/db/drizzleSchema';
-import { asset_content_link_synced } from '@/db/drizzleSchemaSynced';
+import { asset, asset_content_link, quest, quest_asset_link } from '@/db/drizzleSchema';
 import type { SupabaseStorageAdapter } from '@/db/supabase/SupabaseStorageAdapter';
 import { isInvalidAudioValue, isLocalOnlyAudio } from '@/utils/attachmentPaths';
 import { getLocalAttachmentUri } from '@/utils/fileUtils';
 import type { PowerSyncSQLiteDatabase } from '@powersync/drizzle-driver';
-import { and, isNotNull, isNull } from 'drizzle-orm';
+import { and, eq, isNotNull, isNull } from 'drizzle-orm';
 import type { LocalFileIndex } from './LocalFileIndex';
 
 const DEBOUNCE_MS = 2000;
@@ -182,12 +182,16 @@ export class AudioUploader {
 
   private pendingSyncedQuery() {
     return this.options.db
-      .select({ audio: asset_content_link_synced.audio })
-      .from(asset_content_link_synced)
+      .select({ audio: asset_content_link.audio })
+      .from(asset_content_link)
+      .innerJoin(asset, eq(asset.id, asset_content_link.asset_id))
+      .innerJoin(quest_asset_link, eq(quest_asset_link.asset_id, asset.id))
+      .innerJoin(quest, eq(quest.id, quest_asset_link.quest_id))
       .where(
         and(
-          isNotNull(asset_content_link_synced.audio),
-          isNull(asset_content_link_synced.audio_uploaded_at)
+          isNotNull(asset_content_link.audio),
+          isNull(asset_content_link.audio_uploaded_at),
+          isNotNull(quest.published_at)
         )
       );
   }

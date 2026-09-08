@@ -11,6 +11,7 @@
  */
 
 import { system } from '@/db/powersync/system';
+import { PowerSyncContext } from '@powersync/react';
 import * as SplashScreen from 'expo-splash-screen';
 import React, { useCallback, useEffect, useState } from 'react';
 import { scheduleOnRN } from 'react-native-worklets';
@@ -67,5 +68,7 @@ export function PreAuthMigrationCheck({
     return null;
   }
 
-  return <>{children}</>;
+  // PowerSync is constructed after schema has been upgraded. Provide it here so RootLayout's first render
+  // does not capture an undefined system.powersync / system.db.
+  return <PowerSyncContext.Provider value={system.powersync}>{children}</PowerSyncContext.Provider>;
 }

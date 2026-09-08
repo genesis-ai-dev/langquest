@@ -15,7 +15,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 import { updateContentLinkOrder } from '@/database_services/assetService';
 import { getEffectiveLastRecordingSessionId } from '@/database_services/questService';
-import type { LayerStatus } from '@/database_services/types';
 import {
   asset,
   asset_content_link,
@@ -402,7 +401,8 @@ export default function NextGenAssetDetailView() {
   // For local (unpublished) content, the current user is always the creator.
   // useUserPermissions may initially return false for private projects because its
   // internal query for creator_id hasn't resolved yet (race condition on first mount).
-  const isLocalContent = activeAsset?.source === 'local';
+  const isLocalContent =
+    questData?.published_at == null && questData?.source !== 'cloud';
   const canTranslate = canTranslateFromPermissions || isLocalContent;
 
   // Highlight assets from the last recording session (only for unpublished content)
@@ -449,7 +449,11 @@ export default function NextGenAssetDetailView() {
     : currentStatus.getStatusParams(
         LayerType.ASSET,
         activeAsset.id || '',
-        activeAsset as LayerStatus,
+        {
+          visible: activeAsset.visible,
+          active: activeAsset.active,
+          source: isLocalContent ? 'local' : 'synced'
+        },
         questId
       );
 
@@ -993,7 +997,7 @@ export default function NextGenAssetDetailView() {
                                 activeAsset.id,
                                 ids,
                                 {
-                                  localOverride: activeAsset.source === 'local'
+                                  localOverride: isLocalContent
                                 }
                               );
                               setCurrentContentIndex(targetIndex);
@@ -1190,7 +1194,7 @@ export default function NextGenAssetDetailView() {
           assetContent={activeAsset.content}
           sourceLanguage={null}
           translationLanguageId={translationLanguageId}
-          isLocalSource={activeAsset.source === 'local'}
+          isLocalSource={isLocalContent}
           initialContentType={contentTypeFilter}
           initialText={transcriptionText}
           resolvedAudioUris={resolvedAudioUris}

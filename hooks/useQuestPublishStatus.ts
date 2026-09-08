@@ -1,19 +1,18 @@
 import { quest } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
+import { isUnpublishedQuest } from '@/utils/dbUtils';
 import { useQuery } from '@tanstack/react-query';
 import { eq } from 'drizzle-orm';
 
 export interface QuestPublishStatus {
-  hasLocalCopy: boolean; // Indicates if local-only version exists
-  hasSyncedCopy: boolean; // Indicates if published (synced) version exists
-  isPublished: boolean; // Convenience flag: true if hasSyncedCopy
+  hasLocalCopy: boolean;
+  hasSyncedCopy: boolean;
+  isPublished: boolean;
 }
 
 /**
- * Hook to check if a quest has been published
- * Returns publishing status by checking both local and synced quest tables
- *
- * A quest is considered "published" if it exists in the synced table (not just local-only)
+ * A quest is published when published_at is set.
+ * Drafts (published_at null) are local-only from the reader's perspective.
  */
 export function useQuestPublishStatus(
   questId: string | null | undefined
@@ -29,19 +28,18 @@ export function useQuestPublishStatus(
         };
       }
 
-      const results = await system.db
-        .select()
+      const [row] = await system.db
+        .select({ published_at: quest.published_at })
         .from(quest)
-        .where(eq(quest.id, questId));
+        .where(eq(quest.id, questId))
+        .limit(1);
 
-      // Check which tables the quest exists in
-      const hasLocal = results.some((q) => q.source === 'local');
-      const hasSynced = results.some((q) => q.source === 'synced');
+      const unpublished = !row || isUnpublishedQuest(row);
 
       return {
-        hasLocalCopy: hasLocal,
-        hasSyncedCopy: hasSynced,
-        isPublished: hasSynced // Published means it exists in synced table
+        hasLocalCopy: unpublished,
+        hasSyncedCopy: !unpublished,
+        isPublished: !unpublished
       };
     },
     enabled: !!questId

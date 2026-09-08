@@ -63,7 +63,9 @@ async function fetchTableRows(
   projectId: string,
   projectColumn = 'project_id'
 ): Promise<JsonRecord[]> {
-  const sql = `select to_jsonb(t) as row from public.${tableName} t where t.${projectColumn} = $1`;
+  const unpublishedFilter =
+    tableName === 'quest' ? ' and t.published_at is not null' : '';
+  const sql = `select to_jsonb(t) as row from public.${tableName} t where t.${projectColumn} = $1${unpublishedFilter}`;
   const result = await client.query(sql, [projectId]);
   return result.rows.map((row: { row: JsonRecord }) => row.row);
 }

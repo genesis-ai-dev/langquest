@@ -35,7 +35,7 @@ export function useQuestStatuses(
         columns: {
           active: true,
           visible: true,
-          source: true
+          published_at: true
         },
         where: eq(quest.id, questId)
       })

@@ -36,7 +36,6 @@ import { OPSqliteOpenFactory } from '@powersync/op-sqlite';
 import { SQLiteTable } from 'drizzle-orm/sqlite-core';
 import Logger from 'js-logger';
 import * as drizzleSchema from '../drizzleSchema';
-import * as drizzleSchemaLocal from '../drizzleSchemaLocal';
 import { AppConfig } from '../supabase/AppConfig';
 import { SupabaseConnector } from '../supabase/SupabaseConnector';
 import { getDefaultOpMetadata } from './opMetadata';
@@ -72,14 +71,15 @@ export class System {
   factory: WASQLiteOpenFactory | OPSqliteOpenFactory;
   storage: SupabaseStorageAdapter;
   supabaseConnector: SupabaseConnector;
-  powersync: PowerSyncDatabaseNative | PowerSyncDatabaseWeb;
+  powersync!: PowerSyncDatabaseNative | PowerSyncDatabaseWeb;
   audioUploader: AudioUploader | undefined = undefined;
   audioDownloader: AudioDownloader | undefined = undefined;
-  db: PowerSyncSQLiteDatabase<typeof drizzleSchema>;
+  db!: PowerSyncSQLiteDatabase<typeof drizzleSchema>;
   migrationDb: {
     getAll: (sql: string, params?: unknown[]) => Promise<unknown[]>;
     execute: (sql: string) => Promise<unknown>;
   } | null = null;
+  private powerSyncCreated = false;
 
   // Add tracking for attachment queue initialization
   private attachmentQueuesInitialized = false;
@@ -101,95 +101,44 @@ export class System {
       client: this.supabaseConnector.client
     });
 
+    Logger.setLevel(Logger.DEBUG);
+    // Check if we're on native or web platform
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    if (PowerSyncDatabaseNative) {
+      this.factory = new OPSqliteOpenFactory({
+        dbFilename: 'sqlite.db',
+        debugMode: true
+      });
+    } else {
+      this.factory = new WASQLiteOpenFactory({
+        dbFilename: 'sqlite.db',
+        worker: '/@powersync/worker/WASQLiteDB.umd.js',
+        debugMode: true,
+        logger: Logger
+      });
+    }
+  }
+
+  /**
+   * PowerSync's constructor starts initialize() immediately, which calls
+   * powersync_replace_schema. Create the client only after
+   * prepareSingleTableLayout() has finished with leftover 2.5 tables.
+   */
+  private ensurePowerSyncCreated(): void {
+    if (this.powerSyncCreated) return;
+
     const drizzleSchemaWithOptions = {
       ...Object.entries(drizzleSchema).reduce(
         (acc, [key, table]) => {
           if (is(table, SQLiteTable)) {
-            // const tableWithoutSource = {
-            //   ...table
-            // };
-
-            // delete (tableWithoutSource as unknown as { source?: unknown })
-            //   .source;
-
-            // // Delete drizzle symbols that contain source
-            // const drizzleSymbols =
-            //   Object.getOwnPropertySymbols(tableWithoutSource);
-            // for (const symbol of drizzleSymbols) {
-            //   const symbolStr = symbol.toString();
-            //   if (
-            //     symbolStr.includes('drizzle:Columns') ||
-            //     symbolStr.includes('drizzle:ExtraConfigColumns')
-            //   ) {
-            //     const symbolValue = (
-            //       tableWithoutSource as Record<symbol, Record<string, unknown>>
-            //     )[symbol];
-            //     if (
-            //       symbolValue &&
-            //       typeof symbolValue === 'object' &&
-            //       'source' in symbolValue
-            //     ) {
-            //       delete symbolValue.source;
-            //     }
-            //   }
-            // }
-
             acc[key] = {
               tableDefinition: table,
               options: {
-                viewName: `${key}_synced`,
                 trackMetadata: true,
                 ignoreEmptyUpdates: true
               }
             } as DrizzleTableWithPowerSyncOptions;
             return acc;
-          }
-          return acc;
-        },
-        {} as Record<string, DrizzleTableWithPowerSyncOptions>
-      ),
-      ...Object.entries(drizzleSchemaLocal).reduce(
-        (acc, [key, localTable]) => {
-          if (is(localTable, SQLiteTable)) {
-            // const localTableWithoutSource = {
-            //   ...localTable
-            // };
-            // delete (localTableWithoutSource as unknown as { source?: unknown })
-            //   .source;
-
-            // // Delete drizzle symbols that contain source
-            // const drizzleSymbols = Object.getOwnPropertySymbols(
-            //   localTableWithoutSource
-            // );
-            // for (const symbol of drizzleSymbols) {
-            //   const symbolStr = symbol.toString();
-            //   if (
-            //     symbolStr.includes('drizzle:Columns') ||
-            //     symbolStr.includes('drizzle:ExtraConfigColumns')
-            //   ) {
-            //     const symbolValue = (
-            //       localTableWithoutSource as Record<
-            //         symbol,
-            //         Record<string, unknown>
-            //       >
-            //     )[symbol];
-            //     if (
-            //       symbolValue &&
-            //       typeof symbolValue === 'object' &&
-            //       'source' in symbolValue
-            //     ) {
-            //       delete symbolValue.source;
-            //     }
-            //   }
-            // }
-
-            acc[key] = {
-              tableDefinition: localTable,
-              options: {
-                localOnly: true,
-                ignoreEmptyUpdates: true
-              }
-            } as DrizzleTableWithPowerSyncOptions;
           }
           return acc;
         },
@@ -204,26 +153,14 @@ export class System {
       ...new DrizzleAppSchema(drizzleSchemaWithOptions).tables
     ]);
 
-    Logger.setLevel(Logger.DEBUG);
-    // Check if we're on native or web platform
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (PowerSyncDatabaseNative) {
-      this.factory = new OPSqliteOpenFactory({
-        dbFilename: 'sqlite.db',
-        debugMode: true
-      });
       this.powersync = new PowerSyncDatabaseNative({
         schema,
         database: this.factory,
         logger: Logger
       });
     } else {
-      this.factory = new WASQLiteOpenFactory({
-        dbFilename: 'sqlite.db',
-        worker: '/@powersync/worker/WASQLiteDB.umd.js',
-        debugMode: true,
-        logger: Logger
-      });
       this.powersync = new PowerSyncDatabaseWeb({
         schema,
         database: this.factory,
@@ -383,6 +320,8 @@ export class System {
         isOnline: () => useNetworkStore.getState().isConnected
       });
     }
+
+    this.powerSyncCreated = true;
   }
 
   static getInstance(): System {
@@ -404,7 +343,7 @@ export class System {
     }
 
     // If already initialized and connected, return immediately
-    if (this.initialized && this.powersync.connected) {
+    if (this.initialized && this.powerSyncCreated && this.powersync.connected) {
       return;
     }
 
@@ -425,13 +364,13 @@ export class System {
       // First initialize the database if not already done
       console.log('PowerSync initialized:', this.initialized);
       if (!this.initialized) {
-        // CRITICAL: Run migrations BEFORE PowerSync init
-        // This allows migrations to access raw PowerSync tables that may be removed after init
+        // Version hops and leftover 2.5 layout upgrade before PowerSync
+        // construction. replace_schema would otherwise drop leftover *_local.
         // NOTE: If migrations were already checked/run pre-auth, skip this check
         if (!this.migrationDb) {
           console.log('[System] Running pre-init migrations check...');
           const {
-            checkNeedsMigration,
+            checkNeedsAnyUpgrade,
             getMinimumSchemaVersion,
             MigrationNeededError
           } = await import('../migrations/index');
@@ -451,8 +390,8 @@ export class System {
             }
           };
 
-          // Check if migration is needed
-          const needsMigration = await checkNeedsMigration(
+          // Version hop or leftover 2.5 _local/_synced layout
+          const needsMigration = await checkNeedsAnyUpgrade(
             this.migrationDb,
             APP_SCHEMA_VERSION
           );
@@ -536,7 +475,7 @@ export class System {
           );
 
           // If PowerSync is already connected, disconnect it
-          if (this.powersync.connected) {
+          if (this.powerSyncCreated && this.powersync.connected) {
             console.log(
               '[System] Disconnecting PowerSync due to degraded mode...'
             );
@@ -557,13 +496,25 @@ export class System {
           return; // Exit early, skip all sync-related initialization
         }
 
+        const {
+          prepareSingleTableLayout,
+          reinsertUnpublishedDrafts
+        } = await import('../migrations/upgradeToSingleTable');
+
+        if (this.migrationDb) {
+          await prepareSingleTableLayout(this.migrationDb);
+        }
+
+        this.ensurePowerSyncCreated();
+
         console.log('Initializing PowerSync...');
         await this.powersync.init();
-
-        // Create union views FIRST - they expose _metadata column from Drizzle schema
-        // This allows migrations to query and update _metadata through the views
-        console.log('[System] Creating union views...');
-        await this.createUnionViews();
+        await reinsertUnpublishedDrafts({
+          getAll: (sql, params) => this.powersync.getAll(sql, params),
+          insert: async (table, values) => {
+            await this.db.insert(table).values(values as never);
+          }
+        });
 
         // CRITICAL: Check server schema version FIRST
         // This ensures client and server schemas are compatible before proceeding
@@ -625,7 +576,7 @@ export class System {
   private async applyPowerSyncNetworkState(
     isConnected: boolean
   ): Promise<void> {
-    if (!this.initialized) return;
+    if (!this.initialized || !this.powerSyncCreated) return;
 
     if (!isConnected) {
       if (!this.powersync.connected) return;
@@ -697,250 +648,6 @@ export class System {
       });
   }
 
-  private async createUnionViews() {
-    console.log('Creating union views...');
-
-    // TEMPORARY: Force drop all union views to ensure recreation
-    try {
-      const existingViews = await this.powersync.getAll<{ name: string }>(
-        `SELECT name FROM sqlite_master WHERE type = 'view' AND name LIKE '%_union'`
-      );
-      for (const { name } of existingViews) {
-        try {
-          await this.powersync.execute(`DROP VIEW IF EXISTS "${name}"`);
-          console.log(`Dropped existing union view: ${name}`);
-        } catch (e) {
-          console.warn(`Failed to drop view ${name}:`, e);
-        }
-      }
-    } catch (e) {
-      console.warn('Failed to drop existing union views:', e);
-    }
-
-    try {
-      // Build CREATE VIEW statements for each app table (exclude relations/views)
-      const tableNames = Object.entries(drizzleSchema)
-        .filter(([_name, obj]) => is(obj as unknown, SQLiteTable))
-        .map(([name]) => name);
-
-      if (tableNames.length === 0) return;
-
-      // Normalize spacing for comparison
-      const normalize = (s: string) =>
-        s
-          .replace(/\s+/g, ' ')
-          .replace(/\s*,\s*/g, ', ')
-          .trim()
-          .toLowerCase();
-
-      // Precompute expected SQL for all views
-      const plannedStatements: {
-        view: string;
-        dropSql: string;
-        createSql: string;
-      }[] = [];
-      for (const [name, table] of Object.entries(drizzleSchema)) {
-        if (!is(table, SQLiteTable)) continue;
-
-        const synced = `${name}_synced`;
-        const local = `${name}_local`;
-        const view = name;
-        const remoteColumns = getTableColumns(table);
-        const localTable = drizzleSchemaLocal[
-          local as keyof typeof drizzleSchemaLocal
-        ] as unknown as Table;
-        const localColumns = getTableColumns(localTable);
-
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-        const remoteColumnNames = (Object.keys(remoteColumns) ?? []).filter(
-          (col) => col !== 'source'
-        );
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-        const localColumnNames = (Object.keys(localColumns) ?? []).filter(
-          (col) => col !== 'source'
-        );
-
-        const fallback =
-          remoteColumnNames.length === 0 && localColumnNames.length === 0;
-
-        let createSql: string;
-        if (fallback) {
-          createSql = `CREATE VIEW "${view}" AS SELECT 'synced' AS source, * FROM "${synced}" UNION ALL SELECT 'local' AS source, * FROM "${local}" WHERE REPLACE(id, '-', '') NOT IN (SELECT REPLACE(id, '-', '') FROM "${synced}")`;
-        } else {
-          const remoteSet = new Set(remoteColumnNames);
-          const localSet = new Set(localColumnNames);
-          const unified = [...remoteColumnNames];
-          for (const col of localColumnNames) {
-            if (!remoteSet.has(col)) unified.push(col);
-          }
-          // Special handling for invite and request tables: compute expired status dynamically
-          const isExpirableTable = name === 'invite' || name === 'request';
-
-          const syncedSelect = unified
-            .map((col) => {
-              // For invite/request tables, replace status column with CASE statement
-              if (isExpirableTable && col === 'status') {
-                return `CASE
-                  WHEN "${synced}"."status" = 'pending' AND datetime("${synced}"."last_updated") < datetime('now', '-7 days')
-                  THEN 'expired'
-                  ELSE "${synced}"."status"
-                END AS "status"`;
-              }
-              return remoteSet.has(col) ? `"${col}"` : `NULL AS "${col}"`;
-            })
-            .filter((col) => col !== 'source')
-            .join(', ');
-          const localSelect = unified
-            .map((col) => {
-              // For invite/request tables, replace status column with CASE statement
-              if (isExpirableTable && col === 'status') {
-                return `CASE
-                  WHEN "${local}"."status" = 'pending' AND datetime("${local}"."last_updated") < datetime('now', '-7 days')
-                  THEN 'expired'
-                  ELSE "${local}"."status"
-                END AS "status"`;
-              }
-              return localSet.has(col) ? `"${col}"` : `NULL AS "${col}"`;
-            })
-            .filter((col) => col !== 'source')
-            .join(', ');
-
-          createSql = `CREATE VIEW "${view}" AS SELECT 'synced' AS source, ${syncedSelect} FROM "${synced}" UNION ALL SELECT 'local' AS source, ${localSelect} FROM "${local}" WHERE REPLACE(id, '-', '') NOT IN (SELECT REPLACE(id, '-', '') FROM "${synced}")`;
-        }
-
-        plannedStatements.push({
-          view,
-          dropSql: `DROP VIEW IF EXISTS "${view}"`,
-          createSql: normalize(createSql)
-        });
-      }
-
-      // Fetch existing view SQL for all planned views in one query
-      const viewNames = plannedStatements.map((p) => p.view);
-      const existingByName = new Map<string, string>();
-      if (viewNames.length > 0) {
-        const placeholders = viewNames.map(() => '?').join(', ');
-        const existingRows = await this.powersync.getAll<{
-          name: string;
-          sql: string;
-        }>(
-          `SELECT name, sql FROM sqlite_master WHERE type = 'view' AND name IN (${placeholders})`,
-          viewNames
-        );
-        for (const row of existingRows) {
-          if (row.name) existingByName.set(row.name, normalize(row.sql));
-        }
-      }
-
-      // CLEANUP: Find and remove orphaned union views that are no longer in drizzleSchema
-      // This handles cases where tables are renamed or removed from the schema
-      // Only cleans up union views (views that combine _synced and _local tables)
-      console.log('[createUnionViews] Checking for orphaned union views...');
-      const plannedViewNames = new Set(plannedStatements.map((p) => p.view));
-
-      // Query ALL existing views with their SQL to identify union views
-      const allExistingViews = await this.powersync.getAll<{
-        name: string;
-        sql: string;
-      }>(
-        `SELECT DISTINCT v.name, v.sql
-         FROM sqlite_master v
-         WHERE v.type = 'view'`
-      );
-
-      // Check each view to see if it's an orphaned union view
-      // A view is an orphaned union view if:
-      // 1. It's not in the planned views list (not in drizzleSchema anymore)
-      // 2. AND its SQL matches our union view pattern (combines _synced and _local tables)
-      const orphanedViews: string[] = [];
-      for (const view of allExistingViews) {
-        const viewName = view.name;
-        const viewSql = view.sql?.toLowerCase() || '';
-
-        // Skip if it's in the planned views (still valid)
-        if (plannedViewNames.has(viewName)) {
-          continue;
-        }
-
-        // Only consider views that match our union view pattern:
-        // - Contains both _synced and _local table references
-        // - Contains UNION ALL
-        // This ensures we only clean up union views we created, not other views
-        const isUnionView =
-          viewSql.includes(`${viewName}_synced`) &&
-          viewSql.includes(`${viewName}_local`) &&
-          viewSql.includes('union all');
-
-        if (isUnionView) {
-          orphanedViews.push(viewName);
-        }
-      }
-
-      if (orphanedViews.length > 0) {
-        console.log(
-          `[createUnionViews] Found ${orphanedViews.length} orphaned view(s): ${orphanedViews.join(', ')}`
-        );
-
-        // Drop orphaned views
-        for (const viewName of orphanedViews) {
-          try {
-            await this.powersync.execute(`DROP VIEW IF EXISTS "${viewName}"`);
-            console.log(
-              `[createUnionViews] ✓ Dropped orphaned view: ${viewName}`
-            );
-          } catch (error) {
-            console.warn(
-              `[createUnionViews] Failed to drop orphaned view ${viewName}:`,
-              error
-            );
-          }
-        }
-      } else {
-        console.log('[createUnionViews] No orphaned views found');
-      }
-
-      await this.powersync.writeTransaction(async (tx) => {
-        // Compare with existing view SQL and apply only when different
-        for (const { view, dropSql, createSql } of plannedStatements) {
-          try {
-            const existing = existingByName.get(view);
-            const expected = createSql;
-
-            const viewExists = !!existing;
-
-            // Debug logging to see what's being compared
-            console.log(`Comparing view ${view}:`);
-            console.log('Existing:', existing);
-            console.log('Expected:', expected);
-            console.log('Match:', existing === expected);
-
-            if (existing === expected) {
-              console.log(`Union view for ${view} is up to date.`);
-              continue; // no change
-            } else if (viewExists) {
-              console.log(
-                `Union view for ${view} is not up to date. Updating...`
-              );
-            }
-
-            if (viewExists) await tx.execute(dropSql);
-            const insertId = (await tx.execute(createSql)).insertId;
-
-            if (!viewExists) {
-              console.log(
-                `Union view created for ${view}. Insert ID: ${insertId}`
-              );
-            }
-          } catch (e) {
-            console.warn(`Failed to ensure union view for ${view}:`, e);
-          }
-        }
-      });
-    } catch (error) {
-      console.warn('createUnionViews encountered an error:', error);
-    }
-  }
-
   async seed() {
     if (!__DEV__) return; // Only seed in development
     console.log('Resetting database...');
@@ -953,7 +660,7 @@ export class System {
     const ENGLISH_LANGUAGE_ID = uuid.v4();
 
     // Insert language
-    await this.db.insert(drizzleSchemaLocal.language_local).values({
+    await this.db.insert(drizzleSchema.language).values({
       id: ENGLISH_LANGUAGE_ID,
       creator_id: PROFILE_ID,
       native_name: 'Generated English',
@@ -966,7 +673,7 @@ export class System {
 
     async function createProject(
       i: number,
-      db: PowerSyncSQLiteDatabase<typeof drizzleSchemaLocal>
+      db: PowerSyncSQLiteDatabase<typeof drizzleSchema>
     ) {
       const project = {
         id: uuid.v4(),
@@ -992,7 +699,8 @@ export class System {
           name: `Quest ${i + 1}`,
           description: `Description for quest ${i + 1}`,
           project_id: project.id,
-          parent_id: null
+          parent_id: null,
+          published_at: null
         };
       });
 
@@ -1065,9 +773,9 @@ export class System {
         );
       };
 
-      await db.insert(drizzleSchemaLocal.project_local).values(project);
+      await db.insert(drizzleSchema.project).values(project);
       await db
-        .insert(drizzleSchemaLocal.profile_project_link_local)
+        .insert(drizzleSchema.profile_project_link)
         .values(profile_project_link);
 
       const allQuests = [
@@ -1080,14 +788,15 @@ export class System {
             description: `Description for layer ${depth} quest ${childIndex + 1}`,
             project_id: project.id,
             creator_id: PROFILE_ID,
-            download_profiles: [PROFILE_ID]
+            download_profiles: [PROFILE_ID],
+            published_at: null
           }),
           quests,
           4
         )
       ];
       // Insert all quests in batches to avoid SQL variable limits
-      await insertInBatches(allQuests, drizzleSchemaLocal.quest_local);
+      await insertInBatches(allQuests, drizzleSchema.quest);
 
       const assets: InsertAsset[] = [];
       const questAssetLinks: InsertQuestAssetLink[] = [];
@@ -1191,25 +900,21 @@ export class System {
         });
       });
 
-      await insertInBatches(assets, drizzleSchemaLocal.asset_local);
-      await insertInBatches(
-        questAssetLinks,
-        drizzleSchemaLocal.quest_asset_link_local
-      );
+      await insertInBatches(assets, drizzleSchema.asset);
+      await insertInBatches(questAssetLinks, drizzleSchema.quest_asset_link);
       await insertInBatches(
         assetContentLinks,
-        drizzleSchemaLocal.asset_content_link_local
+        drizzleSchema.asset_content_link
       );
-      await insertInBatches(votes, drizzleSchemaLocal.vote_local);
+      await insertInBatches(votes, drizzleSchema.vote);
     }
 
     for (let i = 0; i < 3; i++) {
-      // @ts-expect-error abc
       await createProject(i, this.db);
     }
     console.log(`Seeding time: ${performance.now() - time}ms`);
     // await this.db
-    //   .insert(drizzleSchemaLocal.quest_local)
+    //   .insert(drizzleSchema.quest)
     //   .values(layerFourQuests);
 
     // Insert assets
@@ -1227,7 +932,7 @@ export class System {
     //     target_asset_id: null
     //   });
     // }
-    // await this.db.insert(drizzleSchemaLocal.asset_local).values(assets);
+    // await this.db.insert(drizzleSchema.asset).values(assets);
 
     // Insert quests
     // const quests = [];
@@ -1248,7 +953,7 @@ export class System {
     //     parent_id: null
     //   });
     // }
-    // await this.db.insert(drizzleSchemaLocal.quest_local).values(quests);
+    // await this.db.insert(drizzleSchema.quest).values(quests);
     console.log('Database seeded successfully.');
     console.log('Vacuuming database...');
     const vacuumTime = performance.now();
@@ -1314,7 +1019,6 @@ export class System {
           wasSyncingDown = downloading;
         }
       });
-
       // Safety net: re-derive work lists when the app returns to the
       // foreground (backgrounded uploads/downloads may have been suspended
       // mid-flight; the pass is a cheap query, harmless when idle).
@@ -1345,7 +1049,7 @@ export class System {
   }
 
   isConnected() {
-    return this.powersync.connected;
+    return this.powerSyncCreated && this.powersync.connected;
   }
 
   // Add method to check attachment queue readiness specifically
@@ -1419,7 +1123,7 @@ export class System {
       this.audioDownloader?.stop();
 
       // Disconnect PowerSync
-      if (this.powersync.connected) {
+      if (this.powerSyncCreated && this.powersync.connected) {
         await this.powersync.disconnect();
       }
 
@@ -1475,6 +1179,8 @@ export class System {
       // Dynamic import to avoid circular dependencies
       const { runMigrations, getMinimumSchemaVersion } =
         await import('../migrations/index');
+      const { prepareSingleTableLayout, schemaVersionForMigration } =
+        await import('../migrations/upgradeToSingleTable');
       const { APP_SCHEMA_VERSION } = await import('../drizzleSchema');
 
       // Create migrationDb if not already set (works for both pre-auth and post-auth)
@@ -1494,10 +1200,11 @@ export class System {
         };
       }
 
-      // Get the actual current version from database
-      // This will return '0.0' for unversioned data, or the actual minimum version found
-      const currentVersion =
-        (await getMinimumSchemaVersion(this.migrationDb)) || '0.0';
+      const minVersion = await getMinimumSchemaVersion(this.migrationDb);
+      const currentVersion = await schemaVersionForMigration(
+        this.migrationDb,
+        minVersion
+      );
       console.log(
         `[System] Current schema version: ${currentVersion}, target: ${APP_SCHEMA_VERSION}`
       );
@@ -1549,6 +1256,12 @@ export class System {
         });
         throw new Error(`Migration failed: ${result.errors.join(', ')}`);
       }
+
+      await prepareSingleTableLayout(this.migrationDb, onProgress);
+
+      // Construct PowerSync so system.db exists
+      // before MigrationScreen unmounts and the app tree renders.
+      this.ensurePowerSyncCreated();
 
       console.log('[System] ✓ Migration completed successfully');
       this.migrationNeeded = false;
@@ -1677,7 +1390,7 @@ export class System {
       console.log('[System] Checking migrations pre-auth...');
 
       // Dynamic import to avoid circular dependencies
-      const { checkNeedsMigration } = await import('../migrations/index');
+      const { checkNeedsAnyUpgrade } = await import('../migrations/index');
       const { APP_SCHEMA_VERSION } = await import('../drizzleSchema');
 
       // Check degraded mode first
@@ -1704,8 +1417,7 @@ export class System {
         }
       };
 
-      // Check if migration is needed
-      const needsMigration = await checkNeedsMigration(
+      const needsMigration = await checkNeedsAnyUpgrade(
         migrationDb,
         APP_SCHEMA_VERSION
       );
@@ -1727,6 +1439,7 @@ export class System {
       }
 
       console.log('[System] ✓ Pre-auth migrations check passed');
+      this.ensurePowerSyncCreated();
       return false;
     } catch (error) {
       console.error('[System] Error checking migrations pre-auth:', error);

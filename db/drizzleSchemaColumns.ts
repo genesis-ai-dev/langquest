@@ -1,18 +1,10 @@
-/* eslint-disable @typescript-eslint/no-duplicate-type-constituents */
-/* eslint-disable @typescript-eslint/no-empty-object-type */
-import type { OfflineDataSource } from '@/views/new/useHybridData';
-import type { BuildExtraConfigColumns } from 'drizzle-orm';
 import { sql } from 'drizzle-orm';
-import type {
-  AnySQLiteColumn,
-  SQLiteColumnBuilderBase,
-  SQLiteTableExtraConfigValue
-} from 'drizzle-orm/sqlite-core';
+import type { AnySQLiteColumn } from 'drizzle-orm/sqlite-core';
 import {
   index,
   int,
   primaryKey,
-  sqliteTableCreator,
+  sqliteTable,
   text
 } from 'drizzle-orm/sqlite-core';
 import uuid from 'react-native-uuid';
@@ -25,75 +17,13 @@ import {
   membershipOptions,
   reasonOptions,
   requestTypeOptions,
-  sourceOptions,
   statusOptions,
   templateOptions,
   versificationTemplateOptions
 } from './constants';
-import type {
-  asset_local,
-  language_local,
-  profile_local,
-  project_local,
-  quest_local,
-  tag_local
-} from './drizzleSchemaLocal';
-import type {
-  asset_synced,
-  language_synced,
-  profile_synced,
-  project_synced,
-  quest_synced,
-  tag_synced
-} from './drizzleSchemaSynced';
 import type { OpMetadata } from './powersync/opMetadata';
-import { getDefaultOpMetadata } from './powersync/opMetadata';
 
-// good types:
-// export const pgBaseTable = <
-//   TTableName extends string,
-//   TColumnsMap extends Record<string, PgColumnBuilderBase>,
-// >(
-//   name: TTableName,
-//   columns: TColumnsMap,
-//   extraConfig?: (
-//     self: BuildExtraConfigColumns<TTableName, TColumnsMap, 'pg'>,
-//   ) => PgTableExtraConfigValue[],
-// ) => {
-//   return pgTable(
-//     name,
-//     {
-//       id: text()
-//         .$defaultFn(() => createId())
-//         .primaryKey(),
-//       serial: serial(),
-
-//       ...columns,
-//     },
-//     (table) => [
-//       index().on(table.serial),
-
-//       ...(extraConfig ? extraConfig(table) : []),
-//     ],
-//   )
-// }
-
-type TableSource = OfflineDataSource | 'merged';
-
-export const mergedTable = sqliteTableCreator((name) => name);
-export const syncedTable = sqliteTableCreator((name) => `${name}_synced`);
-// export const syncedTable = sqliteTableCreator((name) => name);
-export const localTable = sqliteTableCreator((name) => `${name}_local`);
-
-function getTableCreator(
-  source: TableSource
-): typeof localTable | typeof syncedTable | typeof mergedTable {
-  return source === 'local'
-    ? localTable
-    : source === 'merged'
-      ? mergedTable
-      : syncedTable;
-}
+type TableRef = { id: AnySQLiteColumn };
 
 export const timestampDefault = sql`(CURRENT_TIMESTAMP)`;
 
@@ -109,51 +39,19 @@ const baseColumns = {
     .$onUpdate(() => timestampDefault)
 };
 
-const syncedColumns = {
+const tableColumns = {
   ...baseColumns,
-  source: text({ enum: sourceOptions }).default('synced').notNull(),
   // _metadata is managed by PowerSync when trackMetadata: true
-  // We include it in the schema so Drizzle includes it in INSERT/UPDATE statements
-  // The stamp proxy in system.ts will add the value before writes
   _metadata: text({ mode: 'json' }).$type<OpMetadata>()
 };
 
-const localColumns = {
-  ...baseColumns,
-  source: text({ enum: sourceOptions }).default('local').notNull(),
-  // We need to manually add the metadata for the local columns because you cannot simply track metadata on non-syncing tables using PowerSync.
-  _metadata: text({ mode: 'json' })
-    .$type<OpMetadata>()
-    .$defaultFn(() => getDefaultOpMetadata())
-  // draft: int({ mode: 'boolean' }).notNull().default(true)
-};
-
-export function getBaseColumns<T extends TableSource>(
-  source: T
-): T extends 'local'
-  ? typeof localColumns
-  : T extends 'merged'
-    ? typeof syncedColumns & typeof localColumns
-    : typeof syncedColumns {
-  return (
-    source === 'local'
-      ? localColumns
-      : source === 'merged'
-        ? {
-            ...syncedColumns,
-            ...localColumns
-          }
-        : syncedColumns
-  ) as T extends 'local'
-    ? typeof localColumns
-    : T extends 'merged'
-      ? typeof syncedColumns & typeof localColumns
-      : typeof syncedColumns;
+export function getBaseColumns() {
+  return tableColumns;
 }
 
-export function getTableColumns<T extends TableSource>(source: T) {
+export function getTableColumns() {
   return {
-    ...getBaseColumns(source),
+    ...getBaseColumns(),
     id: text()
       .primaryKey()
       .$defaultFn(() => uuid.v4())
@@ -204,38 +102,17 @@ export interface QuestMetadata {
   // e.g., curriculum?: { unit: string; lesson: number };
 }
 
-function normalizeParams<T>(
-  params: Partial<Parameters<typeof syncedTable>[2]> | undefined,
-  table: T
-): SQLiteTableExtraConfigValue[] {
-  // @ts-expect-error - don't know types
-  const extra = (params?.(table) ?? []) as SQLiteTableExtraConfigValue[];
-
-  return extra;
-}
-
-export function createProjectTable<
-  T extends TableSource,
-  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
->(
-  source: T,
-  {
-    language,
-    profile
-  }: {
-    language: typeof language_synced | typeof language_local;
-    profile: typeof profile_synced | typeof profile_local;
-  },
-  columns?: TColumnsMap,
-  extraConfig?: (
-    self: BuildExtraConfigColumns<'project', TColumnsMap, 'sqlite'>
-  ) => SQLiteTableExtraConfigValue[]
-) {
-  const extraColumns = (columns ?? {}) as TColumnsMap;
-  const table = getTableCreator(source)(
+export function createProjectTable({
+  language,
+  profile
+}: {
+  language: TableRef;
+  profile: TableRef;
+}) {
+  const table = sqliteTable(
     'project',
     {
-      ...getTableColumns(source),
+      ...getTableColumns(),
       name: text().notNull(),
       description: text(),
       private: int({ mode: 'boolean' }).notNull().default(false),
@@ -249,132 +126,73 @@ export function createProjectTable<
       target_language_id: text(), // Nullable - new projects use languoid_id via project_language_link instead
       creator_id: text().references(() => profile.id),
       priority: int().notNull().default(0),
-      uploaded_at: text(), // Nullable - set by server trigger when content is uploaded
-      ...extraColumns
+      uploaded_at: text() // Nullable - set by server trigger when content is uploaded
     },
     (table) => [
       index('name_idx').on(table.name),
-      index('target_language_id_idx').on(table.target_language_id),
-      ...normalizeParams(extraConfig, table)
+      index('target_language_id_idx').on(table.target_language_id)
     ]
   );
 
   return table;
 }
 
-export function createProfileTable<
-  T extends TableSource,
-  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
->(
-  source: T,
-  columns?: TColumnsMap,
-  extraConfig?: (
-    self: BuildExtraConfigColumns<'profile', TColumnsMap, 'sqlite'>
-  ) => SQLiteTableExtraConfigValue[]
-) {
-  const extraColumns = (columns ?? {}) as TColumnsMap;
-  const table = getTableCreator(source)(
-    'profile',
-    {
-      ...getTableColumns(source),
-      email: text(),
-      username: text(),
-      password: text(),
-      avatar: text(),
-      ui_language_id: text(),
-      ui_languoid_id: text(), // Reference to languoid table (server-only, not synced)
-      terms_accepted: int({ mode: 'boolean' }),
-      terms_accepted_at: text(),
-      ...extraColumns
-    },
-    (table) => [...normalizeParams(extraConfig, table)]
-  );
+export function createProfileTable() {
+  const table = sqliteTable('profile', {
+    ...getTableColumns(),
+    email: text(),
+    username: text(),
+    password: text(),
+    avatar: text(),
+    ui_language_id: text(),
+    ui_languoid_id: text(), // Reference to languoid table (server-only, not synced)
+    terms_accepted: int({ mode: 'boolean' }),
+    terms_accepted_at: text()
+  });
 
   return table;
 }
 
-export function createLanguageTable<
-  T extends TableSource,
-  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
->(
-  source: T,
-  { profile }: { profile: typeof profile_synced | typeof profile_local },
-  columns?: TColumnsMap,
-  extraConfig?: (
-    self: BuildExtraConfigColumns<'language', TColumnsMap, 'sqlite'>
-  ) => SQLiteTableExtraConfigValue[]
-) {
-  const extraColumns = (columns ?? {}) as TColumnsMap;
-  const table = getTableCreator(source)(
-    'language',
-    {
-      ...getTableColumns(source),
-      // Enforce the existence of either native_name or english_name in the app
-      native_name: text(), // Enforce uniqueness across chains in the app
-      english_name: text(), // Enforce uniqueness across chains in the app
-      iso639_3: text(), // Enforce uniqueness across chains in the app
-      locale: text(),
-      ui_ready: int({ mode: 'boolean' }).notNull(),
-      download_profiles: text({ mode: 'json' }).$type<string[]>(),
-      creator_id: text().references(() => profile.id),
-      ...extraColumns
-    },
-    (table) => [...normalizeParams(extraConfig, table)]
-  );
+export function createLanguageTable({ profile }: { profile: TableRef }) {
+  const table = sqliteTable('language', {
+    ...getTableColumns(),
+    // Enforce the existence of either native_name or english_name in the app
+    native_name: text(), // Enforce uniqueness across chains in the app
+    english_name: text(), // Enforce uniqueness across chains in the app
+    iso639_3: text(), // Enforce uniqueness across chains in the app
+    locale: text(),
+    ui_ready: int({ mode: 'boolean' }).notNull(),
+    download_profiles: text({ mode: 'json' }).$type<string[]>(),
+    creator_id: text().references(() => profile.id)
+  });
 
   return table;
 }
 
-export function createTagTable<
-  T extends TableSource,
-  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
->(
-  source: T,
-  columns?: TColumnsMap,
-  extraConfig?: (
-    self: BuildExtraConfigColumns<'tag', TColumnsMap, 'sqlite'>
-  ) => SQLiteTableExtraConfigValue[]
-) {
-  const extraColumns = (columns ?? {}) as TColumnsMap;
-  const table = getTableCreator(source)(
-    'tag',
-    {
-      ...getTableColumns(source),
-      key: text().notNull(),
-      value: text().notNull(),
-      download_profiles: text({ mode: 'json' }).$type<string[]>(),
-      ...extraColumns
-    },
-    (table) => [...normalizeParams(extraConfig, table)]
-  );
+export function createTagTable() {
+  const table = sqliteTable('tag', {
+    ...getTableColumns(),
+    key: text().notNull(),
+    value: text().notNull(),
+    download_profiles: text({ mode: 'json' }).$type<string[]>()
+  });
 
   return table;
 }
 
-export function createAssetTable<
-  T extends TableSource,
-  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
->(
-  source: T,
-  {
-    language,
-    project,
-    profile
-  }: {
-    language: typeof language_synced | typeof language_local;
-    project: typeof project_synced | typeof project_local;
-    profile: typeof profile_synced | typeof profile_local;
-  },
-  columns?: TColumnsMap,
-  extraConfig?: (
-    self: BuildExtraConfigColumns<'asset', TColumnsMap, 'sqlite'>
-  ) => SQLiteTableExtraConfigValue[]
-) {
-  const extraColumns = (columns ?? {}) as TColumnsMap;
-  const table = getTableCreator(source)(
+export function createAssetTable({
+  language,
+  project,
+  profile
+}: {
+  language: TableRef;
+  project: TableRef;
+  profile: TableRef;
+}) {
+  const table = sqliteTable(
     'asset',
     {
-      ...getTableColumns(source),
+      ...getTableColumns(),
       name: text(),
       images: text({ mode: 'json' }).$type<string[]>(),
       visible: int({ mode: 'boolean' }).notNull().default(true),
@@ -386,16 +204,14 @@ export function createAssetTable<
       creator_id: text().references(() => profile.id),
       order_index: int().notNull().default(0),
       metadata: text(), // JSON metadata for asset-specific data (e.g., verse range)
-      uploaded_at: text(), // Nullable - set by server trigger when content is uploaded
-      ...extraColumns
+      uploaded_at: text() // Nullable - set by server trigger when content is uploaded
     },
     (table) => {
       return [
         index('name_idx').on(table.name),
         index('source_language_id_idx').on(table.source_language_id),
         index('asset_source_asset_id_idx').on(table.source_asset_id),
-        index('asset_project_id_idx').on(table.project_id),
-        ...normalizeParams(extraConfig, table)
+        index('asset_project_id_idx').on(table.project_id)
       ];
     }
   );
@@ -403,28 +219,17 @@ export function createAssetTable<
   return table;
 }
 
-export function createQuestTable<
-  T extends TableSource,
-  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
->(
-  source: T,
-  {
-    project,
-    profile
-  }: {
-    project: typeof project_synced | typeof project_local;
-    profile: typeof profile_synced | typeof profile_local;
-  },
-  columns?: TColumnsMap,
-  extraConfig?: (
-    self: BuildExtraConfigColumns<'quest', TColumnsMap, 'sqlite'>
-  ) => SQLiteTableExtraConfigValue[]
-) {
-  const extraColumns = (columns ?? {}) as TColumnsMap;
-  const table = getTableCreator(source)(
+export function createQuestTable({
+  project,
+  profile
+}: {
+  project: TableRef;
+  profile: TableRef;
+}) {
+  const table = sqliteTable(
     'quest',
     {
-      ...getTableColumns(source),
+      ...getTableColumns(),
       name: text().notNull(),
       description: text(),
       visible: int({ mode: 'boolean' }).notNull().default(true),
@@ -436,14 +241,14 @@ export function createQuestTable<
       parent_id: text().references((): AnySQLiteColumn => table.id),
       creator_id: text().references(() => profile.id),
       uploaded_at: text(), // Nullable - set by server trigger when content is uploaded
-      ...extraColumns
+      published_at: text() // Null until the creator publishes; others cannot see the quest
     },
     (table) => {
       return [
         index('project_id_idx').on(table.project_id),
         index('parent_id_idx').on(table.parent_id),
         index('name_idx').on(table.name),
-        ...normalizeParams(extraConfig, table)
+        index('quest_published_at_idx').on(table.published_at)
       ];
     }
   );
@@ -451,28 +256,17 @@ export function createQuestTable<
   return table;
 }
 
-export function createVoteTable<
-  T extends TableSource,
-  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
->(
-  source: T,
-  {
-    asset,
-    profile
-  }: {
-    asset: typeof asset_synced | typeof asset_local;
-    profile: typeof profile_synced | typeof profile_local;
-  },
-  columns?: TColumnsMap,
-  extraConfig?: (
-    self: BuildExtraConfigColumns<'vote', TColumnsMap, 'sqlite'>
-  ) => SQLiteTableExtraConfigValue[]
-) {
-  const extraColumns = (columns ?? {}) as TColumnsMap;
-  const table = getTableCreator(source)(
+export function createVoteTable({
+  asset,
+  profile
+}: {
+  asset: TableRef;
+  profile: TableRef;
+}) {
+  const table = sqliteTable(
     'vote',
     {
-      ...getTableColumns(source),
+      ...getTableColumns(),
       polarity: text({ enum: ['up', 'down'] }).notNull(),
       comment: text(),
       download_profiles: text({ mode: 'json' }).$type<string[]>(),
@@ -482,14 +276,12 @@ export function createVoteTable<
       creator_id: text()
         .notNull()
         .references(() => profile.id),
-      uploaded_at: text(), // Nullable - set by server trigger when content is uploaded
-      ...extraColumns
+      uploaded_at: text() // Nullable - set by server trigger when content is uploaded
     },
     (table) => {
       return [
         index('asset_id_idx').on(table.asset_id),
-        index('creator_id_idx').on(table.creator_id),
-        ...normalizeParams(extraConfig, table)
+        index('creator_id_idx').on(table.creator_id)
       ];
     }
   );
@@ -497,30 +289,18 @@ export function createVoteTable<
   return table;
 }
 
-export function createReportsTable<
-  T extends TableSource,
-  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
->(
-  source: T,
-  { profile }: { profile: typeof profile_synced | typeof profile_local },
-  columns?: TColumnsMap,
-  extraConfig?: (
-    self: BuildExtraConfigColumns<'reports', TColumnsMap, 'sqlite'>
-  ) => SQLiteTableExtraConfigValue[]
-) {
-  const extraColumns = (columns ?? {}) as TColumnsMap;
-  const table = getTableCreator(source)(
+export function createReportsTable({ profile }: { profile: TableRef }) {
+  const table = sqliteTable(
     'reports',
     {
-      ...getTableColumns(source),
+      ...getTableColumns(),
       record_id: text().notNull(),
       record_table: text().notNull(),
       reason: text({ enum: reasonOptions }).notNull(),
       details: text(),
       reporter_id: text()
         .notNull()
-        .references(() => profile.id),
-      ...extraColumns
+        .references(() => profile.id)
     },
     (table) => {
       return [
@@ -528,8 +308,7 @@ export function createReportsTable<
           table.record_id,
           table.record_table
         ),
-        index('reporter_id_idx').on(table.reporter_id),
-        ...normalizeParams(extraConfig, table)
+        index('reporter_id_idx').on(table.reporter_id)
       ];
     }
   );
@@ -537,19 +316,8 @@ export function createReportsTable<
   return table;
 }
 
-export function createFeedbackTable<
-  T extends TableSource,
-  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
->(
-  source: T,
-  { profile }: { profile: typeof profile_synced | typeof profile_local },
-  columns?: TColumnsMap,
-  extraConfig?: (
-    self: BuildExtraConfigColumns<'feedback', TColumnsMap, 'sqlite'>
-  ) => SQLiteTableExtraConfigValue[]
-) {
-  const extraColumns = (columns ?? {}) as TColumnsMap;
-  const table = getTableCreator(source)(
+export function createFeedbackTable({ profile }: { profile: TableRef }) {
+  const table = sqliteTable(
     'feedback',
     {
       // Minimal columns - no active, no last_updated
@@ -557,9 +325,6 @@ export function createFeedbackTable<
         .primaryKey()
         .$defaultFn(() => uuid.v4()),
       created_at: text().notNull().default(timestampDefault),
-      source: text({ enum: sourceOptions })
-        .default(source === 'local' ? 'local' : 'synced')
-        .notNull(),
       // _metadata is required for PowerSync sync tracking
       _metadata: text({ mode: 'json' }).$type<OpMetadata>(),
       profile_id: text()
@@ -569,14 +334,12 @@ export function createFeedbackTable<
       title: text().notNull(),
       request_type: text({ enum: requestTypeOptions }).notNull(),
       description: text().notNull(),
-      app_version: text(),
-      ...extraColumns
+      app_version: text()
     },
     (table) => {
       return [
         index('feedback_profile_id_idx').on(table.profile_id),
-        index('feedback_request_type_idx').on(table.request_type),
-        ...normalizeParams(extraConfig, table)
+        index('feedback_request_type_idx').on(table.request_type)
       ];
     }
   );
@@ -584,97 +347,58 @@ export function createFeedbackTable<
   return table;
 }
 
-export function createBlockedUsersTable<
-  T extends TableSource,
-  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
->(
-  source: T,
-  { profile }: { profile: typeof profile_synced | typeof profile_local },
-  columns?: TColumnsMap,
-  extraConfig?: (
-    self: BuildExtraConfigColumns<'blocked_users', TColumnsMap, 'sqlite'>
-  ) => SQLiteTableExtraConfigValue[]
-) {
-  const extraColumns = (columns ?? {}) as TColumnsMap;
-  const table = getTableCreator(source)(
+export function createBlockedUsersTable({ profile }: { profile: TableRef }) {
+  const table = sqliteTable(
     'blocked_users',
     {
-      ...getBaseColumns(source),
+      ...getBaseColumns(),
       blocker_id: text()
         .notNull()
         .references(() => profile.id),
       blocked_id: text()
         .notNull()
-        .references(() => profile.id),
-      ...extraColumns
+        .references(() => profile.id)
     },
-    (table) => [
-      primaryKey({ columns: [table.blocker_id, table.blocked_id] }),
-      ...normalizeParams(extraConfig, table)
-    ]
+    (table) => [primaryKey({ columns: [table.blocker_id, table.blocked_id] })]
   );
 
   return table;
 }
 
-export function createBlockedContentTable<
-  T extends TableSource,
-  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
->(
-  source: T,
-  { profile }: { profile: typeof profile_synced | typeof profile_local },
-  columns?: TColumnsMap,
-  extraConfig?: (
-    self: BuildExtraConfigColumns<'blocked_content', TColumnsMap, 'sqlite'>
-  ) => SQLiteTableExtraConfigValue[]
-) {
-  const extraColumns = (columns ?? {}) as TColumnsMap;
-  const table = getTableCreator(source)(
+export function createBlockedContentTable({ profile }: { profile: TableRef }) {
+  const table = sqliteTable(
     'blocked_content',
     {
-      ...getTableColumns(source),
+      ...getTableColumns(),
       content_id: text().notNull(),
       content_table: text().notNull(),
       profile_id: text()
         .notNull()
-        .references(() => profile.id),
-      ...extraColumns
+        .references(() => profile.id)
     },
     (table) => [
       index('profile_id_idx').on(table.profile_id),
       index('content_id_content_table_idx').on(
         table.content_id,
         table.content_table
-      ),
-      ...normalizeParams(extraConfig, table)
+      )
     ]
   );
 
   return table;
 }
 
-export function createAssetContentLinkTable<
-  T extends TableSource,
-  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
->(
-  source: T,
-  {
-    asset,
-    language
-  }: {
-    asset: typeof asset_synced | typeof asset_local;
-    language: typeof language_synced | typeof language_local;
-  },
-  columns?: TColumnsMap,
-  extraConfig?: (
-    self: BuildExtraConfigColumns<'asset_content_link', TColumnsMap, 'sqlite'>
-  ) => SQLiteTableExtraConfigValue[]
-) {
-  const extraColumns = (columns ?? {}) as TColumnsMap;
-  const table = getTableCreator(source)(
+export function createAssetContentLinkTable({
+  asset,
+  language
+}: {
+  asset: TableRef;
+  language: TableRef;
+}) {
+  const table = sqliteTable(
     'asset_content_link',
     {
-      ...getTableColumns(source),
+      ...getTableColumns(),
       text: text(),
       audio: text({ mode: 'json' }).$type<string[]>(),
       download_profiles: text({ mode: 'json' }).$type<string[]>(),
@@ -685,8 +409,7 @@ export function createAssetContentLinkTable<
       languoid_id: text(), // Reference to languoid table
       order_index: int().notNull().default(0),
       uploaded_at: text(), // Nullable - set by server trigger when content is uploaded
-      audio_uploaded_at: text(), // Nullable - set by server triggers from storage.objects.created_at
-      ...extraColumns
+      audio_uploaded_at: text() // Nullable - set by server triggers from storage.objects.created_at
     },
     (table) => {
       return [
@@ -698,8 +421,7 @@ export function createAssetContentLinkTable<
         // The audio sync workers' work-list queries filter on this column on
         // every pass (and via db.watch during sync); IS NULL matches ~0 rows
         // in steady state, so this turns a full scan into an index seek.
-        index('idx_acl_audio_uploaded_at').on(table.audio_uploaded_at),
-        ...normalizeParams(extraConfig, table)
+        index('idx_acl_audio_uploaded_at').on(table.audio_uploaded_at)
       ];
     }
   );
@@ -707,40 +429,24 @@ export function createAssetContentLinkTable<
   return table;
 }
 
-export function createProjectLanguageLinkTable<
-  T extends TableSource,
-  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
->(
-  source: T,
-  {
-    project,
-    language
-  }: {
-    project: typeof project_synced | typeof project_local;
-    language: typeof language_synced | typeof language_local;
-  },
-  columns?: TColumnsMap,
-  extraConfig?: (
-    self: BuildExtraConfigColumns<
-      'project_language_link',
-      TColumnsMap,
-      'sqlite'
-    >
-  ) => SQLiteTableExtraConfigValue[]
-) {
-  const extraColumns = (columns ?? {}) as TColumnsMap;
-  const table = getTableCreator(source)(
+export function createProjectLanguageLinkTable({
+  project,
+  language
+}: {
+  project: TableRef;
+  language: TableRef;
+}) {
+  const table = sqliteTable(
     'project_language_link',
     {
-      ...getBaseColumns(source),
+      ...getBaseColumns(),
       language_type: text({ enum: ['source', 'target'] }).notNull(),
       download_profiles: text({ mode: 'json' }).$type<string[]>(),
       project_id: text()
         .notNull()
         .references(() => project.id),
       language_id: text(), // Nullable - kept for backward compatibility
-      languoid_id: text().notNull(), // Part of new PK - canonical language reference
-      ...extraColumns
+      languoid_id: text().notNull() // Part of new PK - canonical language reference
     },
     (table) => [
       primaryKey({
@@ -748,116 +454,74 @@ export function createProjectLanguageLinkTable<
       }),
       index('pll_project_id_idx').on(table.project_id),
       index('pll_language_type_idx').on(table.language_type),
-      index('pll_language_id_idx').on(table.language_id), // For backward compatibility
-      ...normalizeParams(extraConfig, table)
+      index('pll_language_id_idx').on(table.language_id) // For backward compatibility
     ]
   );
 
   return table;
 }
 
-export function createQuestTagLinkTable<
-  T extends TableSource,
-  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
->(
-  source: T,
-  {
-    quest,
-    tag
-  }: {
-    quest: typeof quest_synced | typeof quest_local;
-    tag: typeof tag_synced | typeof tag_local;
-  },
-  columns?: TColumnsMap,
-  extraConfig?: (
-    self: BuildExtraConfigColumns<'quest_tag_link', TColumnsMap, 'sqlite'>
-  ) => SQLiteTableExtraConfigValue[]
-) {
-  const extraColumns = (columns ?? {}) as TColumnsMap;
-  const table = getTableCreator(source)(
+export function createQuestTagLinkTable({
+  quest,
+  tag
+}: {
+  quest: TableRef;
+  tag: TableRef;
+}) {
+  const table = sqliteTable(
     'quest_tag_link',
     {
-      ...getBaseColumns(source),
+      ...getBaseColumns(),
       download_profiles: text({ mode: 'json' }).$type<string[]>(),
       quest_id: text()
         .notNull()
         .references(() => quest.id),
       tag_id: text()
         .notNull()
-        .references(() => tag.id),
-      ...extraColumns
+        .references(() => tag.id)
     },
-    (table) => [
-      primaryKey({ columns: [table.quest_id, table.tag_id] }),
-      ...normalizeParams(extraConfig, table)
-    ]
+    (table) => [primaryKey({ columns: [table.quest_id, table.tag_id] })]
   );
 
   return table;
 }
 
-export function createAssetTagLinkTable<
-  T extends TableSource,
-  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
->(
-  source: T,
-  {
-    asset,
-    tag
-  }: {
-    asset: typeof asset_synced | typeof asset_local;
-    tag: typeof tag_synced | typeof tag_local;
-  },
-  columns?: TColumnsMap,
-  extraConfig?: (
-    self: BuildExtraConfigColumns<'asset_tag_link', TColumnsMap, 'sqlite'>
-  ) => SQLiteTableExtraConfigValue[]
-) {
-  const extraColumns = (columns ?? {}) as TColumnsMap;
-  const table = getTableCreator(source)(
+export function createAssetTagLinkTable({
+  asset,
+  tag
+}: {
+  asset: TableRef;
+  tag: TableRef;
+}) {
+  const table = sqliteTable(
     'asset_tag_link',
     {
-      ...getBaseColumns(source),
+      ...getBaseColumns(),
       download_profiles: text({ mode: 'json' }).$type<string[]>(),
       asset_id: text()
         .notNull()
         .references(() => asset.id),
       tag_id: text()
         .notNull()
-        .references(() => tag.id),
-      ...extraColumns
+        .references(() => tag.id)
     },
-    (table) => [
-      primaryKey({ columns: [table.asset_id, table.tag_id] }),
-      ...normalizeParams(extraConfig, table)
-    ]
+    (table) => [primaryKey({ columns: [table.asset_id, table.tag_id] })]
   );
 
   return table;
 }
 
-export function createQuestAssetLinkTable<
-  T extends TableSource,
-  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
->(
-  source: T,
-  {
-    quest,
-    asset
-  }: {
-    quest: typeof quest_synced | typeof quest_local;
-    asset: typeof asset_synced | typeof asset_local;
-  },
-  columns?: TColumnsMap,
-  extraConfig?: (
-    self: BuildExtraConfigColumns<'quest_asset_link', TColumnsMap, 'sqlite'>
-  ) => SQLiteTableExtraConfigValue[]
-) {
-  const extraColumns = (columns ?? {}) as TColumnsMap;
-  const table = getTableCreator(source)(
+export function createQuestAssetLinkTable({
+  quest,
+  asset
+}: {
+  quest: TableRef;
+  asset: TableRef;
+}) {
+  const table = sqliteTable(
     'quest_asset_link',
     {
-      ...getBaseColumns(source),
+      ...getBaseColumns(),
       name: text(),
       download_profiles: text({ mode: 'json' }).$type<string[]>(),
       visible: int({ mode: 'boolean' }).notNull().default(true),
@@ -869,77 +533,41 @@ export function createQuestAssetLinkTable<
         .references(() => asset.id),
       order_index: int().notNull().default(0),
       metadata: text(),
-      uploaded_at: text(), // Nullable - set by server trigger when content is uploaded
-      ...extraColumns
+      uploaded_at: text() // Nullable - set by server trigger when content is uploaded
     },
-    (table) => [
-      primaryKey({ columns: [table.quest_id, table.asset_id] }),
-      ...normalizeParams(extraConfig, table)
-    ]
+    (table) => [primaryKey({ columns: [table.quest_id, table.asset_id] })]
   );
 
   return table;
 }
 
-export function createNotificationTable<
-  T extends TableSource,
-  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
->(
-  source: T,
-  {
-    profile
-  }: {
-    profile: typeof profile_synced | typeof profile_local;
-  },
-  columns?: TColumnsMap,
-  extraConfig?: (
-    self: BuildExtraConfigColumns<'notification', TColumnsMap, 'sqlite'>
-  ) => SQLiteTableExtraConfigValue[]
-) {
-  const extraColumns = (columns ?? {}) as TColumnsMap;
-  const table = getTableCreator(source)(
-    'notification',
-    {
-      ...getTableColumns(source),
-      viewed: int({ mode: 'boolean' }).notNull().default(false),
-      target_table_name: text().notNull(),
-      target_record_id: text().notNull(),
-      profile_id: text()
-        .notNull()
-        .references(() => profile.id),
-      ...extraColumns
-    },
-    (table) => [...normalizeParams(extraConfig, table)]
-  );
+export function createNotificationTable({ profile }: { profile: TableRef }) {
+  const table = sqliteTable('notification', {
+    ...getTableColumns(),
+    viewed: int({ mode: 'boolean' }).notNull().default(false),
+    target_table_name: text().notNull(),
+    target_record_id: text().notNull(),
+    profile_id: text()
+      .notNull()
+      .references(() => profile.id)
+  });
 
   return table;
 }
 
-export function createInviteTable<
-  T extends TableSource,
-  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
->(
-  source: T,
-  {
-    senderProfile,
-    receiverProfile,
-    project
-  }: {
-    senderProfile: typeof profile_synced | typeof profile_local;
-    receiverProfile: typeof profile_synced | typeof profile_local;
-    project: typeof project_synced | typeof project_local;
-  },
-  columns?: TColumnsMap,
-  extraConfig?: (
-    self: BuildExtraConfigColumns<'invite', TColumnsMap, 'sqlite'>
-  ) => SQLiteTableExtraConfigValue[]
-) {
-  const extraColumns = (columns ?? {}) as TColumnsMap;
-
-  const table = getTableCreator(source)(
+export function createInviteTable({
+  senderProfile,
+  receiverProfile,
+  project
+}: {
+  senderProfile: TableRef;
+  receiverProfile: TableRef;
+  project: TableRef;
+}) {
+  const table = sqliteTable(
     'invite',
     {
-      ...getTableColumns(source),
+      ...getTableColumns(),
       status: text({ enum: statusOptions }).notNull(),
       as_owner: int({ mode: 'boolean' }).notNull().default(false),
       email: text().notNull(),
@@ -959,41 +587,28 @@ export function createInviteTable<
       email_bounced_at: text(), // ISO timestamp
       bounce_type: text({ enum: inviteBounceTypeOptions }),
       bounce_reason: text({ enum: inviteBounceReasonOptions }),
-      bounce_notice_dismissed_at: text(), // ISO timestamp — sender dismissed delivery notice
-      ...extraColumns
+      bounce_notice_dismissed_at: text() // ISO timestamp — sender dismissed delivery notice
     },
     (table) => [
       index('idx_invite_request_receiver_email').on(table.email),
-      index('idx_invite_resend_email_id').on(table.resend_email_id),
-      ...normalizeParams(extraConfig, table)
+      index('idx_invite_resend_email_id').on(table.resend_email_id)
     ]
   );
 
   return table;
 }
 
-export function createProfileProjectLinkTable<
-  T extends TableSource,
-  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
->(
-  source: T,
-  {
-    profile,
-    project
-  }: {
-    profile: typeof profile_synced | typeof profile_local;
-    project: typeof project_synced | typeof project_local;
-  },
-  columns?: TColumnsMap,
-  extraConfig?: (
-    self: BuildExtraConfigColumns<'profile_project_link', TColumnsMap, 'sqlite'>
-  ) => SQLiteTableExtraConfigValue[]
-) {
-  const extraColumns = (columns ?? {}) as TColumnsMap;
-  const table = getTableCreator(source)(
+export function createProfileProjectLinkTable({
+  profile,
+  project
+}: {
+  profile: TableRef;
+  project: TableRef;
+}) {
+  const table = sqliteTable(
     'profile_project_link',
     {
-      ...getBaseColumns(source),
+      ...getBaseColumns(),
       membership: text({ enum: membershipOptions }).default('member').notNull(),
       download_profiles: text({ mode: 'json' }).$type<string[]>(),
       profile_id: text()
@@ -1001,108 +616,57 @@ export function createProfileProjectLinkTable<
         .references(() => profile.id),
       project_id: text()
         .notNull()
-        .references(() => project.id),
-      ...extraColumns
+        .references(() => project.id)
     },
-    (table) => [
-      primaryKey({ columns: [table.profile_id, table.project_id] }),
-      ...normalizeParams(extraConfig, table)
-    ]
+    (table) => [primaryKey({ columns: [table.profile_id, table.project_id] })]
   );
 
   return table;
 }
 
-export function createRequestTable<
-  T extends TableSource,
-  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
->(
-  source: T,
-  {
-    senderProfile,
-    project
-  }: {
-    senderProfile: typeof profile_synced | typeof profile_local;
-    project: typeof project_synced | typeof project_local;
-  },
-  columns?: TColumnsMap,
-  extraConfig?: (
-    self: BuildExtraConfigColumns<'request', TColumnsMap, 'sqlite'>
-  ) => SQLiteTableExtraConfigValue[]
-) {
-  const extraColumns = (columns ?? {}) as TColumnsMap;
-  const table = getTableCreator(source)(
-    'request',
-    {
-      ...getTableColumns(source),
-      status: text({ enum: statusOptions }).notNull(),
-      count: int().notNull(),
-      sender_profile_id: text()
-        .notNull()
-        .references(() => senderProfile.id),
-      project_id: text()
-        .notNull()
-        .references(() => project.id),
-      ...extraColumns
-    },
-    (table) => [...normalizeParams(extraConfig, table)]
-  );
+export function createRequestTable({
+  senderProfile,
+  project
+}: {
+  senderProfile: TableRef;
+  project: TableRef;
+}) {
+  const table = sqliteTable('request', {
+    ...getTableColumns(),
+    status: text({ enum: statusOptions }).notNull(),
+    count: int().notNull(),
+    sender_profile_id: text()
+      .notNull()
+      .references(() => senderProfile.id),
+    project_id: text()
+      .notNull()
+      .references(() => project.id)
+  });
 
   return table;
 }
 
-export function createSubscriptionTable<
-  T extends TableSource,
-  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
->(
-  source: T,
-  {
-    profile
-  }: {
-    profile: typeof profile_synced | typeof profile_local;
-  },
-  columns?: TColumnsMap,
-  extraConfig?: (
-    self: BuildExtraConfigColumns<'subscription', TColumnsMap, 'sqlite'>
-  ) => SQLiteTableExtraConfigValue[]
-) {
-  const extraColumns = (columns ?? {}) as TColumnsMap;
-  const table = getTableCreator(source)(
-    'subscription',
-    {
-      ...getTableColumns(source),
-      target_record_id: text().notNull(),
-      target_table_name: text().notNull(),
-      profile_id: text()
-        .notNull()
-        .references(() => profile.id),
-      ...extraColumns
-    },
-    (table) => [...normalizeParams(extraConfig, table)]
-  );
+export function createSubscriptionTable({ profile }: { profile: TableRef }) {
+  const table = sqliteTable('subscription', {
+    ...getTableColumns(),
+    target_record_id: text().notNull(),
+    target_table_name: text().notNull(),
+    profile_id: text()
+      .notNull()
+      .references(() => profile.id)
+  });
 
   return table;
 }
 
-export function createQuestClosureTable<
-  T extends TableSource,
-  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
->(
-  source: T,
-  {
-    quest,
-    project
-  }: {
-    quest: typeof quest_synced | typeof quest_local;
-    project: typeof project_synced | typeof project_local;
-  },
-  columns?: TColumnsMap,
-  extraConfig?: (
-    self: BuildExtraConfigColumns<'quest_closure', TColumnsMap, 'sqlite'>
-  ) => SQLiteTableExtraConfigValue[]
-) {
-  const extraColumns = (columns ?? {}) as TColumnsMap;
-  const table = getTableCreator(source)(
+export function createQuestClosureTable({
+  quest,
+  project
+}: {
+  quest: TableRef;
+  project: TableRef;
+}) {
+  const table = sqliteTable(
     'quest_closure',
     {
       quest_id: text()
@@ -1134,36 +698,19 @@ export function createQuestClosureTable<
       // Download tracking
       download_profiles: text({ mode: 'json' }).$type<string[]>().default([]),
 
-      last_updated: text().notNull().default(timestampDefault),
-      ...extraColumns
+      last_updated: text().notNull().default(timestampDefault)
     },
     (table) => [
       index('quest_closure_project_id_idx').on(table.project_id),
-      index('quest_closure_last_updated_idx').on(table.last_updated),
-      ...normalizeParams(extraConfig, table)
+      index('quest_closure_last_updated_idx').on(table.last_updated)
     ]
   );
 
   return table;
 }
 
-export function createProjectClosureTable<
-  T extends TableSource,
-  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
->(
-  source: T,
-  {
-    project
-  }: {
-    project: typeof project_synced | typeof project_local;
-  },
-  columns?: TColumnsMap,
-  extraConfig?: (
-    self: BuildExtraConfigColumns<'project_closure', TColumnsMap, 'sqlite'>
-  ) => SQLiteTableExtraConfigValue[]
-) {
-  const extraColumns = (columns ?? {}) as TColumnsMap;
-  const table = getTableCreator(source)(
+export function createProjectClosureTable({ project }: { project: TableRef }) {
+  const table = sqliteTable(
     'project_closure',
     {
       // ID Arrays (for bulk downloads - aggregated from all quest closures)
@@ -1194,12 +741,10 @@ export function createProjectClosureTable<
       last_updated: text().notNull().default(timestampDefault),
       project_id: text()
         .primaryKey()
-        .references(() => project.id),
-      ...extraColumns
+        .references(() => project.id)
     },
     (table) => [
-      index('project_closure_last_updated_idx').on(table.last_updated),
-      ...normalizeParams(extraConfig, table)
+      index('project_closure_last_updated_idx').on(table.last_updated)
     ]
   );
 
@@ -1210,63 +755,39 @@ export function createProjectClosureTable<
 // LANGUOID TABLE DEFINITIONS
 // ============================================================================
 
-export function createLanguoidTable<
-  T extends TableSource,
-  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
->(
-  source: T,
-  { profile }: { profile: typeof profile_synced | typeof profile_local },
-  columns?: TColumnsMap,
-  extraConfig?: (
-    self: BuildExtraConfigColumns<'languoid', TColumnsMap, 'sqlite'>
-  ) => SQLiteTableExtraConfigValue[]
-) {
-  const extraColumns = (columns ?? {}) as TColumnsMap;
-  const table = getTableCreator(source)(
+export function createLanguoidTable({ profile }: { profile: TableRef }) {
+  const table = sqliteTable(
     'languoid',
     {
-      ...getTableColumns(source),
+      ...getTableColumns(),
       name: text(),
       parent_id: text().references((): AnySQLiteColumn => table.id),
       level: text({ enum: ['family', 'language', 'dialect'] }).notNull(),
       ui_ready: int({ mode: 'boolean' }).notNull().default(false),
       download_profiles: text({ mode: 'json' }).$type<string[]>(),
-      creator_id: text().references(() => profile.id),
-      ...extraColumns
+      creator_id: text().references(() => profile.id)
     },
     (table) => [
       index('languoid_parent_id_idx').on(table.parent_id),
       index('languoid_name_idx').on(table.name),
-      index('languoid_ui_ready_idx').on(table.ui_ready),
-      ...normalizeParams(extraConfig, table)
+      index('languoid_ui_ready_idx').on(table.ui_ready)
     ]
   );
 
   return table;
 }
 
-export function createLanguoidAliasTable<
-  T extends TableSource,
-  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
->(
-  source: T,
-  {
-    languoid,
-    profile
-  }: {
-    languoid: { id: AnySQLiteColumn };
-    profile: typeof profile_synced | typeof profile_local;
-  },
-  columns?: TColumnsMap,
-  extraConfig?: (
-    self: BuildExtraConfigColumns<'languoid_alias', TColumnsMap, 'sqlite'>
-  ) => SQLiteTableExtraConfigValue[]
-) {
-  const extraColumns = (columns ?? {}) as TColumnsMap;
-  const table = getTableCreator(source)(
+export function createLanguoidAliasTable({
+  languoid,
+  profile
+}: {
+  languoid: { id: AnySQLiteColumn };
+  profile: TableRef;
+}) {
+  const table = sqliteTable(
     'languoid_alias',
     {
-      ...getTableColumns(source),
+      ...getTableColumns(),
       subject_languoid_id: text()
         .notNull()
         .references(() => languoid.id),
@@ -1277,42 +798,29 @@ export function createLanguoidAliasTable<
       alias_type: text({ enum: ['endonym', 'exonym'] }).notNull(),
       source_names: text({ mode: 'json' }).$type<string[]>().default([]),
       download_profiles: text({ mode: 'json' }).$type<string[]>(),
-      creator_id: text().references(() => profile.id),
-      ...extraColumns
+      creator_id: text().references(() => profile.id)
     },
     (table) => [
       index('languoid_alias_subject_idx').on(table.subject_languoid_id),
       index('languoid_alias_label_idx').on(table.label_languoid_id),
-      index('languoid_alias_name_idx').on(table.name),
-      ...normalizeParams(extraConfig, table)
+      index('languoid_alias_name_idx').on(table.name)
     ]
   );
 
   return table;
 }
 
-export function createLanguoidSourceTable<
-  T extends TableSource,
-  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
->(
-  source: T,
-  {
-    languoid,
-    profile
-  }: {
-    languoid: { id: AnySQLiteColumn };
-    profile: typeof profile_synced | typeof profile_local;
-  },
-  columns?: TColumnsMap,
-  extraConfig?: (
-    self: BuildExtraConfigColumns<'languoid_source', TColumnsMap, 'sqlite'>
-  ) => SQLiteTableExtraConfigValue[]
-) {
-  const extraColumns = (columns ?? {}) as TColumnsMap;
-  const table = getTableCreator(source)(
+export function createLanguoidSourceTable({
+  languoid,
+  profile
+}: {
+  languoid: { id: AnySQLiteColumn };
+  profile: TableRef;
+}) {
+  const table = sqliteTable(
     'languoid_source',
     {
-      ...getTableColumns(source),
+      ...getTableColumns(),
       name: text().notNull(),
       version: text(),
       languoid_id: text()
@@ -1321,121 +829,80 @@ export function createLanguoidSourceTable<
       unique_identifier: text(),
       url: text(),
       download_profiles: text({ mode: 'json' }).$type<string[]>(),
-      creator_id: text().references(() => profile.id),
-      ...extraColumns
+      creator_id: text().references(() => profile.id)
     },
     (table) => [
       index('languoid_source_languoid_id_idx').on(table.languoid_id),
-      index('languoid_source_unique_identifier_idx').on(
-        table.unique_identifier
-      ),
-      ...normalizeParams(extraConfig, table)
+      index('languoid_source_unique_identifier_idx').on(table.unique_identifier)
     ]
   );
 
   return table;
 }
 
-export function createLanguoidPropertyTable<
-  T extends TableSource,
-  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
->(
-  source: T,
-  {
-    languoid,
-    profile
-  }: {
-    languoid: { id: AnySQLiteColumn };
-    profile: typeof profile_synced | typeof profile_local;
-  },
-  columns?: TColumnsMap,
-  extraConfig?: (
-    self: BuildExtraConfigColumns<'languoid_property', TColumnsMap, 'sqlite'>
-  ) => SQLiteTableExtraConfigValue[]
-) {
-  const extraColumns = (columns ?? {}) as TColumnsMap;
-  const table = getTableCreator(source)(
+export function createLanguoidPropertyTable({
+  languoid,
+  profile
+}: {
+  languoid: { id: AnySQLiteColumn };
+  profile: TableRef;
+}) {
+  const table = sqliteTable(
     'languoid_property',
     {
-      ...getTableColumns(source),
+      ...getTableColumns(),
       languoid_id: text()
         .notNull()
         .references(() => languoid.id),
       key: text().notNull(),
       value: text().notNull(),
       download_profiles: text({ mode: 'json' }).$type<string[]>(),
-      creator_id: text().references(() => profile.id),
-      ...extraColumns
+      creator_id: text().references(() => profile.id)
     },
     (table) => [
       index('languoid_property_languoid_id_idx').on(table.languoid_id),
-      index('languoid_property_key_idx').on(table.key),
-      ...normalizeParams(extraConfig, table)
+      index('languoid_property_key_idx').on(table.key)
     ]
   );
 
   return table;
 }
 
-export function createRegionTable<
-  T extends TableSource,
-  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
->(
-  source: T,
-  { profile }: { profile: typeof profile_synced | typeof profile_local },
-  columns?: TColumnsMap,
-  extraConfig?: (
-    self: BuildExtraConfigColumns<'region', TColumnsMap, 'sqlite'>
-  ) => SQLiteTableExtraConfigValue[]
-) {
-  const extraColumns = (columns ?? {}) as TColumnsMap;
-  const table = getTableCreator(source)(
+export function createRegionTable({ profile }: { profile: TableRef }) {
+  const table = sqliteTable(
     'region',
     {
-      ...getTableColumns(source),
+      ...getTableColumns(),
       name: text(),
       parent_id: text().references((): AnySQLiteColumn => table.id),
       level: text({ enum: ['continent', 'nation', 'subnational'] }).notNull(),
       geometry: int({ mode: 'boolean' }).notNull().default(false),
       download_profiles: text({ mode: 'json' }).$type<string[]>(),
-      creator_id: text().references(() => profile.id),
-      ...extraColumns
+      creator_id: text().references(() => profile.id)
     },
     (table) => [
       index('region_parent_id_idx').on(table.parent_id),
       index('region_name_idx').on(table.name),
-      index('region_level_idx').on(table.level),
-      ...normalizeParams(extraConfig, table)
+      index('region_level_idx').on(table.level)
     ]
   );
 
   return table;
 }
 
-export function createRegionAliasTable<
-  T extends TableSource,
-  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
->(
-  source: T,
-  {
-    region,
-    languoid,
-    profile
-  }: {
-    region: { id: AnySQLiteColumn };
-    languoid: { id: AnySQLiteColumn };
-    profile: typeof profile_synced | typeof profile_local;
-  },
-  columns?: TColumnsMap,
-  extraConfig?: (
-    self: BuildExtraConfigColumns<'region_alias', TColumnsMap, 'sqlite'>
-  ) => SQLiteTableExtraConfigValue[]
-) {
-  const extraColumns = (columns ?? {}) as TColumnsMap;
-  const table = getTableCreator(source)(
+export function createRegionAliasTable({
+  region,
+  languoid,
+  profile
+}: {
+  region: { id: AnySQLiteColumn };
+  languoid: { id: AnySQLiteColumn };
+  profile: TableRef;
+}) {
+  const table = sqliteTable(
     'region_alias',
     {
-      ...getTableColumns(source),
+      ...getTableColumns(),
       subject_region_id: text()
         .notNull()
         .references(() => region.id),
@@ -1444,42 +911,29 @@ export function createRegionAliasTable<
         .references(() => languoid.id),
       name: text(),
       download_profiles: text({ mode: 'json' }).$type<string[]>(),
-      creator_id: text().references(() => profile.id),
-      ...extraColumns
+      creator_id: text().references(() => profile.id)
     },
     (table) => [
       index('region_alias_subject_idx').on(table.subject_region_id),
       index('region_alias_label_idx').on(table.label_languoid_id),
-      index('region_alias_name_idx').on(table.name),
-      ...normalizeParams(extraConfig, table)
+      index('region_alias_name_idx').on(table.name)
     ]
   );
 
   return table;
 }
 
-export function createRegionSourceTable<
-  T extends TableSource,
-  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
->(
-  source: T,
-  {
-    region,
-    profile
-  }: {
-    region: { id: AnySQLiteColumn };
-    profile: typeof profile_synced | typeof profile_local;
-  },
-  columns?: TColumnsMap,
-  extraConfig?: (
-    self: BuildExtraConfigColumns<'region_source', TColumnsMap, 'sqlite'>
-  ) => SQLiteTableExtraConfigValue[]
-) {
-  const extraColumns = (columns ?? {}) as TColumnsMap;
-  const table = getTableCreator(source)(
+export function createRegionSourceTable({
+  region,
+  profile
+}: {
+  region: { id: AnySQLiteColumn };
+  profile: TableRef;
+}) {
+  const table = sqliteTable(
     'region_source',
     {
-      ...getTableColumns(source),
+      ...getTableColumns(),
       name: text().notNull(),
       version: text(),
       region_id: text()
@@ -1488,84 +942,58 @@ export function createRegionSourceTable<
       unique_identifier: text(),
       url: text(),
       download_profiles: text({ mode: 'json' }).$type<string[]>(),
-      creator_id: text().references(() => profile.id),
-      ...extraColumns
+      creator_id: text().references(() => profile.id)
     },
     (table) => [
       index('region_source_region_id_idx').on(table.region_id),
-      index('region_source_unique_identifier_idx').on(table.unique_identifier),
-      ...normalizeParams(extraConfig, table)
+      index('region_source_unique_identifier_idx').on(table.unique_identifier)
     ]
   );
 
   return table;
 }
 
-export function createRegionPropertyTable<
-  T extends TableSource,
-  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
->(
-  source: T,
-  {
-    region,
-    profile
-  }: {
-    region: { id: AnySQLiteColumn };
-    profile: typeof profile_synced | typeof profile_local;
-  },
-  columns?: TColumnsMap,
-  extraConfig?: (
-    self: BuildExtraConfigColumns<'region_property', TColumnsMap, 'sqlite'>
-  ) => SQLiteTableExtraConfigValue[]
-) {
-  const extraColumns = (columns ?? {}) as TColumnsMap;
-  const table = getTableCreator(source)(
+export function createRegionPropertyTable({
+  region,
+  profile
+}: {
+  region: { id: AnySQLiteColumn };
+  profile: TableRef;
+}) {
+  const table = sqliteTable(
     'region_property',
     {
-      ...getTableColumns(source),
+      ...getTableColumns(),
       region_id: text()
         .notNull()
         .references(() => region.id),
       key: text().notNull(),
       value: text().notNull(),
       download_profiles: text({ mode: 'json' }).$type<string[]>(),
-      creator_id: text().references(() => profile.id),
-      ...extraColumns
+      creator_id: text().references(() => profile.id)
     },
     (table) => [
       index('region_property_region_id_idx').on(table.region_id),
-      index('region_property_key_idx').on(table.key),
-      ...normalizeParams(extraConfig, table)
+      index('region_property_key_idx').on(table.key)
     ]
   );
 
   return table;
 }
 
-export function createLanguoidRegionTable<
-  T extends TableSource,
-  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
->(
-  source: T,
-  {
-    languoid,
-    region,
-    profile
-  }: {
-    languoid: { id: AnySQLiteColumn };
-    region: { id: AnySQLiteColumn };
-    profile: typeof profile_synced | typeof profile_local;
-  },
-  columns?: TColumnsMap,
-  extraConfig?: (
-    self: BuildExtraConfigColumns<'languoid_region', TColumnsMap, 'sqlite'>
-  ) => SQLiteTableExtraConfigValue[]
-) {
-  const extraColumns = (columns ?? {}) as TColumnsMap;
-  const table = getTableCreator(source)(
+export function createLanguoidRegionTable({
+  languoid,
+  region,
+  profile
+}: {
+  languoid: { id: AnySQLiteColumn };
+  region: { id: AnySQLiteColumn };
+  profile: TableRef;
+}) {
+  const table = sqliteTable(
     'languoid_region',
     {
-      ...getTableColumns(source),
+      ...getTableColumns(),
       languoid_id: text()
         .notNull()
         .references(() => languoid.id),
@@ -1576,13 +1004,11 @@ export function createLanguoidRegionTable<
       official: int({ mode: 'boolean' }),
       native: int({ mode: 'boolean' }),
       download_profiles: text({ mode: 'json' }).$type<string[]>(),
-      creator_id: text().references(() => profile.id),
-      ...extraColumns
+      creator_id: text().references(() => profile.id)
     },
     (table) => [
       index('languoid_region_languoid_id_idx').on(table.languoid_id),
-      index('languoid_region_region_id_idx').on(table.region_id),
-      ...normalizeParams(extraConfig, table)
+      index('languoid_region_region_id_idx').on(table.region_id)
     ]
   );
 
@@ -1591,32 +1017,17 @@ export function createLanguoidRegionTable<
 
 // Note: statusOptions and matchedOnOptions are imported from constants.ts at the top of the file
 
-export function createLanguoidLinkSuggestionTable<
-  T extends TableSource,
-  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
->(
-  source: T,
-  {
-    languoid,
-    profile
-  }: {
-    languoid: { id: AnySQLiteColumn };
-    profile: typeof profile_synced | typeof profile_local;
-  },
-  columns?: TColumnsMap,
-  extraConfig?: (
-    self: BuildExtraConfigColumns<
-      'languoid_link_suggestion',
-      TColumnsMap,
-      'sqlite'
-    >
-  ) => SQLiteTableExtraConfigValue[]
-) {
-  const extraColumns = (columns ?? {}) as TColumnsMap;
-  const table = getTableCreator(source)(
+export function createLanguoidLinkSuggestionTable({
+  languoid,
+  profile
+}: {
+  languoid: { id: AnySQLiteColumn };
+  profile: TableRef;
+}) {
+  const table = sqliteTable(
     'languoid_link_suggestion',
     {
-      ...getTableColumns(source),
+      ...getTableColumns(),
       // The user-created languoid that needs linking
       languoid_id: text()
         .notNull()
@@ -1635,46 +1046,29 @@ export function createLanguoidLinkSuggestionTable<
       matched_on: text({ enum: matchedOnOptions }),
       // The actual value that matched
       matched_value: text(),
-      status: text({ enum: statusOptions }).notNull().default('pending'),
-      ...extraColumns
+      status: text({ enum: statusOptions }).notNull().default('pending')
     },
     (table) => [
       index('languoid_link_suggestion_user_languoid_idx').on(table.languoid_id),
       index('languoid_link_suggestion_creator_idx').on(table.profile_id),
-      index('languoid_link_suggestion_status_idx').on(table.status),
-      ...normalizeParams(extraConfig, table)
+      index('languoid_link_suggestion_status_idx').on(table.status)
     ]
   );
 
   return table;
 }
 
-export function createProjectLanguoidSuggestionTable<
-  T extends TableSource,
-  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
->(
-  source: T,
-  {
-    project,
-    languoid
-  }: {
-    project: { id: AnySQLiteColumn };
-    languoid: { id: AnySQLiteColumn };
-  },
-  columns?: TColumnsMap,
-  extraConfig?: (
-    self: BuildExtraConfigColumns<
-      'project_languoid_suggestion',
-      TColumnsMap,
-      'sqlite'
-    >
-  ) => SQLiteTableExtraConfigValue[]
-) {
-  const extraColumns = (columns ?? {}) as TColumnsMap;
-  const table = getTableCreator(source)(
+export function createProjectLanguoidSuggestionTable({
+  project,
+  languoid
+}: {
+  project: { id: AnySQLiteColumn };
+  languoid: { id: AnySQLiteColumn };
+}) {
+  const table = sqliteTable(
     'project_languoid_suggestion',
     {
-      ...getTableColumns(source),
+      ...getTableColumns(),
       project_id: text()
         .notNull()
         .references(() => project.id),
@@ -1688,13 +1082,11 @@ export function createProjectLanguoidSuggestionTable<
         .notNull()
         .default('target'),
       matched_value: text(),
-      status: text({ enum: statusOptions }).notNull().default('pending'),
-      ...extraColumns
+      status: text({ enum: statusOptions }).notNull().default('pending')
     },
     (table) => [
       index('project_languoid_suggestion_project_idx').on(table.project_id),
-      index('project_languoid_suggestion_status_idx').on(table.status),
-      ...normalizeParams(extraConfig, table)
+      index('project_languoid_suggestion_status_idx').on(table.status)
     ]
   );
 

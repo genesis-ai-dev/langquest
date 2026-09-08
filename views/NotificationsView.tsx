@@ -22,11 +22,6 @@ import {
   project,
   request
 } from '@/db/drizzleSchema';
-import {
-  invite_synced,
-  profile_project_link_synced,
-  request_synced
-} from '@/db/drizzleSchemaSynced';
 import { system } from '@/db/powersync/system';
 import type { LanguoidLinkSuggestionWithDetails } from '@/hooks/db/useLanguoidLinkSuggestions';
 import {
@@ -641,14 +636,14 @@ export default function NotificationsView() {
 
           // Update invite via synced table - PowerSync will sync changes to Supabase
           await system.db
-            .update(invite_synced)
+            .update(invite)
             .set({
               status: 'accepted',
               count: 1,
               receiver_profile_id: receiverProfileId,
               last_updated: new Date().toISOString()
             })
-            .where(eq(invite_synced.id, notificationId));
+            .where(eq(invite.id, notificationId));
 
           console.log(
             '[handleAccept] Invite updated via synced table with receiver_profile_id:',
@@ -675,13 +670,13 @@ export default function NotificationsView() {
 
               // Update request via synced table
               await system.db
-                .update(request_synced)
+                .update(request)
                 .set({
                   status: 'accepted',
                   count: 1,
                   last_updated: new Date().toISOString()
                 })
-                .where(eq(request_synced.id, req.id));
+                .where(eq(request.id, req.id));
 
               console.log(
                 '[handleAccept] Corresponding request updated via synced table'
@@ -705,7 +700,7 @@ export default function NotificationsView() {
         if (existingLink.length > 0) {
           // Update existing link via synced table
           await system.db
-            .update(profile_project_link_synced)
+            .update(profile_project_link)
             .set({
               active: true,
               membership: asOwner ? 'owner' : 'member',
@@ -713,8 +708,8 @@ export default function NotificationsView() {
             })
             .where(
               and(
-                eq(profile_project_link_synced.profile_id, currentUser!.id),
-                eq(profile_project_link_synced.project_id, projectId)
+                eq(profile_project_link.profile_id, currentUser!.id),
+                eq(profile_project_link.project_id, projectId)
               )
             );
           console.log(
@@ -722,7 +717,7 @@ export default function NotificationsView() {
           );
         } else {
           // Create new link via synced table
-          await system.db.insert(profile_project_link_synced).values({
+          await system.db.insert(profile_project_link).values({
             profile_id: currentUser!.id,
             project_id: projectId,
             membership: asOwner ? 'owner' : 'member',
@@ -752,13 +747,13 @@ export default function NotificationsView() {
 
           // Update request via synced table - PowerSync will sync changes to Supabase
           await system.db
-            .update(request_synced)
+            .update(request)
             .set({
               status: 'accepted',
               count: 1,
               last_updated: new Date().toISOString()
             })
-            .where(eq(request_synced.id, notificationId));
+            .where(eq(request.id, notificationId));
 
           console.log('[handleAccept] Request updated via synced table');
 
@@ -787,12 +782,12 @@ export default function NotificationsView() {
 
             // Update corresponding invite via synced table
             await system.db
-              .update(invite_synced)
+              .update(invite)
               .set({
                 count: 1,
                 last_updated: new Date().toISOString()
               })
-              .where(eq(invite_synced.id, inv.id));
+              .where(eq(invite.id, inv.id));
 
             console.log(
               '[handleAccept] Corresponding invite updated via synced table'
@@ -814,7 +809,7 @@ export default function NotificationsView() {
           if (existingRequesterLink.length > 0) {
             // Update existing link via synced table
             await system.db
-              .update(profile_project_link_synced)
+              .update(profile_project_link)
               .set({
                 active: true,
                 membership: asOwner ? 'owner' : 'member',
@@ -822,8 +817,8 @@ export default function NotificationsView() {
               })
               .where(
                 and(
-                  eq(profile_project_link_synced.profile_id, senderProfileId),
-                  eq(profile_project_link_synced.project_id, projectId)
+                  eq(profile_project_link.profile_id, senderProfileId),
+                  eq(profile_project_link.project_id, projectId)
                 )
               );
             console.log(
@@ -831,7 +826,7 @@ export default function NotificationsView() {
             );
           } else {
             // Create new link via synced table
-            await system.db.insert(profile_project_link_synced).values({
+            await system.db.insert(profile_project_link).values({
               profile_id: senderProfileId,
               project_id: projectId,
               membership: asOwner ? 'owner' : 'member',
@@ -914,12 +909,12 @@ export default function NotificationsView() {
         if (existingInvite.length > 0 && existingInvite[0]) {
           // Update invite via synced table - PowerSync will sync changes to Supabase
           await system.db
-            .update(invite_synced)
+            .update(invite)
             .set({
               status: 'declined',
               last_updated: new Date().toISOString()
             })
-            .where(eq(invite_synced.id, notificationId));
+            .where(eq(invite.id, notificationId));
 
           console.log('[handleDecline] Invite declined via synced table');
         }
@@ -943,13 +938,13 @@ export default function NotificationsView() {
 
           // Update request via synced table - PowerSync will sync changes to Supabase
           await system.db
-            .update(request_synced)
+            .update(request)
             .set({
               status: 'declined',
               count: newCount,
               last_updated: new Date().toISOString()
             })
-            .where(eq(request_synced.id, notificationId));
+            .where(eq(request.id, notificationId));
 
           console.log('[handleDecline] Request declined via synced table');
         }
@@ -989,12 +984,12 @@ export default function NotificationsView() {
     setProcessingDeliveryDismissIds((prev) => new Set(prev).add(inviteId));
     try {
       await system.db
-        .update(invite_synced)
+        .update(invite)
         .set({
           bounce_notice_dismissed_at: new Date().toISOString(),
           last_updated: new Date().toISOString()
         })
-        .where(eq(invite_synced.id, inviteId));
+        .where(eq(invite.id, inviteId));
 
       await Promise.all([
         queryClient.invalidateQueries({

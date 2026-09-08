@@ -9,7 +9,7 @@ import {
   useAudioRecorderState
 } from 'expo-audio';
 import { MicIcon, Square } from 'lucide-react-native';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Pressable, View, useWindowDimensions } from 'react-native';
 import type { SharedValue } from 'react-native-reanimated';
 import Animated, {
@@ -85,8 +85,11 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
   const haptic = useHaptic('medium');
   const { currentUser: _currentUser } = useAuth();
   const { t } = useLocalization();
-  const [hasActiveRecording, setHasActiveRecording] = useState(false);
-  const [recordingDuration, setRecordingDuration] = useState(0);
+  // Session bookkeeping, read only by startRecording/stopRecording and never
+  // rendered. Refs rather than state so the serialized stop below observes the
+  // value the preceding start wrote instead of a not-yet-flushed render.
+  const hasActiveRecordingRef = useRef(false);
+  const recordingDurationRef = useRef(0);
   // Permission check removed - handled by parent RecordingControls via canRecord prop
   const isActivatingRef = useRef(false);
   const pressStartTimeRef = useRef<number | null>(null);
@@ -117,7 +120,7 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
     if (duration === lastProcessedDurationRef.current) return;
     lastProcessedDurationRef.current = duration;
 
-    setRecordingDuration(duration);
+    recordingDurationRef.current = duration;
     // Notify parent of duration updates for progress bar
     onRecordingDurationUpdate?.(duration);
 
@@ -295,7 +298,33 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
 
   // Background color animation removed - no longer needed
 
-  const startRecording = async () => {
+  // Recorder work runs one operation at a time. expo-audio rejects a second
+  // prepareToRecordAsync while the first is still in flight, and a press can
+  // enqueue the next start before the previous start finished preparing.
+  const recorderQueueRef = useRef<Promise<unknown>>(Promise.resolve());
+
+  const enqueueRecorderOp = <T,>(op: () => Promise<T>): Promise<T> => {
+    const result = recorderQueueRef.current.then(op, op);
+    recorderQueueRef.current = result.catch(() => undefined);
+    return result;
+  };
+
+  // Android refuses to prepare a recorder that is already prepared, so a start
+  // that never reached record() has to hand the session back explicitly.
+  const releasePreparedSession = async () => {
+    try {
+      const status = recorder.getStatus();
+      if (status.canRecord && !status.isRecording) {
+        await recorder.stop();
+      }
+    } catch (error) {
+      console.warn('Failed to release prepared recorder session:', error);
+    }
+  };
+
+  const startRecording = () => enqueueRecorderOp(runStartRecording);
+
+  const runStartRecording = async () => {
     try {
       // Small yield to let button animation render
       await new Promise((resolve) =>
@@ -336,33 +365,39 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
         }
       };
 
+      await releasePreparedSession();
       await recorder.prepareToRecordAsync(options);
 
       // Check if we were cancelled during async setup (user released early)
       // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
       if (shouldCancelRecordingRef.current) {
         shouldCancelRecordingRef.current = false;
+        await releasePreparedSession();
         return;
       }
 
       recorder.record();
 
-      setHasActiveRecording(true);
-      setRecordingDuration(0);
+      hasActiveRecordingRef.current = true;
+      recordingDurationRef.current = 0;
 
       // Reset energy range for this recording
       energyRangeRef.current = { min: Infinity, max: -Infinity };
     } catch (error) {
       console.error('❌ Failed to start recording:', error);
+      await releasePreparedSession();
       onRecordingStop(); // Clean up
     }
   };
 
-  const stopRecording = async () => {
-    if (!hasActiveRecording) {
+  const stopRecording = () => enqueueRecorderOp(runStopRecording);
+
+  const runStopRecording = async () => {
+    if (!hasActiveRecordingRef.current) {
       // Recording not started yet (user released during async setup)
       // Set cancellation flag so startRecording() knows to abort
       shouldCancelRecordingRef.current = true;
+      await releasePreparedSession();
       onRecordingStop();
       return;
     }
@@ -370,25 +405,26 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
     try {
       await recorder.stop();
       const uri = recorder.uri;
+      const duration = recordingDurationRef.current;
 
       if (uri) {
-        if (recordingDuration >= MIN_RECORDING_DURATION) {
+        if (duration >= MIN_RECORDING_DURATION) {
           const waveformData = [...recordedSamplesRef.current];
-          onRecordingComplete(uri, recordingDuration, waveformData);
+          onRecordingComplete(uri, duration, waveformData);
         } else {
           onRecordingDiscarded?.();
         }
       }
 
-      setHasActiveRecording(false);
-      setRecordingDuration(0);
+      hasActiveRecordingRef.current = false;
+      recordingDurationRef.current = 0;
       recordedSamplesRef.current = [];
 
       onRecordingStop();
     } catch (error) {
       console.error('Failed to stop recording:', error);
-      setHasActiveRecording(false);
-      setRecordingDuration(0);
+      hasActiveRecordingRef.current = false;
+      recordingDurationRef.current = 0;
       recordedSamplesRef.current = [];
       onRecordingStop();
     }
