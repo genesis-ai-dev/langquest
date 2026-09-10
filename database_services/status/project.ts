@@ -1,8 +1,10 @@
 import { project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import { useHybridQuery } from '@/hooks/useHybridQuery';
+import {
+  type HybridDataSource,
+  useHybridQuery
+} from '@/hooks/useHybridQuery';
 import { localSourceOverrideOptions, resolveTable } from '@/utils/dbUtils';
-import type { HybridDataSource } from '@/views/new/useHybridData';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { eq } from 'drizzle-orm';
 import type { ProjectStatus } from '../types';
@@ -34,7 +36,7 @@ export function useProjectStatuses(projectId: string): ProjectStatusHook {
         where: eq(project.id, projectId)
       })
     ),
-    onlineFn: async (): Promise<(typeof project.$inferSelect)[]> => {
+    cloudQueryFn: async (): Promise<(typeof project.$inferSelect)[]> => {
       const { data, error } = await supabaseConnector.client
         .from('project')
         .select('private, active, visible')

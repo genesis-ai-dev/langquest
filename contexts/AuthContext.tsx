@@ -1,4 +1,5 @@
 import { system } from '@/db/powersync/system';
+import { initializeFiaQueue } from '@/services/FiaAttachmentQueue';
 import { setPostHogUserId } from '@/services/posthog';
 import { useLocalStore } from '@/store/localStore';
 import { getSupabaseAuthKey } from '@/utils/supabaseUtils';
@@ -147,6 +148,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setAppUpgradeNeeded(false);
       setUpgradeError(null);
       await system.init();
+      initializeFiaQueue();
       setIsSystemReady(true);
       console.log('[AuthContext] System initialized successfully');
     } catch (error) {

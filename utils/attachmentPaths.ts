@@ -2,9 +2,11 @@
  * Deterministic resolution of asset_content_link.audio values to local files.
  *
  * Audio values come in three shapes:
- *   - 'local/{uuid}.{ext}'  pre-publish recording (stays on-device by design)
- *   - '{uuid}.{ext}'        published filename; local copy lives at
- *                           shared_attachments/{uuid}.{ext}
+ *   - '{uuid}.{ext}'        storage object name (what the DB stores, including
+ *                           on drafts). Until publish the file lives at
+ *                           shared_attachments/local/{uuid}.{ext}.
+ *   - 'local/{uuid}.{ext}'  on-disk staging path; also present in audio[]
+ *                           on older published rows (storage object name).
  *   - 'file://…'            legacy full URI stored by very old clients
  *
  * There is no database involved: the on-disk location is a pure function of
@@ -22,9 +24,34 @@ import {
 
 export const LOCAL_AUDIO_PREFIX = 'local/';
 
-/** True for pre-publish values that must never be uploaded. */
+/** True for on-disk staging paths (`local/{uuid}.{ext}`). */
 export function isLocalOnlyAudio(audioValue: string): boolean {
   return audioValue.startsWith(LOCAL_AUDIO_PREFIX);
+}
+
+/**
+ * True when this audio[] value can exist as a Supabase Storage object.
+ * Older published rows still use a `local/…` object name; `file://` never does.
+ */
+export function isRemoteAudioObject(audioValue: string): boolean {
+  return !isInvalidAudioValue(audioValue) && !audioValue.startsWith('file://');
+}
+
+/** Storage object name: strips the on-disk `local/` prefix. */
+export function storageAudioObjectName(audioValue: string): string {
+  return isLocalOnlyAudio(audioValue)
+    ? audioValue.slice(LOCAL_AUDIO_PREFIX.length)
+    : audioValue;
+}
+
+/** Strip `local/` from each audio[] value. Returns null when `audio` is not an array. */
+export function normalizeStoredAudioArray(
+  audio: unknown
+): string[] | null {
+  if (!Array.isArray(audio)) return null;
+  return audio.map((value) =>
+    typeof value === 'string' ? storageAudioObjectName(value) : String(value)
+  );
 }
 
 /** True for values that can never resolve to a real attachment file. */

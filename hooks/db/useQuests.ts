@@ -1,6 +1,6 @@
 import { quest as questTable } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import { useHybridData } from '@/views/new/useHybridData';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { InferSelectModel } from 'drizzle-orm';
 
@@ -13,9 +13,8 @@ export function useQuestById(quest_id: string | undefined) {
     data: questArray,
     isLoading: isQuestLoading,
     ...rest
-  } = useHybridData({
-    dataType: 'quest',
-    queryKeyParams: ['quest', quest_id],
+  } = useHybridQuery({
+    queryKey: ['quest', 'quest', quest_id],
     offlineQuery: toCompilableQuery(
       db.query.quest.findFirst({
         where: (fields, { eq }) => eq(fields.id, quest_id!)

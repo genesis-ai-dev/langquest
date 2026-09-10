@@ -3,16 +3,18 @@ import { resolveTable } from '@/utils/dbUtils';
 import { and, eq, inArray } from 'drizzle-orm';
 import uuid from 'react-native-uuid';
 import type { AssetOperationDataItem, AssetOperationTypes } from './types';
+import type { AssetGcOperation } from './assetGarbageCollectorService';
 import {
   dequeue as dequeueAssetGc,
-  enqueue as enqueueAssetGc,
-  type AssetGcOperation
+  enqueue as enqueueAssetGc
 } from './assetGarbageCollectorService';
+import { audioSegmentService } from './audioSegmentService';
 import {
-  batchUpdateAssetVerse,
-  renameAsset,
-  softDeleteAssetsFromQuest
+  batchUpdateAssetVerseDirect,
+  renameAssetDirect,
+  softDeleteAssetsFromQuestDirect
 } from './assetService';
+import { enqueueAssetWrite } from './assetWriteQueue';
 
 function isCreatedItem(item: AssetOperationDataItem): boolean {
   return item.metadata?.provenance?.type === 'created';
@@ -27,7 +29,7 @@ function serializeLinkMetadata(
 
 /**
  * Restore assets (and their quest_asset_link snapshots) to a quest.
- * - Created / local assets: restore project_id
+ * - Created / local assets: restore project_id if an older client nulled it
  * - All items: recreate quest_asset_link with name, order_index, metadata
  */
 async function restoreAssetsToQuest(
@@ -44,6 +46,8 @@ async function restoreAssetsToQuest(
   const uniqueItems = Array.from(itemsById.values());
   const uniqueAssetIds = uniqueItems.map((item) => item.id);
 
+  await insertCreatedAssetsFromSnapshot(questId, uniqueItems);
+
   const assetLocal = resolveTable('asset', { localOverride: true });
   const questAssetLinkLocal = resolveTable('quest_asset_link', {
     localOverride: true
@@ -53,6 +57,7 @@ async function restoreAssetsToQuest(
     const localAssets = await tx
       .select({
         id: assetLocal.id,
+        project_id: assetLocal.project_id,
         download_profiles: assetLocal.download_profiles
       })
       .from(assetLocal)
@@ -64,7 +69,8 @@ async function restoreAssetsToQuest(
 
     const createdOrLocalIds = uniqueItems
       .filter((item) => isCreatedItem(item) || localAssetMap.has(item.id))
-      .map((item) => item.id);
+      .map((item) => item.id)
+      .filter((id) => localAssetMap.get(id)?.project_id !== projectId);
 
     if (createdOrLocalIds.length > 0) {
       await tx
@@ -88,7 +94,9 @@ async function restoreAssetsToQuest(
     );
 
     const linksToInsert = uniqueItems
-      .filter((item) => !existingAssetIds.has(item.id))
+      .filter(
+        (item) => !existingAssetIds.has(item.id) && localAssetMap.has(item.id)
+      )
       .map((item) => {
         const localAsset = localAssetMap.get(item.id);
         return {
@@ -109,10 +117,171 @@ async function restoreAssetsToQuest(
   });
 }
 
+function toAssetRowMetadata(
+  item: AssetOperationDataItem,
+  questId: string
+): string {
+  const { provenance: _provenance, ...rest } = item.metadata ?? {};
+  return JSON.stringify({
+    ...rest,
+    origin: { questId }
+  });
+}
+
+async function insertCreatedAssetsFromSnapshot(
+  questId: string,
+  items: AssetOperationDataItem[]
+): Promise<void> {
+  const itemsWithRows = items.filter(
+    (item) => (item.contents?.length ?? 0) > 0
+  );
+  if (itemsWithRows.length === 0) return;
+
+  const assetLocal = resolveTable('asset', { localOverride: true });
+  const contentLocal = resolveTable('asset_content_link', {
+    localOverride: true
+  });
+  const uniqueAssetIds = itemsWithRows.map((item) => item.id);
+
+  await system.db.transaction(async (tx) => {
+    const existing = await tx
+      .select({ id: assetLocal.id })
+      .from(assetLocal)
+      .where(inArray(assetLocal.id, uniqueAssetIds));
+    const existingIds = new Set(existing.map((row) => row.id));
+
+    const existingContent = await tx
+      .select({ asset_id: contentLocal.asset_id })
+      .from(contentLocal)
+      .where(inArray(contentLocal.asset_id, uniqueAssetIds));
+    const assetsWithContent = new Set(
+      existingContent.map((row) => row.asset_id)
+    );
+
+    for (const item of itemsWithRows) {
+      if (!existingIds.has(item.id)) {
+        await tx.insert(assetLocal).values({
+          id: item.id,
+          name: item.name ?? null,
+          order_index: item.order_index ?? 0,
+          source_language_id: item.source_language_id ?? null,
+          project_id: item.project_id ?? null,
+          creator_id: item.creator_id ?? null,
+          download_profiles: item.download_profiles ?? [],
+          metadata: toAssetRowMetadata(item, questId)
+        });
+      }
+
+      if (assetsWithContent.has(item.id)) continue;
+
+      for (const content of item.contents ?? []) {
+        await tx.insert(contentLocal).values({
+          ...(content.id ? { id: content.id } : {}),
+          asset_id: item.id,
+          source_language_id:
+            content.source_language_id ?? item.source_language_id ?? null,
+          languoid_id:
+            content.languoid_id ??
+            content.source_language_id ??
+            item.source_language_id ??
+            null,
+          text: content.text ?? item.name ?? '',
+          audio: content.audio ?? [],
+          download_profiles:
+            content.download_profiles ?? item.download_profiles ?? [],
+          order_index: content.order_index ?? 1
+        });
+      }
+    }
+  });
+}
+
+async function rematerializeCreatedAssetsFromSnapshot(
+  projectId: string,
+  questId: string,
+  items: AssetOperationDataItem[]
+): Promise<void> {
+  const withSnapshot = items.filter((item) => (item.contents?.length ?? 0) > 0);
+  if (withSnapshot.length === 0) {
+    await restoreAssetsToQuest(projectId, questId, items);
+    return;
+  }
+
+  const assetLocal = resolveTable('asset', { localOverride: true });
+  const contentLocal = resolveTable('asset_content_link', {
+    localOverride: true
+  });
+  const questAssetLinkLocal = resolveTable('quest_asset_link', {
+    localOverride: true
+  });
+  const assetIds = withSnapshot.map((item) => item.id);
+
+  // One transaction so a checkpoint cannot restore the old content-link id
+  // between delete and insert. Reuse snapshot ids so redo PUTs the same rows
+  // the original create uploaded.
+  await system.db.transaction(async (tx) => {
+    await tx
+      .delete(questAssetLinkLocal)
+      .where(
+        and(
+          eq(questAssetLinkLocal.quest_id, questId),
+          inArray(questAssetLinkLocal.asset_id, assetIds)
+        )
+      );
+    await tx
+      .delete(contentLocal)
+      .where(inArray(contentLocal.asset_id, assetIds));
+    await tx.delete(assetLocal).where(inArray(assetLocal.id, assetIds));
+
+    for (const item of withSnapshot) {
+      await tx.insert(assetLocal).values({
+        id: item.id,
+        name: item.name ?? null,
+        order_index: item.order_index ?? 0,
+        source_language_id: item.source_language_id ?? null,
+        project_id: item.project_id ?? projectId,
+        creator_id: item.creator_id ?? null,
+        download_profiles: item.download_profiles ?? [],
+        metadata: toAssetRowMetadata(item, questId)
+      });
+
+      for (const content of item.contents ?? []) {
+        await tx.insert(contentLocal).values({
+          ...(content.id ? { id: content.id } : {}),
+          asset_id: item.id,
+          source_language_id:
+            content.source_language_id ?? item.source_language_id ?? null,
+          languoid_id:
+            content.languoid_id ??
+            content.source_language_id ??
+            item.source_language_id ??
+            null,
+          text: content.text ?? item.name ?? '',
+          audio: content.audio ?? [],
+          download_profiles:
+            content.download_profiles ?? item.download_profiles ?? [],
+          order_index: content.order_index ?? 1
+        });
+      }
+
+      await tx.insert(questAssetLinkLocal).values({
+        ...(item.link_id ? { id: item.link_id } : { id: String(uuid.v4()) }),
+        quest_id: questId,
+        asset_id: item.id,
+        name: item.name ?? null,
+        order_index: item.order_index ?? 0,
+        metadata: serializeLinkMetadata(item.metadata),
+        download_profiles: item.download_profiles ?? []
+      });
+    }
+  });
+}
+
 /**
  * Detach assets from a quest (provenance-aware).
  * - Deletes quest_asset_link for the quest
- * - Nulls project_id and enqueues GC only for created assets
+ * - Enqueues GC only for created assets; GC deletes the asset row so the
+ *   removal syncs to Postgres. Redo dequeues before restoring the link.
  */
 async function detachAssetsFromQuest(
   questId: string,
@@ -174,13 +343,6 @@ async function detachAssetsFromQuest(
   );
 
   await system.db.transaction(async (tx) => {
-    if (createdForGc.length > 0) {
-      await tx
-        .update(assetLocal)
-        .set({ project_id: null })
-        .where(inArray(assetLocal.id, createdForGc));
-    }
-
     await tx
       .delete(questAssetLinkLocal)
       .where(
@@ -197,11 +359,18 @@ async function detachAssetsFromQuest(
 }
 
 async function undoCreate(
-  questId: string,
+  _questId: string,
   operation: AssetOperationTypes
 ): Promise<void> {
   const newIds = operation.newData.map((item) => item.id);
-  await detachAssetsFromQuest(questId, newIds, 'delete');
+  // Hard-delete immediately so PowerSync uploads DELETE before a checkpoint
+  // can resurrect the PUT. Keep IDs queued so exit-time verse normalize
+  // will not PATCH a checkpoint-restored quest_asset_link back onto the
+  // server.
+  for (const id of newIds) {
+    await audioSegmentService.deleteAudioSegment(id);
+  }
+  await enqueueAssetGc(newIds, 'tombstone');
 }
 
 async function undoRename(
@@ -210,7 +379,7 @@ async function undoRename(
 ): Promise<void> {
   for (const previous of operation.previousData) {
     if (!previous.name) continue;
-    await renameAsset(questId, previous.id, previous.name);
+    await renameAssetDirect(questId, previous.id, previous.name);
   }
 }
 
@@ -235,7 +404,7 @@ async function undoMerge(
   await restoreAssetsToQuest(projectId, questId, operation.previousData);
   await dequeueAssetGc(previousIds);
   // New merged records are only detached and queued for GC, enabling redo.
-  await detachAssetsFromQuest(questId, newIds, 'merge');
+  await detachAssetsFromQuest(questId, newIds, 'collect-merge');
 }
 
 async function undoReplace(
@@ -248,7 +417,10 @@ async function undoReplace(
 
   await restoreAssetsToQuest(projectId, questId, operation.previousData);
   await dequeueAssetGc(previousIds);
-  await detachAssetsFromQuest(questId, newIds, 'delete');
+  for (const id of newIds) {
+    await audioSegmentService.deleteAudioSegment(id);
+  }
+  await enqueueAssetGc(newIds, 'tombstone');
 }
 
 async function undoMove(
@@ -262,7 +434,7 @@ async function undoMove(
   }));
 
   if (updates.length === 0) return;
-  await batchUpdateAssetVerse(questId, updates);
+  await batchUpdateAssetVerseDirect(questId, updates);
 }
 
 async function undoImport(
@@ -270,7 +442,7 @@ async function undoImport(
   operation: AssetOperationTypes
 ): Promise<void> {
   const importedIds = operation.newData.map((item) => item.id);
-  await softDeleteAssetsFromQuest(questId, importedIds);
+  await softDeleteAssetsFromQuestDirect(questId, importedIds);
 }
 
 async function redoImport(
@@ -287,7 +459,11 @@ async function redoCreate(
   operation: AssetOperationTypes
 ): Promise<void> {
   const newIds = operation.newData.map((item) => item.id);
-  await restoreAssetsToQuest(projectId, questId, operation.newData);
+  await rematerializeCreatedAssetsFromSnapshot(
+    projectId,
+    questId,
+    operation.newData
+  );
   await dequeueAssetGc(newIds);
 }
 
@@ -297,7 +473,7 @@ async function redoRename(
 ): Promise<void> {
   for (const next of operation.newData) {
     if (!next.name) continue;
-    await renameAsset(questId, next.id, next.name);
+    await renameAssetDirect(questId, next.id, next.name);
   }
 }
 
@@ -306,7 +482,7 @@ async function redoDelete(
   operation: AssetOperationTypes
 ): Promise<void> {
   const previousIds = operation.previousData.map((item) => item.id);
-  await softDeleteAssetsFromQuest(questId, previousIds);
+  await softDeleteAssetsFromQuestDirect(questId, previousIds);
 }
 
 async function redoMerge(
@@ -317,8 +493,12 @@ async function redoMerge(
   const previousIds = operation.previousData.map((item) => item.id);
   const newIds = operation.newData.map((item) => item.id);
 
-  await detachAssetsFromQuest(questId, previousIds, 'merge');
-  await restoreAssetsToQuest(projectId, questId, operation.newData);
+  await detachAssetsFromQuest(questId, previousIds, 'collect-merge');
+  await rematerializeCreatedAssetsFromSnapshot(
+    projectId,
+    questId,
+    operation.newData
+  );
   await dequeueAssetGc(newIds);
 }
 
@@ -330,8 +510,12 @@ async function redoReplace(
   const previousIds = operation.previousData.map((item) => item.id);
   const newIds = operation.newData.map((item) => item.id);
 
-  await detachAssetsFromQuest(questId, previousIds, 'delete');
-  await restoreAssetsToQuest(projectId, questId, operation.newData);
+  await detachAssetsFromQuest(questId, previousIds, 'collect');
+  await rematerializeCreatedAssetsFromSnapshot(
+    projectId,
+    questId,
+    operation.newData
+  );
   await dequeueAssetGc(newIds);
 }
 
@@ -346,7 +530,7 @@ async function redoMove(
   }));
 
   if (updates.length === 0) return;
-  await batchUpdateAssetVerse(questId, updates);
+  await batchUpdateAssetVerseDirect(questId, updates);
 }
 
 /**
@@ -354,6 +538,16 @@ async function redoMove(
  * Receives context IDs and the history operation payload.
  */
 export async function undo(
+  projectId: string,
+  questId: string,
+  operation: AssetOperationTypes
+): Promise<void> {
+  return enqueueAssetWrite(questId, () =>
+    undoInternal(projectId, questId, operation)
+  );
+}
+
+async function undoInternal(
   projectId: string,
   questId: string,
   operation: AssetOperationTypes
@@ -398,6 +592,16 @@ export async function undo(
  * Uses the same recorded payload and context IDs from undo history.
  */
 export async function redo(
+  projectId: string,
+  questId: string,
+  operation: AssetOperationTypes
+): Promise<void> {
+  return enqueueAssetWrite(questId, () =>
+    redoInternal(projectId, questId, operation)
+  );
+}
+
+async function redoInternal(
   projectId: string,
   questId: string,
   operation: AssetOperationTypes

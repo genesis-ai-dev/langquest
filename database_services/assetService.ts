@@ -7,7 +7,11 @@ import { system } from '@/db/powersync/system';
 import { isUnpublishedQuest, resolveTable } from '@/utils/dbUtils';
 import { and, asc, eq, gte, inArray, lte } from 'drizzle-orm';
 import uuid from 'react-native-uuid';
-import { enqueue as enqueueAssetGc } from './assetGarbageCollectorService';
+import {
+  enqueue as enqueueAssetGc,
+  getQueuedAssetIds
+} from './assetGarbageCollectorService';
+import { enqueueAssetWrite } from './assetWriteQueue';
 import type { AssetOperationDataItem } from './types';
 
 async function requireUnpublishedQuest(questId: string): Promise<void> {
@@ -55,7 +59,7 @@ export interface QuestAssetLinkMetadata {
  * - Imported/remixed links only update quest_asset_link.name.
  * - Created links update both quest_asset_link.name and the asset name.
  */
-export async function renameAsset(
+export async function renameAssetDirect(
   questId: string,
   assetId: string,
   newName: string
@@ -143,6 +147,16 @@ export async function renameAsset(
   }
 }
 
+export async function renameAsset(
+  questId: string,
+  assetId: string,
+  newName: string
+): Promise<void> {
+  return enqueueAssetWrite(questId, () =>
+    renameAssetDirect(questId, assetId, newName)
+  );
+}
+
 type MetadataRecord = Record<string, unknown> & {
   verse?: {
     from?: number;
@@ -197,6 +211,11 @@ export async function updateAssetVerse(
 ): Promise<void> {
   try {
     await requireUnpublishedQuest(questId);
+
+    const queuedIds = new Set(await getQueuedAssetIds());
+    if (queuedIds.has(assetId)) {
+      return;
+    }
 
     const questAssetLinkTable = resolveTable('quest_asset_link');
     const assetTable = resolveTable('asset');
@@ -309,13 +328,15 @@ export interface SoftMergeResult {
   newAssetId: string;
   newAssetName: string;
   orderIndex: number | null;
+  previousData: AssetOperationDataItem[];
+  newData: AssetOperationDataItem[];
 }
 
 /**
  * Batch update asset verse and/or quest-specific order_index for multiple assets.
  * Only metadata.verse is patched; every other metadata property is preserved.
  */
-export async function batchUpdateAssetVerse(
+export async function batchUpdateAssetVerseDirect(
   questId: string,
   updates: AssetUpdatePayload[]
 ): Promise<void> {
@@ -325,8 +346,10 @@ export async function batchUpdateAssetVerse(
   // the remaining updates, otherwise order_index is left half normalized and
   // later insertions land between assets instead of at the end.
   const failedAssetIds: string[] = [];
+  const queuedIds = new Set(await getQueuedAssetIds());
 
   for (const update of updates) {
+    if (queuedIds.has(update.assetId)) continue;
     try {
       await updateAssetVerse(
         questId,
@@ -334,7 +357,13 @@ export async function batchUpdateAssetVerse(
         update.metadata,
         update.order_index
       );
-    } catch {
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message.includes('Quest asset link not found')
+      ) {
+        continue;
+      }
       failedAssetIds.push(update.assetId);
     }
   }
@@ -350,21 +379,30 @@ export async function batchUpdateAssetVerse(
   }
 }
 
+export async function batchUpdateAssetVerse(
+  questId: string,
+  updates: AssetUpdatePayload[]
+): Promise<void> {
+  return enqueueAssetWrite(questId, () =>
+    batchUpdateAssetVerseDirect(questId, updates)
+  );
+}
+
 /**
  * Soft delete assets for a specific quest.
- * - Sets asset.project_id = null for created assets only
  * - Deletes quest_asset_link rows for the provided quest
  * - Enqueues GC only for created assets
+ * - Keeps asset rows (and project_id) until GC, so undo/redo never PATCH
+ *   project_id to null (server RLS rejects that)
  * - Keeps asset_content_link rows intact
  * - Returns link snapshots for undo/redo restore
  */
-export async function softDeleteAssetsFromQuest(
+export async function softDeleteAssetsFromQuestDirect(
   questId: string,
   assetIds: string[]
 ): Promise<AssetOperationDataItem[]> {
   if (!questId || assetIds.length === 0) return [];
 
-  const assetLocal = resolveTable('asset', { localOverride: true });
   const questAssetLinkLocal = resolveTable('quest_asset_link', {
     localOverride: true
   });
@@ -384,26 +422,33 @@ export async function softDeleteAssetsFromQuest(
       )
     );
 
-  const snapshots: AssetOperationDataItem[] = linksToDelete.map((link) => ({
-    id: link.asset_id,
-    name: link.name ?? null,
-    order_index: link.order_index ?? 0,
-    metadata: parseMetadataRecord(link.metadata),
-    download_profiles: link.download_profiles ?? []
-  }));
+  const snapshots: AssetOperationDataItem[] = [];
+  for (const link of linksToDelete) {
+    const metadata = parseMetadataRecord(link.metadata);
+    const base: AssetOperationDataItem = {
+      id: link.asset_id,
+      name: link.name ?? null,
+      order_index: link.order_index,
+      metadata,
+      download_profiles: link.download_profiles ?? []
+    };
+    if (metadata.provenance?.type === 'created') {
+      snapshots.push(
+        (await snapshotCreatedAsset(questId, link.asset_id)) ?? base
+      );
+    } else {
+      snapshots.push(base);
+    }
+  }
 
   const createdAssetIds = snapshots
-    .filter((item) => item.metadata?.provenance?.type === 'created')
+    .filter(
+      (item) =>
+        parseMetadataRecord(item.metadata).provenance?.type === 'created'
+    )
     .map((item) => item.id);
 
   await system.db.transaction(async (tx) => {
-    if (createdAssetIds.length > 0) {
-      await tx
-        .update(assetLocal)
-        .set({ project_id: null })
-        .where(inArray(assetLocal.id, createdAssetIds));
-    }
-
     await tx
       .delete(questAssetLinkLocal)
       .where(
@@ -415,10 +460,19 @@ export async function softDeleteAssetsFromQuest(
   });
 
   if (createdAssetIds.length > 0) {
-    await enqueueAssetGc(createdAssetIds, 'delete');
+    await enqueueAssetGc(createdAssetIds, 'collect');
   }
 
   return snapshots;
+}
+
+export async function softDeleteAssetsFromQuest(
+  questId: string,
+  assetIds: string[]
+): Promise<AssetOperationDataItem[]> {
+  return enqueueAssetWrite(questId, () =>
+    softDeleteAssetsFromQuestDirect(questId, assetIds)
+  );
 }
 
 /**
@@ -426,9 +480,9 @@ export async function softDeleteAssetsFromQuest(
  * - Creates a NEW asset based on the first selected asset
  * - Creates NEW quest_asset_link for the new asset
  * - Creates NEW asset_content_link rows with sequential order_index
- * - Only then removes project_id and quest links from merged source assets
+ * - Only then removes quest links from merged source assets (GC deletes them later)
  */
-export async function softMergeAssetsInQuest(params: {
+export async function softMergeAssetsInQuestDirect(params: {
   questId: string;
   assetsToMerge: SoftMergeAssetInput[];
   fallbackProjectId?: string | null;
@@ -440,6 +494,10 @@ export async function softMergeAssetsInQuest(params: {
 
   const sourceIds = assetsToMerge.map((asset) => asset.id);
   const firstSelected = assetsToMerge[0]!;
+  const previousData: AssetOperationDataItem[] = [];
+  for (const id of sourceIds) {
+    previousData.push((await snapshotCreatedAsset(questId, id)) ?? { id });
+  }
   const assetLocal = resolveTable('asset', { localOverride: true });
   const questAssetLinkLocal = resolveTable('quest_asset_link', {
     localOverride: true
@@ -589,11 +647,6 @@ export async function softMergeAssetsInQuest(params: {
 
       // IMPORTANT: only after creating new records do we remove old links.
       await tx
-        .update(assetLocal)
-        .set({ project_id: null })
-        .where(inArray(assetLocal.id, sourceIds));
-
-      await tx
         .delete(questAssetLinkLocal)
         .where(
           and(
@@ -609,9 +662,34 @@ export async function softMergeAssetsInQuest(params: {
       };
     })
     .then(async (result) => {
-      await enqueueAssetGc(sourceIds, 'merge');
-      return result;
+      await enqueueAssetGc(sourceIds, 'collect-merge');
+      const newSnapshot = await snapshotCreatedAsset(
+        questId,
+        result.newAssetId
+      );
+      return {
+        ...result,
+        previousData,
+        newData: [
+          newSnapshot ?? {
+            id: result.newAssetId,
+            name: result.newAssetName,
+            order_index: result.orderIndex
+          }
+        ]
+      };
     });
+}
+
+export async function softMergeAssetsInQuest(params: {
+  questId: string;
+  assetsToMerge: SoftMergeAssetInput[];
+  fallbackProjectId?: string | null;
+  fallbackCreatorId?: string | null;
+}): Promise<SoftMergeResult | null> {
+  return enqueueAssetWrite(params.questId, () =>
+    softMergeAssetsInQuestDirect(params)
+  );
 }
 
 /**
@@ -621,7 +699,7 @@ export async function softMergeAssetsInQuest(params: {
  * @param questId - The quest ID to normalize assets for
  * @param verses - Array of verse numbers that were recorded
  */
-export async function normalizeOrderIndexForVerses(
+export async function normalizeOrderIndexForVersesDirect(
   questId: string,
   verses: number[]
 ): Promise<void> {
@@ -666,14 +744,20 @@ export async function normalizeOrderIndexForVerses(
         continue;
       }
 
+      const queuedIds = new Set(await getQueuedAssetIds());
+      const keepers = assetsInVerse.filter((asset) => !queuedIds.has(asset.id));
+      if (keepers.length === 0) {
+        continue;
+      }
+
       // Recalculate order_index with thousand scale
       // Formula: (verse * 1000 + sequential) * 1000
       // sequential starts at 1: 7001000, 7002000, 7003000...
       const updates: AssetUpdatePayload[] = [];
       let hasChanges = false;
 
-      for (let i = 0; i < assetsInVerse.length; i++) {
-        const asset = assetsInVerse[i];
+      for (let i = 0; i < keepers.length; i++) {
+        const asset = keepers[i];
         if (!asset) continue;
 
         const sequential = i + 1; // 1-based
@@ -690,15 +774,24 @@ export async function normalizeOrderIndexForVerses(
       }
 
       if (hasChanges && updates.length > 0) {
-        await batchUpdateAssetVerse(questId, updates);
+        await batchUpdateAssetVerseDirect(questId, updates);
         console.log(
-          `  ✅ Verse ${verse}: normalized ${updates.length} of ${assetsInVerse.length} asset(s)`
+          `  ✅ Verse ${verse}: normalized ${updates.length} of ${keepers.length} asset(s)`
         );
       }
     } catch (error) {
       console.error(`  ❌ Failed to normalize verse ${verse}:`, error);
     }
   }
+}
+
+export async function normalizeOrderIndexForVerses(
+  questId: string,
+  verses: number[]
+): Promise<void> {
+  return enqueueAssetWrite(questId, () =>
+    normalizeOrderIndexForVersesDirect(questId, verses)
+  );
 }
 
 /**
@@ -768,7 +861,10 @@ export async function linkExistingAssetsToQuest(params: {
     .select({ asset_id: linkTable.asset_id })
     .from(linkTable)
     .where(
-      and(eq(linkTable.quest_id, questId), inArray(linkTable.asset_id, assetIds))
+      and(
+        eq(linkTable.quest_id, questId),
+        inArray(linkTable.asset_id, assetIds)
+      )
     );
 
   const alreadyLinked = new Set(existingLinks.map((link) => link.asset_id));
@@ -813,4 +909,115 @@ export async function linkExistingAssetsToQuest(params: {
     skippedAssetIds,
     linkedSnapshots
   };
+}
+
+export async function snapshotCreatedAsset(
+  questId: string,
+  assetId: string
+): Promise<AssetOperationDataItem | null> {
+  const assetTable = resolveTable('asset', { localOverride: true });
+  const questAssetLinkTable = resolveTable('quest_asset_link', {
+    localOverride: true
+  });
+  const contentTable = resolveTable('asset_content_link', {
+    localOverride: true
+  });
+
+  const [assetRow] = await system.db
+    .select()
+    .from(assetTable)
+    .where(eq(assetTable.id, assetId))
+    .limit(1);
+  if (!assetRow) return null;
+
+  const [link] = await system.db
+    .select()
+    .from(questAssetLinkTable)
+    .where(
+      and(
+        eq(questAssetLinkTable.quest_id, questId),
+        eq(questAssetLinkTable.asset_id, assetId)
+      )
+    )
+    .limit(1);
+
+  const contents = await system.db
+    .select()
+    .from(contentTable)
+    .where(eq(contentTable.asset_id, assetId));
+
+  return {
+    id: assetId,
+    name: link?.name ?? assetRow.name,
+    order_index: link?.order_index ?? assetRow.order_index,
+    metadata: parseMetadataRecord(link?.metadata),
+    download_profiles:
+      link?.download_profiles ?? assetRow.download_profiles ?? [],
+    project_id: assetRow.project_id,
+    source_language_id: assetRow.source_language_id,
+    creator_id: assetRow.creator_id,
+    link_id: link?.id ?? null,
+    contents: contents.map((content) => ({
+      id: content.id,
+      source_language_id: content.source_language_id,
+      languoid_id: content.languoid_id,
+      text: content.text,
+      audio: content.audio,
+      download_profiles: content.download_profiles,
+      order_index: content.order_index
+    }))
+  };
+}
+
+export async function getQuestAssetOrderIndex(
+  questId: string,
+  assetId: string
+): Promise<number | null> {
+  const questAssetLinkTable = resolveTable('quest_asset_link', {
+    localOverride: true
+  });
+  const [link] = await system.db
+    .select({ order_index: questAssetLinkTable.order_index })
+    .from(questAssetLinkTable)
+    .where(
+      and(
+        eq(questAssetLinkTable.quest_id, questId),
+        eq(questAssetLinkTable.asset_id, assetId)
+      )
+    )
+    .limit(1);
+
+  return typeof link?.order_index === 'number' ? link.order_index : null;
+}
+
+export async function getMaxQuestOrderIndex(
+  questId: string,
+  options?: { unassignedOnly?: boolean }
+): Promise<number | null> {
+  const questAssetLinkTable = resolveTable('quest_asset_link', {
+    localOverride: true
+  });
+  const queuedIds = new Set(await getQueuedAssetIds());
+  const links = await system.db
+    .select({
+      asset_id: questAssetLinkTable.asset_id,
+      order_index: questAssetLinkTable.order_index,
+      metadata: questAssetLinkTable.metadata
+    })
+    .from(questAssetLinkTable)
+    .where(eq(questAssetLinkTable.quest_id, questId));
+
+  let max: number | null = null;
+  for (const link of links) {
+    if (queuedIds.has(link.asset_id)) continue;
+    if (typeof link.order_index !== 'number') continue;
+    if (options?.unassignedOnly) {
+      const verseFrom = parseMetadataRecord(link.metadata).verse?.from;
+      if (typeof verseFrom === 'number') continue;
+    }
+    if (max === null || link.order_index > max) {
+      max = link.order_index;
+    }
+  }
+  return max;
 }

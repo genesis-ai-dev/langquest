@@ -6,7 +6,7 @@ import {
   quest_asset_link
 } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import { useHybridData } from '@/views/new/useHybridData';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { and, eq, or, sql } from 'drizzle-orm';
 
@@ -16,10 +16,8 @@ import { and, eq, or, sql } from 'drizzle-orm';
 export function useBlockedTranslationsCount(assetId: string) {
   const { currentUser } = useAuth();
 
-  const { data: counts } = useHybridData({
-    dataType: 'blocked-translations-count',
-    queryKeyParams: [
-      'blocked-count',
+  const { data: counts } = useHybridQuery({
+    queryKey: ['blocked-translations-count', 'blocked-count',
       'translations',
       assetId,
       currentUser?.id ?? ''
@@ -65,9 +63,8 @@ export function useBlockedTranslationsCount(assetId: string) {
 export function useBlockedAssetsCount(questId: string) {
   const { currentUser } = useAuth();
 
-  const { data: counts } = useHybridData({
-    dataType: 'blocked-assets-count',
-    queryKeyParams: ['blocked-count', 'assets', questId, currentUser?.id ?? ''],
+  const { data: counts } = useHybridQuery({
+    queryKey: ['blocked-assets-count', 'blocked-count', 'assets', questId, currentUser?.id ?? ''],
     offlineQuery: toCompilableQuery(
       system.db
         .select({

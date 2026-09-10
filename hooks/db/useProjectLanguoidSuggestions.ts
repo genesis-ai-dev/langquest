@@ -15,7 +15,8 @@ import {
 } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useLocalStore } from '@/store/localStore';
-import { useHybridData } from '@/views/new/useHybridData';
+import { invalidateCloud } from '@/hooks/hybridCache';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { InferSelectModel } from 'drizzle-orm';
@@ -46,11 +47,10 @@ export function useProjectLanguoidSuggestions() {
   );
 
   // Step 1: find project ids this user owns
-  const { data: ownerProjectLinks = [] } = useHybridData<{
+  const { data: ownerProjectLinks = [] } = useHybridQuery<{
     project_id: string;
   }>({
-    dataType: 'project-languoid-suggestion-owner-projects',
-    queryKeyParams: [userId],
+    queryKey: ['project-languoid-suggestion-owner-projects', userId],
     enabled: enableProjectLanguageSuggestions && !!userId,
     getItemId: (item) => item.project_id,
     offlineQuery: toCompilableQuery(
@@ -87,9 +87,8 @@ export function useProjectLanguoidSuggestions() {
     data: rawSuggestions = [],
     isLoading: isSuggestionsLoading,
     ...rest
-  } = useHybridData<ProjectLanguoidSuggestion>({
-    dataType: 'project-languoid-suggestions',
-    queryKeyParams: [ownerProjectIds.join(',')],
+  } = useHybridQuery<ProjectLanguoidSuggestion>({
+    queryKey: ['project-languoid-suggestions', ownerProjectIds.join(',')],
     enabled:
       enableProjectLanguageSuggestions &&
       !!userId &&
@@ -136,12 +135,11 @@ export function useProjectLanguoidSuggestions() {
   }, [rawSuggestions]);
 
   // Project name lookup
-  const { data: projectDetails = [] } = useHybridData<{
+  const { data: projectDetails = [] } = useHybridQuery<{
     id: string;
     name: string | null;
   }>({
-    dataType: 'project-languoid-suggestion-project-details',
-    queryKeyParams: [detailIds.projectIds.join(',')],
+    queryKey: ['project-languoid-suggestion-project-details', detailIds.projectIds.join(',')],
     enabled: detailIds.projectIds.length > 0,
     offlineQuery: toCompilableQuery(
       db
@@ -161,12 +159,11 @@ export function useProjectLanguoidSuggestions() {
   });
 
   // Languoid name lookup (covers both current + suggested)
-  const { data: languoidDetails = [] } = useHybridData<{
+  const { data: languoidDetails = [] } = useHybridQuery<{
     id: string;
     name: string | null;
   }>({
-    dataType: 'project-languoid-suggestion-languoid-details',
-    queryKeyParams: [detailIds.languoidIds.join(',')],
+    queryKey: ['project-languoid-suggestion-languoid-details', detailIds.languoidIds.join(',')],
     enabled: detailIds.languoidIds.length > 0,
     offlineQuery: toCompilableQuery(
       db
@@ -229,13 +226,11 @@ export function useAcceptProjectLanguoidSuggestion() {
       return true;
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: ['project-languoid-suggestions']
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ['project-language-link']
-      });
-      await queryClient.invalidateQueries({ queryKey: ['my-projects'] });
+      await invalidateCloud(
+        queryClient,
+        'project-languoid-suggestions',
+        'my-projects'
+      );
     }
   });
 }
@@ -258,9 +253,7 @@ export function useDismissProjectLanguoidSuggestion() {
       return true;
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: ['project-languoid-suggestions']
-      });
+      await invalidateCloud(queryClient, 'project-languoid-suggestions');
     }
   });
 }

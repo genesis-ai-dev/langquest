@@ -1,6 +1,6 @@
 import { languoid } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import { useHybridData } from '@/views/new/useHybridData';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
 import type { InferSelectModel } from 'drizzle-orm';
 import { useMemo } from 'react';
 import { useLanguoidEndonyms } from './useLanguoids';
@@ -18,9 +18,8 @@ export function useFiaLanguoids() {
     data: fiaLanguoids,
     isLoading: isFiaLanguoidsLoading,
     ...rest
-  } = useHybridData<Languoid>({
-    dataType: 'languoids-fia-available',
-    queryKeyParams: ['fia-available'],
+  } = useHybridQuery<Languoid>({
+    queryKey: ['languoids-fia-available', 'fia-available'],
 
     // PowerSync offline query: get languoid_property rows, then fetch matching languoids
     offlineQuery: `

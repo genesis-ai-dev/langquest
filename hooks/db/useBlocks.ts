@@ -1,7 +1,7 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { blocked_content, blocked_users } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import { useHybridData } from '@/views/new/useHybridData';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { and, eq } from 'drizzle-orm';
 
@@ -24,9 +24,8 @@ export function useUserRestrictions(
     cloudError: blockedContentCloudError,
     offlineError: blockedContentOfflineError
     // refetch: refetchBlockedContent
-  } = useHybridData<{ content_id: string }>({
-    dataType: 'blocked_content',
-    queryKeyParams: ['blocked_content', contentType, currentUser?.id || ''],
+  } = useHybridQuery<{ content_id: string }>({
+    queryKey: ['blocked_content', 'blocked_content', contentType, currentUser?.id || ''],
 
     // PowerSync query for votes
     offlineQuery:
@@ -68,9 +67,8 @@ export function useUserRestrictions(
     cloudError: blockedUsersCloudError,
     offlineError: blockedUsersOfflineError
     // refetch: refetchBlockedUsers
-  } = useHybridData<{ blocked_id: string }>({
-    dataType: 'blocked_users',
-    queryKeyParams: ['blocked_users', currentUser?.id || ''],
+  } = useHybridQuery<{ blocked_id: string }>({
+    queryKey: ['blocked_users', 'blocked_users', currentUser?.id || ''],
 
     // PowerSync query for votes
     offlineQuery:

@@ -18,6 +18,7 @@ import {
   writeFile
 } from '@/utils/fileUtils';
 import { normalizeUuid, toDashedUuid } from '@/utils/uuidUtils';
+import { normalizeStoredAudioArray } from '@/utils/attachmentPaths';
 import type { DrizzleDB } from './index';
 import { APP_SCHEMA_VERSION } from '../constants';
 import * as drizzleSchema from '../drizzleSchema';
@@ -147,6 +148,10 @@ function prepareDraftData(table: string, raw: string, id: string): string {
     parsed.id = toDashedUuid(id);
     if (table === 'quest') {
       parsed.published_at = null;
+    }
+    if (table === 'asset_content_link') {
+      const audio = normalizeStoredAudioArray(parsed.audio);
+      if (audio) parsed.audio = audio;
     }
     return JSON.stringify(parsed);
   } catch {
@@ -495,6 +500,10 @@ function valuesForReinsert(
     if (typeof parsed.parent_id === 'string' && parsed.parent_id.length > 0) {
       parsed.parent_id = toDashedUuid(parsed.parent_id);
     }
+  }
+  if (tableName === 'asset_content_link') {
+    const audio = normalizeStoredAudioArray(parsed.audio);
+    if (audio) parsed.audio = audio;
   }
   return parsed;
 }

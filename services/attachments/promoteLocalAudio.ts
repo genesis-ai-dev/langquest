@@ -20,7 +20,7 @@ import { localFileIndex } from './LocalFileIndex';
 
 /**
  * @param sourceUri full URI (or path) of the file; its basename becomes the
- *   published filename, matching the acl rewrite that strips 'local/'.
+ *   published filename.
  * @returns the published filename ('{uuid}.{ext}')
  */
 export async function promoteLocalAudio(sourceUri: string): Promise<string> {

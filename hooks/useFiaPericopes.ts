@@ -5,15 +5,18 @@
  */
 
 import { useAuth } from '@/contexts/AuthContext';
-import { profile, quest } from '@/db/drizzleSchema';
+import { quest } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useLocalStore } from '@/store/localStore';
 import { normalizeUuid } from '@/utils/uuidUtils';
-import type { HybridDataSource } from '@/views/new/useHybridData';
+import type { HybridDataSource } from '@/hooks/useHybridQuery';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
+import { useQuery as usePowerSyncQuery } from '@powersync/tanstack-react-query';
 import { useQuery } from '@tanstack/react-query';
 import { publishedOrOwnQuest } from '@/utils/dbUtils';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import React from 'react';
+import { useProfileDisplayNames } from './db/useProfiles';
 import { useNetworkStatus } from './useNetworkStatus';
 
 export interface FiaPericopeQuest {
@@ -73,25 +76,21 @@ function parseMetadata(raw: unknown): FiaMetadataShape | null {
   }
 }
 
-async function fetchLocalPericopes(
-  projectId: string,
-  bookId: string,
-  userId?: string
-): Promise<QuestWithPericopeMeta[]> {
-  const allQuests = await system.db.query.quest.findMany({
-    where: and(eq(quest.project_id, projectId), publishedOrOwnQuest(userId)),
-    columns: {
-      id: true,
-      name: true,
-      published_at: true,
-      created_at: true,
-      download_profiles: true,
-      metadata: true,
-      creator_id: true,
-      visible: true
-    }
-  });
+const DISABLED_WATCH = 'SELECT 1 WHERE 0';
 
+function mapQuestRowsToPericopes(
+  allQuests: {
+    id: string;
+    name: string;
+    published_at: string | Date | null;
+    created_at: string | Date;
+    download_profiles: unknown;
+    metadata: unknown;
+    creator_id: string | null;
+    visible: boolean;
+  }[],
+  bookId: string
+): QuestWithPericopeMeta[] {
   return allQuests
     .map((q): QuestWithPericopeMeta | null => {
       const meta = parseMetadata(q.metadata);
@@ -179,27 +178,6 @@ async function fetchCloudPericopes(
   } catch {
     return [];
   }
-}
-
-async function fetchCreatorNames(
-  creatorIds: string[]
-): Promise<Map<string, string>> {
-  const nameMap = new Map<string, string>();
-  if (creatorIds.length === 0) return nameMap;
-
-  try {
-    const profiles = await system.db.query.profile.findMany({
-      where: inArray(profile.id, creatorIds),
-      columns: { id: true, username: true, email: true }
-    });
-    for (const p of profiles) {
-      nameMap.set(p.id, p.username || p.email || 'Unknown');
-    }
-  } catch {
-    /* ignore — names are best-effort */
-  }
-
-  return nameMap;
 }
 
 const getSourcePriority = (source: HybridDataSource): number => {
@@ -316,16 +294,40 @@ export function useFiaPericopes(projectId: string, bookId: string) {
   const showHiddenContent = useLocalStore((s) => s.showHiddenContent);
   const { currentUser } = useAuth();
 
+  const watchLocal = !!projectId && !!bookId;
+
   const {
-    data: localResults = [],
+    data: localQuests = [],
     isLoading: isLoadingLocal,
     error: localError
-  } = useQuery({
-    queryKey: ['fia-pericope-quests', 'local', projectId, bookId],
-    queryFn: () => fetchLocalPericopes(projectId, bookId, currentUser?.id),
-    enabled: !!projectId && !!bookId,
-    staleTime: 30000
+  } = usePowerSyncQuery({
+    queryKey: ['fia-pericope-quests', 'offline', projectId],
+    query: watchLocal
+      ? toCompilableQuery(
+          system.db.query.quest.findMany({
+            where: and(
+              eq(quest.project_id, projectId),
+              publishedOrOwnQuest(currentUser?.id)
+            ),
+            columns: {
+              id: true,
+              name: true,
+              published_at: true,
+              created_at: true,
+              download_profiles: true,
+              metadata: true,
+              creator_id: true,
+              visible: true
+            }
+          })
+        )
+      : DISABLED_WATCH
   });
+
+  const localResults = React.useMemo(
+    () => mapQuestRowsToPericopes(localQuests, bookId),
+    [localQuests, bookId]
+  );
 
   const { data: cloudResults = [], isLoading: isLoadingCloud } = useQuery({
     queryKey: ['fia-pericope-quests', 'cloud', projectId, bookId],
@@ -354,12 +356,7 @@ export function useFiaPericopes(projectId: string, bookId: string) {
     return Array.from(ids);
   }, [pericopeGroups]);
 
-  const { data: creatorNameMap } = useQuery({
-    queryKey: ['profile-names', ...creatorIds.sort()],
-    queryFn: () => fetchCreatorNames(creatorIds),
-    enabled: creatorIds.length > 0,
-    staleTime: 300000
-  });
+  const creatorNameMap = useProfileDisplayNames(creatorIds);
 
   // Attach names to versions
   const pericopes = React.useMemo(() => {

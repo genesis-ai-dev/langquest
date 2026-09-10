@@ -7,11 +7,11 @@
  *   asset_content_link rows where
  *     audio IS NOT NULL AND audio_uploaded_at IS NULL
  *   → flattened to filenames
- *   → minus 'local/…' values (pre-publish recordings never upload)
  *   → intersected with the files actually on this device (LocalFileIndex)
  *
- * Only the synced view is consulted: local (pre-publish) rows always carry
- * 'local/…' audio values, and nothing uploads until the user publishes.
+ * Drafts store the storage object name in audio[] (`{uuid}.{ext}`). The file
+ * stays at `local/…` on disk until publish. This uploader only runs for
+ * published quests.
  *
  * Completion is never declared here: the server's storage trigger stamps
  * asset_content_link.audio_uploaded_at, PowerSync syncs it down, and the row
@@ -33,7 +33,7 @@
 import type * as drizzleSchema from '@/db/drizzleSchema';
 import { asset, asset_content_link, quest, quest_asset_link } from '@/db/drizzleSchema';
 import type { SupabaseStorageAdapter } from '@/db/supabase/SupabaseStorageAdapter';
-import { isInvalidAudioValue, isLocalOnlyAudio } from '@/utils/attachmentPaths';
+import { isInvalidAudioValue } from '@/utils/attachmentPaths';
 import { getLocalAttachmentUri } from '@/utils/fileUtils';
 import type { PowerSyncSQLiteDatabase } from '@powersync/drizzle-driver';
 import { and, eq, isNotNull, isNull } from 'drizzle-orm';
@@ -234,7 +234,7 @@ export class AudioUploader {
     const names = new Set<string>();
     for (const row of syncedRows) {
       for (const value of row.audio ?? []) {
-        if (!value || isInvalidAudioValue(value) || isLocalOnlyAudio(value)) {
+        if (!value || isInvalidAudioValue(value)) {
           continue;
         }
         names.add(value);

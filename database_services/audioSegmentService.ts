@@ -1,3 +1,4 @@
+import { storageAudioObjectName } from '@/utils/attachmentPaths';
 import { resolveTable } from '@/utils/dbUtils';
 import { saveAudioLocally } from '@/utils/fileUtils';
 import { eq } from 'drizzle-orm';
@@ -63,8 +64,10 @@ export class AudioSegmentService {
             asset_id: newAsset.id,
             source_language_id: sourceLanguageId,
             text: segment.name,
-            // Link to the local file path (localUri already includes 'local/' prefix from saveAudioLocally)
-            audio: [localUri],
+            // File stays at local/{uuid}.ext on disk until publish. The DB
+            // stores the storage object name so publish does not have to
+            // rewrite audio[]. AudioUploader waits for published_at.
+            audio: [storageAudioObjectName(localUri)],
             download_profiles: [creatorId]
           });
 

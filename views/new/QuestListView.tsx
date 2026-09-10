@@ -15,7 +15,7 @@ import { and, eq, getTableName, like, or } from 'drizzle-orm';
 import React from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { QuestTreeRow } from './QuestTreeRow';
-import { useHybridInfiniteData } from './useHybridData';
+import { useHybridInfiniteQuery } from '@/hooks/useHybridQuery';
 
 interface QuestListViewProps {
   projectId: string;
@@ -61,9 +61,8 @@ export function QuestListView({
   const PAGE_SIZE = 50;
   const trimmedSearch = searchQuery.trim();
 
-  const questsInfiniteQuery = useHybridInfiniteData({
-    dataType: 'quests',
-    queryKeyParams: ['for-project', projectId, searchQuery],
+  const questsInfiniteQuery = useHybridInfiniteQuery({
+    queryKey: ['quests', 'for-project', projectId, searchQuery],
     pageSize: PAGE_SIZE,
     offlineQueryFn: async ({ pageParam, pageSize }) => {
       const offset = pageParam * pageSize;

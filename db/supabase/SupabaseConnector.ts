@@ -30,6 +30,7 @@ import { eq } from 'drizzle-orm';
 import * as schema from '../drizzleSchema';
 import { profile } from '../drizzleSchema';
 import type { OpMetadata } from '../powersync/opMetadata';
+import { getDefaultOpMetadata } from '../powersync/opMetadata';
 import type { System } from '../powersync/system';
 import { AppConfig } from './AppConfig';
 
@@ -383,20 +384,26 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
           }
         }
 
-        if (!recordMetadata) {
+        // DELETE never SET _metadata, so PowerSync leaves CrudEntry.metadata empty.
+        // PUT/PATCH without a stamp are real legacy rows and must stay on v0
+        // transforms. Deletes only send keys, so use the current schema version.
+        const isDelete = op.op === UpdateType.DELETE;
+        if (!recordMetadata && !isDelete) {
           console.warn(
             `[uploadData] ${op.table} op has no _metadata - treating as legacy v0 data. ` +
               `This may indicate the publish operation isn't stamping metadata correctly.`
           );
         }
 
-        // NEVER use current app version as default - old ops must be transformed
-        // Use '0' to ensure v0_to_v1 + v1_to_v2 transforms run for legacy data
-        const metadata: OpMetadata = recordMetadata ?? { schema_version: '0' };
+        const metadata: OpMetadata =
+          recordMetadata ??
+          (isDelete ? getDefaultOpMetadata() : { schema_version: '0' });
 
-        console.log(
-          `[uploadData] ${op.table} op using schema_version: ${metadata.schema_version}${recordMetadata ? ' (from record)' : ' (legacy fallback)'}`
-        );
+        if (!isDelete) {
+          console.log(
+            `[uploadData] ${op.table} op using schema_version: ${metadata.schema_version}${recordMetadata ? ' (from record)' : ' (legacy fallback)'}`
+          );
+        }
 
         // Find composite key config for this table
         const compositeConfig = this.compositeKeyTables.find(

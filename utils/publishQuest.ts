@@ -2,7 +2,12 @@ import { asset, asset_content_link, project, quest, quest_asset_link } from '@/d
 import { system } from '@/db/powersync/system';
 import { getNetworkStatus } from '@/hooks/useNetworkStatus';
 import { promoteLocalAudio } from '@/services/attachments/promoteLocalAudio';
-import { isLocalOnlyAudio } from '@/utils/attachmentPaths';
+import {
+  isInvalidAudioValue,
+  LOCAL_AUDIO_PREFIX,
+  normalizeStoredAudioArray,
+  storageAudioObjectName
+} from '@/utils/attachmentPaths';
 import { and, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
 import { aliasedColumn } from './dbUtils';
 import { getLocalAttachmentUri } from './fileUtils';
@@ -277,6 +282,31 @@ export async function publishQuest(
     const publishedAt = new Date().toISOString();
 
     const audioUploadResults = await system.db.transaction(async (tx) => {
+      // Strip leftover 2.5 `local/` prefixes while the quest is still a
+      // draft. After published_at is set, ACL updates are rejected.
+      if (nestedAssetIds.length > 0) {
+        const contentLinks = await tx.query.asset_content_link.findMany({
+          columns: { id: true, audio: true },
+          where: and(
+            inArray(asset_content_link.asset_id, nestedAssetIds),
+            isNotNull(asset_content_link.audio)
+          )
+        });
+
+        for (const link of contentLinks) {
+          const stripped = normalizeStoredAudioArray(link.audio);
+          if (!stripped) continue;
+          const current = link.audio ?? [];
+          const changed = stripped.some((value, index) => value !== current[index]);
+          if (changed) {
+            await tx
+              .update(asset_content_link)
+              .set({ audio: stripped })
+              .where(eq(asset_content_link.id, link.id));
+          }
+        }
+      }
+
       await tx
         .update(quest)
         .set({ published_at: publishedAt })
@@ -284,6 +314,8 @@ export async function publishQuest(
           and(inArray(quest.id, unpublishedQuestIds), isNull(quest.published_at))
         );
 
+      // audio[] stores the storage object name. Move the on-disk file from
+      // local/{name} to the published location.
       const localAudioFilesForAssets =
         nestedAssetIds.length > 0
           ? await Promise.all(
@@ -297,20 +329,17 @@ export async function publishQuest(
                 })
               )
                 .flatMap((link) => link.audio ?? [])
-                .filter((value): value is string => Boolean(value))
-                .filter(isLocalOnlyAudio)
-                .map(getLocalAttachmentUri)
+                .filter(
+                  (value): value is string =>
+                    Boolean(value) && !isInvalidAudioValue(value)
+                )
+                .map((value) =>
+                  getLocalAttachmentUri(
+                    `${LOCAL_AUDIO_PREFIX}${storageAudioObjectName(value)}`
+                  )
+                )
             )
           : [];
-
-      if (nestedAssetIds.length > 0) {
-        await tx
-          .update(asset_content_link)
-          .set({
-            audio: sql`REPLACE(${asset_content_link.audio}, 'local/', '')`
-          })
-          .where(inArray(asset_content_link.asset_id, nestedAssetIds));
-      }
 
       return Promise.allSettled(
         localAudioFilesForAssets.map((audio) => promoteLocalAudio(audio))

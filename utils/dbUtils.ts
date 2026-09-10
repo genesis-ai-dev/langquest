@@ -1,7 +1,7 @@
 import * as drizzleSchema from '@/db/drizzleSchema';
 import { quest } from '@/db/drizzleSchema';
 import type { System } from '@/db/powersync/system';
-import type { HybridDataSource } from '@/views/new/useHybridData';
+import type { HybridDataSource } from '@/hooks/useHybridQuery';
 import type { AnyColumn, GetColumnData, SQL } from 'drizzle-orm';
 import { and, eq, is, isNotNull, or } from 'drizzle-orm';
 import { SQLiteTable } from 'drizzle-orm/sqlite-core';

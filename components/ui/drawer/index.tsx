@@ -62,48 +62,32 @@ function Drawer({
 } & DrawerProps) {
   const ref = React.useRef<BSModalType | null>(null);
   const [isOpen, setIsOpen] = React.useState(open);
+  const isOpenRef = React.useRef(open);
 
-  React.useEffect(() => {
-    setIsOpen(open);
-  }, [open]);
-
-  // Use a separate effect to handle presenting/dismissing to ensure ref is ready
-  React.useEffect(() => {
-    if (isOpen) {
-      const presentModal = () => {
-        if (ref.current) {
-          ref.current.present();
-        } else {
-          setTimeout(presentModal, 50);
-        }
-      };
-      presentModal();
-    } else if (ref.current) {
-      // Use close() instead of dismiss() to avoid double-dismiss bug in
-      // @gorhom/bottom-sheet v5 (#2492). enableDismissOnClose handles the
-      // actual dismiss when the close animation completes.
-      ref.current.close();
-    }
-  }, [isOpen]);
-
-  // Use ref to store onOpenChange to avoid recreating handleSetOpen when it changes
   const onOpenChangeRef = React.useRef(onOpenChange);
   React.useEffect(() => {
     onOpenChangeRef.current = onOpenChange;
   }, [onOpenChange]);
 
-  const handleSetOpen = React.useCallback(
-    (newOpen: boolean) => {
-      setIsOpen(newOpen);
-      onOpenChangeRef.current?.(newOpen);
-      if (newOpen) {
-        ref.current?.present();
-      } else {
-        ref.current?.dismiss();
-      }
-    },
-    [] // Empty deps - use ref to access latest onOpenChange
-  );
+  const syncOpen = React.useCallback((nextOpen: boolean) => {
+    if (isOpenRef.current === nextOpen) return;
+    isOpenRef.current = nextOpen;
+    setIsOpen(nextOpen);
+    onOpenChangeRef.current?.(nextOpen);
+  }, []);
+
+  React.useEffect(() => {
+    syncOpen(open);
+  }, [open, syncOpen]);
+
+  React.useEffect(() => {
+    if (isOpen) {
+      ref.current?.present();
+    } else {
+      // close() not dismiss() — avoids the v5 double-dismiss lock (#2492)
+      ref.current?.close();
+    }
+  }, [isOpen]);
 
   // Extract only stable props we need from drawerProps
   // Don't spread drawerProps directly as it's a new object reference on every render
@@ -123,7 +107,7 @@ function Drawer({
     return {
       ref,
       open: isOpen,
-      setOpen: handleSetOpen,
+      setOpen: syncOpen,
       snapPoints: memoizedSnapPoints,
       enableDynamicSizing: stableEnableDynamicSizing,
       gestureEventsHandlersHook: stableGestureEventsHandlersHook,
@@ -132,7 +116,7 @@ function Drawer({
   }, [
     ref,
     isOpen,
-    handleSetOpen,
+    syncOpen,
     memoizedSnapPoints,
     stableEnableDynamicSizing,
     stableGestureEventsHandlersHook,
@@ -157,7 +141,13 @@ function DrawerTrigger({
   const context = React.useContext(DrawerContext);
 
   return (
-    <Button variant={variant} onPress={() => context?.setOpen(true)} {...props}>
+    <Button
+      variant={variant}
+      onPress={() => {
+        context?.setOpen(true);
+      }}
+      {...props}
+    >
       {children}
     </Button>
   );
@@ -202,24 +192,17 @@ const DrawerContent = React.forwardRef<
 
   const {
     open: _open,
-    setOpen: _setOpen,
+    setOpen,
     ref: _ref,
     snapPoints: _snapPoints,
     gestureEventsHandlersHook,
     dismissible,
     ...modalProps
   } = context ?? {};
-  // Extract setOpen to avoid depending on entire context object (which changes on every render)
-  const setOpen = context?.setOpen;
 
-  const handleSheetChanges = React.useCallback(
-    (index: number) => {
-      if (index === -1) {
-        setOpen?.(false);
-      }
-    },
-    [setOpen]
-  );
+  const handleDismiss = React.useCallback(() => {
+    setOpen?.(false);
+  }, [setOpen]);
 
   const backgroundColor = useThemeColor('background');
 
@@ -236,7 +219,7 @@ const DrawerContent = React.forwardRef<
         // setting it to false on Android seems to cause issues with TalkBack instead
         ios: false
       })}
-      onChange={handleSheetChanges}
+      onDismiss={handleDismiss}
       backdropComponent={({ animatedIndex, animatedPosition }) => (
         <BottomSheetBackdrop
           appearsOnIndex={0}
@@ -284,6 +267,9 @@ const DrawerContent = React.forwardRef<
             'z-[5000]',
             className
           )}
+          {...(!asChild
+            ? { keyboardShouldPersistTaps: 'handled' as const }
+            : {})}
           {...props}
           bottomOffset={16}
         >

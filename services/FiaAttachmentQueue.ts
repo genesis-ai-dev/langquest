@@ -7,7 +7,6 @@
  * State is tracked in the local store so the AppDrawer can display progress.
  */
 
-import { system } from '@/db/powersync/system';
 import type { FiaPericopeStepsResponse } from '@/hooks/useFiaPericopeSteps';
 import type {
   FiaAttachmentQueueItem,
@@ -23,7 +22,6 @@ import {
   readFileText,
   writeFile
 } from '@/utils/fileUtils';
-import { lookupFiaLanguageCodeForProject } from '@/utils/languoidLookups';
 import { useShallow } from 'zustand/react/shallow';
 
 const FIA_DIR = 'fia_attachments';
@@ -149,6 +147,9 @@ export function enqueue(pericopeId: string, projectId: string) {
 }
 
 async function enqueueInternal(pericopeId: string, projectId: string) {
+  const { lookupFiaLanguageCodeForProject } = await import(
+    '@/utils/languoidLookups'
+  );
   const fiaLanguageCode = await lookupFiaLanguageCodeForProject(projectId);
   if (!fiaLanguageCode) {
     console.error(
@@ -280,6 +281,7 @@ async function fetchPericopeSteps(
   if (!supabaseUrl)
     throw new Error('EXPO_PUBLIC_SUPABASE_URL is not configured');
 
+  const { system } = await import('@/db/powersync/system');
   const {
     data: { session }
   } = await system.supabaseConnector.client.auth.getSession();

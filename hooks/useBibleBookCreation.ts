@@ -9,9 +9,9 @@ import { quest } from '@/db/drizzleSchema';
 import type { QuestMetadata } from '@/db/drizzleSchemaColumns';
 import { system } from '@/db/powersync/system';
 import { resolveTable } from '@/utils/dbUtils';
-import { useHybridData } from '@/views/new/useHybridData';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 
 interface CreateBookParams {
@@ -31,7 +31,6 @@ interface BookQuest {
  */
 export function useBibleBookCreation() {
   const { currentUser } = useAuth();
-  const queryClient = useQueryClient();
 
   /**
    * Find existing book quest or create it if it doesn't exist
@@ -192,12 +191,6 @@ export function useBibleBookCreation() {
           project_id: newBook.project_id
         };
       });
-    },
-    onSuccess: (result) => {
-      // Invalidate queries to update UI
-      void queryClient.invalidateQueries({
-        queryKey: ['bible-books', result.project_id]
-      });
     }
   });
 
@@ -311,9 +304,8 @@ export function useBibleBooks(projectId: string) {
       )
     );
 
-  const { data: books = [], ...rest } = useHybridData({
-    dataType: 'bible-books',
-    queryKeyParams: [projectId],
+  const { data: books = [], ...rest } = useHybridQuery({
+    queryKey: ['bible-books', projectId],
     offlineQuery: toCompilableQuery(offlineQueryBuilder),
     cloudQueryFn: () => fetchCloudBooks(projectId),
     transformCloudData: (cloudBook) => {

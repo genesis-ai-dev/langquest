@@ -10,7 +10,8 @@
  *
  * Scope needs no code here: download_profiles already gates which rows
  * PowerSync syncs to the device. The audio_uploaded_at filter means we only
- * fetch files the server has confirmed exist — historically-lost files stop
+ * fetch files the server has confirmed exist — including older rows whose
+ * object name still starts with `local/`. Historically-lost files stop
  * being retried and simply stay absent.
  *
  * Nothing here marks anything "synced": a file is downloaded when it's on
@@ -20,7 +21,10 @@
 import type * as drizzleSchema from '@/db/drizzleSchema';
 import { asset, asset_content_link, quest, quest_asset_link } from '@/db/drizzleSchema';
 import type { SupabaseStorageAdapter } from '@/db/supabase/SupabaseStorageAdapter';
-import { isInvalidAudioValue, isLocalOnlyAudio } from '@/utils/attachmentPaths';
+import {
+  isRemoteAudioObject,
+  storageAudioObjectName
+} from '@/utils/attachmentPaths';
 import { getLocalAttachmentUri, writeFile } from '@/utils/fileUtils';
 import type { PowerSyncSQLiteDatabase } from '@powersync/drizzle-driver';
 import { and, isNotNull } from 'drizzle-orm';
@@ -174,7 +178,7 @@ export class AudioDownloader {
     const names = new Set<string>();
     for (const row of rows) {
       for (const value of row.audio ?? []) {
-        if (!value || isInvalidAudioValue(value) || isLocalOnlyAudio(value)) {
+        if (!value || !isRemoteAudioObject(value)) {
           continue;
         }
         names.add(value);
@@ -278,33 +282,43 @@ export class AudioDownloader {
 
   /** @returns true if the file is now on disk. */
   private async downloadOne(filename: string): Promise<boolean> {
-    try {
-      const blob = await this.options.storage.downloadFile(filename);
-      const base64Data = await blobToBase64(blob);
-      // eslint-disable-next-line @typescript-eslint/await-thenable -- writeFile is platform-split: sync on native (typed here), async on web
-      await writeFile(getLocalAttachmentUri(filename), base64Data, {
-        encoding: 'base64'
-      });
-      this.attempts.delete(filename);
-      this.options.fileIndex.add(filename);
-      return true;
-    } catch (error) {
-      const previous = this.attempts.get(filename);
-      const failures = (previous?.failures ?? 0) + 1;
-      const backoff =
-        BACKOFF_STEPS_MS[Math.min(failures, BACKOFF_STEPS_MS.length) - 1] ??
-        BACKOFF_STEPS_MS[BACKOFF_STEPS_MS.length - 1]!;
-      this.attempts.set(filename, {
-        failures,
-        nextAttemptAt: Date.now() + backoff,
-        lastError: error instanceof Error ? error.message : String(error)
-      });
-      console.warn(
-        `[AudioDownloader] Download failed for ${filename} (attempt ${failures}, retry in ${Math.round(backoff / 1000)}s):`,
-        error
-      );
-      return false;
+    const storageNames = [filename];
+    const stripped = storageAudioObjectName(filename);
+    if (stripped !== filename) storageNames.push(stripped);
+
+    let lastError: unknown;
+    for (const storageName of storageNames) {
+      try {
+        const blob = await this.options.storage.downloadFile(storageName);
+        const base64Data = await blobToBase64(blob);
+        // eslint-disable-next-line @typescript-eslint/await-thenable -- writeFile is platform-split: sync on native (typed here), async on web
+        await writeFile(getLocalAttachmentUri(filename), base64Data, {
+          encoding: 'base64'
+        });
+        this.attempts.delete(filename);
+        this.options.fileIndex.add(filename);
+        return true;
+      } catch (error) {
+        lastError = error;
+      }
     }
+
+    const previous = this.attempts.get(filename);
+    const failures = (previous?.failures ?? 0) + 1;
+    const backoff =
+      BACKOFF_STEPS_MS[Math.min(failures, BACKOFF_STEPS_MS.length) - 1] ??
+      BACKOFF_STEPS_MS[BACKOFF_STEPS_MS.length - 1]!;
+    this.attempts.set(filename, {
+      failures,
+      nextAttemptAt: Date.now() + backoff,
+      lastError:
+        lastError instanceof Error ? lastError.message : String(lastError)
+    });
+    console.warn(
+      `[AudioDownloader] Download failed for ${filename} (attempt ${failures}, retry in ${Math.round(backoff / 1000)}s):`,
+      lastError
+    );
+    return false;
   }
 
   private publishWorkStatus(

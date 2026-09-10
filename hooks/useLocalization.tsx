@@ -7,7 +7,7 @@ import type {
 } from '@/services/localizations';
 import { localizations } from '@/services/localizations';
 import { useLocalStore } from '@/store/localStore';
-import { useHybridData } from '@/views/new/useHybridData';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { eq } from 'drizzle-orm';
 import React, { createContext, useCallback, useContext, useMemo } from 'react';
@@ -106,10 +106,9 @@ export function LocalizationProvider({
     currentUser?.user_metadata.ui_languoid_id ??
     currentUser?.user_metadata.ui_language_id;
 
-  // Single useHybridData call for the entire app
-  const { data } = useHybridData({
-    dataType: 'languoid',
-    queryKeyParams: [uiLanguoidId || ''],
+  // Single useHybridQuery call for the entire app
+  const { data } = useHybridQuery({
+    queryKey: ['languoid', uiLanguoidId || ''],
 
     offlineQuery: toCompilableQuery(
       system.db.query.languoid.findMany({

@@ -33,6 +33,7 @@ import { AudioDownloader } from '@/services/attachments/AudioDownloader';
 import { AudioUploader } from '@/services/attachments/AudioUploader';
 import { localFileIndex } from '@/services/attachments/LocalFileIndex';
 import { OPSqliteOpenFactory } from '@powersync/op-sqlite';
+import { Table as PowerSyncTable } from '@powersync/common';
 import { SQLiteTable } from 'drizzle-orm/sqlite-core';
 import Logger from 'js-logger';
 import * as drizzleSchema from '../drizzleSchema';
@@ -40,7 +41,6 @@ import { AppConfig } from '../supabase/AppConfig';
 import { SupabaseConnector } from '../supabase/SupabaseConnector';
 import { getDefaultOpMetadata } from './opMetadata';
 
-import { initializeFiaQueue } from '@/services/FiaAttachmentQueue';
 import { posthog } from '@/services/posthog';
 import { useLocalStore } from '@/store/localStore';
 import { useNetworkStore } from '@/store/networkStore';
@@ -149,9 +149,29 @@ export class System {
     // Note: the old PowerSync AttachmentTable ('attachments') is intentionally
     // no longer registered. PowerSync drops its local table; audio files on
     // disk are untouched and the new domain-driven audio sync picks them up.
-    const schema = new Schema([
-      ...new DrizzleAppSchema(drizzleSchemaWithOptions).tables
-    ]);
+    // `_metadata` is a drizzle column AND PowerSync `trackMetadata`. If both
+    // exist, inserts put the stamp in op.opData._metadata instead of the hidden
+    // CrudEntry.metadata column. Omit it from the Table map so trackMetadata
+    // owns the view column.
+    const schema = new Schema(
+      new DrizzleAppSchema(drizzleSchemaWithOptions).tables.map((table) => {
+        const columns = { ...table.columnMap };
+        delete (columns as { _metadata?: unknown })._metadata;
+        const indexes: Record<string, string[]> = {};
+        for (const index of table.indexes) {
+          indexes[index.name] = index.columns.map((column) => column.name);
+        }
+        return new PowerSyncTable(columns, {
+          indexes,
+          localOnly: table.localOnly,
+          insertOnly: table.insertOnly,
+          viewName: table.viewNameOverride,
+          trackPrevious: table.trackPrevious,
+          trackMetadata: table.trackMetadata,
+          ignoreEmptyUpdates: table.ignoreEmptyUpdates
+        }).copyWithName(table.name);
+      })
+    );
 
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (PowerSyncDatabaseNative) {
@@ -496,10 +516,8 @@ export class System {
           return; // Exit early, skip all sync-related initialization
         }
 
-        const {
-          prepareSingleTableLayout,
-          reinsertUnpublishedDrafts
-        } = await import('../migrations/upgradeToSingleTable');
+        const { prepareSingleTableLayout, reinsertUnpublishedDrafts } =
+          await import('../migrations/upgradeToSingleTable');
 
         if (this.migrationDb) {
           await prepareSingleTableLayout(this.migrationDb);
@@ -579,7 +597,10 @@ export class System {
     if (!this.initialized || !this.powerSyncCreated) return;
 
     if (!isConnected) {
-      if (!this.powersync.connected) return;
+      const { connected, connecting } = this.powersync.currentStatus;
+      // Need to call disconnect even when in connecting state so PowerSync stops retrying
+      // and the UI doesn't get stuck on "connecting".
+      if (!connected && !connecting) return;
       try {
         await this.powersync.disconnect();
         console.log('[System] PowerSync disconnected (device offline)');
@@ -634,7 +655,6 @@ export class System {
     this.initializeAttachmentQueues()
       .then(() => {
         console.log('[System] ✓ Attachment queues initialized');
-        initializeFiaQueue();
       })
       .catch((error) => {
         // Log but don't block - queues will be initialized on-demand if needed

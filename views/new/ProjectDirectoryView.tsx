@@ -64,9 +64,10 @@ import { offloadQuest } from '@/utils/questOffloadUtils';
 import { cn, getThemeColor, useThemeColor } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { invalidateCloud } from '@/hooks/hybridCache';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { and, count, eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import {
   BookOpenIcon,
@@ -98,7 +99,7 @@ import z from 'zod';
 import { BibleBookList } from './BibleBookList';
 import { FiaBookList } from './FiaBookList';
 import { QuestListView } from './QuestListView';
-import { useHybridData } from './useHybridData';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
 
 // Hook to determine if the invite banner should be shown for a project
 // Returns shouldShowInviteBanner=true if ALL of the following are true:
@@ -167,38 +168,37 @@ function useProjectHasNoInvites(projectId: string) {
     data: inviteData,
     isLoading: isInviteLoading,
     isError: isInviteError
-  } = useHybridData<{
-    count: number;
+  } = useHybridQuery<{
+    id: string;
   }>({
-    dataType: 'project-invite-count',
-    queryKeyParams: [projectId],
-
-    // PowerSync query - count all invites for this project
+    queryKey: ['project-invite-count', projectId],
     offlineQuery: toCompilableQuery(
       system.db
-        .select({ count: count() })
+        .select({ id: invite.id })
         .from(invite)
         .where(eq(invite.project_id, projectId))
     ),
-
-    enableCloudQuery: false
+    cloudQueryFn: async () => {
+      const { data, error } = await system.supabaseConnector.client
+        .from('invite')
+        .select('id')
+        .eq('project_id', projectId);
+      if (error) throw error;
+      return data ?? [];
+    }
   });
 
-  // Query member count for this project (offline only - PowerSync has this data)
   const {
     data: memberData,
     isLoading: isMemberLoading,
     isError: isMemberError
-  } = useHybridData<{
-    count: number;
+  } = useHybridQuery<{
+    id: string;
   }>({
-    dataType: 'project-member-count',
-    queryKeyParams: [projectId],
-
-    // PowerSync query - count active members
+    queryKey: ['project-member-count', projectId],
     offlineQuery: toCompilableQuery(
       system.db
-        .select({ count: count() })
+        .select({ id: profile_project_link.id })
         .from(profile_project_link)
         .where(
           and(
@@ -207,12 +207,19 @@ function useProjectHasNoInvites(projectId: string) {
           )
         )
     ),
-
-    enableCloudQuery: false
+    cloudQueryFn: async () => {
+      const { data, error } = await system.supabaseConnector.client
+        .from('profile_project_link')
+        .select('id')
+        .eq('project_id', projectId)
+        .eq('active', true);
+      if (error) throw error;
+      return data ?? [];
+    }
   });
 
-  const inviteCount = inviteData[0]?.count ?? 0;
-  const memberCount = memberData[0]?.count ?? 0;
+  const inviteCount = inviteData.length;
+  const memberCount = memberData.length;
 
   // Solo owner = only 1 member and that member is the owner
   const isSoloOwner = isOwner && memberCount === 1;
@@ -471,23 +478,7 @@ export default function ProjectDirectoryView() {
             return next;
           });
 
-          // Invalidate all quest queries for this project
-          await queryClient.invalidateQueries({
-            queryKey: ['quests', 'infinite', 'for-project', projectId]
-          });
-
-          await queryClient.invalidateQueries({
-            queryKey: ['quests', 'offline', 'for-project', projectId]
-          });
-
-          await queryClient.invalidateQueries({
-            queryKey: ['quests', 'cloud', 'for-project', projectId]
-          });
-
-          // Invalidate assets queries to refresh assets list if user is viewing a quest
-          await queryClient.invalidateQueries({
-            queryKey: ['assets']
-          });
+          await invalidateCloud(queryClient, 'quests', 'assets');
 
           console.log(
             '📥 [Bulk Download] Queries invalidated - UI will refresh'
@@ -606,33 +597,47 @@ export default function ProjectDirectoryView() {
   // Handle book selection with permission check (after isMember and existingBookIds are defined)
   const handleBookSelect = React.useCallback(
     (bookId: string) => {
-      const bookExists = existingBookIds.has(bookId);
+      const matches = existingBooks.filter(
+        (book) => book.metadata?.bible?.book === bookId
+      );
+      const existingBook =
+        matches.find((book) => book.published_at != null) ?? matches[0];
 
-      if (bookExists || isMember) {
-        if (isMember && template === 'bible') {
-          findOrCreateBook({
-            projectId: projectId!,
-            bookId: bookId
-          })
-            .then((result) => {
-              if (result?.id) {
-                goToQuest({
-                  id: result.id,
-                  project_id: result.project_id,
-                  name: result.name
-                });
-              }
-            })
-            .catch((error: unknown) => {
-              console.error('Error finding/creating book quest:', error);
-            });
-        }
-      } else {
+      if (existingBook) {
+        goToQuest({
+          id: existingBook.id,
+          project_id: existingBook.project_id,
+          name: existingBook.name
+        });
+        return;
+      }
+
+      if (!isMember) {
         RNAlert.alert(t('error'), t('membersOnlyCreate'));
+        return;
+      }
+
+      if (template === 'bible') {
+        findOrCreateBook({
+          projectId: projectId!,
+          bookId: bookId
+        })
+          .then((result) => {
+            if (result?.id) {
+              goToQuest({
+                id: result.id,
+                project_id: result.project_id,
+                name: result.name
+              });
+            }
+          })
+          .catch((error: unknown) => {
+            console.error('Error finding/creating book quest:', error);
+          });
       }
     },
     [
-      existingBookIds,
+      existingBooks,
       isMember,
       goToQuest,
       projectId,
@@ -855,17 +860,7 @@ export default function ProjectDirectoryView() {
       syncCallbackService.registerCallback(questIdForSyncCallback, async () => {
         console.log('🗑️ [Offload] Sync completed - invalidating queries');
 
-        await queryClient.invalidateQueries({
-          queryKey: ['quests', 'infinite', 'for-project', projectId]
-        });
-
-        await queryClient.invalidateQueries({
-          queryKey: ['quests', 'offline', 'for-project', projectId]
-        });
-
-        await queryClient.invalidateQueries({
-          queryKey: ['quests', 'cloud', 'for-project', projectId]
-        });
+        await invalidateCloud(queryClient, 'quests', 'assets', 'download-status');
 
         console.log('🗑️ [Offload] Queries invalidated - UI will refresh');
       });
@@ -1039,33 +1034,6 @@ export default function ProjectDirectoryView() {
           };
         }
       );
-
-      console.log('📥 [Create Quest] Waiting for PowerSync to sync...');
-      // Wait for PowerSync to sync, then invalidate to ensure consistency
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-
-      console.log('📥 [Create Quest] Invalidating all quest queries...');
-      // Invalidate ALL quest queries to refresh the list (matches manual refresh button)
-      await queryClient.invalidateQueries({
-        queryKey: ['quests', 'for-project', projectId]
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ['quests', 'infinite', 'for-project', projectId]
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ['quests', 'offline', 'for-project', projectId]
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ['quests', 'cloud', 'for-project', projectId]
-      });
-
-      console.log('📥 [Create Quest] Invalidating assets queries');
-      // Invalidate assets queries to refresh assets list if user is viewing a quest
-      await queryClient.invalidateQueries({
-        queryKey: ['assets']
-      });
-
-      console.log('✅ [Create Quest] All queries invalidated');
     },
     onError: (error, values, context) => {
       console.error('Failed to create quest', error);
@@ -1221,18 +1189,7 @@ export default function ProjectDirectoryView() {
                 onPress={async () => {
                   setIsRefreshing(true);
                   console.log('🔄 Manually refreshing quest queries...');
-                  await queryClient.invalidateQueries({
-                    queryKey: ['quests', 'for-project', projectId]
-                  });
-                  await queryClient.invalidateQueries({
-                    queryKey: ['quests', 'infinite', 'for-project', projectId]
-                  });
-                  await queryClient.invalidateQueries({
-                    queryKey: ['quests', 'offline', 'for-project', projectId]
-                  });
-                  await queryClient.invalidateQueries({
-                    queryKey: ['quests', 'cloud', 'for-project', projectId]
-                  });
+                  await invalidateCloud(queryClient, 'quests');
                   console.log('🔄 Quest queries invalidated');
                   // Stop animation after a brief delay
                   setTimeout(() => {

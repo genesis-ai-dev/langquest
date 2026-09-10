@@ -10,6 +10,8 @@
  */
 
 import { system } from '@/db/powersync/system';
+import { getQueuedAssetIds } from '@/database_services/assetGarbageCollectorService';
+import { storageAudioObjectName } from '@/utils/attachmentPaths';
 import { resolveTable } from '@/utils/dbUtils';
 import { and, eq, gte } from 'drizzle-orm';
 import uuid from 'react-native-uuid';
@@ -90,6 +92,7 @@ export async function saveRecording(
     });
 
     // 1. Shift existing quest placements at or after target order_index
+    const queuedIds = new Set(await getQueuedAssetIds());
     const linksToShift = await tx
       .select({
         asset_id: linkLocal.asset_id,
@@ -104,8 +107,11 @@ export async function saveRecording(
       );
 
     if (linksToShift.length > 0) {
-      console.log(`  📊 Shifting ${linksToShift.length} existing links`);
-      for (const link of linksToShift) {
+      const keepers = linksToShift.filter(
+        (link) => !queuedIds.has(link.asset_id)
+      );
+      console.log(`  📊 Shifting ${keepers.length} existing links`);
+      for (const link of keepers) {
         if (typeof link.order_index === 'number') {
           await tx
             .update(linkLocal)
@@ -156,7 +162,7 @@ export async function saveRecording(
       source_language_id: targetLanguoidId, // Deprecated field, kept for backward compatibility
       languoid_id: targetLanguoidId, // New languoid reference
       text: assetName,
-      audio: [audioUri],
+      audio: [storageAudioObjectName(audioUri)],
       download_profiles: [userId]
     });
   });

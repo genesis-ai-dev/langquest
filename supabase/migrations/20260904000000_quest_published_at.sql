@@ -3,6 +3,11 @@
 -- New inserts stay unpublished unless the client stamps published_at.
 -- Clients < 2.6 never uploaded drafts: v2_5_to_v2_6 stamps now() on PUT of a
 -- new quest when the column is omitted. Clone inserts copy from the source.
+--
+-- After publish, quest and asset-related rows cannot be updated or deleted.
+-- Asset DELETE previously had no policy, so undo uploads returned 2xx with
+-- 0 rows deleted. Recordings store the storage object name in audio[]; the
+-- file stays at local/ on disk until publish. Upload waits for published_at.
 
 -- clone_id is used by perform_clone_step (source row id on the clone). It
 -- exists in production but was never added in a committed migration, so
@@ -108,6 +113,25 @@ grant execute on function public.quest_is_readable(uuid) to anon, authenticated;
 grant execute on function public.asset_is_on_published_quest(uuid) to anon, authenticated;
 grant execute on function public.asset_is_readable(uuid) to anon, authenticated;
 
+create or replace function public.quest_is_unpublished(p_quest_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from quest q
+    where q.id = p_quest_id
+      and q.published_at is null
+  );
+$$;
+
+comment on function public.quest_is_unpublished(uuid) is
+  'True when the quest exists and published_at is null. Used by write RLS.';
+
+grant execute on function public.quest_is_unpublished(uuid) to anon, authenticated;
+
 -- ---------------------------------------------------------------------------
 -- SELECT: published rows stay world-readable (previous policy). Drafts are
 -- creator-only. showHiddenContent is a client visible-flag filter and must
@@ -191,35 +215,12 @@ using (
 );
 
 -- ---------------------------------------------------------------------------
--- UPDATE: drafts are editable by the creator. Published quests keep the
--- existing owner policy. Owners may also stamp published_at (publish).
+-- UPDATE/DELETE: published quests cannot be mutated. Creators and owners can
+-- still edit/delete drafts; owners can stamp published_at (publish). Drop the
+-- older owner UPDATE policy that allowed mutating published rows.
 -- ---------------------------------------------------------------------------
 
 drop policy if exists "Enable quest updates only for project owners" on public.quest;
-create policy "Enable quest updates only for project owners"
-on public.quest
-as permissive
-for update
-to authenticated
-using (
-  published_at is not null
-  and exists (
-    select 1 from profile_project_link ppl
-    where ppl.profile_id = (select auth.uid())
-      and ppl.project_id = quest.project_id
-      and ppl.membership = 'owner'
-      and ppl.active = true
-  )
-)
-with check (
-  exists (
-    select 1 from profile_project_link ppl
-    where ppl.profile_id = (select auth.uid())
-      and ppl.project_id = quest.project_id
-      and ppl.membership = 'owner'
-      and ppl.active = true
-  )
-);
 
 drop policy if exists "Creators can update unpublished quests" on public.quest;
 create policy "Creators can update unpublished quests"
@@ -260,6 +261,432 @@ with check (
       and ppl.active = true
   )
 );
+
+drop policy if exists "Quest delete limited to unpublished drafts" on public.quest;
+create policy "Quest delete limited to unpublished drafts"
+on public.quest
+as permissive
+for delete
+to authenticated
+using (
+  published_at is null
+  and (
+    creator_id = (select auth.uid())
+    or exists (
+      select 1 from profile_project_link ppl
+      where ppl.profile_id = (select auth.uid())
+        and ppl.project_id = quest.project_id
+        and ppl.membership = 'owner'
+        and ppl.active = true
+    )
+  )
+);
+
+-- asset / link UPDATE: keep existing membership gates, add unpublished.
+
+drop policy if exists "Enable asset updates only by project owners" on public.asset;
+create policy "Enable asset updates only by project owners"
+on public.asset
+as permissive
+for update
+to authenticated
+using (
+  not public.asset_is_on_published_quest(id)
+  and exists (
+    select 1
+    from public.profile_project_link ppl
+    where ppl.profile_id = (select auth.uid())
+      and ppl.project_id = asset.project_id
+      and ppl.membership = 'owner'
+      and ppl.active = true
+  )
+)
+with check (
+  not public.asset_is_on_published_quest(id)
+  and exists (
+    select 1
+    from public.profile_project_link ppl
+    where ppl.profile_id = (select auth.uid())
+      and ppl.project_id = asset.project_id
+      and ppl.membership = 'owner'
+      and ppl.active = true
+  )
+);
+
+drop policy if exists "Enable updates only for project owners" on public.quest_asset_link;
+create policy "Enable updates only for project owners"
+on public.quest_asset_link
+as permissive
+for update
+to authenticated
+using (
+  public.quest_is_unpublished(quest_id)
+  and exists (
+    select 1
+    from public.profile_project_link ppl
+    where ppl.profile_id = (select auth.uid())
+      and ppl.membership = 'owner'
+      and ppl.active = true
+      and ppl.project_id = (
+        select q.project_id from public.quest q where q.id = quest_asset_link.quest_id
+      )
+  )
+)
+with check (
+  public.quest_is_unpublished(quest_id)
+  and exists (
+    select 1
+    from public.profile_project_link ppl
+    where ppl.profile_id = (select auth.uid())
+      and ppl.membership = 'owner'
+      and ppl.active = true
+      and ppl.project_id = (
+        select q.project_id from public.quest q where q.id = quest_asset_link.quest_id
+      )
+  )
+);
+
+drop policy if exists "Asset content update limited to owners and members"
+  on public.asset_content_link;
+create policy "Asset content update limited to owners and members"
+on public.asset_content_link
+as permissive
+for update
+to authenticated
+using (
+  not public.asset_is_on_published_quest(asset_id)
+  and (
+    exists (
+      select 1
+      from asset a
+      join profile_project_link ppl on ppl.project_id = a.project_id
+      where a.id = asset_content_link.asset_id
+        and ppl.profile_id = (select auth.uid())
+        and ppl.membership in ('owner', 'member')
+        and ppl.active = true
+    )
+    or (
+      exists (
+        select 1
+        from asset a
+        join project p on p.id = a.project_id
+        where a.id = asset_content_link.asset_id
+          and p.creator_id = (select auth.uid())
+      )
+      and not exists (
+        select 1
+        from asset a
+        join profile_project_link ppl2 on ppl2.project_id = a.project_id
+        where a.id = asset_content_link.asset_id
+          and ppl2.profile_id = (select auth.uid())
+          and ppl2.active = true
+      )
+    )
+  )
+)
+with check (
+  not public.asset_is_on_published_quest(asset_id)
+  and (
+    exists (
+      select 1
+      from asset a
+      join profile_project_link ppl on ppl.project_id = a.project_id
+      where a.id = asset_content_link.asset_id
+        and ppl.profile_id = (select auth.uid())
+        and ppl.membership in ('owner', 'member')
+        and ppl.active = true
+    )
+    or (
+      exists (
+        select 1
+        from asset a
+        join project p on p.id = a.project_id
+        where a.id = asset_content_link.asset_id
+          and p.creator_id = (select auth.uid())
+      )
+      and not exists (
+        select 1
+        from asset a
+        join profile_project_link ppl2 on ppl2.project_id = a.project_id
+        where a.id = asset_content_link.asset_id
+          and ppl2.profile_id = (select auth.uid())
+          and ppl2.active = true
+      )
+    )
+  )
+);
+
+drop policy if exists "Quest tag link update limited to owners and members"
+  on public.quest_tag_link;
+create policy "Quest tag link update limited to owners and members"
+on public.quest_tag_link
+as permissive
+for update
+to authenticated
+using (
+  public.quest_is_unpublished(quest_id)
+  and (
+    exists (
+      select 1
+      from public.quest q
+      join public.profile_project_link ppl on ppl.project_id = q.project_id
+      where q.id = quest_tag_link.quest_id
+        and ppl.profile_id = (select auth.uid())
+        and ppl.active = true
+        and ppl.membership in ('owner', 'member')
+    )
+    or (
+      not exists (
+        select 1
+        from public.quest q
+        join public.profile_project_link ppl2 on ppl2.project_id = q.project_id
+        where q.id = quest_tag_link.quest_id
+          and ppl2.profile_id = (select auth.uid())
+          and ppl2.active = true
+      )
+      and exists (
+        select 1
+        from public.quest q
+        join public.project p on p.id = q.project_id
+        where q.id = quest_tag_link.quest_id
+          and p.creator_id = (select auth.uid())
+      )
+    )
+  )
+)
+with check (
+  public.quest_is_unpublished(quest_id)
+  and (
+    exists (
+      select 1
+      from public.quest q
+      join public.profile_project_link ppl on ppl.project_id = q.project_id
+      where q.id = quest_tag_link.quest_id
+        and ppl.profile_id = (select auth.uid())
+        and ppl.active = true
+        and ppl.membership in ('owner', 'member')
+    )
+    or (
+      not exists (
+        select 1
+        from public.quest q
+        join public.profile_project_link ppl2 on ppl2.project_id = q.project_id
+        where q.id = quest_tag_link.quest_id
+          and ppl2.profile_id = (select auth.uid())
+          and ppl2.active = true
+      )
+      and exists (
+        select 1
+        from public.quest q
+        join public.project p on p.id = q.project_id
+        where q.id = quest_tag_link.quest_id
+          and p.creator_id = (select auth.uid())
+      )
+    )
+  )
+);
+
+-- DELETE: same collaborator gates as INSERT, plus unpublished.
+
+drop policy if exists "Asset delete limited to owners and members" on public.asset;
+create policy "Asset delete limited to owners and members"
+on public.asset
+as permissive
+for delete
+to authenticated
+using (
+  not public.asset_is_on_published_quest(id)
+  and asset.creator_id = (select auth.uid())
+  and (
+    exists (
+      select 1
+      from profile_project_link ppl
+      where ppl.profile_id = (select auth.uid())
+        and ppl.active = true
+        and ppl.membership in ('owner', 'member')
+        and ppl.project_id = asset.project_id
+    )
+    or exists (
+      select 1
+      from project p
+      where p.id = asset.project_id
+        and p.creator_id = (select auth.uid())
+    )
+    or (
+      asset.source_asset_id is not null
+      and exists (
+        select 1
+        from project p
+        where p.id = asset.project_id
+          and p.private = false
+      )
+    )
+  )
+);
+
+drop policy if exists "Quest asset link delete limited to owners and members"
+  on public.quest_asset_link;
+create policy "Quest asset link delete limited to owners and members"
+on public.quest_asset_link
+as permissive
+for delete
+to authenticated
+using (
+  public.quest_is_unpublished(quest_id)
+  and (
+    exists (
+      select 1
+      from quest q
+      join profile_project_link ppl on ppl.project_id = q.project_id
+      where q.id = quest_asset_link.quest_id
+        and ppl.profile_id = (select auth.uid())
+        and ppl.membership in ('owner', 'member')
+        and ppl.active = true
+    )
+    or exists (
+      select 1
+      from quest q
+      join project p on p.id = q.project_id
+      where q.id = quest_asset_link.quest_id
+        and p.creator_id = (select auth.uid())
+    )
+    or exists (
+      select 1
+      from quest q
+      join project p on p.id = q.project_id
+      join asset a on a.id = quest_asset_link.asset_id
+      where q.id = quest_asset_link.quest_id
+        and a.source_asset_id is not null
+        and p.private = false
+    )
+  )
+);
+
+drop policy if exists "Asset content delete limited to owners and members"
+  on public.asset_content_link;
+create policy "Asset content delete limited to owners and members"
+on public.asset_content_link
+as permissive
+for delete
+to authenticated
+using (
+  not public.asset_is_on_published_quest(asset_id)
+  and (
+    exists (
+      select 1
+      from asset a
+      join profile_project_link ppl on ppl.project_id = a.project_id
+      where a.id = asset_content_link.asset_id
+        and ppl.profile_id = (select auth.uid())
+        and ppl.membership in ('owner', 'member')
+        and ppl.active = true
+    )
+    or exists (
+      select 1
+      from asset a
+      join project p on p.id = a.project_id
+      where a.id = asset_content_link.asset_id
+        and p.creator_id = (select auth.uid())
+    )
+    or exists (
+      select 1
+      from asset a
+      join project p on p.id = a.project_id
+      where a.id = asset_content_link.asset_id
+        and a.source_asset_id is not null
+        and p.private = false
+    )
+  )
+);
+
+drop policy if exists "Asset tag link delete limited to owners and members"
+  on public.asset_tag_link;
+create policy "Asset tag link delete limited to owners and members"
+on public.asset_tag_link
+as permissive
+for delete
+to authenticated
+using (
+  not public.asset_is_on_published_quest(asset_id)
+  and (
+    exists (
+      select 1
+      from public.profile_project_link ppl
+      where ppl.profile_id = (select auth.uid())
+        and ppl.active = true
+        and ppl.membership in ('owner', 'member')
+        and ppl.project_id = (
+          select a.project_id from public.asset a where a.id = asset_tag_link.asset_id
+        )
+    )
+    or (
+      not exists (
+        select 1
+        from public.profile_project_link ppl2
+        where ppl2.profile_id = (select auth.uid())
+          and ppl2.active = true
+          and ppl2.project_id = (
+            select a2.project_id from public.asset a2 where a2.id = asset_tag_link.asset_id
+          )
+      )
+      and exists (
+        select 1 from public.project p
+        where p.id = (
+          select a3.project_id from public.asset a3 where a3.id = asset_tag_link.asset_id
+        )
+          and p.creator_id = (select auth.uid())
+      )
+    )
+  )
+);
+
+drop policy if exists "Quest tag link delete limited to unpublished drafts"
+  on public.quest_tag_link;
+create policy "Quest tag link delete limited to unpublished drafts"
+on public.quest_tag_link
+as permissive
+for delete
+to authenticated
+using (
+  public.quest_is_unpublished(quest_id)
+  and (
+    exists (
+      select 1
+      from public.quest q
+      join public.profile_project_link ppl on ppl.project_id = q.project_id
+      where q.id = quest_tag_link.quest_id
+        and ppl.profile_id = (select auth.uid())
+        and ppl.active = true
+        and ppl.membership in ('owner', 'member')
+    )
+    or (
+      not exists (
+        select 1
+        from public.quest q
+        join public.profile_project_link ppl2 on ppl2.project_id = q.project_id
+        where q.id = quest_tag_link.quest_id
+          and ppl2.profile_id = (select auth.uid())
+          and ppl2.active = true
+      )
+      and exists (
+        select 1
+        from public.quest q
+        join public.project p on p.id = q.project_id
+        where q.id = quest_tag_link.quest_id
+          and p.creator_id = (select auth.uid())
+      )
+    )
+  )
+);
+
+-- Votes stay mutable on published quests (users can retract a vote).
+drop policy if exists "Enable vote delete only by vote creator" on public.vote;
+create policy "Enable vote delete only by vote creator"
+on public.vote
+as permissive
+for delete
+to authenticated
+using (creator_id = (select auth.uid()));
 
 -- Clone inserts omit published_at. Copy the source quest's value so clones
 -- keep the same published/draft state.
@@ -666,5 +1093,129 @@ as $$
     'min_required_schema_version', '2.1',
     'notes', 'Clients must be at least version 2.1 to sync. Version 2.6 adds quest.published_at (unpublished drafts stay private to the creator).'
   );
+$$;
+
+-- Log how many rows each mutation actually touched. DELETE 0 under RLS looks
+-- like success to the client today.
+create or replace function public._apply_single_json_dml(
+  p_op text,
+  p_table text,
+  p_record jsonb
+)
+returns void
+language plpgsql
+as $$
+declare
+  target regclass;
+  primary_key_columns text[];
+  all_table_columns text[];
+  columns_to_update text[];
+  where_primary_key_clause_sql text;
+  update_set_assignments_sql text;
+  dynamic_sql text;
+  v_row_count int;
+begin
+  raise log '[._apply_single_json_dml] start op=% table=% record=%',
+    p_op, p_table, p_record::text;
+
+  select (quote_ident('public') || '.' || quote_ident(p_table))::regclass
+    into target;
+
+  select coalesce(array_agg(quote_ident(pg_attribute.attname) order by pg_attribute.attnum), '{}')
+    into primary_key_columns
+  from pg_index
+  join pg_attribute
+    on pg_attribute.attrelid = pg_index.indrelid
+   and pg_attribute.attnum = any(pg_index.indkey)
+  where pg_index.indrelid = target
+    and pg_index.indisprimary;
+
+  if array_length(primary_key_columns, 1) is null then
+    raise exception 'apply_table_mutation: table % has no primary key; unsupported', p_table;
+  end if;
+
+  select array_agg(quote_ident(column_name) order by ordinal_position)
+    into all_table_columns
+  from information_schema.columns
+  where table_schema = 'public'
+    and table_name = p_table;
+
+  select coalesce(array_agg(column_identifier), '{}')
+    into columns_to_update
+  from (
+    select column_identifier
+    from unnest(all_table_columns) as all_columns(column_identifier)
+    where p_record ? replace(column_identifier, '"', '')
+      and not (column_identifier = any(primary_key_columns))
+  ) as selectable_columns;
+
+  select string_agg(format('t.%s = input_values.%s', pk, pk), ' and ')
+    into where_primary_key_clause_sql
+  from unnest(primary_key_columns) as primary_key(pk);
+
+  if lower(p_op) = 'put' then
+    if array_length(columns_to_update, 1) is not null then
+      select string_agg(format('%s = excluded.%s', column_identifier, column_identifier), ', ')
+        into update_set_assignments_sql
+      from unnest(columns_to_update) as update_columns(column_identifier);
+
+      dynamic_sql := format(
+        'insert into %s select (jsonb_populate_record(null::%s, $1)).* on conflict (%s) do update set %s',
+        target::text,
+        target::text,
+        array_to_string(primary_key_columns, ', '),
+        update_set_assignments_sql
+      );
+    else
+      dynamic_sql := format(
+        'insert into %s select (jsonb_populate_record(null::%s, $1)).* on conflict (%s) do nothing',
+        target::text,
+        target::text,
+        array_to_string(primary_key_columns, ', ')
+      );
+    end if;
+
+    raise log '[._apply_single_json_dml] PUT upsert SQL=%', dynamic_sql;
+    execute dynamic_sql using p_record;
+
+  elsif lower(p_op) in ('patch','update') then
+    if array_length(columns_to_update, 1) is null then
+      raise log '[._apply_single_json_dml] PATCH no non-PK cols present; skipping update';
+      return;
+    end if;
+
+    select string_agg(format('%s = input_values.%s', column_identifier, column_identifier), ', ')
+      into update_set_assignments_sql
+    from unnest(columns_to_update) as update_columns(column_identifier);
+
+    dynamic_sql := format(
+      'update %s as t set %s from (select (jsonb_populate_record(null::%s, $1)).*) as input_values where %s',
+      target::text,
+      update_set_assignments_sql,
+      target::text,
+      where_primary_key_clause_sql
+    );
+
+    raise log '[._apply_single_json_dml] PATCH update SQL=%', dynamic_sql;
+    execute dynamic_sql using p_record;
+
+  elsif lower(p_op) = 'delete' then
+    dynamic_sql := format(
+      'delete from %s as t using (select (jsonb_populate_record(null::%s, $1)).*) as input_values where %s',
+      target::text,
+      target::text,
+      where_primary_key_clause_sql
+    );
+
+    raise log '[._apply_single_json_dml] DELETE SQL=%', dynamic_sql;
+    execute dynamic_sql using p_record;
+
+  else
+    raise exception 'apply_table_mutation: unsupported op %', p_op;
+  end if;
+
+  get diagnostics v_row_count = row_count;
+  raise log '[._apply_single_json_dml] row_count=% op=% table=%', v_row_count, p_op, p_table;
+end;
 $$;
 

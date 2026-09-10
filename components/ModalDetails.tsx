@@ -7,7 +7,7 @@ import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
 import type { WithSource } from '@/utils/dbUtils';
 import { FEATURE_FLAG_CAN_OFFLOAD_QUEST } from '@/utils/featureFlags';
-import { useHybridData } from '@/views/new/useHybridData';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { and, eq } from 'drizzle-orm';
 import {
@@ -63,9 +63,8 @@ export const ModalDetails: React.FC<ModalDetailsProps> = ({
   // let sourceLanguages: Pick<Language, 'id' | 'native_name' | 'english_name'>[] =
   //   [];
   const { data: sourceLanguages, isLoading: isSourceLangLoading } =
-    useHybridData({
-      dataType: 'project-source-languages',
-      queryKeyParams: [content.id],
+    useHybridQuery({
+      queryKey: ['project-source-languages', content.id],
       offlineQuery:
         contentType === 'project' && content.id
           ? toCompilableQuery(
@@ -110,9 +109,8 @@ export const ModalDetails: React.FC<ModalDetailsProps> = ({
     contentType === 'project' ? (content as Project).target_language_id : null;
 
   const { data: targetLangArr = [], isLoading: isTargetLangLoading } =
-    useHybridData({
-      dataType: 'project-target-language',
-      queryKeyParams: [targetLanguageId ?? ''],
+    useHybridQuery({
+      queryKey: ['project-target-language', targetLanguageId ?? ''],
       offlineQuery: targetLanguageId
         ? toCompilableQuery(
             system.db.query.language.findMany({

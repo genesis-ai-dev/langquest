@@ -24,7 +24,6 @@ import {
   quest as questTable
 } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import { AppConfig } from '@/db/supabase/AppConfig';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useOrthographyExamples } from '@/hooks/useOrthographyExamples';
@@ -33,10 +32,7 @@ import { useTranscription } from '@/hooks/useTranscription';
 import { useTranscriptionLocalization } from '@/hooks/useTranscriptionLocalization';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useLocalStore } from '@/store/localStore';
-import {
-  isLocalOnlyAudio,
-  resolveExistingAudioUri
-} from '@/utils/attachmentPaths';
+import { resolvePlayableAudioUri } from '@/utils/resolvePlayableAudio';
 import { fileExists, getLocalAttachmentUri } from '@/utils/fileUtils';
 import { cn } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
@@ -62,7 +58,7 @@ import { Dimensions, FlatList, Text, TextInput, View } from 'react-native';
 import { scheduleOnRN } from 'react-native-worklets';
 import NextGenNewTranslationModal from './NextGenNewTranslationModal';
 import NextGenTranslationsList from './NextGenTranslationsList';
-import { useHybridData } from './useHybridData';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
 
 // Static viewability config for FlatList - defined outside component to avoid recreation
 const VIEWABILITY_CONFIG = {
@@ -121,9 +117,8 @@ function useNextGenOfflineAsset(assetId: string) {
     [getOfflineQuery]
   );
 
-  return useHybridData({
-    dataType: 'asset',
-    queryKeyParams: [assetId],
+  return useHybridQuery({
+    queryKey: ['asset', assetId],
     offlineQuery,
     cloudQueryFn: async () => {
       if (!assetId) return [];
@@ -236,11 +231,10 @@ export default function NextGenAssetDetailView() {
 
   // Use passed project data if available (instant!), otherwise query using hybrid data
   // This supports both authenticated (offline) and anonymous (cloud-only) users
-  const { data: queriedProjectDataArray } = useHybridData<
+  const { data: queriedProjectDataArray } = useHybridQuery<
     typeof project.$inferSelect
   >({
-    dataType: 'project-detail',
-    queryKeyParams: [projectId || ''],
+    queryKey: ['project-detail', projectId || ''],
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     offlineQuery: toCompilableQuery(
       system.db.query.project.findFirst({
@@ -268,11 +262,10 @@ export default function NextGenAssetDetailView() {
   const projectData = queriedProjectData;
 
   // Fetch quest data for "New" label highlighting (recording session tracking)
-  const { data: questDataArray, refetch: refetchQuest } = useHybridData<
+  const { data: questDataArray, refetch: refetchQuest } = useHybridQuery<
     typeof questTable.$inferSelect
   >({
-    dataType: 'quest-detail',
-    queryKeyParams: [questId || ''],
+    queryKey: ['quest-detail', questId || ''],
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     offlineQuery: toCompilableQuery(
       system.db.query.quest.findFirst({
@@ -334,11 +327,10 @@ export default function NextGenAssetDetailView() {
   );
 
   // Get target languoid_id from project_language_link
-  const { data: targetLanguoidLink = [] } = useHybridData<{
+  const { data: targetLanguoidLink = [] } = useHybridQuery<{
     languoid_id: string | null;
   }>({
-    dataType: 'project-target-languoid-id',
-    queryKeyParams: [projectId || ''],
+    queryKey: ['project-target-languoid-id', projectId || ''],
     offlineQuery: toCompilableQuery(
       system.db
         .select({ languoid_id: project_language_link.languoid_id })
@@ -475,17 +467,26 @@ export default function NextGenAssetDetailView() {
   }, [activeAsset?.content]);
 
   // Fetch all languoids used by content items
-  const { data: contentLanguoids = [] } = useHybridData({
-    dataType: 'languoids-by-id',
-    queryKeyParams: contentLanguoidIds,
+  const { data: contentLanguoids = [] } = useHybridQuery<
+    typeof languoidTable.$inferSelect
+  >({
+    queryKey: ['languoids-by-id', ...contentLanguoidIds],
+    enabled: contentLanguoidIds.length > 0,
     offlineQuery: toCompilableQuery(
       system.db.query.languoid.findMany({
-        where: contentLanguoidIds.length
-          ? inArray(languoidTable.id, contentLanguoidIds)
-          : undefined
+        where: inArray(languoidTable.id, contentLanguoidIds)
       })
     ),
-    enableCloudQuery: false
+    cloudQueryFn: async () => {
+      if (contentLanguoidIds.length === 0) return [];
+      const { data, error } = await system.supabaseConnector.client
+        .from('languoid')
+        .select('*')
+        .in('id', contentLanguoidIds)
+        .overrideTypes<(typeof languoidTable.$inferSelect)[]>();
+      if (error) throw error;
+      return data ?? [];
+    }
   });
 
   const languoidById = new Map(contentLanguoids.map((l) => [l.id, l] as const));
@@ -543,36 +544,9 @@ export default function NextGenAssetDetailView() {
       );
 
       const resolved = await Promise.all(
-        audioValues.map(async (audioValue: string): Promise<string | null> => {
-          const localUri = await resolveExistingAudioUri(audioValue);
-          if (localUri) {
-            return localUri;
-          }
-
-          // Pre-publish and legacy file:// values only ever exist on-device
-          if (
-            isLocalOnlyAudio(audioValue) ||
-            audioValue.startsWith('file://')
-          ) {
-            console.warn(`Local audio file not found: ${audioValue}`);
-            return null;
-          }
-
-          // Published audio not on this device - fall back to cloud URL
-          try {
-            if (!AppConfig.supabaseBucket) {
-              console.warn('Supabase bucket not configured');
-              return null;
-            }
-            const { data } = system.supabaseConnector.client.storage
-              .from(AppConfig.supabaseBucket)
-              .getPublicUrl(audioValue);
-            return data.publicUrl;
-          } catch (error) {
-            console.error('Failed to get cloud audio URL:', error);
-            return null;
-          }
-        })
+        audioValues.map((audioValue: string) =>
+          resolvePlayableAudioUri(audioValue)
+        )
       );
 
       setResolvedAudioUris(resolved.filter((uri) => uri !== null));

@@ -7,7 +7,7 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { useQuestOffloadVerification } from '@/hooks/useQuestOffloadVerification';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { offloadQuest } from '@/utils/questOffloadUtils';
-import type { HybridDataSource } from '@/views/new/useHybridData';
+import type { HybridDataSource } from '@/hooks/useHybridQuery';
 import RNAlert from '@blazejkustra/react-native-alert';
 import {
   CheckCircleIcon,

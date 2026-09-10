@@ -1,20 +1,74 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { profile, profile_project_link } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import { useHybridData } from '@/views/new/useHybridData';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { InferSelectModel } from 'drizzle-orm';
-import { and, eq } from 'drizzle-orm';
-import { useCallback } from 'react';
-import { createHybridQueryConfig, useHybridQuery } from '../useHybridQuery';
+import { and, eq, inArray } from 'drizzle-orm';
+import { useCallback, useMemo } from 'react';
+
+export type ProfileDisplayName = {
+  id: string;
+  username: string | null;
+  email: string | null;
+};
+
+/**
+ * Local co-member profiles (username or email) plus cloud usernames for
+ * published-quest creators the caller is not a member with.
+ */
+export function useProfileDisplayNames(ids: string[]) {
+  const idsKey = ids.slice().sort().join(',');
+  const { data: rows = [] } = useHybridQuery<ProfileDisplayName>({
+    queryKey: ['profile-names', idsKey],
+    enabled: ids.length > 0,
+    offlineQuery: toCompilableQuery(
+      system.db.query.profile.findMany({
+        where: inArray(profile.id, ids),
+        columns: { id: true, username: true, email: true }
+      })
+    ),
+    cloudQueryFn: async () => {
+      if (ids.length === 0) return [];
+      const { data, error } = await system.supabaseConnector.client.rpc(
+        'get_profile_display_names',
+        { p_ids: ids }
+      );
+      if (error) throw error;
+      const names =
+        (data as { id: string; username: string | null }[] | null) ?? [];
+      return names.map((row) => ({
+        id: row.id,
+        username: row.username,
+        email: null
+      }));
+    }
+  });
+
+  return useMemo(() => {
+    const nameMap = new Map<string, string>();
+    for (const row of rows) {
+      nameMap.set(row.id, row.username || row.email || 'Unknown');
+    }
+    return nameMap;
+  }, [rows]);
+}
 
 export type Profile = InferSelectModel<typeof profile>;
 export type ProfileProjectLink = InferSelectModel<typeof profile_project_link>;
 
-function getProfileByUserIdConfig(user_id: string) {
-  return createHybridQueryConfig({
+/**
+ * Returns { profile, isLoading, error }
+ * Fetches a profile by user ID from Supabase (online) or local Drizzle DB (offline)
+ */
+export function useProfileByUserId(user_id: string) {
+  const {
+    data: profileArray,
+    isLoading: isProfileLoading,
+    ...rest
+  } = useHybridQuery({
     queryKey: ['profile', user_id],
-    onlineFn: async () => {
+    cloudQueryFn: async () => {
       const { data, error } = await system.supabaseConnector.client
         .from('profile')
         .select('*')
@@ -30,18 +84,6 @@ function getProfileByUserIdConfig(user_id: string) {
     ),
     enabled: !!user_id
   });
-}
-
-/**
- * Returns { profile, isLoading, error }
- * Fetches a profile by user ID from Supabase (online) or local Drizzle DB (offline)
- */
-export function useProfileByUserId(user_id: string) {
-  const {
-    data: profileArray,
-    isLoading: isProfileLoading,
-    ...rest
-  } = useHybridQuery(getProfileByUserIdConfig(user_id));
 
   const userProfile = profileArray[0] || null;
 
@@ -57,9 +99,8 @@ export function useUserMemberships(userId?: string) {
   const user_id = userId || currentUser?.id;
 
   const { data: membershipsData, isLoading } =
-    useHybridData<ProfileProjectLink>({
-      dataType: 'user-memberships',
-      queryKeyParams: [user_id || ''],
+    useHybridQuery<ProfileProjectLink>({
+      queryKey: ['user-memberships', user_id || ''],
       enabled: !!user_id, // Only query if user ID exists
 
       // PowerSync query using Drizzle - this will be reactive!

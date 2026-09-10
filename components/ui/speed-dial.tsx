@@ -1,10 +1,17 @@
+import { easeOut } from '@/constants/animations';
 import { cn } from '@/utils/styleUtils';
 import type { LucideIcon } from 'lucide-react-native';
 import { EllipsisVerticalIcon, XIcon } from 'lucide-react-native';
-import { AnimatePresence, MotiView } from 'moti';
 import * as React from 'react';
 import type { ViewProps } from 'react-native';
 import { View } from 'react-native';
+import Animated, {
+  FadeInUp,
+  FadeOut,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming
+} from 'react-native-reanimated';
 import type { ButtonProps } from './button';
 import { Button } from './button';
 import { Icon } from './icon';
@@ -82,6 +89,21 @@ function SpeedDialTrigger({
   ...props
 }: TriggerProps) {
   const { open, toggle } = useSpeedDialContext();
+  const rotation = useSharedValue(0);
+
+  React.useEffect(() => {
+    rotation.set(
+      withTiming(disableIconRotation || !open ? 0 : 90, {
+        duration: 150,
+        easing: easeOut
+      })
+    );
+  }, [open, disableIconRotation, rotation]);
+
+  const iconStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${rotation.get()}deg` }]
+  }));
+
   const onPress = () => toggle();
 
   return (
@@ -96,20 +118,14 @@ function SpeedDialTrigger({
       )}
       {...props}
     >
-      <MotiView
-        from={{ rotate: '0deg' }}
-        animate={{
-          rotate: disableIconRotation ? '0deg' : open ? '90deg' : '0deg'
-        }}
-        transition={{ duration: 150, type: 'timing' }}
-      >
+      <Animated.View style={iconStyle}>
         <Icon
           as={open ? iconOpen : iconClosed}
           strokeWidth={2.5}
           size={iconSize}
           className={cn('text-secondary', iconClassName)}
         />
-      </MotiView>
+      </Animated.View>
     </Button>
   );
 }
@@ -121,21 +137,16 @@ function SpeedDialItems({ children, className }: ViewProps) {
     .reverse();
   const { open } = useSpeedDialContext();
 
-  //   return <Portal name="speed-dial">{content}</Portal>;
   return (
-    <AnimatePresence>
-      {open && (
-        <View className={cn('flex flex-col-reverse gap-1', className)}>
-          {arrayChildren.map((child, order) => {
-            return (
-              <Slot.Generic<ItemInjectedProps> key={order} _order={order}>
-                {child}
-              </Slot.Generic>
-            );
-          })}
-        </View>
-      )}
-    </AnimatePresence>
+    <View className={cn('flex flex-col-reverse gap-1', className)}>
+      {open
+        ? arrayChildren.map((child, order) => (
+            <Slot.Generic<ItemInjectedProps> key={order} _order={order}>
+              {child}
+            </Slot.Generic>
+          ))
+        : null}
+    </View>
   );
 }
 SpeedDialItems.displayName = 'SpeedDialItems';
@@ -175,28 +186,9 @@ function SpeedDialItem({
 
   const offset = _order * 5;
   return (
-    <MotiView
-      from={{
-        translateY: offset,
-        opacity: 0,
-        scale: 0.95
-      }}
-      animate={{
-        opacity: 1,
-        scale: 1,
-        translateY: [-2, 0]
-      }}
-      exit={{
-        translateY: 0,
-        opacity: 0,
-        scale: 0.95
-      }}
-      transition={{
-        type: 'timing',
-        duration: 150,
-        delay: offset
-        // loop: true
-      }}
+    <Animated.View
+      entering={FadeInUp.duration(150).delay(offset).easing(easeOut)}
+      exiting={FadeOut.duration(120).easing(easeOut)}
     >
       <Button
         onPress={handlePress}
@@ -211,7 +203,7 @@ function SpeedDialItem({
           className={cn('text-secondary', iconClassName)}
         />
       </Button>
-    </MotiView>
+    </Animated.View>
   );
 }
 SpeedDialItem.displayName = 'SpeedDialItem';

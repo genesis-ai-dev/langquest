@@ -29,6 +29,7 @@ import type { asset_content_link, language } from '@/db/drizzleSchema';
 import { project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { promoteLocalAudio } from '@/services/attachments/promoteLocalAudio';
+import { storageAudioObjectName } from '@/utils/attachmentPaths';
 import { useLanguageById } from '@/hooks/db/useLanguages';
 import { useLanguoidById } from '@/hooks/db/useLanguoids';
 import { useLocalization } from '@/hooks/useLocalization';
@@ -77,7 +78,7 @@ import {
   View
 } from 'react-native';
 import { z } from 'zod';
-import { useHybridData } from './useHybridData';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
 type AssetContent = typeof asset_content_link.$inferSelect;
 
 interface NextGenNewTranslationModalProps {
@@ -152,9 +153,8 @@ export default function NextGenNewTranslationModal({
     );
   }, [projectId, isAuthenticated]);
 
-  const { data: queriedProjectDataArray } = useHybridData({
-    dataType: 'project-new-translation',
-    queryKeyParams: [projectId || ''],
+  const { data: queriedProjectDataArray } = useHybridQuery({
+    queryKey: ['project-new-translation', projectId || ''],
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     offlineQuery: projectOfflineQuery,
     cloudQueryFn: async (): Promise<(typeof project.$inferSelect)[]> => {
@@ -479,10 +479,9 @@ export default function NextGenNewTranslationModal({
           const localAudioPath = await saveAudioLocally(data.audioUri);
 
           if (isLocalSource) {
-            // Pre-publish content: keep the 'local/…' value so the recording
-            // stays on-device. Publishing the quest strips the prefix and
-            // promotes the file — upload happens when the user publishes.
-            audioAttachment = localAudioPath;
+            // File stays at local/{uuid}.ext until the quest is published.
+            // Store the storage object name so publish does not rewrite audio[].
+            audioAttachment = storageAudioObjectName(localAudioPath);
           } else {
             // The row goes straight to the synced tables and syncs now, so
             // the file must take its published filename now; the acl row

@@ -1,14 +1,19 @@
 import { system } from '@/db/powersync/system';
 import { resolveTable } from '@/utils/dbUtils';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { and, eq, inArray } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { audioSegmentService } from './audioSegmentService';
 
 const ASSET_GC_QUEUE_KEY = '@asset_gc_queue_v1';
 
-export type AssetGcOperation = 'merge' | 'delete';
+export type AssetGcOperation = 'tombstone' | 'collect' | 'collect-merge';
 
 type AssetGcQueue = Record<string, AssetGcOperation>;
+
+let cachedQueue: AssetGcQueue = {};
+const listeners = new Set<() => void>();
+let runInFlight: Promise<{ id: string; operation: AssetGcOperation }[]> | null =
+  null;
 
 async function getAssetNameMap(
   ids: string[]
@@ -29,26 +34,69 @@ async function getAssetNameMap(
 }
 
 function devLog(...args: unknown[]): void {
-  // eslint-disable-next-line no-undef
   if (__DEV__) {
     console.log(...args);
   }
 }
 
+function notify(): void {
+  for (const listener of listeners) {
+    listener();
+  }
+}
+
+function setCachedQueue(queue: AssetGcQueue): void {
+  const prevKeys = Object.keys(cachedQueue).join(',');
+  const nextKeys = Object.keys(queue).join(',');
+  cachedQueue = queue;
+  if (prevKeys !== nextKeys) {
+    notify();
+  }
+}
+
+export function subscribeAssetGcQueue(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+export function getCachedQueuedAssetIds(): string[] {
+  return Object.keys(cachedQueue);
+}
+
+function normalizeOperation(value: unknown): AssetGcOperation {
+  if (value === 'collect-merge' || value === 'merge') return 'collect-merge';
+  if (value === 'tombstone') return 'tombstone';
+  return 'collect';
+}
+
 async function readQueue(): Promise<AssetGcQueue> {
   try {
     const raw = await AsyncStorage.getItem(ASSET_GC_QUEUE_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw) as AssetGcQueue;
-    if (!parsed || typeof parsed !== 'object') return {};
-    return parsed;
+    if (!raw) {
+      setCachedQueue({});
+      return {};
+    }
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      setCachedQueue({});
+      return {};
+    }
+    const queue: AssetGcQueue = {};
+    for (const [id, operation] of Object.entries(parsed)) {
+      queue[id] = normalizeOperation(operation);
+    }
+    setCachedQueue(queue);
+    return queue;
   } catch (error) {
     console.error('[AssetGC] Failed to read queue:', error);
-    return {};
+    return cachedQueue;
   }
 }
 
 async function writeQueue(queue: AssetGcQueue): Promise<void> {
+  setCachedQueue(queue);
   try {
     await AsyncStorage.setItem(ASSET_GC_QUEUE_KEY, JSON.stringify(queue));
   } catch (error) {
@@ -64,6 +112,10 @@ export async function enqueue(
 
   const queue = await readQueue();
   for (const id of Array.from(new Set(ids))) {
+    const existing = queue[id];
+    if (existing === 'tombstone' && operation !== 'tombstone') {
+      continue;
+    }
     queue[id] = operation;
   }
   await writeQueue(queue);
@@ -79,93 +131,69 @@ export async function dequeue(ids: string[]): Promise<void> {
   await writeQueue(queue);
 }
 
+export async function getQueuedAssetIds(): Promise<string[]> {
+  return Object.keys(await readQueue());
+}
+
 export async function run(): Promise<
-  Array<{ id: string; operation: AssetGcOperation }>
+  { id: string; operation: AssetGcOperation }[]
 > {
-  const queue = await readQueue();
-  const entries = Object.entries(queue).map(([id, operation]) => ({
-    id,
-    operation
-  }));
+  if (runInFlight) return runInFlight;
 
-  const nameMap = await getAssetNameMap(entries.map((entry) => entry.id));
-  const entriesWithName = entries.map((entry) => ({
-    ...entry,
-    name: nameMap[entry.id] ?? null
-  }));
+  runInFlight = (async () => {
+    const queue = await readQueue();
+    const entries = Object.entries(queue).map(([id, operation]) => ({
+      id,
+      operation
+    }));
 
-  devLog('[AssetGC] Current queue entries:', entriesWithName);
+    const nameMap = await getAssetNameMap(entries.map((entry) => entry.id));
+    const entriesWithName = entries.map((entry) => ({
+      ...entry,
+      name: nameMap[entry.id] ?? null
+    }));
 
-  if (entries.length === 0) {
-    return [];
-  }
+    devLog('[AssetGC] Current queue entries:', entriesWithName);
 
-  const assetLocal = resolveTable('asset', { localOverride: true });
-  const questAssetLinkLocal = resolveTable('quest_asset_link', {
-    localOverride: true
-  });
-  const processedIds = new Set<string>();
-
-  for (const entry of entries) {
-    try {
-      const [assetRecord] = await system.db
-        .select({
-          id: assetLocal.id,
-          project_id: assetLocal.project_id
-        })
-        .from(assetLocal)
-        .where(eq(assetLocal.id, entry.id))
-        .limit(1);
-
-      // If asset no longer exists, consider it already collected.
-      if (!assetRecord) {
-        devLog(`[AssetGC] Asset not found, removing from queue: ${entry.id}`);
-        processedIds.add(entry.id);
-        continue;
-      }
-
-      const hasProjectLink = !!assetRecord.project_id;
-      const [questLink] = await system.db
-        .select({ id: questAssetLinkLocal.id })
-        .from(questAssetLinkLocal)
-        .where(eq(questAssetLinkLocal.asset_id, entry.id))
-        .limit(1);
-      const hasQuestLink = !!questLink;
-
-      // Abort deletion if still connected to quest/project.
-      if (hasProjectLink || hasQuestLink) {
-        devLog(
-          `[AssetGC] Skipping connected asset ${entry.id} | hasProjectLink=${hasProjectLink} hasQuestLink=${hasQuestLink}`
-        );
-        continue;
-      }
-
-      if (entry.operation === 'delete') {
-        await audioSegmentService.deleteAudioSegment(entry.id);
-        devLog(`[AssetGC] Deleted asset + files: ${entry.id}`);
-      } else if (entry.operation === 'merge') {
-        await audioSegmentService.deleteAudioSegment(entry.id, {
-          preserveAudioFiles: true
-        });
-        devLog(`[AssetGC] Deleted merged asset records only: ${entry.id}`);
-      }
-
-      processedIds.add(entry.id);
-    } catch (error) {
-      devLog(`[AssetGC] Failed to process ${entry.id}:`, error);
+    if (entries.length === 0) {
+      return [];
     }
-  }
 
-  if (processedIds.size > 0) {
+    const assetLocal = resolveTable('asset', { localOverride: true });
     const nextQueue: AssetGcQueue = { ...queue };
-    for (const id of processedIds) {
-      delete nextQueue[id];
-    }
-    await writeQueue(nextQueue);
-    devLog(
-      `[AssetGC] Removed ${processedIds.size} processed item(s) from queue`
-    );
-  }
 
-  return entries;
+    for (const entry of entries) {
+      if (entry.operation === 'tombstone') {
+        continue;
+      }
+
+      try {
+        const [assetRecord] = await system.db
+          .select({ id: assetLocal.id })
+          .from(assetLocal)
+          .where(eq(assetLocal.id, entry.id))
+          .limit(1);
+
+        if (assetRecord) {
+          await audioSegmentService.deleteAudioSegment(entry.id, {
+            preserveAudioFiles: entry.operation === 'collect-merge'
+          });
+          devLog(`[AssetGC] Collected asset: ${entry.id}`);
+        }
+
+        nextQueue[entry.id] = 'tombstone';
+      } catch (error) {
+        devLog(`[AssetGC] Failed to process ${entry.id}:`, error);
+      }
+    }
+
+    await writeQueue(nextQueue);
+    return entries;
+  })();
+
+  try {
+    return await runInFlight;
+  } finally {
+    runInFlight = null;
+  }
 }

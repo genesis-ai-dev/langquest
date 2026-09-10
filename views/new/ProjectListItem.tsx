@@ -23,11 +23,9 @@ import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { cn } from '@/utils/styleUtils';
-import type { HybridDataSource } from '@/views/new/useHybridData';
-import {
-  useHybridData,
-  useItemDownloadStatus
-} from '@/views/new/useHybridData';
+import type { HybridDataSource } from '@/hooks/useHybridQuery';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
+import { useItemDownloadStatus } from '@/hooks/useItemDownload';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { and, eq, isNotNull } from 'drizzle-orm';
 import {
@@ -75,11 +73,10 @@ export function ProjectListItem({
     );
 
   // Get source languoids from project_language_link
-  const { data: sourceLanguoidLinksRaw = [] } = useHybridData<{
+  const { data: sourceLanguoidLinksRaw = [] } = useHybridQuery<{
     languoid_id: string | null;
   }>({
-    dataType: 'project-source-languoid-ids',
-    queryKeyParams: [project.id],
+    queryKey: ['project-source-languoid-ids', project.id],
     offlineQuery: toCompilableQuery(
       system.db
         .select({ languoid_id: project_language_link.languoid_id })
@@ -111,11 +108,10 @@ export function ProjectListItem({
     .map((link) => ({ ...link, languoid_id: link.languoid_id! }));
 
   // Get target languoid from project_language_link
-  const { data: targetLanguoidLinkRaw = [] } = useHybridData<{
+  const { data: targetLanguoidLinkRaw = [] } = useHybridQuery<{
     languoid_id: string | null;
   }>({
-    dataType: 'project-target-languoid-id',
-    queryKeyParams: [project.id],
+    queryKey: ['project-target-languoid-id', project.id],
     offlineQuery: toCompilableQuery(
       system.db
         .select({ languoid_id: project_language_link.languoid_id })
@@ -188,7 +184,13 @@ export function ProjectListItem({
   };
 
   function goToProjectHelper() {
-    router.push(`/(app)/project/${project.id}`);
+    router.push({
+      pathname: '/(app)/project/[projectId]',
+      params: {
+        projectId: project.id,
+        ...(project.name ? { projectName: project.name } : {})
+      }
+    });
   }
 
   return (

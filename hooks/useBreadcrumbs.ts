@@ -118,6 +118,7 @@ export function useBreadcrumbs(): Breadcrumb[] {
     projectId?: string;
     questId?: string;
     assetId?: string;
+    projectName?: string;
   }>();
   const pathname = usePathname();
   const router = useRouter();
@@ -126,6 +127,10 @@ export function useBreadcrumbs(): Breadcrumb[] {
   const projectId = (params.projectId as string) || undefined;
   const questId = (params.questId as string) || undefined;
   const assetId = (params.assetId as string) || undefined;
+  const rawProjectName = params.projectName;
+  const projectNameParam = Array.isArray(rawProjectName)
+    ? rawProjectName[0]
+    : rawProjectName;
 
   const { project } = useProjectById(projectId);
   const { quest } = useQuestById(questId);
@@ -151,9 +156,9 @@ export function useBreadcrumbs(): Breadcrumb[] {
       onPress: isDeeper ? () => router.dismissTo(href('/(app)/')) : undefined
     });
 
-    if (project && projectId) {
+    if (projectId) {
       crumbs.push({
-        label: project.name || 'Project',
+        label: project?.name || projectNameParam || t('project'),
         onPress:
           questId || assetId
             ? () => router.dismissTo(href(`/(app)/project/${projectId}`))
@@ -195,6 +200,7 @@ export function useBreadcrumbs(): Breadcrumb[] {
     return crumbs;
   }, [
     project,
+    projectNameParam,
     quest,
     asset,
     ancestors,

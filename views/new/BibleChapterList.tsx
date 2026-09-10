@@ -34,12 +34,12 @@ import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useQuestDownloadDiscovery } from '@/hooks/useQuestDownloadDiscovery';
 import { useQuestDownloadStatusLive } from '@/hooks/useQuestDownloadStatusLive';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
-import { syncCallbackService } from '@/services/syncCallbackService';
 import { BOOK_ICON_MAP } from '@/utils/BOOK_GRAPHICS';
 import { bulkDownloadQuest } from '@/utils/bulkDownload';
 import { cn, useThemeColor } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { LegendList } from '@/components/ui/legend-list';
+import { invalidateCloud } from '@/hooks/hybridCache';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Image } from 'expo-image';
 import {
@@ -58,18 +58,22 @@ function VersionCard({
   isCurrentUser,
   onPress,
   onDownloadClick,
-  isDownloading
+  isDownloading,
+  downloadedQuestIds
 }: {
   version: BibleChapterQuest;
   isCurrentUser: boolean;
   onPress: () => void;
   onDownloadClick: (questId: string) => void;
   isDownloading: boolean;
+  downloadedQuestIds: Set<string>;
 }) {
   const isLocal = version.source === 'local';
   const isCloud = version.source === 'cloud';
-  const isDownloaded = useQuestDownloadStatusLive(isLocal ? null : version.id);
-  const needsDownload = isCloud && !isDownloaded;
+  const liveDownloaded = useQuestDownloadStatusLive(
+    isLocal ? null : version.id
+  );
+  const isDownloaded = downloadedQuestIds.has(version.id) || liveDownloaded;
 
   return (
     <QuestVersionPickerCard
@@ -98,7 +102,8 @@ function ChapterButton({
   disabled,
   onDownloadClick,
   canCreateNew,
-  downloadingQuestIds = new Set()
+  downloadingQuestIds = new Set(),
+  downloadedQuestIds = new Set()
 }: {
   chapterNum: number;
   group?: BibleChapterGroup;
@@ -108,6 +113,7 @@ function ChapterButton({
   onDownloadClick: (questId: string) => void;
   canCreateNew: boolean;
   downloadingQuestIds?: Set<string>;
+  downloadedQuestIds?: Set<string>;
 }) {
   const { currentUser } = useAuth();
   const existingQuest = group?.primary;
@@ -118,9 +124,14 @@ function ChapterButton({
   const versionCount = group?.versions.length ?? 0;
   const primaryColor = useThemeColor('primary');
 
-  const isDownloaded = useQuestDownloadStatusLive(existingQuest?.id || null);
+  const liveDownloaded = useQuestDownloadStatusLive(existingQuest?.id || null);
+  const isDownloaded =
+    liveDownloaded ||
+    Boolean(existingQuest?.id && downloadedQuestIds.has(existingQuest.id));
   const isOptimisticallyDownloading = Boolean(
-    existingQuest?.id && downloadingQuestIds.has(existingQuest.id)
+    existingQuest?.id &&
+      downloadingQuestIds.has(existingQuest.id) &&
+      !isDownloaded
   );
   const needsDownload = isCloudQuest && !isDownloaded;
 
@@ -220,12 +231,14 @@ function ChapterButton({
 interface BibleChapterListProps {
   projectId: string;
   bookId: string;
+  bookQuestId: string;
   onCloudLoadingChange?: (isLoading: boolean) => void;
 }
 
 export function BibleChapterList({
   projectId,
   bookId,
+  bookQuestId,
   onCloudLoadingChange
 }: BibleChapterListProps) {
   const { goToQuest } = useNavigationHelpers();
@@ -273,6 +286,9 @@ export function BibleChapterList({
   const [downloadingQuestIds, setDownloadingQuestIds] = React.useState<
     Set<string>
   >(new Set());
+  const [downloadedQuestIds, setDownloadedQuestIds] = React.useState<
+    Set<string>
+  >(new Set());
 
   const discoveryState = useQuestDownloadDiscovery(questIdToDownload || '');
   const startedDiscoveryRef = React.useRef<string | null>(null);
@@ -307,70 +323,15 @@ export function BibleChapterList({
       }
       return bulkDownloadQuest(discoveryState.discoveredIds, currentUser.id);
     },
-    onMutate: async () => {
-      const questIdsToUpdate = new Set(discoveryState.discoveredIds.questIds);
-
-      const updateCache = (oldData: unknown) => {
-        if (!oldData || !currentUser?.id) return oldData;
-        const items = oldData as {
-          id: string;
-          download_profiles?: string[] | null;
-          [key: string]: unknown;
-        }[];
-        return items.map((item) => {
-          if (questIdsToUpdate.has(item.id)) {
-            const profiles = item.download_profiles || [];
-            return {
-              ...item,
-              download_profiles: profiles.includes(currentUser.id)
-                ? profiles
-                : [...profiles, currentUser.id]
-            };
-          }
-          return item;
-        });
-      };
-
-      await queryClient.setQueriesData(
-        {
-          queryKey: ['bible-chapters', 'local', projectId, bookId],
-          exact: false
-        },
-        updateCache
-      );
-      await queryClient.setQueriesData(
-        {
-          queryKey: ['bible-chapters', 'cloud', projectId, bookId],
-          exact: false
-        },
-        updateCache
-      );
-    },
     onSuccess: async () => {
-      if (questIdToDownload) {
-        const questIdsToClear = discoveryState.discoveredIds.questIds;
-
-        const clearAndInvalidate = async () => {
-          setDownloadingQuestIds((prev) => {
-            const next = new Set(prev);
-            questIdsToClear.forEach((id) => next.delete(id));
-            return next;
-          });
-
-          await queryClient.invalidateQueries({
-            queryKey: ['bible-chapters', 'local', projectId, bookId]
-          });
-          await queryClient.invalidateQueries({
-            queryKey: ['bible-chapters', 'cloud', projectId, bookId]
-          });
-          await queryClient.invalidateQueries({ queryKey: ['assets'] });
-        };
-
-        syncCallbackService.registerCallback(
-          questIdToDownload,
-          clearAndInvalidate
-        );
-      }
+      const questIds = discoveryState.discoveredIds.questIds;
+      setDownloadedQuestIds((prev) => new Set([...prev, ...questIds]));
+      setDownloadingQuestIds((prev) => {
+        const next = new Set(prev);
+        questIds.forEach((id) => next.delete(id));
+        return next;
+      });
+      await invalidateCloud(queryClient, 'bible-chapters', 'assets');
     }
   });
 
@@ -404,7 +365,6 @@ export function BibleChapterList({
   const handleCancelDiscovery = () => {
     discoveryState.cancel();
     if (questIdToDownload) {
-      syncCallbackService.cancelCallback(questIdToDownload);
       setDownloadingQuestIds((prev) => {
         const next = new Set(prev);
         next.delete(questIdToDownload);
@@ -417,7 +377,6 @@ export function BibleChapterList({
 
   const handleCancelConfirmation = () => {
     if (questIdToDownload) {
-      syncCallbackService.cancelCallback(questIdToDownload);
       const questIdsToClear = discoveryState.discoveredIds.questIds;
       setDownloadingQuestIds((prev) => {
         const next = new Set(prev);
@@ -480,7 +439,8 @@ export function BibleChapterList({
         projectId,
         bookId,
         chapter: chapterNum,
-        targetLanguageId: project?.target_language_id || ''
+        targetLanguageId: project?.target_language_id || '',
+        parentQuestId: bookQuestId
       });
 
       goToQuest({
@@ -597,6 +557,7 @@ export function BibleChapterList({
             ListHeaderComponent={renderBookHeader('mb-6 w-full')}
             contentContainerStyle={{ paddingHorizontal: 16 }}
             columnWrapperStyle={{ gap: 8 }}
+            extraData={`${[...downloadingQuestIds].join(',')}|${[...downloadedQuestIds].join(',')}`}
             recycleItems
             renderItem={({ item }) =>
               (item.group || canCreateNew) && (
@@ -609,6 +570,7 @@ export function BibleChapterList({
                   onDownloadClick={handleDownloadClick}
                   canCreateNew={canCreateNew}
                   downloadingQuestIds={downloadingQuestIds}
+                  downloadedQuestIds={downloadedQuestIds}
                 />
               )
             }
@@ -645,6 +607,7 @@ export function BibleChapterList({
                 onPress={() => navigateToVersion(version)}
                 onDownloadClick={handleDownloadClick}
                 isDownloading={downloadingQuestIds.has(version.id)}
+                downloadedQuestIds={downloadedQuestIds}
               />
             ))}
 

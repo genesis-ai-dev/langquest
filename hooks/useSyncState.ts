@@ -1,4 +1,5 @@
 import { system } from '@/db/powersync/system';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useEffect, useState } from 'react';
 import { useAudioSyncStatus } from './useAudioSyncStatus';
 
@@ -108,6 +109,7 @@ function getCurrentSyncStateWithoutAttachments() {
 }
 
 export function useSyncState(): SyncState {
+  const isOnline = useNetworkStatus();
   // Call hooks at the top level
   const {
     unsyncedCount: unsyncedAttachmentsCount,
@@ -134,11 +136,15 @@ export function useSyncState(): SyncState {
   // 2. Unsynced attachments (< AttachmentState.SYNCED)
   // 3. Whether attachment data is still loading
   // Note: Don't include error states in loading - errors should stop the loading state
-  const hasError = !!(baseSyncState.downloadError || baseSyncState.uploadError);
+  const isConnected = isOnline && baseSyncState.isConnected;
+  const isConnecting = isOnline && baseSyncState.isConnecting;
+  const downloadError = isOnline ? baseSyncState.downloadError : undefined;
+  const uploadError = isOnline ? baseSyncState.uploadError : undefined;
+  const hasError = !!(downloadError || uploadError);
   const isLoading =
     !hasError &&
     (attachmentDataLoading || // Attachment state data is still loading
-      baseSyncState.isConnecting || // PowerSync is connecting
+      isConnecting || // PowerSync is connecting
       baseSyncState.isDownloadOperationInProgress || // PowerSync is downloading
       baseSyncState.isUpdateInProgress || // PowerSync is uploading
       unsyncedAttachmentsCount > 0); // We have unsynced attachments
@@ -146,6 +152,10 @@ export function useSyncState(): SyncState {
   // Combine base sync state with attachment data
   const syncState: SyncState = {
     ...baseSyncState,
+    isConnected,
+    isConnecting,
+    downloadError,
+    uploadError,
     unsyncedAttachmentsCount,
     isLoading
   };
