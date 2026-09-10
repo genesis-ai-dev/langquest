@@ -1218,7 +1218,8 @@ export default function NextGenNewTranslationModal({
                             </Text>
                             <Text className="mt-1 text-xs text-muted-foreground">
                               • No translations exist yet in{' '}
-                              {targetLanguoidData?.name || 'the target language'}{' '}
+                              {targetLanguoidData?.name ||
+                                'the target language'}{' '}
                               for assets in this quest
                             </Text>
                             <Text className="mt-1 text-xs text-muted-foreground">
