@@ -46,11 +46,10 @@ import {
   inviteBounceBlocksRetry
 } from '@/utils/inviteBounceReason';
 import { cn } from '@/utils/styleUtils';
-import { useHybridData } from '@/views/new/useHybridData';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { PortalHost } from '@rn-primitives/portal';
-import { useQueryClient } from '@tanstack/react-query';
 import { and, eq } from 'drizzle-orm';
 import {
   CircleCheckIcon,
@@ -231,7 +230,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
   const { t } = useLocalization();
   const { currentUser } = useAuth();
   const isOnline = useNetworkStatus();
-  const queryClient = useQueryClient();
+  const { db } = system;
 
   // Get comprehensive user permissions for this project
   const managePermissions = useUserPermissions(projectId, 'manage');
@@ -264,11 +263,10 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
 
   // All operations on invites, requests, and notifications go through synced tables or Supabase
   // Query for project details to check if it's private
-  const { data: projectData, isLoading: projectLoading } = useHybridData<
+  const { data: projectData, isLoading: projectLoading } = useHybridQuery<
     typeof projectTable.$inferSelect
   >({
-    dataType: 'project-membership',
-    queryKeyParams: [projectId],
+    queryKey: ['project-membership', projectId],
 
     // Only offline query - no cloud query needed
     offlineQuery: toCompilableQuery(
@@ -282,11 +280,10 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
   const project = projectData[0];
 
   // Query for active project members - get links first
-  const { data: memberLinks } = useHybridData<
+  const { data: memberLinks } = useHybridQuery<
     typeof profile_project_link.$inferSelect
   >({
-    dataType: 'project-member-links',
-    queryKeyParams: [projectId],
+    queryKey: ['project-member-links', projectId],
 
     // Only offline query - no cloud query needed
     offlineQuery: toCompilableQuery(
@@ -303,9 +300,8 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
   }, [memberLinks]);
 
   // Query for profiles separately
-  const { data: profiles } = useHybridData<typeof profile.$inferSelect>({
-    dataType: 'member-profiles',
-    queryKeyParams: [...profileIds],
+  const { data: profiles } = useHybridQuery<typeof profile.$inferSelect>({
+    queryKey: ['member-profiles', ...profileIds],
 
     // Only offline query - no cloud query needed
     offlineQuery:
@@ -366,9 +362,8 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
   // console.log('members', members);
 
   // Query for invited users - get invites first
-  const { data: invites } = useHybridData<typeof invite.$inferSelect>({
-    dataType: 'project-invites',
-    queryKeyParams: [projectId],
+  const { data: invites } = useHybridQuery<typeof invite.$inferSelect>({
+    queryKey: ['project-invites', projectId],
 
     // Only offline query - no cloud query needed
     offlineQuery: toCompilableQuery(
@@ -390,10 +385,9 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
   }, [invites]);
 
   // Query for receiver profiles separately
-  const { data: receiverProfiles } = useHybridData<typeof profile.$inferSelect>(
+  const { data: receiverProfiles } = useHybridQuery<typeof profile.$inferSelect>(
     {
-      dataType: 'receiver-profiles',
-      queryKeyParams: [...receiverProfileIds],
+      queryKey: ['receiver-profiles', ...receiverProfileIds],
 
       // Only offline query - no cloud query needed
       offlineQuery:
@@ -452,9 +446,8 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
 
   const enableSenderProfileQuery = senderProfileIds.length > 0;
 
-  const { data: senderProfiles } = useHybridData<typeof profile.$inferSelect>({
-    dataType: 'invite-sender-profiles',
-    queryKeyParams: [...senderProfileIds],
+  const { data: senderProfiles } = useHybridQuery<typeof profile.$inferSelect>({
+    queryKey: ['invite-sender-profiles', ...senderProfileIds],
 
     offlineQuery: toCompilableQuery(
       system.db.query.profile.findMany({
@@ -528,9 +521,8 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
   ]);
 
   // Query for pending membership requests (owners only)
-  const { data: requestsData = [] } = useHybridData({
-    dataType: 'project-requests',
-    queryKeyParams: [projectId],
+  const { data: requestsData = [] } = useHybridQuery({
+    queryKey: ['project-requests', projectId],
 
     offlineQuery: toCompilableQuery(
       system.db.query.request.findMany({
@@ -552,11 +544,10 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
   }, [requestsData]);
 
   // Query for requester profiles
-  const { data: requesterProfiles = [] } = useHybridData<
+  const { data: requesterProfiles = [] } = useHybridQuery<
     typeof profile.$inferSelect
   >({
-    dataType: 'requester-profiles',
-    queryKeyParams: [...requesterIds],
+    queryKey: ['requester-profiles', ...requesterIds],
 
     offlineQuery:
       requesterIds.length > 0
@@ -854,17 +845,6 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
           last_updated: new Date().toISOString()
         })
         .where(eq(invite.id, invitation.id));
-
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: ['invite-sent-delivery-failures'],
-          exact: false
-        }),
-        queryClient.invalidateQueries({
-          queryKey: ['invite-sent-delivery-failures-count'],
-          exact: false
-        })
-      ]);
     } catch (error) {
       console.error(
         '[ProjectMembershipModal] Dismiss delivery notice failed:',

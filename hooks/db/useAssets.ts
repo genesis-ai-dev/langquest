@@ -9,10 +9,13 @@ import {
 import { system } from '@/db/powersync/system';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { blockedContentQuery, blockedUsersQuery } from '@/utils/dbUtils';
-import type { HybridDataSource } from '@/views/new/useHybridData';
-import { useSimpleHybridInfiniteData } from '@/views/new/useHybridData';
+import {
+  type HybridDataSource,
+  useHybridInfiniteQuery,
+  useHybridQuery
+} from '@/hooks/useHybridQuery';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery as usePowerSyncQuery } from '@powersync/tanstack-react-query';
 import type { InferSelectModel } from 'drizzle-orm';
 import {
   and,
@@ -27,8 +30,6 @@ import {
   sql
 } from 'drizzle-orm';
 import React from 'react';
-import { useHybridQuery } from '../useHybridQuery';
-
 export type Asset = InferSelectModel<typeof asset>;
 
 export function useAssetById(asset_id: string | undefined) {
@@ -42,7 +43,7 @@ export function useAssetById(asset_id: string | undefined) {
   } = useHybridQuery({
     queryKey: ['asset', asset_id],
     enabled: !!asset_id,
-    onlineFn: async () => {
+    cloudQueryFn: async () => {
       const { data, error } = await supabaseConnector.client
         .from('asset')
         .select('*')
@@ -166,10 +167,15 @@ export function useAssetsByQuest(
     isOnline,
     isFetching,
     refetch
-  } = useSimpleHybridInfiniteData<AssetQuestLink>(
-    'assets',
-    ['by-quest', quest_id || '', searchQuery, showHiddenContent],
-    async ({ pageParam, pageSize }) => {
+  } = useHybridInfiniteQuery<AssetQuestLink>({
+    queryKey: [
+      'assets',
+      'by-quest',
+      quest_id || '',
+      searchQuery,
+      showHiddenContent
+    ],
+    offlineQueryFn: async ({ pageParam, pageSize }) => {
       if (!quest_id) return [];
 
       try {
@@ -233,7 +239,7 @@ export function useAssetsByQuest(
         return [];
       }
     },
-    async ({ pageParam, pageSize }) => {
+    cloudQueryFn: async ({ pageParam, pageSize }) => {
       if (!quest_id) return [];
 
       const offset = pageParam * pageSize;
@@ -302,15 +308,15 @@ export function useAssetsByQuest(
         } as QuestAssetLinkAssetRow)
       );
     },
-    20, // pageSize
-    [
+    pageSize: 20,
+    watchTables: [
       getTableName(quest_asset_link),
       getTableName(asset),
       getTableName(asset_tag_link),
       getTableName(blocked_content),
       getTableName(blocked_users)
     ]
-  );
+  });
 
   return {
     data,
@@ -324,6 +330,8 @@ export function useAssetsByQuest(
   };
 }
 
+const DISABLED_WATCH = 'SELECT 1 WHERE 0';
+
 export function useLocalAssetsByQuest(
   quest_id: string,
   searchQuery: string,
@@ -331,86 +339,81 @@ export function useLocalAssetsByQuest(
 ) {
   const { currentUser } = useAuth();
   const isOnline = useNetworkStatus();
+  const userId = currentUser?.id ?? '';
+  const watch = !!quest_id && !!currentUser?.id;
+  const searchTerm = searchQuery.trim();
+  const displayName = sql<string>`coalesce(${quest_asset_link.name}, ${asset.name})`;
 
-  const simpleQuery = useQuery({
+  const conditions = watch
+    ? [
+        eq(quest_asset_link.quest_id, quest_id),
+        isNull(asset.source_asset_id),
+        !showHiddenContent
+          ? or(eq(asset.visible, true), eq(asset.creator_id, userId))
+          : undefined,
+        !showHiddenContent
+          ? or(
+              eq(quest_asset_link.visible, true),
+              eq(asset.creator_id, userId)
+            )
+          : undefined,
+        notInArray(asset.id, blockedContentQuery(userId, 'asset')),
+        notInArray(asset.creator_id, blockedUsersQuery(userId)),
+        searchTerm && like(displayName, `%${searchTerm}%`)
+      ]
+    : [];
+
+  const simpleQuery = usePowerSyncQuery({
     queryKey: [
       'assets',
+      'offline',
       'by-quest-local-simple',
       quest_id || '',
       searchQuery,
       showHiddenContent
     ],
-    queryFn: async () => {
-      if (!quest_id || !currentUser) return [];
-
-      try {
-        const searchTerm = searchQuery.trim();
-        const displayName = sql<string>`coalesce(${quest_asset_link.name}, ${asset.name})`;
-
-        const conditions = [
-          eq(quest_asset_link.quest_id, quest_id),
-          isNull(asset.source_asset_id),
-          // See useAssetsByQuest: the ternary must wrap the whole or().
-          !showHiddenContent
-            ? or(eq(asset.visible, true), eq(asset.creator_id, currentUser.id))
-            : undefined,
-          !showHiddenContent
-            ? or(
-                eq(quest_asset_link.visible, true),
-                eq(asset.creator_id, currentUser.id)
-              )
-            : undefined,
-          notInArray(asset.id, blockedContentQuery(currentUser.id, 'asset')),
-          notInArray(asset.creator_id, blockedUsersQuery(currentUser.id)),
-          searchTerm && like(displayName, `%${searchTerm}%`)
-        ];
-
-        const assets = await system.db
-          .select({
-            ...getTableColumns(asset),
-            link_name: quest_asset_link.name,
-            link_order_index: quest_asset_link.order_index,
-            link_metadata: quest_asset_link.metadata,
-            quest_visible: quest_asset_link.visible,
-            quest_active: quest_asset_link.active,
-            tag_ids: sql<string>`(
+    query: watch
+      ? toCompilableQuery(
+          system.db
+            .select({
+              ...getTableColumns(asset),
+              link_name: quest_asset_link.name,
+              link_order_index: quest_asset_link.order_index,
+              link_metadata: quest_asset_link.metadata,
+              quest_visible: quest_asset_link.visible,
+              quest_active: quest_asset_link.active,
+              tag_ids: sql<string>`(
               SELECT json_group_array(${asset_tag_link.tag_id})
               FROM ${asset_tag_link}
               WHERE ${asset_tag_link.asset_id} = ${asset.id}
             )`
-          })
-          .from(quest_asset_link)
-          .innerJoin(asset, eq(asset.id, quest_asset_link.asset_id))
-          .where(and(...conditions.filter(Boolean)))
-          .orderBy(
-            asc(quest_asset_link.order_index),
-            asc(asset.created_at),
-            asc(displayName)
-          );
-
-        return assets.map((row) =>
-          normalizeQuestAssetLinkAssetRow(
-            row as unknown as QuestAssetLinkAssetRow
-          )
-        );
-      } catch (error) {
-        console.error('[useLocalAssetsByQuest] Query error:', error);
-        return [];
-      }
-    },
-    enabled: !!quest_id && !!currentUser
+            })
+            .from(quest_asset_link)
+            .innerJoin(asset, eq(asset.id, quest_asset_link.asset_id))
+            .where(and(...conditions.filter(Boolean)))
+            .orderBy(
+              asc(quest_asset_link.order_index),
+              asc(asset.created_at),
+              asc(displayName)
+            )
+        )
+      : DISABLED_WATCH
   });
 
-  const wrappedData = React.useMemo(() => {
-    if (!simpleQuery.data) {
-      return { pages: [], pageParams: [] };
-    }
+  const normalized = React.useMemo(
+    () =>
+      (simpleQuery.data ?? []).map((row) =>
+        normalizeQuestAssetLinkAssetRow(row as unknown as QuestAssetLinkAssetRow)
+      ),
+    [simpleQuery.data]
+  );
 
+  const wrappedData = React.useMemo(() => {
     return {
-      pages: [{ data: simpleQuery.data }],
+      pages: [{ data: normalized }],
       pageParams: [0]
     };
-  }, [simpleQuery.data]);
+  }, [normalized]);
 
   return {
     data: wrappedData,

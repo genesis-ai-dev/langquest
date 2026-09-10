@@ -26,7 +26,7 @@ import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import { cn, getThemeColor } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { eq } from 'drizzle-orm';
 import { useRouter } from 'expo-router';
 import {
@@ -51,7 +51,7 @@ import {
   KeyboardAwareScrollView,
   KeyboardToolbar
 } from 'react-native-keyboard-controller';
-import { useHybridData } from './useHybridData';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
 
 interface NextGenTranslationModalProps {
   open: boolean;
@@ -84,7 +84,7 @@ function useNextGenTranslation(assetId: string) {
     );
   }, [assetId, isAuthenticated]);
 
-  return useHybridData<
+  return useHybridQuery<
     Omit<typeof asset.$inferSelect, 'images'> & {
       images: string[];
       content: (typeof asset_content_link.$inferSelect)[];
@@ -98,8 +98,7 @@ function useNextGenTranslation(assetId: string) {
       }[];
     }
   >({
-    dataType: 'translation',
-    queryKeyParams: [assetId],
+    queryKey: ['translation', assetId],
     offlineQuery,
     cloudQueryFn: async () => {
       if (!assetId) return [];
@@ -173,7 +172,6 @@ export default function NextGenTranslationModal({
   const { currentUser, isAuthenticated } = useAuth();
   const router = useRouter();
   const isOnline = useNetworkStatus();
-  const queryClient = useQueryClient();
   const [pendingVoteType, setPendingVoteType] = useState<'up' | 'down' | null>(
     null
   );
@@ -220,10 +218,6 @@ export default function NextGenTranslationModal({
           polarity: voteType
         });
       }
-
-      await queryClient.invalidateQueries({
-        queryKey: ['translation', 'nextgen', assetId]
-      });
     },
     onSuccess: () => {
       // Call the parent callback to refresh data

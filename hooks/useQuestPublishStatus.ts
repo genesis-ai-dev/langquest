@@ -1,7 +1,8 @@
 import { quest } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { isUnpublishedQuest } from '@/utils/dbUtils';
-import { useQuery } from '@tanstack/react-query';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { eq } from 'drizzle-orm';
 
 export interface QuestPublishStatus {
@@ -17,38 +18,38 @@ export interface QuestPublishStatus {
 export function useQuestPublishStatus(
   questId: string | null | undefined
 ): QuestPublishStatus & { isLoading: boolean } {
-  const { data, isLoading } = useQuery({
-    queryKey: ['quest-publish-status', questId],
-    queryFn: async (): Promise<QuestPublishStatus> => {
-      if (!questId) {
-        return {
-          hasLocalCopy: false,
-          hasSyncedCopy: false,
-          isPublished: false
-        };
-      }
-
-      const [row] = await system.db
-        .select({ published_at: quest.published_at })
+  const { data, isLoading } = useHybridQuery<{
+    id: string;
+    published_at: string | Date | null;
+  }>({
+    queryKey: ['quest-publish-status', questId ?? ''],
+    enabled: !!questId,
+    offlineQuery: toCompilableQuery(
+      system.db
+        .select({ id: quest.id, published_at: quest.published_at })
         .from(quest)
-        .where(eq(quest.id, questId))
+        .where(eq(quest.id, questId ?? ''))
+        .limit(1)
+    ),
+    cloudQueryFn: async () => {
+      if (!questId) return [];
+      const { data, error } = await system.supabaseConnector.client
+        .from('quest')
+        .select('id, published_at')
+        .eq('id', questId)
         .limit(1);
-
-      const unpublished = !row || isUnpublishedQuest(row);
-
-      return {
-        hasLocalCopy: unpublished,
-        hasSyncedCopy: !unpublished,
-        isPublished: !unpublished
-      };
-    },
-    enabled: !!questId
+      if (error) throw error;
+      return data ?? [];
+    }
   });
 
+  const row = data[0];
+  const unpublished = !row || isUnpublishedQuest(row);
+
   return {
-    hasLocalCopy: data?.hasLocalCopy ?? false,
-    hasSyncedCopy: data?.hasSyncedCopy ?? false,
-    isPublished: data?.isPublished ?? false,
+    hasLocalCopy: unpublished,
+    hasSyncedCopy: !unpublished,
+    isPublished: !unpublished,
     isLoading
   };
 }

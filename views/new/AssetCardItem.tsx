@@ -35,8 +35,8 @@ import React from 'react';
 import { Pressable, View } from 'react-native';
 // import { TagModal } from '../../components/TagModal';
 import { Text } from '@/components/ui/text';
-import type { HybridDataSource } from './useHybridData';
-import { useItemDownload, useItemDownloadStatus } from './useHybridData';
+import type { HybridDataSource } from '@/hooks/useHybridQuery';
+import { useItemDownload, useItemDownloadStatus } from '@/hooks/useItemDownload';
 
 // Define props locally to avoid require cycle.
 

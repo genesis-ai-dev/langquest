@@ -2,7 +2,7 @@ import { eq } from 'drizzle-orm';
 // import { db } from '../db/database';
 import type { QuestMetadata } from '@/db/drizzleSchemaColumns';
 import { resolveTable } from '@/utils/dbUtils';
-import { withQuestVersionLabel } from '@/utils/questVersionLabel';
+import { parseQuestMetadata } from '@/utils/questMetadata';
 import uuid from 'react-native-uuid';
 import { quest } from '../db/drizzleSchema';
 import { system } from '../db/powersync/system';
@@ -23,6 +23,8 @@ export class QuestService {
 
 export const questService = new QuestService();
 
+export { parseQuestMetadata } from '@/utils/questMetadata';
+
 export async function updateQuestVersionLabel(
   quest_id: string,
   versionLabel: string,
@@ -34,7 +36,10 @@ export async function updateQuestVersionLabel(
   }
 
   const parsed = parseQuestMetadata(existingMetadata);
-  await updateQuestMetadata(quest_id, withQuestVersionLabel(parsed, trimmed));
+  await updateQuestMetadata(quest_id, {
+    ...parsed,
+    versionLabel: trimmed
+  });
 }
 
 async function updateQuestMetadata(
@@ -55,21 +60,6 @@ async function updateQuestMetadata(
     console.error('Failed to update quest metadata:', error);
     throw error;
   }
-}
-
-export function parseQuestMetadata(rawMetadata: unknown): QuestMetadata {
-  if (!rawMetadata) return {};
-  if (typeof rawMetadata === 'string') {
-    try {
-      const parsed = JSON.parse(rawMetadata);
-      return parsed && typeof parsed === 'object'
-        ? (parsed as QuestMetadata)
-        : {};
-    } catch {
-      return {};
-    }
-  }
-  return typeof rawMetadata === 'object' ? (rawMetadata as QuestMetadata) : {};
 }
 
 /**

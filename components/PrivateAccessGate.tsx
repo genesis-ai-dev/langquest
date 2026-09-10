@@ -13,7 +13,7 @@ import type { PrivateAccessAction } from '@/hooks/useUserPermissions';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 
 import { isExpiredByLastUpdated } from '@/utils/dateUtils';
-import { useHybridData } from '@/views/new/useHybridData';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { InferSelectModel } from 'drizzle-orm';
@@ -102,11 +102,10 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
   // Determine if we should watch for request updates (when modal is visible)
   const shouldWatchRequests = modal ? isVisible : true;
 
-  // Query for existing membership request using useHybridData
+  // Query for existing membership request using useHybridQuery
   // Watch for updates when modal is visible to catch newly created requests
-  const { data: existingRequests } = useHybridData({
-    dataType: 'membership-request',
-    queryKeyParams: [projectId, currentUser?.id || '', refreshKey],
+  const { data: existingRequests } = useHybridQuery({
+    queryKey: ['membership-request', projectId, currentUser?.id || '', refreshKey],
 
     // PowerSync query using Drizzle
     offlineQuery: toCompilableQuery(
@@ -174,11 +173,10 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
   const shouldWatchMembership = modal ? isVisible || hasPendingRequest : true;
   const isWatchingMembership = shouldWatchMembership;
 
-  // Query for membership status (for modal mode) using useHybridData
+  // Query for membership status (for modal mode) using useHybridQuery
   // Watch profile_project_link table live while modal is open or request is pending
-  const { data: membershipLinks } = useHybridData({
-    dataType: 'membership-status',
-    queryKeyParams: [projectId, currentUser?.id || ''],
+  const { data: membershipLinks } = useHybridQuery({
+    queryKey: ['membership-status', projectId, currentUser?.id || ''],
 
     // PowerSync query using Drizzle - automatically reactive to local DB changes
     offlineQuery: toCompilableQuery(
@@ -233,11 +231,10 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
 
   const isMember = membershipLinks.length > 0;
 
-  // Query for project download status using useHybridData
+  // Query for project download status using useHybridQuery
   // This checks if the project has been downloaded (possibly through other actions)
-  const { data: downloadStatusData } = useHybridData({
-    dataType: 'download-status',
-    queryKeyParams: ['project', projectId, currentUser?.id || ''],
+  const { data: downloadStatusData } = useHybridQuery({
+    queryKey: ['download-status', 'project', projectId, currentUser?.id || ''],
 
     // PowerSync query using Drizzle
     offlineQuery: toCompilableQuery(

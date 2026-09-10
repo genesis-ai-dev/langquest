@@ -7,24 +7,23 @@ import {
   allocateQuestVersionLabel,
   withQuestVersionLabel
 } from '@/utils/questVersionLabel';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useBibleBookCreation } from './useBibleBookCreation';
+import { useMutation } from '@tanstack/react-query';
 
 interface CreateChapterParams {
   projectId: string;
   bookId: string;
   chapter: number;
   targetLanguageId: string;
+  parentQuestId: string;
 }
 
 export function useBibleChapterCreation() {
   const { currentUser } = useAuth();
-  const queryClient = useQueryClient();
-  const { findOrCreateBook } = useBibleBookCreation();
 
   const { mutateAsync: createChapter, isPending } = useMutation({
     mutationFn: async (params: CreateChapterParams) => {
-      const { projectId, bookId, chapter, targetLanguageId } = params;
+      const { projectId, bookId, chapter, targetLanguageId, parentQuestId } =
+        params;
 
       if (!currentUser?.id) {
         throw new Error('User not authenticated');
@@ -44,9 +43,7 @@ export function useBibleChapterCreation() {
         `📖 Creating ${book.name} chapter ${chapter} with ${verseCount} verses...`
       );
 
-      // Step 1: Ensure book quest exists and get its ID
-      const bookQuest = await findOrCreateBook({ projectId, bookId });
-      const bookQuestId = bookQuest.id;
+      // The book quest is the route we are already on.
       const versionLabel = await allocateQuestVersionLabel(
         projectId,
         bookId,
@@ -73,10 +70,10 @@ export function useBibleChapterCreation() {
             name: questName,
             description: `${verseCount} verses`,
             project_id: projectId,
-            parent_id: bookQuestId, // Set parent to book quest
+            parent_id: parentQuestId,
             creator_id: currentUser.id,
             download_profiles: [currentUser.id],
-            metadata: metadata, // Store Bible book/chapter in metadata
+            metadata: metadata,
             published_at: null
           })
           .returning();
@@ -97,29 +94,6 @@ export function useBibleChapterCreation() {
           bookId: bookId // Return bookId instead of bookName
         };
       });
-    },
-    onSuccess: async (result) => {
-      console.log('📥 [Create Chapter] Waiting for PowerSync to sync...');
-      // Wait for PowerSync to sync the new chapter to local SQLite before invalidating
-      // This ensures queries refetch with the new data, preserving loading states
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-
-      console.log('📥 [Create Chapter] Invalidating queries...');
-      // Invalidate the chapters queries so UI updates (both local and cloud)
-      await queryClient.invalidateQueries({
-        queryKey: ['bible-chapters', 'local', result.projectId, result.bookId]
-      });
-
-      await queryClient.invalidateQueries({
-        queryKey: ['bible-chapters', 'cloud', result.projectId, result.bookId]
-      });
-
-      // Invalidate all assets queries to refresh assets list
-      await queryClient.invalidateQueries({
-        queryKey: ['assets']
-      });
-
-      console.log('✅ [Create Chapter] All queries invalidated');
     }
   });
 

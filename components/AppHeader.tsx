@@ -8,7 +8,7 @@ import { useSyncState } from '@/hooks/useSyncState';
 import { cn, useThemeToken } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { usePathname, useRouter } from 'expo-router';
 import {
   AlertTriangle,
   ChevronLeftIcon,
@@ -40,8 +40,10 @@ export default function AppHeader({
   onOnboardingPress?: () => void;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const breadcrumbs = useBreadcrumbs();
-  const isProjectsView = breadcrumbs.length <= 1;
+  const isProjectsView =
+    breadcrumbs.length <= 1 && !pathname.includes('/project/');
 
   // Get background HSL from generated-tokens.ts (format: "240 100% 98.04%")
   const backgroundHsl = useThemeToken('background');

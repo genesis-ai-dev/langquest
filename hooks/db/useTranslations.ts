@@ -3,7 +3,7 @@ import { asset, asset_content_link, vote } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import type { SortOrder } from '@/utils/dbUtils';
 import { blockedContentQuery, blockedUsersQuery } from '@/utils/dbUtils';
-import { useHybridData } from '@/views/new/useHybridData';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { InferSelectModel } from 'drizzle-orm';
 import {
@@ -133,10 +133,8 @@ export function useTargetAssetsWithVoteCountByAssetId(
     isLoading: isTranslationsLoading,
     offlineError: translationsOfflineError
     // cloudError: translationsCloudError
-  } = useHybridData({
-    dataType: 'target_assets',
-    queryKeyParams: [
-      asset_id,
+  } = useHybridQuery({
+    queryKey: ['target_assets', asset_id,
       translationsRefreshKey || 0,
       voteRefreshKey,
       sort,

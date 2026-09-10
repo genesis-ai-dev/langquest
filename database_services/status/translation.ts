@@ -1,6 +1,6 @@
 import { asset } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import { useHybridData } from '@/views/new/useHybridData';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { eq } from 'drizzle-orm';
 import type { TranslationStatus } from '../types';
@@ -18,9 +18,8 @@ export function useTranslationStatuses(assetId: string): TranslationStatusHook {
     refetch,
     isLoading,
     isError
-  } = useHybridData({
-    dataType: 'translation-settings',
-    queryKeyParams: [assetId],
+  } = useHybridQuery({
+    queryKey: ['translation-settings', assetId],
     offlineQuery: toCompilableQuery(
       system.db.query.asset.findMany({
         columns: {

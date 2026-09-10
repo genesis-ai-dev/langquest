@@ -1,4 +1,4 @@
-import type { HybridDataSource } from '@/views/new/useHybridData';
+import type { HybridDataSource } from '@/hooks/useHybridQuery';
 
 export interface LayerStatus {
   visible: boolean;

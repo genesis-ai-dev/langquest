@@ -1,8 +1,8 @@
 import { asset, quest_asset_link } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { localSourceOverrideOptions, resolveTable } from '@/utils/dbUtils';
-import type { HybridDataSource } from '@/views/new/useHybridData';
-import { useHybridData } from '@/views/new/useHybridData';
+import type { HybridDataSource } from '@/hooks/useHybridQuery';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { and, eq } from 'drizzle-orm';
 import type { LayerStatus } from '../types';
@@ -35,9 +35,8 @@ export function useAssetStatuses(
     isError: isAssetError,
     offlineError: assetOfflineError,
     cloudError: assetCloudError
-  } = useHybridData({
-    dataType: 'asset-settings',
-    queryKeyParams: [assetId],
+  } = useHybridQuery({
+    queryKey: ['asset-settings', assetId],
     offlineQuery: toCompilableQuery(
       system.db.query.asset.findFirst({
         columns: {
@@ -67,9 +66,8 @@ export function useAssetStatuses(
     isError: isAssetQuestError,
     offlineError: assetQuestOfflineError,
     cloudError: assetQuestCloudError
-  } = useHybridData({
-    dataType: 'quest-asset-settings',
-    queryKeyParams: [questId, assetId],
+  } = useHybridQuery({
+    queryKey: ['quest-asset-settings', questId, assetId],
     offlineQuery: toCompilableQuery(
       system.db.query.quest_asset_link.findMany({
         columns: {

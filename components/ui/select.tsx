@@ -1,11 +1,17 @@
+import { easeOut } from '@/constants/animations';
 import { cn } from '@/utils/styleUtils';
 import * as SelectPrimitive from '@rn-primitives/select';
 import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from 'lucide-react-native';
-import { MotiView } from 'moti';
 import * as React from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 import { ScrollView as GHScrollView } from 'react-native-gesture-handler';
+import {
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming
+} from 'react-native-reanimated';
 import { Icon } from './icon';
+import { NativeOnlyAnimatedView } from './native-only-animated-view';
 
 type Option = SelectPrimitive.Option;
 
@@ -97,6 +103,15 @@ const SelectContent = React.forwardRef<
   SelectPrimitive.ContentProps & { portalHost?: string }
 >(({ className, children, position = 'popper', portalHost, ...props }, ref) => {
   const { open } = SelectPrimitive.useRootContext();
+  const opacity = useSharedValue(0);
+
+  React.useEffect(() => {
+    opacity.set(withTiming(open ? 1 : 0, { duration: 200, easing: easeOut }));
+  }, [open, opacity]);
+
+  const overlayStyle = useAnimatedStyle(() => ({
+    opacity: opacity.get()
+  }));
 
   return (
     <SelectPrimitive.Portal hostName={portalHost}>
@@ -105,10 +120,8 @@ const SelectContent = React.forwardRef<
         pointerEvents={open ? 'auto' : 'none'}
       >
         <View className="z-[400]">
-          <MotiView
-            from={{ opacity: 0 }}
-            animate={{ opacity: open ? 1 : 0 }}
-            transition={{ type: 'timing', duration: 200 }}
+          <NativeOnlyAnimatedView
+            style={overlayStyle}
             pointerEvents={open ? 'auto' : 'none'}
           >
             <SelectPrimitive.Content
@@ -143,7 +156,7 @@ const SelectContent = React.forwardRef<
               </SelectPrimitive.Viewport>
               <SelectScrollDownButton />
             </SelectPrimitive.Content>
-          </MotiView>
+          </NativeOnlyAnimatedView>
         </View>
       </SelectPrimitive.Overlay>
     </SelectPrimitive.Portal>

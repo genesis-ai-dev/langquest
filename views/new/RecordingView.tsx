@@ -54,7 +54,7 @@ import { saveAudioLocally } from '@/utils/fileUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useProjectById } from '@/hooks/db/useProjects';
 import { and, asc, eq, inArray } from 'drizzle-orm';
 import { createAudioPlayer } from 'expo-audio';
 import { useKeepAwake } from 'expo-keep-awake';
@@ -87,7 +87,7 @@ import { VADSettingsDrawer } from './recording/components/VADSettingsDrawer';
 import { useSelectionMode } from './recording/hooks/useSelectionMode';
 import { useVADRecording } from './recording/hooks/useVADRecording';
 import { saveRecording } from './recording/services/recordingService';
-import { useHybridData } from './useHybridData';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
 
 function extractFiaMetadata(metadata: unknown): FiaMetadata | null {
   try {
@@ -302,32 +302,18 @@ const RecordingView = () => {
     [pericopeSequence, bookShortName, bookChapterLabel]
   );
 
-  const queryClient = useQueryClient();
   const { currentUser } = useAuth();
 
-  // Static project fetch – data doesn't change during recording, no PowerSync listener needed
-  const { data: currentProject = null } = useQuery({
-    queryKey: ['project', 'static', projectId],
-    queryFn: async () => {
-      if (!projectId) return null;
-      const result = await system.db.query.project.findFirst({
-        where: (fields, { eq }) => eq(fields.id, projectId)
-      });
-      return (result as Project) ?? null;
-    },
-    enabled: !!projectId,
-    staleTime: Infinity
-  });
+  const { project: currentProject = null } = useProjectById(projectId);
 
   const audioContext = useAudio();
   const insets = useSafeAreaInsets();
 
   // NEEDS TO GO TO THE CLOUD WHEN PROJECT IS NOT CREATED IN THE SAME DEVICE
-  const { data: targetLanguoidLink = [] } = useHybridData<{
+  const { data: targetLanguoidLink = [] } = useHybridQuery<{
     languoid_id: string | null;
   }>({
-    dataType: 'project-target-languoid-id',
-    queryKeyParams: [projectId || ''],
+    queryKey: ['project-target-languoid-id', projectId || ''],
     offlineQuery: toCompilableQuery(
       system.db
         .select({ languoid_id: project_language_link.languoid_id })
@@ -361,9 +347,8 @@ const RecordingView = () => {
 
   // Fetch quest metadata for FIA drawer support
   type Quest = typeof questTable.$inferSelect;
-  const { data: questDataForFia } = useHybridData<Quest>({
-    dataType: 'current-quest',
-    queryKeyParams: [questId || ''],
+  const { data: questDataForFia } = useHybridQuery<Quest>({
+    queryKey: ['current-quest', questId || ''],
     offlineQuery: toCompilableQuery(
       system.db
         .select()
@@ -1157,8 +1142,14 @@ const RecordingView = () => {
     const previousCount = previousItemCountRef.current;
     const currentInsertionIndex = insertionIndexRef.current;
 
-    // Undo can change list length, but we preserve scroll manually in handleUndoAction.
+    // Undo/redo change list length, but we preserve scroll manually in
+    // handleUndoAction / handleRedoAction. Still keep the insertion marker at
+    // the end if it was already at the end — otherwise redo leaves it sitting
+    // on a restored card in the middle.
     if (pendingUndoScrollOffsetRef.current !== null) {
+      if (currentInsertionIndex >= previousCount) {
+        setInsertionIndex(currentCount);
+      }
       previousItemCountRef.current = currentCount;
       return;
     }
@@ -1695,10 +1686,6 @@ const RecordingView = () => {
             setSessionItems((prev) =>
               prev.filter((a) => a.id !== assetIdToReplace)
             );
-            await queryClient.invalidateQueries({
-              queryKey: ['assets', 'by-quest', questId],
-              exact: false
-            });
             didReplaceDeleteSucceed = true;
             console.log(`✅ REPLACE: Asset deleted successfully`);
           } catch (e) {
@@ -1858,13 +1845,6 @@ const RecordingView = () => {
           // correct next value without reading potentially stale React state.
           lastCommittedOrderIndexRef.current = targetOrder;
 
-          // Invalidate queries to sync order_index after insertions in the middle
-          // This is needed because recordingService shifts order_index values
-          await queryClient.invalidateQueries({
-            queryKey: ['assets', 'by-quest', questId],
-            exact: false
-          });
-
           debugLog('🏁 Recording saved');
           setIsRecording(false);
         } catch (error) {
@@ -1886,7 +1866,6 @@ const RecordingView = () => {
       questId,
       currentProject,
       currentUser,
-      queryClient,
       targetLanguoidId,
       recordingSessionId,
       addSessionAsset,
@@ -1952,22 +1931,6 @@ const RecordingView = () => {
     onSegmentComplete: handleVADSegmentComplete,
     isManualRecording: isRecording
   });
-
-  // Invalidate queries when VAD mode transitions from active → inactive
-  // Use a ref to track if VAD was previously active, so we only invalidate
-  // on actual transitions (not on initial mount when isVADActive is false)
-  const wasVADActiveRef = React.useRef(false);
-  React.useEffect(() => {
-    if (isVADActive) {
-      wasVADActiveRef.current = true;
-    } else if (wasVADActiveRef.current) {
-      wasVADActiveRef.current = false;
-      void queryClient.invalidateQueries({
-        queryKey: ['assets', 'by-quest', questId],
-        exact: false
-      });
-    }
-  }, [isVADActive, questId, queryClient]);
 
   // ============================================================================
   // LAZY LOAD SEGMENT COUNTS
@@ -2310,16 +2273,11 @@ const RecordingView = () => {
           newData: [],
           canUndo: true
         });
-
-        await queryClient.invalidateQueries({
-          queryKey: ['assets', 'by-quest', questId],
-          exact: false
-        });
       } catch (e) {
         console.error('Failed to delete local asset', e);
       }
     },
-    [pushUndoHistory, queryClient, questId]
+    [pushUndoHistory, questId]
   );
 
   const handleMergeDownLocal = React.useCallback(
@@ -2396,16 +2354,11 @@ const RecordingView = () => {
           next.delete(mergeResult.newAssetId);
           return next;
         });
-
-        await queryClient.invalidateQueries({
-          queryKey: ['assets', 'by-quest', questId],
-          exact: false
-        });
       } catch (e) {
         console.error('Failed to merge local assets', e);
       }
     },
-    [assets, currentUser?.id, projectId, pushUndoHistory, queryClient, questId]
+    [assets, currentUser?.id, projectId, pushUndoHistory, questId]
   );
 
   const handleBatchMergeSelected = React.useCallback(() => {
@@ -2497,10 +2450,6 @@ const RecordingView = () => {
         });
 
         cancelSelection();
-        await queryClient.invalidateQueries({
-          queryKey: ['assets', 'by-quest', questId],
-          exact: false
-        });
 
         debugLog('✅ Batch merge completed');
       } catch (e) {
@@ -2542,7 +2491,6 @@ const RecordingView = () => {
     currentUser?.id,
     projectId,
     pushUndoHistory,
-    queryClient,
     questId,
     t
   ]);
@@ -2582,10 +2530,6 @@ const RecordingView = () => {
         }
 
         cancelSelection();
-        await queryClient.invalidateQueries({
-          queryKey: ['assets', 'by-quest', questId],
-          exact: false
-        });
 
         debugLog(`✅ Batch delete completed: ${selectedOrdered.length} assets`);
       } catch (e) {
@@ -2625,7 +2569,6 @@ const RecordingView = () => {
     cancelSelection,
     clearUndoHistory,
     pushUndoHistory,
-    queryClient,
     questId,
     t
   ]);
@@ -2693,12 +2636,6 @@ const RecordingView = () => {
           canUndo: true
         });
 
-        // Invalidate queries to refresh the list in parent view
-        await queryClient.invalidateQueries({
-          queryKey: ['assets', 'by-quest', questId],
-          exact: false
-        });
-
         debugLog('✅ Asset renamed successfully');
       } catch (error) {
         console.error('❌ Failed to rename asset:', error);
@@ -2708,7 +2645,7 @@ const RecordingView = () => {
         }
       }
     },
-    [renameAssetId, renameAssetName, pushUndoHistory, queryClient, questId]
+    [renameAssetId, renameAssetName, pushUndoHistory, questId]
   );
 
   // ============================================================================
@@ -2729,30 +2666,10 @@ const RecordingView = () => {
       // the cached order_index values stay on the pre-normalization scale and
       // the next session derives its insertion point from stale numbers.
       const recordedVerses = Array.from(recordedVersesRef.current);
-      const invalidateAssets = () => {
-        void queryClient.invalidateQueries({ queryKey: ['assets'] });
-      };
       if (recordedVerses.length > 0 && questId) {
-        void normalizeOrderIndexForVerses(questId, recordedVerses)
-          .catch((error) =>
-            console.error('Failed to normalize order_index:', error)
-          )
-          .finally(invalidateAssets);
-      }
-      invalidateAssets();
-      if (questId) {
-        void queryClient.invalidateQueries({
-          queryKey: ['current-quest', 'offline', questId]
-        });
-        void queryClient.invalidateQueries({
-          queryKey: ['current-quest', 'cloud', questId]
-        });
-        void queryClient.invalidateQueries({
-          queryKey: ['quest-detail', 'offline', questId]
-        });
-        void queryClient.invalidateQueries({
-          queryKey: ['quest-detail', 'cloud', questId]
-        });
+        void normalizeOrderIndexForVerses(questId, recordedVerses).catch(
+          (error) => console.error('Failed to normalize order_index:', error)
+        );
       }
 
       // Stop audio playback if playing (access via ref for latest state)
@@ -2791,8 +2708,7 @@ const RecordingView = () => {
     isPlayAllRunningRef,
     playbackCheckpoint,
     stopPlayAll,
-    questId,
-    queryClient
+    questId
   ]);
 
   // ============================================================================
@@ -3491,10 +3407,6 @@ const RecordingView = () => {
         description: t(message.key).replace('{count}', String(message.count))
       });
       await updateSessionItemsAfterUndo(operation);
-      await queryClient.invalidateQueries({
-        queryKey: ['assets', 'by-quest', questId],
-        exact: false
-      });
       InteractionManager.runAfterInteractions(() => {
         requestAnimationFrame(() => {
           const restoreOffset =
@@ -3510,7 +3422,6 @@ const RecordingView = () => {
   }, [
     currentUndoOperation,
     projectId,
-    queryClient,
     questId,
     t,
     undoHistory,
@@ -3539,10 +3450,6 @@ const RecordingView = () => {
         description: t(message.key).replace('{count}', String(message.count))
       });
       await updateSessionItemsAfterRedo(operation);
-      await queryClient.invalidateQueries({
-        queryKey: ['assets', 'by-quest', questId],
-        exact: false
-      });
       InteractionManager.runAfterInteractions(() => {
         requestAnimationFrame(() => {
           const restoreOffset =
@@ -3558,7 +3465,6 @@ const RecordingView = () => {
   }, [
     currentRedoOperation,
     projectId,
-    queryClient,
     questId,
     redoHistory,
     t,

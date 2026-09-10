@@ -1,20 +1,27 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { profile, profile_project_link } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import { useHybridData } from '@/views/new/useHybridData';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { InferSelectModel } from 'drizzle-orm';
 import { and, eq } from 'drizzle-orm';
 import { useCallback } from 'react';
-import { createHybridQueryConfig, useHybridQuery } from '../useHybridQuery';
 
 export type Profile = InferSelectModel<typeof profile>;
 export type ProfileProjectLink = InferSelectModel<typeof profile_project_link>;
 
-function getProfileByUserIdConfig(user_id: string) {
-  return createHybridQueryConfig({
+/**
+ * Returns { profile, isLoading, error }
+ * Fetches a profile by user ID from Supabase (online) or local Drizzle DB (offline)
+ */
+export function useProfileByUserId(user_id: string) {
+  const {
+    data: profileArray,
+    isLoading: isProfileLoading,
+    ...rest
+  } = useHybridQuery({
     queryKey: ['profile', user_id],
-    onlineFn: async () => {
+    cloudQueryFn: async () => {
       const { data, error } = await system.supabaseConnector.client
         .from('profile')
         .select('*')
@@ -30,18 +37,6 @@ function getProfileByUserIdConfig(user_id: string) {
     ),
     enabled: !!user_id
   });
-}
-
-/**
- * Returns { profile, isLoading, error }
- * Fetches a profile by user ID from Supabase (online) or local Drizzle DB (offline)
- */
-export function useProfileByUserId(user_id: string) {
-  const {
-    data: profileArray,
-    isLoading: isProfileLoading,
-    ...rest
-  } = useHybridQuery(getProfileByUserIdConfig(user_id));
 
   const userProfile = profileArray[0] || null;
 
@@ -57,9 +52,8 @@ export function useUserMemberships(userId?: string) {
   const user_id = userId || currentUser?.id;
 
   const { data: membershipsData, isLoading } =
-    useHybridData<ProfileProjectLink>({
-      dataType: 'user-memberships',
-      queryKeyParams: [user_id || ''],
+    useHybridQuery<ProfileProjectLink>({
+      queryKey: ['user-memberships', user_id || ''],
       enabled: !!user_id, // Only query if user ID exists
 
       // PowerSync query using Drizzle - this will be reactive!

@@ -110,8 +110,7 @@ export async function run(): Promise<
     try {
       const [assetRecord] = await system.db
         .select({
-          id: assetLocal.id,
-          project_id: assetLocal.project_id
+          id: assetLocal.id
         })
         .from(assetLocal)
         .where(eq(assetLocal.id, entry.id))
@@ -124,7 +123,6 @@ export async function run(): Promise<
         continue;
       }
 
-      const hasProjectLink = !!assetRecord.project_id;
       const [questLink] = await system.db
         .select({ id: questAssetLinkLocal.id })
         .from(questAssetLinkLocal)
@@ -132,10 +130,13 @@ export async function run(): Promise<
         .limit(1);
       const hasQuestLink = !!questLink;
 
-      // Abort deletion if still connected to quest/project.
-      if (hasProjectLink || hasQuestLink) {
+      // Abort if the asset was restored to a quest (undo/redo) before GC ran.
+      // project_id stays set until this delete so we never PATCH it to null
+      // (server RLS rejects that). The GC queue plus a missing quest link
+      // is the collect signal.
+      if (hasQuestLink) {
         devLog(
-          `[AssetGC] Skipping connected asset ${entry.id} | hasProjectLink=${hasProjectLink} hasQuestLink=${hasQuestLink}`
+          `[AssetGC] Skipping connected asset ${entry.id} | hasQuestLink=${hasQuestLink}`
         );
         continue;
       }

@@ -1,6 +1,6 @@
 import { reports } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import { useHybridData } from '@/views/new/useHybridData';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { InferSelectModel } from 'drizzle-orm';
 import { and, eq } from 'drizzle-orm';
@@ -16,9 +16,8 @@ export function useHasUserReported(
   record_table: string,
   reporter_id: string
 ) {
-  const { data: reportArray, isLoading: isReportLoading } = useHybridData({
-    dataType: 'reports',
-    queryKeyParams: ['report-check', record_id, record_table, reporter_id],
+  const { data: reportArray, isLoading: isReportLoading } = useHybridQuery({
+    queryKey: ['reports', 'report-check', record_id, record_table, reporter_id],
     offlineQuery: toCompilableQuery(
       system.db.query.reports.findMany({
         where: and(

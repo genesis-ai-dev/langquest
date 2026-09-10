@@ -1,4 +1,4 @@
-import { parseQuestMetadata } from '@/database_services/questService';
+import { parseQuestMetadata } from '@/utils/questMetadata';
 import type { QuestMetadata } from '@/db/drizzleSchemaColumns';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 

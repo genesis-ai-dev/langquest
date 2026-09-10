@@ -68,8 +68,8 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ImportWizard, type ImportWizardVerseLabel } from './importWizard';
-import type { HybridDataSource } from './useHybridData';
-import { useHybridData } from './useHybridData';
+import type { HybridDataSource } from '@/hooks/useHybridQuery';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
 
 import { AssetListSkeleton } from '@/components/AssetListSkeleton';
 import { ExportButton } from '@/components/ExportButton';
@@ -146,6 +146,7 @@ import { publishQuest as publishQuestUtils } from '@/utils/publishQuest';
 import { offloadQuest } from '@/utils/questOffloadUtils';
 import { formatQuestDisplayLabel } from '@/utils/questVersionLabel';
 import { getThemeColor } from '@/utils/styleUtils';
+import { invalidateCloud } from '@/hooks/hybridCache';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { eq } from 'drizzle-orm';
@@ -761,9 +762,8 @@ export default function BibleAssetsView() {
   type Quest = typeof questTable.$inferSelect;
 
   // Use passed quest data if available (instant!), otherwise query
-  const { data: queriedQuestData, refetch: refetchQuest } = useHybridData({
-    dataType: 'current-quest',
-    queryKeyParams: [questId],
+  const { data: queriedQuestData } = useHybridQuery({
+    queryKey: ['current-quest', questId],
     offlineQuery: toCompilableQuery(
       system.db.query.quest.findFirst({
         where: eq(questTable.id, questId!)
@@ -1069,9 +1069,8 @@ export default function BibleAssetsView() {
   }, [pericopeSequence, formatVersePosition]);
 
   // Query project data to get privacy status if not passed
-  const { data: queriedProjectData } = useHybridData({
-    dataType: 'project-privacy-assets',
-    queryKeyParams: [projectId],
+  const { data: queriedProjectData } = useHybridQuery({
+    queryKey: ['project-privacy-assets', projectId],
     offlineQuery: toCompilableQuery(
       system.db.query.project.findFirst({
         where: eq(project.id, projectId!),
@@ -1161,9 +1160,7 @@ export default function BibleAssetsView() {
     isFetchingNextPage,
     isLoading,
     isOnline,
-    isFetching,
-    refetch
-    //} = publishedAssets;
+    isFetching
   } = isPublished ? publishedAssets : localAssets;
 
   // Flatten all pages into a single array and deduplicate
@@ -1432,8 +1429,7 @@ export default function BibleAssetsView() {
       await AsyncStorage.removeItem(counterKey);
 
       setSelectedForRecording(null);
-      void queryClient.invalidateQueries({ queryKey: ['assets'] });
-      void refetch();
+      void invalidateCloud(queryClient, 'assets');
 
       console.log(
         `✅ Delete all completed: ${localAssets.length} assets deleted`
@@ -1446,7 +1442,7 @@ export default function BibleAssetsView() {
       console.error('Failed to delete all assets', e);
       RNAlert.alert(t('error'), 'Failed to delete assets. Please try again.');
     }
-  }, [assets, questId, queryClient, t, refetch]);
+  }, [assets, questId, queryClient, t]);
 
   const handleBatchDeleteSelected = React.useCallback(() => {
     // Filter selected assets that are local (not cloud-only)
@@ -1483,8 +1479,7 @@ export default function BibleAssetsView() {
 
         cancelSelection();
         setSelectedForRecording(null);
-        void queryClient.invalidateQueries({ queryKey: ['assets'] });
-        void refetch();
+        void invalidateCloud(queryClient, 'assets');
 
         console.log(
           `✅ Batch delete completed: ${selectedAssets.length} assets`
@@ -1528,7 +1523,6 @@ export default function BibleAssetsView() {
     pushUndoHistory,
     queryClient,
     questId,
-    refetch,
     selectedAssetIds,
     t
   ]);
@@ -1587,8 +1581,6 @@ export default function BibleAssetsView() {
 
         cancelSelection();
         setSelectedForRecording(null);
-        void queryClient.invalidateQueries({ queryKey: ['assets'] });
-        void refetch();
 
         console.log(
           `✅ Batch merge completed: ${selectedAssets.length} assets merged into ${merged.newAssetId.slice(0, 8)}`
@@ -1633,10 +1625,8 @@ export default function BibleAssetsView() {
     clearUndoHistory,
     projectId,
     pushUndoHistory,
-    queryClient,
     questId,
-    t,
-    refetch
+    t
   ]);
 
   // ============================================================================
@@ -1668,10 +1658,6 @@ export default function BibleAssetsView() {
           newData: [{ id: renameAssetId, name: newName }],
           canUndo: true
         });
-
-        // Invalidate queries to refresh the list
-        void queryClient.invalidateQueries({ queryKey: ['assets'] });
-        void refetch();
       } catch (error) {
         console.error('❌ Failed to rename asset:', error);
         if (error instanceof Error) {
@@ -1680,7 +1666,7 @@ export default function BibleAssetsView() {
         }
       }
     },
-    [renameAssetId, renameAssetName, pushUndoHistory, queryClient, refetch, t]
+    [renameAssetId, renameAssetName, pushUndoHistory, t]
   );
 
   const handleUndoAction = React.useCallback(() => {
@@ -1698,21 +1684,17 @@ export default function BibleAssetsView() {
       } as AssetOperationTypes;
 
       await undoAssetOperation(projectId, questId, operation);
-      await queryClient.invalidateQueries({ queryKey: ['assets'] });
 
       const message = getAssetOperationMessage(operation, 'undo');
       toast.info(t('undo'), {
         description: t(message.key).replace('{count}', String(message.count))
       });
-
-      await refetch();
     });
   }, [
     currentUndoOperation,
     projectId,
-    queryClient,
     questId,
-    refetch,
+    t,
     undoHistory
   ]);
 
@@ -1731,22 +1713,18 @@ export default function BibleAssetsView() {
       } as AssetOperationTypes;
 
       await redoAssetOperation(projectId, questId, operation);
-      await queryClient.invalidateQueries({ queryKey: ['assets'] });
 
       const message = getAssetOperationMessage(operation, 'redo');
       toast.info(t('redo'), {
         description: t(message.key).replace('{count}', String(message.count))
       });
-
-      await refetch();
     });
   }, [
     currentRedoOperation,
     projectId,
-    queryClient,
     questId,
     redoHistory,
-    refetch
+    t
   ]);
 
   const buildMoveHistoryEntries = React.useCallback(
@@ -1927,10 +1905,6 @@ export default function BibleAssetsView() {
                 canUndo: true
               });
             }
-
-            // Invalidate queries to refresh the UI
-            void queryClient.invalidateQueries({ queryKey: ['assets'] });
-            void refetch();
           } catch (err: unknown) {
             console.error('Failed to update asset metadata:', err);
             // Remove from processed set so it can be retried
@@ -1951,8 +1925,6 @@ export default function BibleAssetsView() {
     assets,
     buildMoveHistoryEntries,
     pushUndoHistory,
-    queryClient,
-    refetch,
     getAssetMetadata
   ]);
 
@@ -2073,9 +2045,6 @@ export default function BibleAssetsView() {
               canUndo: true
             });
           }
-          // Invalidate queries to refresh the UI
-          void queryClient.invalidateQueries({ queryKey: ['assets'] });
-          void refetch();
         } catch (err: unknown) {
           console.error('Failed to update asset metadata:', err);
         }
@@ -2089,9 +2058,7 @@ export default function BibleAssetsView() {
       buildMoveHistoryEntries,
       getAssetMetadata,
       listItems,
-      pushUndoHistory,
-      queryClient,
-      refetch
+      pushUndoHistory
     ]
   );
 
@@ -2453,10 +2420,6 @@ export default function BibleAssetsView() {
         setShowVerseAssignerDrawer(false);
         cancelSelection();
         setSelectedForRecording(null);
-
-        // Refresh the list
-        void queryClient.invalidateQueries({ queryKey: ['assets'] });
-        void refetch();
       } catch (error) {
         console.error('Failed to assign verse to assets:', error);
         RNAlert.alert(t('error'), 'Failed to assign verse. Please try again.');
@@ -2468,8 +2431,6 @@ export default function BibleAssetsView() {
       buildMoveHistoryEntries,
       cancelSelection,
       pushUndoHistory,
-      queryClient,
-      refetch,
       t,
       getAssetMetadata
     ]
@@ -2531,10 +2492,6 @@ export default function BibleAssetsView() {
       setShowVerseAssignerDrawer(false);
       cancelSelection();
       setSelectedForRecording(null);
-
-      // Refresh the list
-      void queryClient.invalidateQueries({ queryKey: ['assets'] });
-      void refetch();
     } catch (error) {
       console.error('Failed to remove labels from assets:', error);
       RNAlert.alert(t('error'), 'Failed to remove labels. Please try again.');
@@ -2545,24 +2502,13 @@ export default function BibleAssetsView() {
     buildMoveHistoryEntries,
     cancelSelection,
     pushUndoHistory,
-    queryClient,
-    refetch,
     t,
     getAssetMetadata
   ]);
 
   const _blockedCount = useBlockedAssetsCount(questId || '');
 
-  const handleAssetUpdate = React.useCallback(async () => {
-    // await queryClient.invalidateQueries({
-    //   // queryKey: ['assets', 'by-quest', questId],
-    //   queryKey: ['by-quest', questId],
-    //   exact: false
-    // });
-    await queryClient.invalidateQueries({
-      queryKey: ['assets']
-    });
-  }, [queryClient]);
+  const handleAssetUpdate = React.useCallback(async () => {}, []);
 
   // ============================================================================
   // ORDER_INDEX NORMALIZATION
@@ -3423,6 +3369,11 @@ export default function BibleAssetsView() {
       return;
     }
 
+    if (selectedQuest?.source === 'cloud') {
+      RNAlert.alert(t('downloadRequired'), t('downloadQuestToView'));
+      return;
+    }
+
     // Stop PlayAll if running
     if (isPlayAllRunningRef.current) {
       stopPlayAll();
@@ -3436,20 +3387,25 @@ export default function BibleAssetsView() {
     // Navigate to recording view
     const recordingOrderIndex =
       selectedForRecording?.orderIndex ?? lastUnassignedOrderIndex;
-    const recordingSessionId = await createQuestRecordingSession(questId);
+    try {
+      const recordingSessionId = await createQuestRecordingSession(questId);
 
-    goToRecording({
-      recordingSession: recordingSessionId,
-      bookChapterLabel: bookChapterLabel,
-      bookChapterLabelFull: selectedQuest?.name,
-      initialOrderIndex: recordingOrderIndex,
-      verse: selectedForRecording?.metadata?.verse,
-      nextVerse: nextVerse,
-      limitVerse: limitVerse,
-      label: selectedForRecording?.verseName,
-      pericopeSequence: pericopeSequence ?? undefined,
-      bookShortName: pericopeBookShortName ?? undefined
-    });
+      goToRecording({
+        recordingSession: recordingSessionId,
+        bookChapterLabel: bookChapterLabel,
+        bookChapterLabelFull: selectedQuest?.name,
+        initialOrderIndex: recordingOrderIndex,
+        verse: selectedForRecording?.metadata?.verse,
+        nextVerse: nextVerse,
+        limitVerse: limitVerse,
+        label: selectedForRecording?.verseName,
+        pericopeSequence: pericopeSequence ?? undefined,
+        bookShortName: pericopeBookShortName ?? undefined
+      });
+    } catch (error) {
+      console.error('Failed to create quest recording session:', error);
+      RNAlert.alert(t('error'), t('error'));
+    }
   }, [
     audioContext,
     goToRecording,
@@ -3457,6 +3413,7 @@ export default function BibleAssetsView() {
     projectId,
     bookChapterLabel,
     selectedQuest?.name,
+    selectedQuest?.source,
     selectedForRecording?.orderIndex,
     selectedForRecording?.metadata?.verse,
     selectedForRecording?.verseName,
@@ -3466,7 +3423,8 @@ export default function BibleAssetsView() {
     pericopeSequence,
     pericopeBookShortName,
     isPlayAllRunningRef,
-    stopPlayAll
+    stopPlayAll,
+    t
   ]);
 
   handleStartRecordingRef.current = () => {
@@ -3538,48 +3496,12 @@ export default function BibleAssetsView() {
     },
     onSuccess: async (result) => {
       if (result.success) {
-        // Wait for PowerSync to sync the published quest before invalidating
-        await new Promise((resolve) => setTimeout(resolve, 1500));
-
-        console.log('📥 [Publish Quest] Invalidating queries...');
-
-        // Invalidate the quest query used by this component
-        await queryClient.invalidateQueries({
-          queryKey: ['current-quest', 'offline', questId]
-        });
-        await queryClient.invalidateQueries({
-          queryKey: ['current-quest', 'cloud', questId]
-        });
-
-        // Invalidate general quest queries
-        await queryClient.invalidateQueries({
-          queryKey: ['quests', 'for-project', projectId]
-        });
-        await queryClient.invalidateQueries({
-          queryKey: ['quests', 'infinite', 'for-project', projectId]
-        });
-        await queryClient.invalidateQueries({
-          queryKey: ['quests', 'offline', 'for-project', projectId]
-        });
-        await queryClient.invalidateQueries({
-          queryKey: ['quests', 'cloud', 'for-project', projectId]
-        });
-        await queryClient.invalidateQueries({
-          queryKey: ['quests']
-        });
-
-        // Invalidate assets queries to refresh the assets list
-        await queryClient.invalidateQueries({
-          queryKey: ['assets']
-        });
-
-        // Refetch quest data to update the selectedQuest immediately
-        void refetchQuest();
-
-        // Refetch assets to update download indicators
-        void refetch();
-
-        console.log('✅ [Publish Quest] All queries invalidated');
+        await invalidateCloud(
+          queryClient,
+          'quests',
+          'current-quest',
+          'assets'
+        );
       } else {
         RNAlert.alert(t('error'), result.message || t('error'), [
           { text: t('ok'), isPreferred: true }
@@ -3616,63 +3538,16 @@ export default function BibleAssetsView() {
         }
       });
 
-      console.log('🗑️ [Offload] Complete - waiting for PowerSync to sync...');
-      // Wait for PowerSync to sync the removal before invalidating
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-
-      console.log('🗑️ [Offload] Invalidating all queries...');
-
-      // Invalidate download status queries
-      await queryClient.invalidateQueries({
-        queryKey: ['download-status', 'quest', questId]
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ['download-status', 'project', projectId]
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ['quest-download-status', questId]
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ['project-download-status', projectId]
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ['download-status']
-      });
-
-      // Invalidate ALL quest queries (comprehensive like create quest)
-      await queryClient.invalidateQueries({
-        queryKey: ['quests', 'for-project', projectId]
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ['quests', 'infinite', 'for-project', projectId]
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ['quests', 'offline', 'for-project', projectId]
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ['quests', 'cloud', 'for-project', projectId]
-      });
-      // Also invalidate generic quest queries
-      await queryClient.invalidateQueries({
-        queryKey: ['quests']
-      });
-
-      // Invalidate project queries
-      await queryClient.invalidateQueries({
-        queryKey: ['projects']
-      });
-
-      // Invalidate assets queries to refresh the assets list
-      await queryClient.invalidateQueries({
-        queryKey: ['assets']
-      });
-
-      // Invalidate quest closure data
-      await queryClient.invalidateQueries({
-        queryKey: ['quest-closure', questId]
-      });
-
-      console.log('✅ [Offload] All queries invalidated');
+      await invalidateCloud(
+        queryClient,
+        'download-status',
+        'quests',
+        'assets',
+        'current-quest',
+        'my-projects',
+        'all-projects',
+        'project'
+      );
 
       RNAlert.alert(t('success'), t('offloadComplete'));
       setShowOffloadDrawer(false);
@@ -3773,10 +3648,6 @@ export default function BibleAssetsView() {
               canUndo: true
             });
           }
-
-          // Invalidate queries to refresh the UI
-          void queryClient.invalidateQueries({ queryKey: ['assets'] });
-          void refetch(); // Refresh current assets to remove stale separators
         } catch (err: unknown) {
           console.error('Failed to update assets:', err);
         }
@@ -3785,9 +3656,7 @@ export default function BibleAssetsView() {
     [
       buildMoveHistoryEntries,
       getAssetMetadata,
-      pushUndoHistory,
-      queryClient,
-      refetch
+      pushUndoHistory
     ]
   );
 
@@ -3942,10 +3811,7 @@ export default function BibleAssetsView() {
             onPress={async () => {
               setIsRefreshing(true);
               console.log('🔄 Manually refreshing assets queries...');
-              await queryClient.invalidateQueries({
-                queryKey: ['assets']
-              });
-              void refetch();
+              await invalidateCloud(queryClient, 'assets');
               console.log('🔄 Assets queries invalidated');
               // Stop animation after a brief delay
               setTimeout(() => {
@@ -4182,6 +4048,7 @@ export default function BibleAssetsView() {
         !showSingleControls &&
         !isPublished &&
         currentUser &&
+        selectedQuest?.source !== 'cloud' &&
         (isSelectionMode ? (
           <View
             style={{
@@ -4286,9 +4153,6 @@ export default function BibleAssetsView() {
               newData: linkedSnapshots,
               canUndo: true
             });
-            // Refresh quest so lastRecordingSessionId updates and old NEW badges clear
-            void refetchQuest();
-            void refetch();
           }}
         />
       )}
@@ -4328,17 +4192,12 @@ export default function BibleAssetsView() {
             }
           }}
           onSaved={() => {
-            void queryClient.invalidateQueries({ queryKey: ['quest'] });
-            void queryClient.invalidateQueries({
-              queryKey: ['current-quest']
-            });
-            void refetchQuest();
-            void queryClient.invalidateQueries({
-              queryKey: ['bible-chapters']
-            });
-            void queryClient.invalidateQueries({
-              queryKey: ['fia-pericope-quests']
-            });
+            void invalidateCloud(
+              queryClient,
+              'current-quest',
+              'bible-chapters',
+              'fia-pericope-quests'
+            );
           }}
         />
       )}

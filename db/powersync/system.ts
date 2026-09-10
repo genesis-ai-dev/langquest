@@ -40,7 +40,6 @@ import { AppConfig } from '../supabase/AppConfig';
 import { SupabaseConnector } from '../supabase/SupabaseConnector';
 import { getDefaultOpMetadata } from './opMetadata';
 
-import { initializeFiaQueue } from '@/services/FiaAttachmentQueue';
 import { posthog } from '@/services/posthog';
 import { useLocalStore } from '@/store/localStore';
 import { useNetworkStore } from '@/store/networkStore';
@@ -579,7 +578,10 @@ export class System {
     if (!this.initialized || !this.powerSyncCreated) return;
 
     if (!isConnected) {
-      if (!this.powersync.connected) return;
+      const { connected, connecting } = this.powersync.currentStatus;
+      // Need to call disconnect even when in connecting state so PowerSync stops retrying
+      // and the UI doesn't get stuck on "connecting".
+      if (!connected && !connecting) return;
       try {
         await this.powersync.disconnect();
         console.log('[System] PowerSync disconnected (device offline)');
@@ -634,7 +636,6 @@ export class System {
     this.initializeAttachmentQueues()
       .then(() => {
         console.log('[System] ✓ Attachment queues initialized');
-        initializeFiaQueue();
       })
       .catch((error) => {
         // Log but don't block - queues will be initialized on-demand if needed

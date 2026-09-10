@@ -36,7 +36,8 @@ import { bulkDownloadQuest } from '@/utils/bulkDownload';
 import { resolveTable, type WithSource } from '@/utils/dbUtils';
 import { formatQuestDisplayLabel } from '@/utils/questVersionLabel';
 import { cn, useThemeColor } from '@/utils/styleUtils';
-import { useHybridData } from '@/views/new/useHybridData';
+import { invalidateCloud } from '@/hooks/hybridCache';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { LegendList } from '@legendapp/list';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -1029,9 +1030,8 @@ export function ImportWizard({
     void stopCurrentSoundRef.current();
   }, [visible]);
 
-  const compatibleQuestsQuery = useHybridData<ImportQuest>({
-    dataType: 'import-compatible-quests',
-    queryKeyParams: [projectId, currentQuest.id],
+  const compatibleQuestsQuery = useHybridQuery<ImportQuest>({
+    queryKey: ['import-compatible-quests', projectId, currentQuest.id],
     offlineQuery: toCompilableQuery(
       system.db
         .select({
@@ -1414,20 +1414,6 @@ export function ImportWizard({
         })
       });
 
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['assets'], exact: false }),
-        queryClient.invalidateQueries({ queryKey: ['quests'], exact: false }),
-        // BibleAssetsView / NextGenAssetsView load the quest as 'current-quest'
-        queryClient.invalidateQueries({
-          queryKey: ['current-quest'],
-          exact: false
-        }),
-        queryClient.invalidateQueries({
-          queryKey: ['quest-asset-link'],
-          exact: false
-        })
-      ]);
-
       if (result.linkedAssetIds.length > 0) {
         toast.success(
           `Imported ${result.linkedAssetIds.length} asset${result.linkedAssetIds.length === 1 ? '' : 's'}`
@@ -1550,14 +1536,11 @@ export function ImportWizard({
           questIdsToClear.forEach((id) => next.delete(id));
           return next;
         });
-        await queryClient.invalidateQueries({
-          queryKey: ['import-compatible-quests'],
-          exact: false
-        });
-        await queryClient.invalidateQueries({
-          queryKey: ['assets'],
-          exact: false
-        });
+        await invalidateCloud(
+          queryClient,
+          'import-compatible-quests',
+          'assets'
+        );
       };
 
       if (questIdToDownload) {
@@ -1655,12 +1638,8 @@ export function ImportWizard({
   };
 
   const handleRefreshAssets = React.useCallback(async () => {
-    await queryClient.invalidateQueries({
-      queryKey: ['assets']
-    });
-    void publishedAssetsQuery.refetch();
-    void localAssetsQuery.refetch();
-  }, [queryClient, publishedAssetsQuery, localAssetsQuery]);
+    await invalidateCloud(queryClient, 'assets');
+  }, [queryClient]);
 
   if (!visible) {
     return null;

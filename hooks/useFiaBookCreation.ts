@@ -9,9 +9,9 @@ import { quest } from '@/db/drizzleSchema';
 import type { QuestMetadata } from '@/db/drizzleSchemaColumns';
 import { system } from '@/db/powersync/system';
 import { resolveTable } from '@/utils/dbUtils';
-import { useHybridData } from '@/views/new/useHybridData';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 
 interface CreateBookParams {
@@ -29,7 +29,6 @@ interface BookQuest {
 
 export function useFiaBookCreation() {
   const { currentUser } = useAuth();
-  const queryClient = useQueryClient();
 
   const { mutateAsync: findOrCreateBook, isPending } = useMutation({
     mutationFn: async (params: CreateBookParams): Promise<BookQuest> => {
@@ -131,11 +130,6 @@ export function useFiaBookCreation() {
           project_id: newBook.project_id
         };
       });
-    },
-    onSuccess: (result) => {
-      void queryClient.invalidateQueries({
-        queryKey: ['fia-book-quests', result.project_id]
-      });
     }
   });
 
@@ -162,9 +156,8 @@ export function useFiaBookQuests(projectId: string) {
       )
     );
 
-  const { data: books = [], ...rest } = useHybridData({
-    dataType: 'fia-book-quests',
-    queryKeyParams: [projectId],
+  const { data: books = [], ...rest } = useHybridQuery({
+    queryKey: ['fia-book-quests', projectId],
     offlineQuery: toCompilableQuery(offlineQueryBuilder),
     cloudQueryFn: async () => {
       const { data, error } = await system.supabaseConnector.client

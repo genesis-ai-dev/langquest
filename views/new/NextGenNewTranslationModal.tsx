@@ -77,7 +77,7 @@ import {
   View
 } from 'react-native';
 import { z } from 'zod';
-import { useHybridData } from './useHybridData';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
 type AssetContent = typeof asset_content_link.$inferSelect;
 
 interface NextGenNewTranslationModalProps {
@@ -152,9 +152,8 @@ export default function NextGenNewTranslationModal({
     );
   }, [projectId, isAuthenticated]);
 
-  const { data: queriedProjectDataArray } = useHybridData({
-    dataType: 'project-new-translation',
-    queryKeyParams: [projectId || ''],
+  const { data: queriedProjectDataArray } = useHybridQuery({
+    queryKey: ['project-new-translation', projectId || ''],
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     offlineQuery: projectOfflineQuery,
     cloudQueryFn: async (): Promise<(typeof project.$inferSelect)[]> => {

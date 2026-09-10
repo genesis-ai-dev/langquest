@@ -17,11 +17,11 @@ import { useLocalStore } from '@/store/localStore';
 import { createLanguoidOffline } from '@/utils/languoidUtils';
 import { cn, getThemeColor, useThemeColor } from '@/utils/styleUtils';
 import { LanguagesIcon, PlusCircleIcon, SearchIcon } from 'lucide-react-native';
-import { MotiView } from 'moti';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { Dropdown } from 'react-native-element-dropdown';
 import Animated, {
+  Easing,
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
@@ -60,35 +60,41 @@ interface LanguageComboboxProps {
 
 function LoadingState() {
   const shimmer = useSharedValue(0);
+  const rotation = useSharedValue(0);
 
   React.useEffect(() => {
-    shimmer.value = withRepeat(
-      withSequence(
-        withTiming(1, { duration: 1000 }),
-        withTiming(0, { duration: 1000 })
-      ),
-      -1,
-      false
+    shimmer.set(
+      withRepeat(
+        withSequence(
+          withTiming(1, { duration: 1000 }),
+          withTiming(0, { duration: 1000 })
+        ),
+        -1,
+        false
+      )
     );
-  }, [shimmer]);
+    rotation.set(
+      withRepeat(
+        withTiming(1, { duration: 2000, easing: Easing.linear }),
+        -1,
+        false
+      )
+    );
+  }, [shimmer, rotation]);
 
   const shimmerStyle = useAnimatedStyle(() => ({
-    opacity: 0.3 + shimmer.value * 0.4
+    opacity: 0.3 + shimmer.get() * 0.4
+  }));
+
+  const rotationStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${rotation.get() * 360}deg` }]
   }));
 
   return (
     <View className="flex flex-row items-center gap-2">
-      <MotiView
-        from={{ rotate: '0deg' }}
-        animate={{ rotate: '360deg' }}
-        transition={{
-          type: 'timing',
-          duration: 2000,
-          loop: true
-        }}
-      >
+      <Animated.View style={rotationStyle}>
         <Icon as={LanguagesIcon} className="text-muted-foreground" size={20} />
-      </MotiView>
+      </Animated.View>
       <View className="flex flex-1 flex-col gap-2">
         <Animated.View
           style={shimmerStyle}

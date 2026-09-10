@@ -352,9 +352,10 @@ export async function batchUpdateAssetVerse(
 
 /**
  * Soft delete assets for a specific quest.
- * - Sets asset.project_id = null for created assets only
  * - Deletes quest_asset_link rows for the provided quest
  * - Enqueues GC only for created assets
+ * - Keeps asset rows (and project_id) until GC, so undo/redo never PATCH
+ *   project_id to null (server RLS rejects that)
  * - Keeps asset_content_link rows intact
  * - Returns link snapshots for undo/redo restore
  */
@@ -364,7 +365,6 @@ export async function softDeleteAssetsFromQuest(
 ): Promise<AssetOperationDataItem[]> {
   if (!questId || assetIds.length === 0) return [];
 
-  const assetLocal = resolveTable('asset', { localOverride: true });
   const questAssetLinkLocal = resolveTable('quest_asset_link', {
     localOverride: true
   });
@@ -397,13 +397,6 @@ export async function softDeleteAssetsFromQuest(
     .map((item) => item.id);
 
   await system.db.transaction(async (tx) => {
-    if (createdAssetIds.length > 0) {
-      await tx
-        .update(assetLocal)
-        .set({ project_id: null })
-        .where(inArray(assetLocal.id, createdAssetIds));
-    }
-
     await tx
       .delete(questAssetLinkLocal)
       .where(
@@ -426,7 +419,7 @@ export async function softDeleteAssetsFromQuest(
  * - Creates a NEW asset based on the first selected asset
  * - Creates NEW quest_asset_link for the new asset
  * - Creates NEW asset_content_link rows with sequential order_index
- * - Only then removes project_id and quest links from merged source assets
+ * - Only then removes quest links from merged source assets (GC deletes them later)
  */
 export async function softMergeAssetsInQuest(params: {
   questId: string;
@@ -588,11 +581,6 @@ export async function softMergeAssetsInQuest(params: {
       }
 
       // IMPORTANT: only after creating new records do we remove old links.
-      await tx
-        .update(assetLocal)
-        .set({ project_id: null })
-        .where(inArray(assetLocal.id, sourceIds));
-
       await tx
         .delete(questAssetLinkLocal)
         .where(

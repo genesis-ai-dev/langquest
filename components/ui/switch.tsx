@@ -1,6 +1,5 @@
 import { cn } from '@/utils/styleUtils';
 import * as SwitchPrimitives from '@rn-primitives/switch';
-import { MotiView } from 'moti';
 import { Platform } from 'react-native';
 
 function Switch({
@@ -21,19 +20,17 @@ function Switch({
       hitSlop={10}
       {...props}
     >
-      <MotiView>
-        <SwitchPrimitives.Thumb
-          className={cn(
-            'size-4 rounded-full bg-background transition-transform',
-            Platform.select({
-              web: 'pointer-events-none block ring-0'
-            }),
-            props.checked
-              ? 'translate-x-3.5 dark:bg-primary-foreground'
-              : 'translate-x-0 dark:bg-foreground'
-          )}
-        />
-      </MotiView>
+      <SwitchPrimitives.Thumb
+        className={cn(
+          'size-4 rounded-full bg-background transition-transform',
+          Platform.select({
+            web: 'pointer-events-none block ring-0'
+          }),
+          props.checked
+            ? 'translate-x-3.5 dark:bg-primary-foreground'
+            : 'translate-x-0 dark:bg-foreground'
+        )}
+      />
     </SwitchPrimitives.Root>
   );
 }

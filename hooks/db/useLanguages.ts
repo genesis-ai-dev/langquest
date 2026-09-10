@@ -1,6 +1,6 @@
 import { language } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import { useHybridData } from '@/views/new/useHybridData';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { InferSelectModel } from 'drizzle-orm';
 import { eq } from 'drizzle-orm';
@@ -18,9 +18,8 @@ export function useLanguageById(language_id?: string) {
     data: languageArray,
     isLoading: isLanguageLoading,
     ...rest
-  } = useHybridData({
-    dataType: 'language-by-id',
-    queryKeyParams: [language_id || ''],
+  } = useHybridQuery({
+    queryKey: ['language-by-id', language_id || ''],
     offlineQuery: toCompilableQuery(
       db.query.language.findMany({
         where: eq(language.id, language_id!)

@@ -42,7 +42,7 @@ import Animated, {
   useAnimatedStyle,
   useDerivedValue
 } from 'react-native-reanimated';
-import type { HybridDataSource } from '../../useHybridData';
+import type { HybridDataSource } from '@/hooks/useHybridQuery';
 
 interface AssetCardProps {
   asset: Pick<Asset, 'id' | 'name'> & {

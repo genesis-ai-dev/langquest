@@ -68,8 +68,8 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { toast } from 'sonner-native';
-import type { HybridDataSource } from './useHybridData';
-import { useHybridData } from './useHybridData';
+import type { HybridDataSource } from '@/hooks/useHybridQuery';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
 
 import { AssetListSkeleton } from '@/components/AssetListSkeleton';
 import { ExportButton } from '@/components/ExportButton';
@@ -112,8 +112,8 @@ import {
 import { publishQuest as publishQuestUtils } from '@/utils/publishQuest';
 import { offloadQuest } from '@/utils/questOffloadUtils';
 import { getThemeColor } from '@/utils/styleUtils';
+import { invalidateCloud } from '@/hooks/hybridCache';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { useFocusEffect } from '@react-navigation/native';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { eq } from 'drizzle-orm';
 import { AssetCardItem } from './AssetCardItem';
@@ -288,9 +288,8 @@ export default function NextGenAssetsView() {
   type Quest = typeof questTable.$inferSelect;
 
   // Use passed quest data if available (instant!), otherwise query
-  const { data: queriedQuestData, refetch: refetchQuest } = useHybridData({
-    dataType: 'current-quest',
-    queryKeyParams: [questId],
+  const { data: queriedQuestData } = useHybridQuery({
+    queryKey: ['current-quest', questId],
     offlineQuery: toCompilableQuery(
       system.db.query.quest.findFirst({
         where: eq(questTable.id, questId!)
@@ -329,12 +328,6 @@ export default function NextGenAssetsView() {
     [selectedQuest?.metadata, activeRecordingSessionId]
   );
 
-  useFocusEffect(
-    React.useCallback(() => {
-      void refetchQuest();
-    }, [refetchQuest])
-  );
-
   // Check if quest is published (source is 'synced') - computed early for use in callbacks
   const isPublished = selectedQuest?.published_at != null;
 
@@ -371,9 +364,8 @@ export default function NextGenAssetsView() {
   );
 
   // Query project data to get privacy status if not passed
-  const { data: queriedProjectData } = useHybridData({
-    dataType: 'project-privacy-assets',
-    queryKeyParams: [projectId],
+  const { data: queriedProjectData } = useHybridQuery({
+    queryKey: ['project-privacy-assets', projectId],
     offlineQuery: toCompilableQuery(
       system.db.query.project.findFirst({
         where: eq(project.id, projectId!),
@@ -431,8 +423,7 @@ export default function NextGenAssetsView() {
     isFetchingNextPage,
     isLoading,
     isOnline,
-    isFetching,
-    refetch
+    isFetching
   } = useAssetsByQuest(
     questId || '',
     debouncedSearchQuery,
@@ -470,16 +461,7 @@ export default function NextGenAssetsView() {
 
   const blockedCount = useBlockedAssetsCount(questId || '');
 
-  const handleAssetUpdate = React.useCallback(async () => {
-    // await queryClient.invalidateQueries({
-    //   // queryKey: ['assets', 'by-quest', questId],
-    //   queryKey: ['by-quest', questId],
-    //   exact: false
-    // });
-    await queryClient.invalidateQueries({
-      queryKey: ['assets']
-    });
-  }, [queryClient]);
+  const handleAssetUpdate = React.useCallback(async () => {}, []);
 
   const handleRenameAsset = React.useCallback(
     (assetId: string, currentName: string | null) => {
@@ -522,8 +504,7 @@ export default function NextGenAssetsView() {
         }
 
         cancelSelection();
-        void queryClient.invalidateQueries({ queryKey: ['assets'] });
-        void refetch();
+        void invalidateCloud(queryClient, 'assets');
       } catch (e) {
         console.error('Failed to batch delete assets', e);
         RNAlert.alert(t('error'), 'Failed to delete assets. Please try again.');
@@ -562,7 +543,6 @@ export default function NextGenAssetsView() {
     pushUndoHistory,
     queryClient,
     questId,
-    refetch,
     selectedAssetIds,
     t
   ]);
@@ -626,8 +606,6 @@ export default function NextGenAssetsView() {
         }
 
         cancelSelection();
-        void queryClient.invalidateQueries({ queryKey: ['assets'] });
-        void refetch();
       } catch (e) {
         console.error('Failed to batch merge assets', e);
         RNAlert.alert(t('error'), 'Failed to merge assets. Please try again.');
@@ -667,10 +645,8 @@ export default function NextGenAssetsView() {
     clearUndoHistory,
     projectId,
     pushUndoHistory,
-    queryClient,
     questId,
-    t,
-    refetch
+    t
   ]);
 
   const handleSaveRename = React.useCallback(
@@ -686,8 +662,6 @@ export default function NextGenAssetsView() {
           newData: [{ id: renameAssetId, name: newName }],
           canUndo: true
         });
-        void queryClient.invalidateQueries({ queryKey: ['assets'] });
-        void refetch();
       } catch (error) {
         console.error('❌ Failed to rename asset:', error);
         if (error instanceof Error) {
@@ -696,7 +670,7 @@ export default function NextGenAssetsView() {
         }
       }
     },
-    [renameAssetId, renameAssetName, pushUndoHistory, queryClient, refetch, t]
+    [renameAssetId, renameAssetName, pushUndoHistory, t]
   );
 
   const handleUndoAction = React.useCallback(() => {
@@ -714,19 +688,15 @@ export default function NextGenAssetsView() {
       } as AssetOperationTypes;
 
       await undoAssetOperation(projectId, questId, operation);
-      await queryClient.invalidateQueries({ queryKey: ['assets'] });
       const message = getAssetOperationMessage(operation, 'undo');
       toast.info(t('undo'), {
         description: t(message.key).replace('{count}', String(message.count))
       });
-      await refetch();
     });
   }, [
     currentUndoOperation,
     projectId,
-    queryClient,
     questId,
-    refetch,
     t,
     undoHistory
   ]);
@@ -746,20 +716,16 @@ export default function NextGenAssetsView() {
       } as AssetOperationTypes;
 
       await redoAssetOperation(projectId, questId, operation);
-      await queryClient.invalidateQueries({ queryKey: ['assets'] });
       const message = getAssetOperationMessage(operation, 'redo');
       toast.info(t('redo'), {
         description: t(message.key).replace('{count}', String(message.count))
       });
-      await refetch();
     });
   }, [
     currentRedoOperation,
     projectId,
-    queryClient,
     questId,
     redoHistory,
-    refetch,
     t
   ]);
 
@@ -1175,48 +1141,12 @@ export default function NextGenAssetsView() {
     },
     onSuccess: async (result) => {
       if (result.success) {
-        // Wait for PowerSync to sync the published quest before invalidating
-        await new Promise((resolve) => setTimeout(resolve, 1500));
-
-        console.log('📥 [Publish Quest] Invalidating queries...');
-
-        // Invalidate the quest query used by this component
-        await queryClient.invalidateQueries({
-          queryKey: ['current-quest', 'offline', questId]
-        });
-        await queryClient.invalidateQueries({
-          queryKey: ['current-quest', 'cloud', questId]
-        });
-
-        // Invalidate general quest queries
-        await queryClient.invalidateQueries({
-          queryKey: ['quests', 'for-project', projectId]
-        });
-        await queryClient.invalidateQueries({
-          queryKey: ['quests', 'infinite', 'for-project', projectId]
-        });
-        await queryClient.invalidateQueries({
-          queryKey: ['quests', 'offline', 'for-project', projectId]
-        });
-        await queryClient.invalidateQueries({
-          queryKey: ['quests', 'cloud', 'for-project', projectId]
-        });
-        await queryClient.invalidateQueries({
-          queryKey: ['quests']
-        });
-
-        // Invalidate assets queries to refresh the assets list
-        await queryClient.invalidateQueries({
-          queryKey: ['assets']
-        });
-
-        // Refetch quest data to update the selectedQuest immediately
-        void refetchQuest();
-
-        // Refetch assets to update download indicators
-        void refetch();
-
-        console.log('✅ [Publish Quest] All queries invalidated');
+        await invalidateCloud(
+          queryClient,
+          'quests',
+          'current-quest',
+          'assets'
+        );
       } else {
         RNAlert.alert(t('error'), result.message || t('error'), [
           { text: t('ok'), isPreferred: true }
@@ -1253,63 +1183,16 @@ export default function NextGenAssetsView() {
         }
       });
 
-      console.log('🗑️ [Offload] Complete - waiting for PowerSync to sync...');
-      // Wait for PowerSync to sync the removal before invalidating
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-
-      console.log('🗑️ [Offload] Invalidating all queries...');
-
-      // Invalidate download status queries
-      await queryClient.invalidateQueries({
-        queryKey: ['download-status', 'quest', questId]
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ['download-status', 'project', projectId]
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ['quest-download-status', questId]
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ['project-download-status', projectId]
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ['download-status']
-      });
-
-      // Invalidate ALL quest queries (comprehensive like create quest)
-      await queryClient.invalidateQueries({
-        queryKey: ['quests', 'for-project', projectId]
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ['quests', 'infinite', 'for-project', projectId]
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ['quests', 'offline', 'for-project', projectId]
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ['quests', 'cloud', 'for-project', projectId]
-      });
-      // Also invalidate generic quest queries
-      await queryClient.invalidateQueries({
-        queryKey: ['quests']
-      });
-
-      // Invalidate project queries
-      await queryClient.invalidateQueries({
-        queryKey: ['projects']
-      });
-
-      // Invalidate assets queries to refresh the assets list
-      await queryClient.invalidateQueries({
-        queryKey: ['assets']
-      });
-
-      // Invalidate quest closure data
-      await queryClient.invalidateQueries({
-        queryKey: ['quest-closure', questId]
-      });
-
-      console.log('✅ [Offload] All queries invalidated');
+      await invalidateCloud(
+        queryClient,
+        'download-status',
+        'quests',
+        'assets',
+        'current-quest',
+        'my-projects',
+        'all-projects',
+        'project'
+      );
 
       RNAlert.alert(t('success'), t('offloadComplete'));
       setShowOffloadDrawer(false);
@@ -1342,7 +1225,6 @@ export default function NextGenAssetsView() {
 
     // Create recording session and navigate to RecordingView
     const recordingSessionId = await createQuestRecordingSession(questId);
-    void refetchQuest();
     const lastOrderIndex = assets.reduce<number | null>((maxOrder, asset) => {
       if (typeof asset.order_index !== 'number') {
         return maxOrder;
@@ -1373,8 +1255,7 @@ export default function NextGenAssetsView() {
     selectedQuest?.name,
     selectedAssetForRecording,
     isPlayAllRunningRef,
-    stopPlayAll,
-    refetchQuest
+    stopPlayAll
   ]);
 
   // Cleanup effect: Clear all refs and stop audio when component unmounts
@@ -1495,10 +1376,7 @@ export default function NextGenAssetsView() {
               onPress={async () => {
                 setIsRefreshing(true);
                 console.log('🔄 Manually refreshing assets queries...');
-                await queryClient.invalidateQueries({
-                  queryKey: ['assets']
-                });
-                void refetch();
+                await invalidateCloud(queryClient, 'assets');
                 console.log('🔄 Assets queries invalidated');
                 // Stop animation after a brief delay
                 const timeoutId = setTimeout(() => {

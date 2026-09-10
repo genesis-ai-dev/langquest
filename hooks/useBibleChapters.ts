@@ -9,7 +9,10 @@ import { profile, quest } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useLocalStore } from '@/store/localStore';
 import { normalizeUuid } from '@/utils/uuidUtils';
-import type { HybridDataSource } from '@/views/new/useHybridData';
+import type { HybridDataSource } from '@/hooks/useHybridQuery';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
+import { useQuery as usePowerSyncQuery } from '@powersync/tanstack-react-query';
 import { useQuery } from '@tanstack/react-query';
 import { publishedOrOwnQuest } from '@/utils/dbUtils';
 import { and, eq, inArray } from 'drizzle-orm';
@@ -72,25 +75,21 @@ function parseMetadata(raw: unknown): BibleMetadata | null {
   }
 }
 
-async function fetchLocalChapters(
-  projectId: string,
-  bookId: string,
-  userId?: string
-): Promise<QuestWithMetadata[]> {
-  const allQuests = await system.db.query.quest.findMany({
-    where: and(eq(quest.project_id, projectId), publishedOrOwnQuest(userId)),
-    columns: {
-      id: true,
-      name: true,
-      published_at: true,
-      created_at: true,
-      download_profiles: true,
-      metadata: true,
-      creator_id: true,
-      visible: true
-    }
-  });
+const DISABLED_WATCH = 'SELECT 1 WHERE 0';
 
+function mapQuestRowsToChapters(
+  allQuests: {
+    id: string;
+    name: string;
+    published_at: string | Date | null;
+    created_at: string | Date;
+    download_profiles: unknown;
+    metadata: unknown;
+    creator_id: string | null;
+    visible: boolean;
+  }[],
+  bookId: string
+): QuestWithMetadata[] {
   return allQuests
     .map((q): QuestWithMetadata | null => {
       const meta = parseMetadata(q.metadata);
@@ -180,27 +179,6 @@ async function fetchCloudChapters(
   } catch {
     return [];
   }
-}
-
-async function fetchCreatorNames(
-  creatorIds: string[]
-): Promise<Map<string, string>> {
-  const nameMap = new Map<string, string>();
-  if (creatorIds.length === 0) return nameMap;
-
-  try {
-    const profiles = await system.db.query.profile.findMany({
-      where: inArray(profile.id, creatorIds),
-      columns: { id: true, username: true, email: true }
-    });
-    for (const p of profiles) {
-      nameMap.set(p.id, p.username || p.email || 'Unknown');
-    }
-  } catch {
-    /* ignore — names are best-effort */
-  }
-
-  return nameMap;
 }
 
 const getSourcePriority = (source: HybridDataSource): number => {
@@ -320,16 +298,37 @@ export function useBibleChapters(projectId: string, bookId: string) {
   const showHiddenContent = useLocalStore((s) => s.showHiddenContent);
   const { currentUser } = useAuth();
 
-  const {
-    data: localResults = [],
-    isLoading: isLoadingLocal,
-    error: localError
-  } = useQuery({
-    queryKey: ['bible-chapters', 'local', projectId, bookId],
-    queryFn: () => fetchLocalChapters(projectId, bookId, currentUser?.id),
-    enabled: !!projectId && !!bookId,
-    staleTime: 30000
-  });
+  const watchLocal = !!projectId && !!bookId;
+
+  const { data: localQuests = [], isLoading: isLoadingLocal, error: localError } =
+    usePowerSyncQuery({
+      queryKey: ['bible-chapters', 'offline', projectId],
+      query: watchLocal
+        ? toCompilableQuery(
+            system.db.query.quest.findMany({
+              where: and(
+                eq(quest.project_id, projectId),
+                publishedOrOwnQuest(currentUser?.id)
+              ),
+              columns: {
+                id: true,
+                name: true,
+                published_at: true,
+                created_at: true,
+                download_profiles: true,
+                metadata: true,
+                creator_id: true,
+                visible: true
+              }
+            })
+          )
+        : DISABLED_WATCH
+    });
+
+  const localResults = React.useMemo(
+    () => mapQuestRowsToChapters(localQuests, bookId),
+    [localQuests, bookId]
+  );
 
   const { data: cloudResults = [], isLoading: isLoadingCloud } = useQuery({
     queryKey: ['bible-chapters', 'cloud', projectId, bookId],
@@ -357,12 +356,38 @@ export function useBibleChapters(projectId: string, bookId: string) {
     return Array.from(ids);
   }, [chapterGroups]);
 
-  const { data: creatorNameMap } = useQuery({
-    queryKey: ['profile-names', ...creatorIds.sort()],
-    queryFn: () => fetchCreatorNames(creatorIds),
+  const creatorIdsKey = creatorIds.slice().sort().join(',');
+  const { data: creatorRows = [] } = useHybridQuery<{
+    id: string;
+    username: string | null;
+    email: string | null;
+  }>({
+    queryKey: ['profile-names', creatorIdsKey],
     enabled: creatorIds.length > 0,
-    staleTime: 300000
+    offlineQuery: toCompilableQuery(
+      system.db.query.profile.findMany({
+        where: inArray(profile.id, creatorIds),
+        columns: { id: true, username: true, email: true }
+      })
+    ),
+    cloudQueryFn: async () => {
+      if (creatorIds.length === 0) return [];
+      const { data, error } = await system.supabaseConnector.client
+        .from('profile')
+        .select('id, username, email')
+        .in('id', creatorIds);
+      if (error) throw error;
+      return data ?? [];
+    }
   });
+
+  const creatorNameMap = React.useMemo(() => {
+    const nameMap = new Map<string, string>();
+    for (const p of creatorRows) {
+      nameMap.set(p.id, p.username || p.email || 'Unknown');
+    }
+    return nameMap;
+  }, [creatorRows]);
 
   const chapters = React.useMemo(() => {
     if (!creatorNameMap || creatorNameMap.size === 0) return chapterGroups;

@@ -8,7 +8,7 @@ import {
 } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useLocalStore } from '@/store/localStore';
-import { useHybridData } from '@/views/new/useHybridData';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { and, eq, inArray, isNull, or } from 'drizzle-orm';
 import React from 'react';
@@ -22,11 +22,10 @@ export const useNotifications = () => {
   );
 
   // Get all pending invites for the user's email or profile_id
-  const { data: inviteRequests = [] } = useHybridData<
+  const { data: inviteRequests = [] } = useHybridQuery<
     typeof invite.$inferSelect
   >({
-    dataType: 'invite-notifications-count',
-    queryKeyParams: [currentUser?.id || '', currentUser?.email || 'anonymous'],
+    queryKey: ['invite-notifications-count', currentUser?.id || '', currentUser?.email || 'anonymous'],
     enabled: !!(currentUser?.id || currentUser?.email) && isAuthenticated, // Only query if user has id or email and is authenticated
 
     // PowerSync query using Drizzle - filter expired invites (7 days expiry)
@@ -43,20 +42,38 @@ export const useNotifications = () => {
                   currentUser.email && eq(invite.email, currentUser.email)
                 ].filter(Boolean)
               ),
-            eq(invite.status, 'pending'),
             eq(invite.active, true)
           ].filter(Boolean)
         )
       })
     ),
-    enableOfflineQuery: !!(currentUser?.id || currentUser?.email)
+    enableOfflineQuery: !!(currentUser?.id || currentUser?.email),
+    cloudQueryFn: async () => {
+      if (!currentUser?.id && !currentUser?.email) return [];
+      const match = [
+        currentUser.id && `receiver_profile_id.eq.${currentUser.id}`,
+        currentUser.email && `email.eq.${currentUser.email}`
+      ]
+        .filter(Boolean)
+        .join(',');
+      let query = system.supabaseConnector.client
+        .from('invite')
+        .select('*')
+        .eq('status', 'pending')
+        .eq('active', true);
+      if (match) query = query.or(match);
+      const { data, error } = await query.overrideTypes<
+        (typeof invite.$inferSelect)[]
+      >();
+      if (error) throw error;
+      return data;
+    }
   });
 
-  const { data: sentInviteDeliveryFailures = [] } = useHybridData<
+  const { data: sentInviteDeliveryFailures = [] } = useHybridQuery<
     typeof invite.$inferSelect
   >({
-    dataType: 'invite-sent-delivery-failures-count',
-    queryKeyParams: [currentUser?.id || ''],
+    queryKey: ['invite-sent-delivery-failures-count', currentUser?.id || ''],
     enabled: !!currentUser?.id && isAuthenticated,
 
     offlineQuery: toCompilableQuery(
@@ -72,14 +89,27 @@ export const useNotifications = () => {
         )
       })
     ),
-    enableOfflineQuery: !!currentUser?.id
+    enableOfflineQuery: !!currentUser?.id,
+    cloudQueryFn: async () => {
+      if (!currentUser?.id) return [];
+      const { data, error } = await system.supabaseConnector.client
+        .from('invite')
+        .select('*')
+        .eq('sender_profile_id', currentUser.id)
+        .in('status', ['pending', 'withdrawn'])
+        .eq('active', true)
+        .in('email_status', ['bounced', 'complained'])
+        .is('bounce_notice_dismissed_at', null)
+        .overrideTypes<(typeof invite.$inferSelect)[]>();
+      if (error) throw error;
+      return data;
+    }
   });
 
   // Get all projects where the user is an owner
 
-  const { data: ownerProjects } = useHybridData<{ project_id: string }>({
-    dataType: 'owner-projects-count',
-    queryKeyParams: [userId],
+  const { data: ownerProjects } = useHybridQuery<{ project_id: string }>({
+    queryKey: ['owner-projects-count', userId],
     enabled: shouldQueryOwnerProjects && !!userId, // Only query if user ID exists and user is authenticated
     getItemId: (item) => item.project_id,
 
@@ -125,11 +155,10 @@ export const useNotifications = () => {
   );
 
   // Get all pending requests for projects where user is owner
-  const { data: allRequestNotifications } = useHybridData<
+  const { data: allRequestNotifications } = useHybridQuery<
     typeof request.$inferSelect
   >({
-    dataType: 'request-notifications-count',
-    queryKeyParams: [requestQueryKey],
+    queryKey: ['request-notifications-count', requestQueryKey],
     enabled: ownerProjectIds.length > 0 && shouldQueryOwnerProjects, // Only query if we have owner projects
 
     // PowerSync query using Drizzle
@@ -138,42 +167,42 @@ export const useNotifications = () => {
         ? toCompilableQuery(
             system.db.query.request.findMany({
               where: and(
-                eq(request.status, 'pending'),
                 eq(request.active, true),
                 inArray(request.project_id, ownerProjectIds)
               )
             })
           )
-        : 'SELECT * FROM request WHERE 1=0' // Empty query when no owner projects
-
-    // Cloud query
-    // cloudQueryFn: async () => {
-    //   if (ownerProjectIds.length === 0) return [];
-    //   const { data, error } = await system.supabaseConnector.client
-    //     .from('request')
-    //     .select('*')
-    //     .in('project_id', ownerProjectIds)
-    //     .eq('status', 'pending')
-    //     .eq('active', true);
-    //   if (error) throw error;
-    //   return data as (typeof request.$inferSelect)[];
-    // }
+        : 'SELECT * FROM request WHERE 1=0',
+    cloudQueryFn: async () => {
+      if (ownerProjectIds.length === 0) return [];
+      const { data, error } = await system.supabaseConnector.client
+        .from('request')
+        .select('*')
+        .in('project_id', ownerProjectIds)
+        .eq('status', 'pending')
+        .eq('active', true)
+        .overrideTypes<(typeof request.$inferSelect)[]>();
+      if (error) throw error;
+      return data;
+    }
   });
 
   // Filter to only include requests for projects where user is owner
+  // Resolved rows stay in SQLite so they win over a stale pending cloud snapshot.
   const requestNotifications = React.useMemo(
     () =>
-      allRequestNotifications.filter((notification) =>
-        ownerProjectIds.includes(notification.project_id)
+      allRequestNotifications.filter(
+        (notification) =>
+          notification.status === 'pending' &&
+          ownerProjectIds.includes(notification.project_id)
       ),
     [allRequestNotifications, ownerProjectIds]
   );
 
-  const { data: languoidSuggestions = [] } = useHybridData<{
+  const { data: languoidSuggestions = [] } = useHybridQuery<{
     languoid_id: string;
   }>({
-    dataType: 'languoid-suggestions-count',
-    queryKeyParams: [userId || 'anonymous'],
+    queryKey: ['languoid-suggestions-count', userId || 'anonymous'],
     enabled: enableProjectLanguageSuggestions && !!userId && isAuthenticated,
 
     // Get pending languoid link suggestions count
@@ -215,11 +244,10 @@ export const useNotifications = () => {
   // this user owns. RLS guarantees only owners see rows, but we additionally
   // gate on the local owner-projects list so the count never includes stale
   // synced data after a membership change.
-  const { data: projectLanguoidSuggestions = [] } = useHybridData<{
+  const { data: projectLanguoidSuggestions = [] } = useHybridQuery<{
     id: string;
   }>({
-    dataType: 'project-languoid-suggestions-count',
-    queryKeyParams: [requestQueryKey],
+    queryKey: ['project-languoid-suggestions-count', requestQueryKey],
     enabled:
       enableProjectLanguageSuggestions &&
       ownerProjectIds.length > 0 &&
@@ -255,7 +283,9 @@ export const useNotifications = () => {
     }
   });
 
-  const inviteCount = inviteRequests.length;
+  const inviteCount = inviteRequests.filter(
+    (item) => item.status === 'pending'
+  ).length;
   const requestCount = requestNotifications.length;
   // Ignore cached query data when the feature flag is off (matches NotificationsView)
   const languoidLinkCount = enableProjectLanguageSuggestions

@@ -27,7 +27,7 @@ function serializeLinkMetadata(
 
 /**
  * Restore assets (and their quest_asset_link snapshots) to a quest.
- * - Created / local assets: restore project_id
+ * - Created / local assets: restore project_id if an older client nulled it
  * - All items: recreate quest_asset_link with name, order_index, metadata
  */
 async function restoreAssetsToQuest(
@@ -112,7 +112,7 @@ async function restoreAssetsToQuest(
 /**
  * Detach assets from a quest (provenance-aware).
  * - Deletes quest_asset_link for the quest
- * - Nulls project_id and enqueues GC only for created assets
+ * - Enqueues GC only for created assets (keeps project_id until GC)
  */
 async function detachAssetsFromQuest(
   questId: string,
@@ -174,13 +174,6 @@ async function detachAssetsFromQuest(
   );
 
   await system.db.transaction(async (tx) => {
-    if (createdForGc.length > 0) {
-      await tx
-        .update(assetLocal)
-        .set({ project_id: null })
-        .where(inArray(assetLocal.id, createdForGc));
-    }
-
     await tx
       .delete(questAssetLinkLocal)
       .where(

@@ -2,7 +2,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useUserMemberships } from '@/hooks/db/useProfiles';
-import { useHybridData } from '@/views/new/useHybridData';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { InferSelectModel } from 'drizzle-orm';
 import { eq } from 'drizzle-orm';
@@ -139,12 +139,11 @@ export function useUserPermissions(
   // Only query for privacy if not provided
   const shouldQueryPrivacy = isValidProjectId && knownIsPrivate === undefined;
 
-  // Query for project details to get privacy setting using useHybridData
-  const { data: projectData } = useHybridData<
+  // Query for project details to get privacy setting using useHybridQuery
+  const { data: projectData } = useHybridQuery<
     Pick<Project, 'private' | 'creator_id'>
   >({
-    dataType: 'project-privacy',
-    queryKeyParams: [project_id],
+    queryKey: ['project-privacy', project_id],
 
     // PowerSync query using Drizzle
     offlineQuery: toCompilableQuery(

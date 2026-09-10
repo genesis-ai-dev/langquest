@@ -35,11 +35,11 @@ import { useQuestDownloadDiscovery } from '@/hooks/useQuestDownloadDiscovery';
 import { useQuestDownloadStatusLive } from '@/hooks/useQuestDownloadStatusLive';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { enqueue as enqueueFiaAttachment } from '@/services/FiaAttachmentQueue';
-import { syncCallbackService } from '@/services/syncCallbackService';
 import { BOOK_ICON_MAP } from '@/utils/BOOK_GRAPHICS';
 import { bulkDownloadQuest } from '@/utils/bulkDownload';
 import { cn, useThemeColor } from '@/utils/styleUtils';
 import { LegendList } from '@/components/ui/legend-list';
+import { invalidateCloud } from '@/hooks/hybridCache';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Image } from 'expo-image';
 import {
@@ -59,18 +59,22 @@ function VersionCard({
   isCurrentUser,
   onPress,
   onDownloadClick,
-  isDownloading
+  isDownloading,
+  downloadedQuestIds
 }: {
   version: FiaPericopeQuest;
   isCurrentUser: boolean;
   onPress: () => void;
   onDownloadClick: (questId: string) => void;
   isDownloading: boolean;
+  downloadedQuestIds: Set<string>;
 }) {
   const isLocal = version.source === 'local';
   const isCloud = version.source === 'cloud';
-  const isDownloaded = useQuestDownloadStatusLive(isLocal ? null : version.id);
-  const needsDownload = isCloud && !isDownloaded;
+  const liveDownloaded = useQuestDownloadStatusLive(
+    isLocal ? null : version.id
+  );
+  const isDownloaded = downloadedQuestIds.has(version.id) || liveDownloaded;
 
   return (
     <QuestVersionPickerCard
@@ -100,7 +104,8 @@ function PericopeButton({
   disabled,
   onDownloadClick,
   canCreateNew,
-  downloadingQuestIds = new Set()
+  downloadingQuestIds = new Set(),
+  downloadedQuestIds = new Set()
 }: {
   pericope: FiaPericope;
   index: number;
@@ -111,6 +116,7 @@ function PericopeButton({
   onDownloadClick: (questId: string) => void;
   canCreateNew: boolean;
   downloadingQuestIds?: Set<string>;
+  downloadedQuestIds?: Set<string>;
 }) {
   const { currentUser } = useAuth();
   const existingQuest = group?.primary;
@@ -120,9 +126,14 @@ function PericopeButton({
   const isCloudQuest = existingQuest?.source === 'cloud';
   const versionCount = group?.versions.length ?? 0;
 
-  const isDownloaded = useQuestDownloadStatusLive(existingQuest?.id || null);
+  const liveDownloaded = useQuestDownloadStatusLive(existingQuest?.id || null);
+  const isDownloaded =
+    liveDownloaded ||
+    Boolean(existingQuest?.id && downloadedQuestIds.has(existingQuest.id));
   const isOptimisticallyDownloading = Boolean(
-    existingQuest?.id && downloadingQuestIds.has(existingQuest.id)
+    existingQuest?.id &&
+      downloadingQuestIds.has(existingQuest.id) &&
+      !isDownloaded
   );
   const needsDownload = isCloudQuest && !isDownloaded;
 
@@ -348,6 +359,9 @@ export function FiaPericopeList({
   const [downloadingQuestIds, setDownloadingQuestIds] = React.useState<
     Set<string>
   >(new Set());
+  const [downloadedQuestIds, setDownloadedQuestIds] = React.useState<
+    Set<string>
+  >(new Set());
 
   const discoveryState = useQuestDownloadDiscovery(questIdToDownload || '');
   const startedDiscoveryRef = React.useRef<string | null>(null);
@@ -382,70 +396,15 @@ export function FiaPericopeList({
       }
       return bulkDownloadQuest(discoveryState.discoveredIds, currentUser.id);
     },
-    onMutate: async () => {
-      const questIdsToUpdate = new Set(discoveryState.discoveredIds.questIds);
-
-      const updateCache = (oldData: unknown) => {
-        if (!oldData || !currentUser?.id) return oldData;
-        const items = oldData as {
-          id: string;
-          download_profiles?: string[] | null;
-          [key: string]: unknown;
-        }[];
-        return items.map((item) => {
-          if (questIdsToUpdate.has(item.id)) {
-            const profiles = item.download_profiles || [];
-            return {
-              ...item,
-              download_profiles: profiles.includes(currentUser.id)
-                ? profiles
-                : [...profiles, currentUser.id]
-            };
-          }
-          return item;
-        });
-      };
-
-      await queryClient.setQueriesData(
-        {
-          queryKey: ['fia-pericope-quests', 'local', projectId, book.id],
-          exact: false
-        },
-        updateCache
-      );
-      await queryClient.setQueriesData(
-        {
-          queryKey: ['fia-pericope-quests', 'cloud', projectId, book.id],
-          exact: false
-        },
-        updateCache
-      );
-    },
     onSuccess: async () => {
-      if (questIdToDownload) {
-        const questIdsToClear = discoveryState.discoveredIds.questIds;
-
-        const clearAndInvalidate = async () => {
-          setDownloadingQuestIds((prev) => {
-            const next = new Set(prev);
-            questIdsToClear.forEach((id) => next.delete(id));
-            return next;
-          });
-
-          await queryClient.invalidateQueries({
-            queryKey: ['fia-pericope-quests', 'local', projectId, book.id]
-          });
-          await queryClient.invalidateQueries({
-            queryKey: ['fia-pericope-quests', 'cloud', projectId, book.id]
-          });
-          await queryClient.invalidateQueries({ queryKey: ['assets'] });
-        };
-
-        syncCallbackService.registerCallback(
-          questIdToDownload,
-          clearAndInvalidate
-        );
-      }
+      const questIds = discoveryState.discoveredIds.questIds;
+      setDownloadedQuestIds((prev) => new Set([...prev, ...questIds]));
+      setDownloadingQuestIds((prev) => {
+        const next = new Set(prev);
+        questIds.forEach((id) => next.delete(id));
+        return next;
+      });
+      await invalidateCloud(queryClient, 'fia-pericope-quests', 'assets');
     }
   });
 
@@ -479,7 +438,6 @@ export function FiaPericopeList({
   const handleCancelDiscovery = () => {
     discoveryState.cancel();
     if (questIdToDownload) {
-      syncCallbackService.cancelCallback(questIdToDownload);
       setDownloadingQuestIds((prev) => {
         const next = new Set(prev);
         next.delete(questIdToDownload);
@@ -492,7 +450,6 @@ export function FiaPericopeList({
 
   const handleCancelConfirmation = () => {
     if (questIdToDownload) {
-      syncCallbackService.cancelCallback(questIdToDownload);
       const questIdsToClear = discoveryState.discoveredIds.questIds;
       setDownloadingQuestIds((prev) => {
         const next = new Set(prev);
@@ -633,6 +590,7 @@ export function FiaPericopeList({
         }
         contentContainerStyle={{ paddingHorizontal: 16 }}
         columnWrapperStyle={{ gap: 8 }}
+        extraData={`${[...downloadingQuestIds].join(',')}|${[...downloadedQuestIds].join(',')}`}
         recycleItems
         renderItem={({ item }) => (
           <PericopeButton
@@ -645,6 +603,7 @@ export function FiaPericopeList({
             onDownloadClick={handleDownloadClick}
             canCreateNew={canCreateNew}
             downloadingQuestIds={downloadingQuestIds}
+            downloadedQuestIds={downloadedQuestIds}
           />
         )}
       />
@@ -678,6 +637,7 @@ export function FiaPericopeList({
                 onPress={() => navigateToVersion(version)}
                 onDownloadClick={handleDownloadClick}
                 isDownloading={downloadingQuestIds.has(version.id)}
+                downloadedQuestIds={downloadedQuestIds}
               />
             ))}
 

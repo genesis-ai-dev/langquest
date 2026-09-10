@@ -1,10 +1,18 @@
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
+import { easeOut } from '@/constants/animations';
 import { cn, useThemeColor } from '@/utils/styleUtils';
 import type { LucideIcon } from 'lucide-react-native';
-import { MotiView } from 'moti';
 import * as React from 'react';
 import { Pressable, View } from 'react-native';
+import Animated, {
+  FadeIn,
+  FadeOut,
+  LinearTransition,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming
+} from 'react-native-reanimated';
 
 type ToggleSide = 'left' | 'right';
 
@@ -20,7 +28,7 @@ interface ToggleButtonProps {
   className?: string;
 }
 
-const TRANSITION = { type: 'timing', duration: 220 } as const;
+const TRANSITION_MS = 220;
 
 function ToggleOption({
   selected,
@@ -37,31 +45,49 @@ function ToggleOption({
   disabled?: boolean;
   primaryColor: string;
 }) {
+  const selectedProgress = useSharedValue(selected ? 1 : 0);
+
+  React.useEffect(() => {
+    selectedProgress.set(
+      withTiming(selected ? 1 : 0, {
+        duration: TRANSITION_MS,
+        easing: easeOut
+      })
+    );
+  }, [selected, selectedProgress]);
+
+  const backgroundStyle = useAnimatedStyle(() => ({
+    opacity: selectedProgress.get()
+  }));
+
   return (
     <Pressable role="button" onPress={onPress} disabled={disabled}>
-      <View
+      <Animated.View
+        layout={LinearTransition.duration(TRANSITION_MS).easing(easeOut)}
         style={{
           height: 32,
           flexDirection: 'row',
           alignItems: 'center',
           borderRadius: 999,
           paddingHorizontal: 10,
-          overflow: 'hidden'
+          overflow: 'hidden',
+          gap: 6
         }}
       >
         {/* Fundo com opacity animada — evita interpolação de cor errada */}
-        <MotiView
-          animate={{ opacity: selected ? 1 : 0 }}
-          transition={TRANSITION}
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: primaryColor,
-            borderRadius: 999
-          }}
+        <Animated.View
+          style={[
+            {
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: primaryColor,
+              borderRadius: 999
+            },
+            backgroundStyle
+          ]}
         />
         <Icon
           as={icon}
@@ -70,23 +96,20 @@ function ToggleOption({
             selected ? 'text-primary-foreground' : 'text-muted-foreground'
           }
         />
-        <MotiView
-          animate={{
-            maxWidth: selected ? 120 : 0,
-            opacity: selected ? 1 : 0,
-            marginLeft: selected ? 6 : 0
-          }}
-          transition={TRANSITION}
-          style={{ overflow: 'hidden' }}
-        >
-          <Text
-            className="text-xs font-medium text-primary-foreground"
-            numberOfLines={1}
+        {selected ? (
+          <Animated.View
+            entering={FadeIn.duration(TRANSITION_MS).easing(easeOut)}
+            exiting={FadeOut.duration(160).easing(easeOut)}
           >
-            {text}
-          </Text>
-        </MotiView>
-      </View>
+            <Text
+              className="text-xs font-medium text-primary-foreground"
+              numberOfLines={1}
+            >
+              {text}
+            </Text>
+          </Animated.View>
+        ) : null}
+      </Animated.View>
     </Pressable>
   );
 }

@@ -14,9 +14,9 @@ import { useLocalStore } from '@/store/localStore';
 import type { WithSource } from '@/utils/dbUtils';
 import { cn, getThemeColor } from '@/utils/styleUtils';
 import {
-  useHybridData,
-  useSimpleHybridInfiniteData
-} from '@/views/new/useHybridData';
+  useHybridInfiniteQuery,
+  useHybridQuery
+} from '@/hooks/useHybridQuery';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { LegendList } from '@/components/ui/legend-list';
 import {
@@ -81,7 +81,7 @@ import {
 } from '@/utils/languoidUtils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
@@ -95,7 +95,6 @@ export default function NextGenProjectsView() {
   const { t } = useLocalization();
   const { currentUser, isAuthenticated } = useAuth();
   const router = useRouter();
-  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = React.useState('');
   const [activeTab, setActiveTab] = React.useState<TabType>('my');
 
@@ -326,9 +325,8 @@ export default function NextGenProjectsView() {
 
   // Query for projects where user is owner or member
   // Disable for anonymous users (no "My Projects" when not logged in)
-  const myProjectsQuery = useHybridData({
-    dataType: 'my-projects',
-    queryKeyParams: [userId || '', searchQuery],
+  const myProjectsQuery = useHybridQuery({
+    queryKey: ['my-projects', userId || '', searchQuery],
     enabled: !!userId, // Only enable if user is logged in
     offlineQuery: toCompilableQuery(
       system.db
@@ -361,18 +359,27 @@ export default function NextGenProjectsView() {
     cloudQueryFn: async () => {
       if (!userId) return [];
 
-      // Query projects where user is creator or member
+      const { data: links, error: linksError } =
+        await system.supabaseConnector.client
+          .from('profile_project_link')
+          .select('project_id')
+          .eq('profile_id', userId)
+          .eq('active', true);
+      if (linksError) throw linksError;
+
+      const projectIds = [
+        ...new Set((links ?? []).map((link) => link.project_id))
+      ];
+      if (projectIds.length === 0) return [];
+
       let query = system.supabaseConnector.client
         .from('project')
-        .select(
-          `
-          *,
-          profile_project_link!inner(profile_id)
-        `
-        )
-        .eq('profile_project_link.profile_id', userId);
+        .select('*')
+        .in('id', projectIds);
 
-      if (!showInvisibleContent) query = query.eq('visible', true);
+      // Match the local watch: visible projects, plus the user's own hidden ones.
+      if (!showInvisibleContent)
+        query = query.or(`visible.eq.true,creator_id.eq.${userId}`);
       if (searchQuery.trim())
         query = query.or(
           `name.ilike.%${searchQuery.trim()}%,description.ilike.%${searchQuery.trim()}%`
@@ -387,101 +394,16 @@ export default function NextGenProjectsView() {
     enableOfflineQuery: !!userId
   });
 
-  // Watch for invite changes and membership changes to invalidate queries
-  // We watch both invites and profile_project_link because:
-  // 1. Watching invites detects when new invites arrive
-  // 2. Watching memberships detects when invites are accepted (creates membership)
-  // 3. Watching invites with any status detects when pending invites change to accepted/declined
-  React.useEffect(() => {
-    if (!userId && !userEmail) return;
-
-    // Use AbortController for cleanup
-    const abortController = new AbortController();
-    let isMounted = true;
-
-    const shouldProceed = () => !abortController.signal.aborted && isMounted;
-
-    // Helper to invalidate and refetch relevant queries
-    const invalidateProjectQueries = async () => {
-      if (!shouldProceed()) return;
-
-      // Invalidate queries (triggers automatic refetch in TanStack Query)
-      await queryClient.invalidateQueries({
-        queryKey: ['invited-projects'],
-        exact: false
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ['my-projects'],
-        exact: false
-      });
-
-      // Explicitly refetch to ensure immediate update
-      await queryClient.refetchQueries({
-        queryKey: ['invited-projects'],
-        exact: false
-      });
-      await queryClient.refetchQueries({
-        queryKey: ['my-projects'],
-        exact: false
-      });
-    };
-
-    // Watch 1: Watch all invites (not just pending) to detect status changes
-    // This will fire when an invite changes from pending to accepted/declined
-    const _watch1 = system.powersync.watch(
-      `SELECT id, status, active, email, receiver_profile_id, project_id, last_updated FROM invite WHERE (email = ? OR receiver_profile_id = ?)`,
-      [userEmail || '', userId || ''],
-      {
-        onResult: () => {
-          // Fire and forget - don't block the watch callback
-          void invalidateProjectQueries();
-        },
-        onError: (error) => {
-          if (!shouldProceed()) return;
-          console.error('Error watching invites:', error);
-        }
-      },
-      { signal: abortController.signal }
-    );
-
-    // Watch 2: Watch memberships to detect when invites are accepted (creates membership)
-    const _watch2 = userId
-      ? system.powersync.watch(
-          `SELECT id, profile_id, project_id, active, membership, last_updated FROM profile_project_link WHERE profile_id = ?`,
-          [userId],
-          {
-            onResult: () => {
-              // Fire and forget - don't block the watch callback
-              void invalidateProjectQueries();
-            },
-            onError: (error) => {
-              if (!shouldProceed()) return;
-              console.error('Error watching memberships:', error);
-            }
-          },
-          { signal: abortController.signal }
-        )
-      : null;
-
-    // Cleanup: abort all watches and mark as unmounted
-    return () => {
-      isMounted = false;
-      abortController.abort();
-      // All watches will stop calling callbacks due to abort signal
-    };
-  }, [userId, userEmail, queryClient]);
-
   // Query for invites where user has pending invites but is not yet a member
-  // Offline-only: PowerSync syncs invite table (via user_profile and project_memberships buckets)
-  // When an invite is withdrawn/expired, PowerSync removes it from local DB, and the query
-  // automatically updates due to PowerSync watches being reactive
-
-  const invitedInvitesQuery = useHybridData({
-    dataType: 'invited-invites',
-    queryKeyParams: [userId || '', userEmail || '', searchQuery],
+  const invitedInvitesQuery = useHybridQuery({
+    queryKey: ['invited-invites', userId || '', userEmail || '', searchQuery],
     offlineQuery: toCompilableQuery(
       system.db
-        .select({ project_id: invite.project_id, status: invite.status })
+        .select({
+          id: invite.id,
+          project_id: invite.project_id,
+          status: invite.status
+        })
         .from(invite)
         .where(
           and(
@@ -515,21 +437,48 @@ export default function NextGenProjectsView() {
           )
         )
     ),
-    enableCloudQuery: false, // Disabled: rely on offline query + PowerSync sync
+    cloudQueryFn: async () => {
+      if (!userId && !userEmail) return [];
+      const match = [
+        userId && `receiver_profile_id.eq.${userId}`,
+        userEmail && `email.eq.${userEmail}`
+      ]
+        .filter(Boolean)
+        .join(',');
+      let query = system.supabaseConnector.client
+        .from('invite')
+        .select('id, project_id, status')
+        .eq('status', 'pending')
+        .eq('active', true);
+      if (match) query = query.or(match);
+      const { data, error } = await query.overrideTypes<
+        { id: string; project_id: string; status: string }[]
+      >();
+      if (error) throw error;
+      if (!userId) return data;
+      const { data: memberships, error: membershipError } =
+        await system.supabaseConnector.client
+          .from('profile_project_link')
+          .select('project_id')
+          .eq('profile_id', userId)
+          .eq('active', true);
+      if (membershipError) throw membershipError;
+      const memberProjectIds = new Set(
+        (memberships ?? []).map((row) => row.project_id)
+      );
+      return data.filter((row) => !memberProjectIds.has(row.project_id));
+    },
     enableOfflineQuery: !!(userId || userEmail),
-    enabled: isAuthenticated && !!(userId || userEmail) // Ensure query runs when user is authenticated
-    // No realtime subscription needed: PowerSync watches are reactive to local DB changes
+    enabled: isAuthenticated && !!(userId || userEmail)
   });
 
   const { data: invitedInvitesData = [] } = invitedInvitesQuery;
 
   // Query for All Projects (excluding user's projects)
   // For anonymous users, this shows all public projects
-  const allProjects = useSimpleHybridInfiniteData<Project>(
-    'all-projects',
-    [userId || 'anonymous', searchQuery], // Include userId and searchQuery in query key
-    // Offline query function
-    async ({ pageParam, pageSize }) => {
+  const allProjects = useHybridInfiniteQuery<Project>({
+    queryKey: ['all-projects', userId || 'anonymous', searchQuery],
+    offlineQueryFn: async ({ pageParam, pageSize }) => {
       const offset = pageParam * pageSize;
 
       // Get projects where user is a member (only if logged in)
@@ -569,8 +518,7 @@ export default function NextGenProjectsView() {
 
       return projects;
     },
-    // Cloud query function
-    async ({ pageParam, pageSize }) => {
+    cloudQueryFn: async ({ pageParam, pageSize }) => {
       const from = pageParam * pageSize;
       const to = from + pageSize - 1;
 
@@ -614,9 +562,9 @@ export default function NextGenProjectsView() {
       if (error) throw error;
       return data;
     },
-    20, // pageSize
-    [getTableName(project), getTableName(profile_project_link)]
-  );
+    pageSize: 20,
+    watchTables: [getTableName(project), getTableName(profile_project_link)]
+  });
 
   // For anonymous users, always use allProjects query (no "my projects")
   // For authenticated users, use the appropriate query based on active tab
@@ -660,13 +608,10 @@ export default function NextGenProjectsView() {
     ''
   );
 
-  // Get project IDs from invites for filtering
-  const invitedProjectIds = React.useMemo(() => {
-    if (activeTab !== 'my' || !Array.isArray(invitedInvitesData)) {
-      return new Set<string>();
-    }
-    return new Set(invitedInvitesData.map((inv) => inv.project_id));
-  }, [invitedInvitesData, activeTab]);
+  const myProjectIds = React.useMemo(
+    () => new Set(myProjectsQuery.data.map((memberProject) => memberProject.id)),
+    [myProjectsQuery.data]
+  );
 
   // Process regular projects data
   const data = React.useMemo(() => {
@@ -688,21 +633,20 @@ export default function NextGenProjectsView() {
       projects = projectData;
     }
 
-    // Filter out projects that have invites (invites will be rendered separately)
-    return projects.filter((p) => !invitedProjectIds.has(p.id));
-  }, [projectData, invitedProjectIds]);
+    return projects;
+  }, [projectData]);
 
-  // Filter invites based on search query - we'll filter by project_id only
-  // The actual project name/description filtering happens in InvitedProjectListItem
+  // Pending invites for projects this user is not already a member of.
+  // Membership (local or cloud) wins: a stale local invite must not hide a
+  // project after the user has joined.
   const filteredInvites = React.useMemo(() => {
     if (activeTab !== 'my' || !Array.isArray(invitedInvitesData)) {
       return [];
     }
-    // Return all invites - filtering by project name/description will happen
-    // after project data is fetched in InvitedProjectListItem
-    // Note: SQL query already excludes projects where user is already a member
-    return invitedInvitesData;
-  }, [invitedInvitesData, activeTab]);
+    return invitedInvitesData.filter(
+      (inv) => !myProjectIds.has(inv.project_id)
+    );
+  }, [invitedInvitesData, activeTab, myProjectIds]);
 
   // Combine invites and regular projects for rendering
   const allItems = React.useMemo(() => {
@@ -862,7 +806,13 @@ export default function NextGenProjectsView() {
               <ProjectListSkeleton />
             ) : (
               <LegendList
-                key={`${activeTab}-${dimensions.width}-${allItems.length}`}
+                key={`${activeTab}-${dimensions.width}-${allItems
+                  .map((item) =>
+                    item.type === 'invite'
+                      ? `i:${item.projectId}`
+                      : `p:${item.project.id}`
+                  )
+                  .join('|')}`}
                 data={allItems}
                 columnWrapperStyle={{ gap: 12 }}
                 numColumns={
