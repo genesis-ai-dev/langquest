@@ -7,7 +7,7 @@ interface LocalizationRequest {
   model?: string;
 }
 
-const DEFAULT_MODEL = 'anthropic/claude-3.5-sonnet';
+const DEFAULT_MODEL = 'anthropic/claude-sonnet-5';
 
 Deno.serve(async (req) => {
   // Handle CORS preflight
