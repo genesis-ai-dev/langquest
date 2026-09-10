@@ -1,4 +1,4 @@
-import '@supabase/functions-js/edge-runtime.d.ts';
+// import '@supabase/functions-js/edge-runtime.d.ts';
 
 interface PredictionRequest {
   sourceText: string;
@@ -8,7 +8,7 @@ interface PredictionRequest {
   model?: string;
 }
 
-const DEFAULT_MODEL = 'anthropic/claude-3.5-sonnet';
+const DEFAULT_MODEL = 'anthropic/claude-sonnet-5';
 
 Deno.serve(async (req) => {
   // Handle CORS preflight
