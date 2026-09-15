@@ -53,7 +53,6 @@ export class AppUpgradeNeededError extends Error {
 interface ServerSchemaInfo {
   schema_version: string;
   min_required_schema_version?: string; // Minimum client version required
-  latest_app_version?: string; // Latest version published in app stores (optional banner)
   notes?: string | null;
 }
 
