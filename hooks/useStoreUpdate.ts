@@ -79,7 +79,12 @@ export function useStoreUpdate() {
     };
   }, [dismissedStoreUpdateTimestamp, queryClient]);
 
-  const { data: updateInfo, isLoading, refetch, error } = useQuery({
+  const {
+    data: updateInfo,
+    isLoading,
+    refetch,
+    error
+  } = useQuery({
     queryKey: ['store-updates'],
     queryFn: async () => {
       const installedVersion = getInstalledAppVersion();
@@ -133,7 +138,10 @@ export function useStoreUpdate() {
           bannerEnabled
         };
       } catch (checkError) {
-        console.warn('[StoreUpdate] Failed to check store version:', checkError);
+        console.warn(
+          '[StoreUpdate] Failed to check store version:',
+          checkError
+        );
         return {
           isUpdateAvailable: false,
           latestVersion: null,
