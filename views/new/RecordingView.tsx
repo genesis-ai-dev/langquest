@@ -2758,14 +2758,22 @@ const RecordingView = () => {
     const timeoutIds = timeoutIdsRef.current;
 
     return () => {
-      // Normalize order_index for any recorded verses before leaving
+      // Normalize order_index for any recorded verses before leaving.
+      // Assets must be invalidated again once normalization finishes: otherwise
+      // the cached order_index values stay on the pre-normalization scale and
+      // the next session derives its insertion point from stale numbers.
       const recordedVerses = Array.from(recordedVersesRef.current);
+      const invalidateAssets = () => {
+        void queryClient.invalidateQueries({ queryKey: ['assets'] });
+      };
       if (recordedVerses.length > 0 && questId) {
-        void normalizeOrderIndexForVerses(questId, recordedVerses).catch(
-          (error) => console.error('Failed to normalize order_index:', error)
-        );
+        void normalizeOrderIndexForVerses(questId, recordedVerses)
+          .catch((error) =>
+            console.error('Failed to normalize order_index:', error)
+          )
+          .finally(invalidateAssets);
       }
-      void queryClient.invalidateQueries({ queryKey: ['assets'] });
+      invalidateAssets();
       if (questId) {
         void queryClient.invalidateQueries({
           queryKey: ['current-quest', 'offline', questId]
