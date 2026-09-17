@@ -1058,6 +1058,24 @@ function parseQuestAssetMetadata(metadata: unknown) {
   }
 }
 
+/**
+ * quest_asset_link.order_index is NOT NULL DEFAULT 0, so a legacy link that
+ * never received a placement is indistinguishable from position 0. Mirror
+ * backfill_quest_asset_link_placement and use the asset order in that case.
+ */
+function resolveQuestAssetOrderIndex(
+  linkOrderIndex: number | null | undefined,
+  assetOrderIndex: number | null | undefined
+): number {
+  if (typeof linkOrderIndex === 'number' && linkOrderIndex !== 0) {
+    return linkOrderIndex;
+  }
+  if (typeof assetOrderIndex === 'number' && assetOrderIndex !== 0) {
+    return assetOrderIndex;
+  }
+  return 0;
+}
+
 function normalizeQuestAssetLinkAssetRow(
   row: QuestAssetLinkAssetRow
 ): AssetQuestLink {
@@ -1088,7 +1106,10 @@ function normalizeQuestAssetLinkAssetRow(
   return {
     ...assetRow,
     name: linkName ?? assetRow.name,
-    order_index: linkOrderIndex ?? assetRow.order_index,
+    order_index: resolveQuestAssetOrderIndex(
+      linkOrderIndex,
+      assetRow.order_index
+    ),
     metadata: parseQuestAssetMetadata(linkMetadata ?? assetRow.metadata),
     tag_ids: tagIds
   } as AssetQuestLink;

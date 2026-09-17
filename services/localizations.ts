@@ -7828,6 +7828,32 @@ export const localizations = {
     thai: 'มีการอัปเดตใหม่พร้อมใช้งาน!',
     mandarin: '有新更新可用！'
   },
+  storeUpdateAvailable: {
+    english: 'A new version is available',
+    french: 'Une nouvelle version est disponible',
+    spanish: 'Hay una nueva versión disponible',
+    brazilian_portuguese: 'Uma nova versão está disponível',
+    tok_pisin: 'Nupela vesen i stap',
+    indonesian: 'Versi baru tersedia',
+    nepali: 'नयाँ संस्करण उपलब्ध छ',
+    hindi: 'एक नया संस्करण उपलब्ध है',
+    burmese: 'ဗားရှင်းအသစ် ရရှိနိုင်ပါသည်',
+    thai: 'มีเวอร์ชันใหม่',
+    mandarin: '有新版本可用'
+  },
+  storeUpdateWorkPreserved: {
+    english: 'Update now! Your work will be safe',
+    french: 'Mettez à jour ! Votre travail est sauvegardé.',
+    spanish: 'Actualiza ahora! Tu trabajo será seguro',
+    brazilian_portuguese: 'Atualize agora! Seu trabalho estará seguro',
+    tok_pisin: 'Apdeit nau! Wok bilong yu i no inap lus.',
+    indonesian: 'Perbarui sekarang! Pekerjaan Anda aman.',
+    nepali: 'अहिले अपडेट गर्नुहोस्! तपाईंको काम सुरक्षित छ।',
+    hindi: 'अभी अपडेट करें! आपका काम सुरक्षित है।',
+    burmese: 'အခုပဲ အပ်ဒိတ်လုပ်ပါ! သင့်အလုပ် လုံခြုံပါတယ်။',
+    thai: 'อัปเดตเลย! งานของคุณปลอดภัย',
+    mandarin: '立即更新！您的工作不会丢失。'
+  },
   updateNow: {
     english: 'Update Now',
     french: 'Mettre à jour maintenant',
@@ -7840,6 +7866,19 @@ export const localizations = {
     burmese: 'ယခု အပ်ဒိတ်လုပ်ပါ',
     thai: 'อัปเดตตอนนี้',
     mandarin: '立即更新'
+  },
+  update: {
+    english: 'Update',
+    french: 'Mettre à jour',
+    spanish: 'Actualizar',
+    brazilian_portuguese: 'Atualizar',
+    tok_pisin: 'Update',
+    indonesian: 'Perbarui',
+    nepali: 'अपडेट गर्नुहोस्',
+    hindi: 'अपडेट करें',
+    burmese: 'အပ်ဒိတ်လုပ်ပါ',
+    thai: 'อัปเดต',
+    mandarin: '更新'
   },
   updateFailed: {
     english: 'Update failed',
