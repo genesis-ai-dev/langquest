@@ -1,0 +1,139 @@
+appId: ${MAESTRO_APP_ID}
+onFlowStart:
+  - runScript: ../api.js
+---
+# Settings → Appearance: pick a non-default icon theme, relaunch, it sticks,
+# then restore the default so the device is clean for the next flow.
+#
+# Applying a theme swaps the launcher <activity-alias>. On Android that
+# disables .MainActivity, which force-finishes the app the moment OK is
+# tapped, so nothing after the tap can be asserted in-process. Persistence is
+# verified after relaunch instead. The Expo development client cannot
+# relaunch at all while an alias is active (the Dev Launcher starts
+# .MainActivity by explicit class and fails), so on the dev client the flow
+# only opens the confirm drawer and cancels. Run with MAESTRO_APP_VARIANT=
+# preview (or on EAS) to exercise the real switch. iOS shows a system alert
+# after the change; it is dismissed with OK.
+- evalScript: ${output.skipSignInCleanup = true}
+- runFlow: _start-signed-in.yaml
+- runFlow: _open-app-drawer.yaml
+- tapOn:
+    id: drawer-settings
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: settings-screen
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: settings-appearance
+    direction: DOWN
+    centerElement: true
+    timeout: 20000
+- tapOn:
+    id: settings-appearance
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: appearance-screen
+    timeout: 15000
+- extendedWaitUntil:
+    visible:
+      id: appearance-theme-default-selected
+    timeout: 10000
+- tapOn:
+    id: appearance-theme-first
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: appearance-theme-confirm
+    timeout: 15000
+
+# Dev client: cancel keeps .MainActivity enabled so later flows can launch.
+- runFlow:
+    when:
+      true: ${output.useDevClient}
+    commands:
+      - tapOn:
+          id: appearance-theme-cancel
+          waitToSettleTimeoutMs: 0
+      - extendedWaitUntil:
+          notVisible:
+            id: appearance-theme-confirm
+          timeout: 10000
+      - assertVisible:
+          id: appearance-theme-default-selected
+
+# Preview/production: apply, survive the Android kill, relaunch, verify, restore.
+- runFlow:
+    when:
+      true: ${!output.useDevClient}
+    commands:
+      - tapOn:
+          id: appearance-theme-confirm
+          waitToSettleTimeoutMs: 0
+      - runFlow:
+          when:
+            platform: iOS
+          commands:
+            - extendedWaitUntil:
+                visible: OK
+                timeout: 10000
+            - tapOn: OK
+      - runFlow: _relaunch-keep-state.yaml
+      - runFlow: _open-app-drawer.yaml
+      - tapOn:
+          id: drawer-settings
+          waitToSettleTimeoutMs: 0
+      - scrollUntilVisible:
+          element:
+            id: settings-appearance
+          direction: DOWN
+          centerElement: true
+          timeout: 20000
+      - tapOn:
+          id: settings-appearance
+          waitToSettleTimeoutMs: 0
+      - extendedWaitUntil:
+          visible:
+            id: appearance-theme-first-selected
+          timeout: 15000
+      # Restore the default icon (kills the app again on Android).
+      - tapOn:
+          id: appearance-theme-default
+          waitToSettleTimeoutMs: 0
+      - extendedWaitUntil:
+          visible:
+            id: appearance-theme-confirm
+          timeout: 15000
+      - tapOn:
+          id: appearance-theme-confirm
+          waitToSettleTimeoutMs: 0
+      - runFlow:
+          when:
+            platform: iOS
+          commands:
+            - extendedWaitUntil:
+                visible: OK
+                timeout: 10000
+            - tapOn: OK
+      - runFlow: _relaunch-keep-state.yaml
+      - runFlow: _open-app-drawer.yaml
+      - tapOn:
+          id: drawer-settings
+          waitToSettleTimeoutMs: 0
+      - scrollUntilVisible:
+          element:
+            id: settings-appearance
+          direction: DOWN
+          centerElement: true
+          timeout: 20000
+      - tapOn:
+          id: settings-appearance
+          waitToSettleTimeoutMs: 0
+      - extendedWaitUntil:
+          visible:
+            id: appearance-theme-default-selected
+          timeout: 15000
+
+- evalScript: ${output.api.deleteUserIfExists(output.signInEmail)}

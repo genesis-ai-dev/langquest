@@ -1,0 +1,54 @@
+appId: ${MAESTRO_APP_ID}
+onFlowStart:
+  - runScript: ../api.js
+onFlowComplete:
+  - setAirplaneMode: disabled
+---
+# Record on a draft while offline, kill the app, reopen with radios still
+# down, and the take is still there. Development client needs Metro after
+# stopApp, so the relaunch is skipped when MAESTRO_USE_DEV_CLIENT=true
+# (preview/release only). Android only — iOS Simulator has no airplane mode.
+- evalScript: ${output.projectName = "maestro-offrl-" + Date.now()}
+- evalScript: ${output.questName = "maestro-offrl-q-" + Date.now()}
+- evalScript: ${output.skipSignInCleanup = true}
+- runFlow: _start-signed-in.yaml
+- runFlow: _create-project-quest.yaml
+- extendedWaitUntil:
+    visible:
+      id: asset-record-button
+    timeout: 30000
+- runFlow: _open-recording-screen.yaml
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - setAirplaneMode: enabled
+      - runFlow: _record-take.yaml
+      - assertVisible: '001'
+      - evalScript: ${output.api.waitForNoRecordedAudio(output.questName, 5000)}
+      - runFlow:
+          when:
+            true: ${!output.useDevClient}
+          commands:
+            - runFlow: _relaunch-keep-state.yaml
+            - runFlow: _open-named-project.yaml
+            - runFlow: _open-quest.yaml
+            - extendedWaitUntil:
+                visible: '001'
+                timeout: 30000
+            - runFlow: _open-app-drawer.yaml
+            - extendedWaitUntil:
+                visible: '(?i)(Disconnected|sync error)'
+                timeout: 20000
+            - tapOn:
+                id: drawer-projects
+                waitToSettleTimeoutMs: 0
+            - runFlow: _open-named-project.yaml
+            - runFlow: _open-quest.yaml
+            - extendedWaitUntil:
+                visible: '001'
+                timeout: 20000
+      - setAirplaneMode: disabled
+      - evalScript: ${output.recorded = output.api.waitForRecordedAudio(output.questName, 90000)}
+- evalScript: ${output.api.deleteProject(output.projectName)}
+- evalScript: ${output.api.deleteUserIfExists(output.signInEmail)}

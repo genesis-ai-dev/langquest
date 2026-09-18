@@ -146,7 +146,10 @@ import { publishQuest as publishQuestUtils } from '@/utils/publishQuest';
 import { offloadQuest } from '@/utils/questOffloadUtils';
 import { formatQuestDisplayLabel } from '@/utils/questVersionLabel';
 import { getThemeColor } from '@/utils/styleUtils';
-import { invalidateCloud, invalidateOfflineChapterLists } from '@/hooks/hybridCache';
+import {
+  invalidateCloud,
+  invalidateOfflineChapterLists
+} from '@/hooks/hybridCache';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { eq } from 'drizzle-orm';
@@ -3719,6 +3722,8 @@ export default function BibleAssetsView() {
                         disabled={isPublishing || !isMember}
                         onPress={() => setShowImportWizard(true)}
                         className="border-2 border-primary bg-primary/10"
+                        testID="assets-import"
+                        accessibilityLabel="assets-import"
                       >
                         <Icon
                           as={DownloadIcon}

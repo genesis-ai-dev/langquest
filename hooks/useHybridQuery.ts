@@ -1,5 +1,4 @@
 import { AuthContext } from '@/contexts/AuthContext';
-import { sourceOptions } from '@/db/constants';
 import { system } from '@/db/powersync/system';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useContext } from 'react';
@@ -17,10 +16,21 @@ import {
   useQuery as useTanstackQuery
 } from '@tanstack/react-query';
 import React from 'react';
+import {
+  defaultGetItemId,
+  mergeLocalFirst,
+  splitHybridQueryKey,
+  tagCloud,
+  tagOffline,
+  toHybridPage,
+  type HybridPageData,
+  type ItemId,
+  type QueryKeyParam
+} from './hybridQueryUtils';
+
+export type { HybridDataSource } from './hybridQueryUtils';
 
 type CompilableQuery<T = unknown> = CompilableQueryNative<T>;
-type QueryKeyParam = string | number | boolean | null | undefined;
-type ItemId = string | number;
 
 /**
  * PowerSync's TanStack `useQuery` already watches SQLite and puts rows in the
@@ -37,69 +47,6 @@ type ItemId = string | number;
 
 /** Empty watch. PowerSync's TanStack hook ignores `enabled`. */
 const DISABLED_WATCH = 'SELECT 1 WHERE 0';
-
-export type HybridDataSource = (typeof sourceOptions)[number];
-type OfflineDataSource = Exclude<HybridDataSource, 'cloud'>;
-
-function inferOfflineSource(item: {
-  source?: OfflineDataSource;
-  published_at?: string | Date | null;
-}): OfflineDataSource {
-  if (item.source) return item.source;
-  if (item.published_at === undefined) return 'synced';
-  return item.published_at == null ? 'local' : 'synced';
-}
-
-function defaultGetItemId(item: unknown): ItemId {
-  return (item as { id: ItemId }).id;
-}
-
-/**
- * `queryKey[0]` is the data type used for invalidation (e.g. `'assets'`).
- * Stored keys stay `[dataType, 'offline' | 'cloud', ...queryKey.slice(1)]`.
- */
-function splitHybridQueryKey(queryKey: readonly QueryKeyParam[]): {
-  dataType: string;
-  rest: QueryKeyParam[];
-} {
-  const [dataType, ...rest] = queryKey;
-  if (typeof dataType !== 'string' || dataType.length === 0) {
-    throw new Error('useHybridQuery queryKey[0] must be a non-empty string');
-  }
-  return { dataType, rest };
-}
-
-function tagOffline<T>(item: T): WithSource<T> {
-  return {
-    ...item,
-    source: inferOfflineSource(
-      item as {
-        source?: OfflineDataSource;
-        published_at?: string | Date | null;
-      }
-    )
-  } as WithSource<T>;
-}
-
-function tagCloud<T>(
-  item: unknown,
-  transform?: (data: never) => unknown
-): WithSource<T> {
-  const transformed = (transform ? transform(item as never) : item) as T;
-  return { ...transformed, source: 'cloud' } as WithSource<T>;
-}
-
-function mergeLocalFirst<T>(
-  local: T[],
-  cloud: T[],
-  getItemId: (item: never) => ItemId
-): T[] {
-  const seen = new Set(local.map((item) => getItemId(item as never)));
-  return [
-    ...local,
-    ...cloud.filter((item) => !seen.has(getItemId(item as never)))
-  ];
-}
 
 interface HybridQueryOptions<TOfflineData, TCloudData = TOfflineData> {
   queryKey: readonly QueryKeyParam[];
@@ -222,16 +169,7 @@ interface InfiniteQueryContext {
   pageSize: number;
 }
 
-interface HybridPageData<T> {
-  data: T[];
-  nextCursor?: number;
-  hasMore: boolean;
-}
-
-interface HybridInfiniteQueryOptions<
-  TOfflineData,
-  TCloudData = TOfflineData
-> {
+interface HybridInfiniteQueryOptions<TOfflineData, TCloudData = TOfflineData> {
   queryKey: readonly QueryKeyParam[];
 
   offlineQueryFn: (context: InfiniteQueryContext) => Promise<TOfflineData[]>;
@@ -294,18 +232,6 @@ interface HybridInfiniteQueryResult<T> {
   isOnline: boolean;
 
   status: 'error' | 'pending' | 'success';
-}
-
-function toHybridPage<T>(
-  results: T[],
-  pageParam: number,
-  pageSize: number
-): HybridPageData<T> {
-  return {
-    data: results,
-    nextCursor: results.length === pageSize ? pageParam + 1 : undefined,
-    hasMore: results.length === pageSize
-  };
 }
 
 export function useHybridInfiniteQuery<TOfflineData, TCloudData = TOfflineData>(

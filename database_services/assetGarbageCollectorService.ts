@@ -110,7 +110,7 @@ export async function enqueue(
 ): Promise<void> {
   if (ids.length === 0) return;
 
-  const queue = await readQueue();
+  const queue = { ...(await readQueue()) };
   for (const id of Array.from(new Set(ids))) {
     const existing = queue[id];
     if (existing === 'tombstone' && operation !== 'tombstone') {
@@ -124,7 +124,7 @@ export async function enqueue(
 export async function dequeue(ids: string[]): Promise<void> {
   if (ids.length === 0) return;
 
-  const queue = await readQueue();
+  const queue = { ...(await readQueue()) };
   for (const id of Array.from(new Set(ids))) {
     delete queue[id];
   }

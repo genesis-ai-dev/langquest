@@ -1,0 +1,186 @@
+/// <reference types="jest" />
+
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+jest.mock('@/db/powersync/system', () => ({
+  system: {
+    db: {
+      select: jest.fn()
+    }
+  }
+}));
+
+jest.mock('@/utils/dbUtils', () => ({
+  resolveTable: () => ({ id: 'id', name: 'name' })
+}));
+
+jest.mock('../audioSegmentService', () => ({
+  audioSegmentService: {
+    deleteAudioSegment: jest.fn(async () => undefined)
+  }
+}));
+
+import { system } from '@/db/powersync/system';
+import { audioSegmentService } from '../audioSegmentService';
+import {
+  dequeue,
+  enqueue,
+  getCachedQueuedAssetIds,
+  getQueuedAssetIds,
+  run,
+  subscribeAssetGcQueue
+} from '../assetGarbageCollectorService';
+
+const deleteAudioSegment =
+  audioSegmentService.deleteAudioSegment as jest.MockedFunction<
+    typeof audioSegmentService.deleteAudioSegment
+  >;
+
+const ASSET_GC_QUEUE_KEY = '@asset_gc_queue_v1';
+
+function thenableRows(rows: unknown[]) {
+  const query = {
+    from() {
+      return query;
+    },
+    where() {
+      return query;
+    },
+    limit() {
+      return Promise.resolve(rows);
+    },
+    then(
+      onFulfilled?: (value: unknown) => unknown,
+      onRejected?: (reason: unknown) => unknown
+    ) {
+      return Promise.resolve(rows).then(onFulfilled, onRejected);
+    }
+  };
+  return query;
+}
+
+async function resetQueue() {
+  const ids = await getQueuedAssetIds();
+  await dequeue(ids);
+  await AsyncStorage.removeItem(ASSET_GC_QUEUE_KEY);
+  await getQueuedAssetIds();
+}
+
+describe('assetGarbageCollectorService', () => {
+  beforeEach(async () => {
+    jest.spyOn(console, 'log').mockImplementation(() => {});
+    deleteAudioSegment.mockReset();
+    (system.db.select as jest.Mock).mockReset();
+    (system.db.select as jest.Mock).mockImplementation(() => thenableRows([]));
+    await resetQueue();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('normalizeOperation maps merge aliases when reading storage', async () => {
+    await AsyncStorage.setItem(
+      ASSET_GC_QUEUE_KEY,
+      JSON.stringify({
+        a: 'merge',
+        b: 'tombstone',
+        c: 'nope'
+      })
+    );
+
+    const ids = await getQueuedAssetIds();
+    expect(ids.sort()).toEqual(['a', 'b', 'c']);
+
+    const result = await run();
+    expect(result).toEqual(
+      expect.arrayContaining([
+        { id: 'a', operation: 'collect-merge' },
+        { id: 'b', operation: 'tombstone' },
+        { id: 'c', operation: 'collect' }
+      ])
+    );
+  });
+
+  it('enqueue tombstone blocks a later collect downgrade', async () => {
+    await enqueue(['asset-1'], 'tombstone');
+    await enqueue(['asset-1'], 'collect');
+    await enqueue(['asset-2'], 'collect');
+
+    expect(await getQueuedAssetIds()).toEqual(
+      expect.arrayContaining(['asset-1', 'asset-2'])
+    );
+
+    (system.db.select as jest.Mock).mockImplementation(() =>
+      thenableRows([{ id: 'asset-2', name: 'Take' }])
+    );
+    await run();
+    expect(deleteAudioSegment).toHaveBeenCalledWith('asset-2', {
+      preserveAudioFiles: false
+    });
+    expect(deleteAudioSegment).not.toHaveBeenCalledWith(
+      'asset-1',
+      expect.anything()
+    );
+  });
+
+  it('dequeue removes ids and notifies listeners', async () => {
+    const listener = jest.fn();
+    const unsubscribe = subscribeAssetGcQueue(listener);
+    await enqueue(['asset-1', 'asset-1'], 'collect');
+    expect(getCachedQueuedAssetIds()).toEqual(['asset-1']);
+    expect(listener).toHaveBeenCalled();
+
+    listener.mockClear();
+    await dequeue(['asset-1']);
+    expect(await getQueuedAssetIds()).toEqual([]);
+    expect(listener).toHaveBeenCalled();
+    unsubscribe();
+  });
+
+  it('treats invalid stored JSON as an empty queue', async () => {
+    await AsyncStorage.setItem(ASSET_GC_QUEUE_KEY, '["not-an-object"]');
+    expect(await getQueuedAssetIds()).toEqual([]);
+  });
+
+  it('coalesces concurrent run calls', async () => {
+    await enqueue(['asset-1'], 'collect');
+
+    let release!: (value: unknown[]) => void;
+    const delayed = new Promise<unknown[]>((resolve) => {
+      release = resolve;
+    });
+    (system.db.select as jest.Mock).mockImplementation(() => ({
+      from() {
+        return this;
+      },
+      where() {
+        return this;
+      },
+      limit() {
+        return delayed;
+      },
+      then(
+        onFulfilled?: (value: unknown) => unknown,
+        onRejected?: (reason: unknown) => unknown
+      ) {
+        return delayed.then(onFulfilled, onRejected);
+      }
+    }));
+
+    const first = run();
+    const second = run();
+    release([]);
+    const [firstResult, secondResult] = await Promise.all([first, second]);
+    expect(firstResult).toEqual([{ id: 'asset-1', operation: 'collect' }]);
+    expect(secondResult).toEqual(firstResult);
+    // One name-map select + one per-asset select from a single run().
+    expect(system.db.select).toHaveBeenCalledTimes(2);
+  });
+
+  it('is a no-op for empty enqueue and dequeue', async () => {
+    await enqueue([], 'collect');
+    await dequeue([]);
+    expect(await getQueuedAssetIds()).toEqual([]);
+  });
+});

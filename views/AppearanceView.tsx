@@ -47,9 +47,10 @@ interface IconTileProps {
   selected: boolean;
   source: ImageSourcePropType;
   onPress: () => void;
+  testID?: string;
 }
 
-function IconTile({ selected, source, onPress }: IconTileProps) {
+function IconTile({ selected, source, onPress, testID }: IconTileProps) {
   return (
     <Button
       variant="plain"
@@ -59,6 +60,7 @@ function IconTile({ selected, source, onPress }: IconTileProps) {
         selected ? 'border-primary' : 'border-transparent'
       )}
       onPress={onPress}
+      testID={selected && testID ? `${testID}-selected` : testID}
     >
       <Image
         source={source}
@@ -235,16 +237,22 @@ export default function AppearanceView() {
             <IconTile
               selected={appearanceThemeId === null}
               source={DEFAULT_ICON_PREVIEW}
+              testID="appearance-theme-default"
               onPress={() => {
                 if (appearanceThemeId === null) return;
                 setPendingTheme({ kind: 'default' });
               }}
             />
-            {profiles.map((profile) => (
+            {profiles.map((profile, index) => (
               <IconTile
                 key={profile.id}
                 selected={profile.id === appearanceThemeId}
                 source={ICON_PREVIEWS[profile.id] ?? DEFAULT_ICON_PREVIEW}
+                testID={
+                  index === 0
+                    ? 'appearance-theme-first'
+                    : `appearance-theme-${profile.id}`
+                }
                 onPress={() => {
                   if (profile.id === appearanceThemeId) return;
                   setPendingTheme({
@@ -366,10 +374,17 @@ export default function AppearanceView() {
           </View>
 
           <DrawerFooter className="flex-row justify-end gap-2">
-            <Button variant="outline" onPress={handleCancelTheme}>
+            <Button
+              variant="outline"
+              onPress={handleCancelTheme}
+              testID="appearance-theme-cancel"
+            >
               <Text>{t('cancel')}</Text>
             </Button>
-            <Button onPress={handleConfirmTheme}>
+            <Button
+              onPress={handleConfirmTheme}
+              testID="appearance-theme-confirm"
+            >
               <Text>{t('ok')}</Text>
             </Button>
           </DrawerFooter>

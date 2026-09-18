@@ -817,6 +817,8 @@ export default function NextGenAssetDetailView() {
                 variant="ghost"
                 size="icon"
                 className="p-2"
+                testID="asset-report"
+                accessibilityLabel="asset-report"
               >
                 <Icon as={FlagIcon} size={20} className="text-foreground" />
               </Button>

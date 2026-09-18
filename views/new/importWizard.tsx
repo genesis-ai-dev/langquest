@@ -1621,6 +1621,7 @@ export function ImportWizard({
         <View
           className="flex-1 bg-background"
           style={{ paddingTop: insets.top }}
+          testID="import-wizard"
         >
           <View className="flex-row items-center justify-between border-b border-border px-6 py-4">
             <Text className="text-base font-semibold">

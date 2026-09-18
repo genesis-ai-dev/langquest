@@ -112,7 +112,10 @@ import { resolvePlayableAudioUri } from '@/utils/resolvePlayableAudio';
 import { publishQuest as publishQuestUtils } from '@/utils/publishQuest';
 import { offloadQuest } from '@/utils/questOffloadUtils';
 import { getThemeColor } from '@/utils/styleUtils';
-import { invalidateCloud, invalidateOfflineChapterLists } from '@/hooks/hybridCache';
+import {
+  invalidateCloud,
+  invalidateOfflineChapterLists
+} from '@/hooks/hybridCache';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { eq } from 'drizzle-orm';
@@ -1522,6 +1525,7 @@ export default function NextGenAssetsView() {
                       icon={FlagIcon}
                       variant="outline"
                       onPress={() => setShowReportModal(true)}
+                      testID="quest-report"
                     />
                   ) : null}
                 </>
@@ -1548,7 +1552,10 @@ export default function NextGenAssetsView() {
                 }}
               />
             </SpeedDialItems>
-            <SpeedDialTrigger className="-top-0.5 rounded-md text-destructive-foreground" />
+            <SpeedDialTrigger
+              className="-top-0.5 rounded-md text-destructive-foreground"
+              testID="quest-speed-dial"
+            />
           </SpeedDial>
         </View>
       )}

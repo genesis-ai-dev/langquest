@@ -781,7 +781,7 @@ export const useLocalStore = create<LocalState>()(
             console.warn(
               `Invalid VAD threshold ${state.vadThreshold} detected, resetting to default ${VAD_THRESHOLD_DEFAULT}`
             );
-            state.vadThreshold = VAD_THRESHOLD_DEFAULT;
+            useLocalStore.setState({ vadThreshold: VAD_THRESHOLD_DEFAULT });
           }
 
           // Migrate offline undownload warning preference from old AsyncStorage key

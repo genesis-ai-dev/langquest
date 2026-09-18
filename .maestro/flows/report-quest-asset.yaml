@@ -1,0 +1,168 @@
+appId: ${MAESTRO_APP_ID}
+onFlowStart:
+  - runScript: ../api.js
+---
+# Non-owner reports a published quest, then one of its assets. Same modal
+# as report-project.yaml; hideKeyboard is Back and closes it. Signed-in
+# users hit Download Required on published cloud quests, so download first
+# (same as asset-file-download.yaml) before the assets screen.
+- evalScript: ${output.ownerEmail = output.api.uniqueEmail("qrowner")}
+- evalScript: ${output.ownerPassword = output.api.uniquePassword("qrowner")}
+- evalScript: ${output.projectName = "maestro-qreport-" + Date.now()}
+- evalScript: ${output.questName = "maestro-qreport-q-" + Date.now()}
+- evalScript: ${output.assetName = "maestro-qreport-a-" + Date.now()}
+- evalScript: ${output.questReportDetails = "maestro-quest-report-" + Date.now()}
+- evalScript: ${output.assetReportDetails = "maestro-asset-report-" + Date.now()}
+- evalScript: ${output.skipSignInCleanup = true}
+- evalScript: ${output.api.createConfirmedUser(output.ownerEmail, output.ownerPassword)}
+- evalScript: ${output.api.seedProject(output.projectName, output.ownerEmail, false)}
+- evalScript: ${output.api.seedQuest(output.projectName, output.questName, output.ownerEmail, true)}
+- evalScript: ${output.api.seedSourceAsset(output.projectName, output.questName, output.ownerEmail, output.assetName, "Report source")}
+- runFlow: _start-signed-in.yaml
+- tapOn:
+    id: projects-tab-all
+- tapOn:
+    id: projects-search
+- inputText: ${output.projectName}
+- hideKeyboard
+- extendedWaitUntil:
+    visible: ${output.projectName}
+    timeout: 45000
+- tapOn:
+    text: ${output.projectName}
+    below:
+      id: projects-search
+- extendedWaitUntil:
+    visible:
+      id: quest-list-item
+    timeout: 45000
+- tapOn:
+    id: quest-list-item
+- runFlow:
+    when:
+      visible:
+        id: quest-list-item
+      notVisible: '(?i)Download Now'
+    commands:
+      - tapOn:
+          id: quest-list-item
+- extendedWaitUntil:
+    visible: '(?i)Download Now'
+    timeout: 15000
+- tapOn:
+    text: '(?i)Download Now'
+- extendedWaitUntil:
+    visible: Continue to Download
+    timeout: 45000
+- tapOn:
+    id: quest-download-continue
+- extendedWaitUntil:
+    visible:
+      id: quest-download-confirm
+    timeout: 20000
+- tapOn:
+    id: quest-download-confirm
+- evalScript: ${output.api.waitForQuestDownload(output.questName, output.signInEmail, true)}
+- extendedWaitUntil:
+    notVisible:
+      id: quest-download-confirm
+    timeout: 15000
+- extendedWaitUntil:
+    notVisible:
+      id: quest-download-continue
+    timeout: 15000
+- tapOn:
+    id: quest-list-item
+- repeat:
+    times: 6
+    while:
+      visible: '(?i)Download Now'
+    commands:
+      - tapOn: '(?i)^Cancel$'
+      - waitForAnimationToEnd:
+          timeout: 10000
+      - tapOn:
+          id: quest-list-item
+- extendedWaitUntil:
+    visible:
+      id: assets-refresh-button
+    timeout: 45000
+- tapOn:
+    id: assets-refresh-button
+- extendedWaitUntil:
+    visible: ${output.assetName}
+    timeout: 45000
+- tapOn:
+    id: quest-speed-dial
+    waitToSettleTimeoutMs: 0
+- runFlow:
+    when:
+      notVisible:
+        id: quest-report
+    commands:
+      - tapOn:
+          id: quest-speed-dial
+          waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: quest-report
+    timeout: 15000
+- tapOn:
+    id: quest-report
+- extendedWaitUntil:
+    visible:
+      id: report-reason-spam
+    timeout: 15000
+- tapOn:
+    id: report-reason-spam
+- tapOn:
+    id: report-details
+- inputText: ${output.questReportDetails}
+- tapOn:
+    id: report-reason-spam
+- extendedWaitUntil:
+    visible:
+      id: report-submit
+    timeout: 15000
+- tapOn:
+    id: report-submit
+- extendedWaitUntil:
+    visible: Success
+    timeout: 30000
+- tapOn: OK
+- evalScript: ${output.api.waitForReport(output.questReportDetails, 45000)}
+- tapOn:
+    id: asset-open-details
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: asset-report
+    timeout: 20000
+- tapOn:
+    id: asset-report
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: report-reason-spam
+    timeout: 15000
+- tapOn:
+    id: report-reason-spam
+- tapOn:
+    id: report-details
+- inputText: ${output.assetReportDetails}
+- tapOn:
+    id: report-reason-spam
+- extendedWaitUntil:
+    visible:
+      id: report-submit
+    timeout: 15000
+- tapOn:
+    id: report-submit
+- extendedWaitUntil:
+    visible: Success
+    timeout: 30000
+- tapOn: OK
+- evalScript: ${output.api.waitForReport(output.assetReportDetails, 45000)}
+- evalScript: ${output.api.deleteProject(output.projectName)}
+- evalScript: ${output.api.deleteUserIfExists(output.signInEmail)}
+- evalScript: ${output.api.deleteUserIfExists(output.ownerEmail)}

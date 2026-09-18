@@ -316,6 +316,27 @@ function waitForProject(projectName, timeoutMs) {
   );
 }
 
+function waitForLanguoid(languoidName, timeoutMs) {
+  if (
+    !languoidName ||
+    typeof languoidName !== 'string' ||
+    languoidName.trim() === ''
+  ) {
+    throw new Error(
+      'Languoid name is required and must be a non-empty string. Received: ' +
+        languoidName
+    );
+  }
+
+  return waitForRows(
+    '/rest/v1/languoid?name=eq.' +
+      encodeURIComponent(languoidName) +
+      '&select=id,name',
+    'languoid ' + languoidName,
+    timeoutMs
+  );
+}
+
 function waitForQuest(questName, timeoutMs, projectId) {
   if (!questName || typeof questName !== 'string' || questName.trim() === '') {
     throw new Error(
@@ -1947,6 +1968,70 @@ function waitForReport(details, timeoutMs) {
   );
 }
 
+function waitForContentText(text, timeoutMs) {
+  if (!text || typeof text !== 'string' || text.trim() === '') {
+    throw new Error(
+      'Content text is required and must be a non-empty string. Received: ' +
+        text
+    );
+  }
+  return waitForRows(
+    '/rest/v1/asset_content_link?text=eq.' +
+      encodeURIComponent(text) +
+      '&select=id,asset_id,text',
+    'content ' + text,
+    timeoutMs
+  );
+}
+
+function waitForNoContentText(text, settleMs) {
+  if (!text || typeof text !== 'string' || text.trim() === '') {
+    throw new Error('waitForNoContentText requires text. Received: ' + text);
+  }
+  sleep(settleMs || 5000);
+  const rows = restGet(
+    'asset_content_link?text=eq.' + encodeURIComponent(text) + '&select=id,text'
+  );
+  if (rows && rows.length > 0) {
+    throw new Error('Content already on the server: ' + text);
+  }
+  console.log('Content not on server yet:', text);
+  return true;
+}
+
+function waitForVote(assetId, creatorEmail, polarity, timeoutMs) {
+  if (!assetId || !creatorEmail) {
+    throw new Error('waitForVote requires assetId and creatorEmail');
+  }
+  const user = getUserByEmail(creatorEmail);
+  let path =
+    '/rest/v1/vote?asset_id=eq.' +
+    assetId +
+    '&creator_id=eq.' +
+    user.id +
+    '&select=id,polarity,asset_id,creator_id';
+  if (polarity) {
+    path += '&polarity=eq.' + encodeURIComponent(polarity);
+  }
+  return waitForRows(path, 'vote ' + creatorEmail, timeoutMs);
+}
+
+function waitForNoVote(assetId, creatorEmail, settleMs) {
+  if (!assetId || !creatorEmail) {
+    throw new Error('waitForNoVote requires assetId and creatorEmail');
+  }
+  const user = getUserByEmail(creatorEmail);
+  sleep(settleMs || 5000);
+  const rows = restGet(
+    'vote?asset_id=eq.' + assetId + '&creator_id=eq.' + user.id + '&select=id'
+  );
+  if (rows && rows.length > 0) {
+    throw new Error('Vote already on the server for ' + creatorEmail);
+  }
+  console.log('Vote not on server yet:', creatorEmail);
+  return true;
+}
+
 output.api = {
   assertInsertedOnce,
   createConfirmedUser,
@@ -1955,6 +2040,7 @@ output.api = {
   generatePasswordResetLink,
   deleteProject,
   waitForProject,
+  waitForLanguoid,
   waitForQuest,
   waitForAsset,
   waitForQuestAssetName,
@@ -1988,6 +2074,10 @@ output.api = {
   waitForQuestDownload,
   waitForFeedback,
   waitForReport,
+  waitForContentText,
+  waitForNoContentText,
+  waitForVote,
+  waitForNoVote,
   seedProject,
   seedQuest,
   seedBibleHierarchy,

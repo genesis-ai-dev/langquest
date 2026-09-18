@@ -386,7 +386,11 @@ export default function NotificationsView() {
 
   // Query for invite notifications (where user's email or profile_id matches) - without project relation
   const { data: inviteData = [] } = useHybridQuery({
-    queryKey: ['invite-notifications', currentUser?.id || '', currentUser?.email || ''],
+    queryKey: [
+      'invite-notifications',
+      currentUser?.id || '',
+      currentUser?.email || ''
+    ],
 
     // PowerSync query using Drizzle - filter expired invites (7 days expiry)
     offlineQuery: toCompilableQuery(
@@ -422,9 +426,8 @@ export default function NotificationsView() {
         .eq('status', 'pending')
         .eq('active', true);
       if (match) query = query.or(match);
-      const { data, error } = await query.overrideTypes<
-        (typeof invite.$inferSelect)[]
-      >();
+      const { data, error } =
+        await query.overrideTypes<(typeof invite.$inferSelect)[]>();
       if (error) throw error;
       return data;
     }
@@ -1340,7 +1343,7 @@ export default function NotificationsView() {
       </Text>
 
       {!isOnline && (
-        <Alert icon={WifiIcon}>
+        <Alert icon={WifiIcon} testID="notifications-offline">
           <AlertTitle>{t('offlineNotificationMessage')}</AlertTitle>
         </Alert>
       )}

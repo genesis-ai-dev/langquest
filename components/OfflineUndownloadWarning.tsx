@@ -39,7 +39,9 @@ export const OfflineUndownloadWarning: React.FC<
     >
       <View style={styles.overlay}>
         <View style={styles.dialog}>
-          <Text style={styles.title}>{t('offlineUndownloadWarning')}</Text>
+          <Text style={styles.title} testID="offline-undownload-warning">
+            {t('offlineUndownloadWarning')}
+          </Text>
           <Text style={styles.message}>{t('offlineUndownloadMessage')}</Text>
           <View style={styles.switchContainer}>
             <Text style={styles.switchLabel}>{t('dontShowAgain')}</Text>
@@ -59,12 +61,16 @@ export const OfflineUndownloadWarning: React.FC<
             <TouchableOpacity
               style={[styles.button, styles.cancelButton]}
               onPress={onCancel}
+              testID="offline-undownload-cancel"
+              accessibilityLabel="offline-undownload-cancel"
             >
               <Text style={styles.buttonText}>{t('cancel')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.button, styles.confirmButton]}
               onPress={handleConfirm}
+              testID="offline-undownload-confirm"
+              accessibilityLabel="offline-undownload-confirm"
             >
               <Text style={styles.buttonText}>{t('confirm')}</Text>
             </TouchableOpacity>

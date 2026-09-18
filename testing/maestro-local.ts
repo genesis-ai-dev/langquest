@@ -121,8 +121,16 @@ function main() {
     '.maestro/flows/account-deletion.yaml',
     '.maestro/flows/search-and-tabs.yaml',
     '.maestro/flows/profile-chrome.yaml',
+    '.maestro/flows/appearance.yaml',
+    '.maestro/flows/settings-gated.yaml',
     '.maestro/flows/download-quest.yaml',
     '.maestro/flows/offline-create-quest.yaml',
+    '.maestro/flows/offline-create-project.yaml',
+    '.maestro/flows/offline-translate-vote-sync.yaml',
+    '.maestro/flows/offline-downloaded-quest-contribute.yaml',
+    '.maestro/flows/offline-relaunch-keep-state.yaml',
+    '.maestro/flows/offline-download-offload-gates.yaml',
+    '.maestro/flows/offline-membership-gates.yaml',
     '.maestro/flows/asset-manage.yaml',
     '.maestro/flows/asset-settings.yaml',
     '.maestro/flows/recording-screen.yaml',
@@ -134,7 +142,8 @@ function main() {
     '.maestro/flows/bible-navigation.yaml',
     '.maestro/flows/create-bible-project.yaml',
     '.maestro/flows/fia-gate.yaml',
-    '.maestro/flows/report-project.yaml'
+    '.maestro/flows/report-project.yaml',
+    '.maestro/flows/report-quest-asset.yaml'
   ];
 
   const flowArgs = process.argv.slice(2);

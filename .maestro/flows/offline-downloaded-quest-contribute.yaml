@@ -1,0 +1,136 @@
+appId: ${MAESTRO_APP_ID}
+onFlowStart:
+  - runScript: ../api.js
+onFlowComplete:
+  - setAirplaneMode: disabled
+---
+# Download a published quest online, then open it with radios down (no
+# Download Required). A sibling cloud-only quest still shows Download Now.
+# Published quests hide Record; this is the field-read path.
+# Android only — iOS Simulator has no airplane mode.
+- evalScript: ${output.ownerEmail = output.api.uniqueEmail("offdlowner")}
+- evalScript: ${output.ownerPassword = output.api.uniquePassword("offdlowner")}
+- evalScript: ${output.projectName = "maestro-offdl-" + Date.now()}
+- evalScript: ${output.questName = "maestro-offdl-q-" + Date.now()}
+- evalScript: ${output.cloudQuestName = "maestro-offdl-cloud-" + Date.now()}
+- evalScript: ${output.assetName = "maestro-offdl-a-" + Date.now()}
+- evalScript: ${output.skipSignInCleanup = true}
+- evalScript: ${output.api.createConfirmedUser(output.ownerEmail, output.ownerPassword)}
+- evalScript: ${output.api.seedProject(output.projectName, output.ownerEmail, false)}
+- evalScript: ${output.api.seedQuest(output.projectName, output.questName, output.ownerEmail, true)}
+- evalScript: ${output.api.seedQuest(output.projectName, output.cloudQuestName, output.ownerEmail, true)}
+- evalScript: ${output.api.seedSourceAsset(output.projectName, output.questName, output.ownerEmail, output.assetName, "Offline source")}
+- runFlow: _start-signed-in.yaml
+- tapOn:
+    id: projects-tab-all
+- tapOn:
+    id: projects-search
+- inputText: ${output.projectName}
+- hideKeyboard
+- extendedWaitUntil:
+    visible: ${output.projectName}
+    timeout: 45000
+- tapOn:
+    text: ${output.projectName}
+    below:
+      id: projects-search
+- extendedWaitUntil:
+    visible: ${output.questName}
+    timeout: 45000
+- tapOn:
+    text: ${output.questName}
+- runFlow:
+    when:
+      visible: ${output.questName}
+      notVisible: '(?i)Download Now'
+    commands:
+      - tapOn:
+          text: ${output.questName}
+- extendedWaitUntil:
+    visible: '(?i)Download Now'
+    timeout: 15000
+- tapOn:
+    text: '(?i)Download Now'
+- extendedWaitUntil:
+    visible: Continue to Download
+    timeout: 45000
+- tapOn:
+    id: quest-download-continue
+- extendedWaitUntil:
+    visible:
+      id: quest-download-confirm
+    timeout: 20000
+- tapOn:
+    id: quest-download-confirm
+- evalScript: ${output.api.waitForQuestDownload(output.questName, output.signInEmail, true)}
+- extendedWaitUntil:
+    notVisible:
+      id: quest-download-confirm
+    timeout: 15000
+- extendedWaitUntil:
+    notVisible:
+      id: quest-download-continue
+    timeout: 15000
+- tapOn:
+    text: ${output.questName}
+- repeat:
+    times: 6
+    while:
+      visible: '(?i)Download Now'
+    commands:
+      - tapOn: '(?i)^Cancel$'
+      - waitForAnimationToEnd:
+          timeout: 10000
+      - tapOn:
+          text: ${output.questName}
+- extendedWaitUntil:
+    visible:
+      id: assets-refresh-button
+    timeout: 45000
+- tapOn:
+    id: nav-back
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible: ${output.cloudQuestName}
+    timeout: 20000
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - setAirplaneMode: enabled
+      - tapOn:
+          text: ${output.questName}
+      - runFlow:
+          when:
+            visible: '(?i)Download Now'
+          commands:
+            - tapOn: '(?i)^Cancel$'
+            - waitForAnimationToEnd:
+                timeout: 10000
+            - tapOn:
+                text: ${output.questName}
+      - extendedWaitUntil:
+          visible:
+            id: assets-refresh-button
+          timeout: 20000
+      - tapOn:
+          id: assets-refresh-button
+      - extendedWaitUntil:
+          visible: ${output.assetName}
+          timeout: 20000
+      - tapOn:
+          id: nav-back
+          waitToSettleTimeoutMs: 0
+      - extendedWaitUntil:
+          visible: ${output.cloudQuestName}
+          timeout: 20000
+      - tapOn:
+          text: ${output.cloudQuestName}
+      - extendedWaitUntil:
+          visible: '(?i)Download Now'
+          timeout: 15000
+      - tapOn: '(?i)^Cancel$'
+      - setAirplaneMode: disabled
+- evalScript: ${output.api.deleteProject(output.projectName)}
+- evalScript: ${output.api.deleteUserIfExists(output.signInEmail)}
+- evalScript: ${output.api.deleteUserIfExists(output.ownerEmail)}

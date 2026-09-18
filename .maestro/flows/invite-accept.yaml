@@ -35,6 +35,12 @@ onFlowStart:
     waitToSettleTimeoutMs: 0
 - tapOn: OK
 - evalScript: ${output.api.waitForInvite(output.projectName, output.inviteeEmail, "pending")}
+- tapOn:
+    id: membership-tab-invited
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible: ${output.inviteeEmail}
+    timeout: 15000
 
 - evalScript: ${output.signInEmail = output.inviteeEmail}
 - evalScript: ${output.signInPassword = output.inviteePassword}
