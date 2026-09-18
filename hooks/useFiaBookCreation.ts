@@ -8,6 +8,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { quest } from '@/db/drizzleSchema';
 import type { QuestMetadata } from '@/db/drizzleSchemaColumns';
 import { system } from '@/db/powersync/system';
+import { useLocalization } from '@/hooks/useLocalization';
 import { resolveTable } from '@/utils/dbUtils';
 import { useHybridData } from '@/views/new/useHybridData';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
@@ -30,6 +31,7 @@ interface BookQuest {
 export function useFiaBookCreation() {
   const { currentUser } = useAuth();
   const queryClient = useQueryClient();
+  const { t } = useLocalization();
 
   const { mutateAsync: findOrCreateBook, isPending } = useMutation({
     mutationFn: async (params: CreateBookParams): Promise<BookQuest> => {
@@ -109,7 +111,7 @@ export function useFiaBookCreation() {
           .insert(questLocal)
           .values({
             name: bookTitle,
-            description: `${pericopeCount} pericopes`,
+            description: `${pericopeCount} ${t('pericopes')}`,
             project_id: projectId,
             parent_id: null,
             creator_id: currentUser.id,
