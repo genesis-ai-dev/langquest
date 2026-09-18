@@ -1,0 +1,28 @@
+appId: ${MAESTRO_APP_ID}
+---
+# Android exposes testID language-search. iOS often folds the dropdown
+# into one "Search languages…, undefined flatlist" node.
+- runFlow:
+    when:
+      notVisible:
+        id: language-search
+    commands:
+      - extendedWaitUntil:
+          visible: '(?i)Search languages.*'
+          timeout: 15000
+- runFlow:
+    when:
+      visible:
+        id: language-search
+    commands:
+      - tapOn:
+          id: language-search
+          waitToSettleTimeoutMs: 0
+- runFlow:
+    when:
+      notVisible:
+        id: language-search
+    commands:
+      - tapOn:
+          text: '(?i)Search languages.*'
+          waitToSettleTimeoutMs: 0

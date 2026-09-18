@@ -41,6 +41,7 @@ import { system } from '@/db/powersync/system';
 import { useProjectById } from '@/hooks/db/useProjects';
 import type { Quest } from '@/hooks/db/useQuests';
 import { useHasUserReported } from '@/hooks/db/useReports';
+import { invalidateCloud } from '@/hooks/hybridCache';
 import {
   useBibleBookCreation,
   useBibleBooks
@@ -50,8 +51,10 @@ import {
   useFiaBookQuests
 } from '@/hooks/useFiaBookCreation';
 import { useFiaBooks } from '@/hooks/useFiaBooks';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNavigationHelpers } from '@/hooks/useNavigation';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useProjectSourceLanguoid } from '@/hooks/useProjectSourceLanguoid';
 import { useQuestDownloadDiscovery } from '@/hooks/useQuestDownloadDiscovery';
 import { useQuestOffloadVerification } from '@/hooks/useQuestOffloadVerification';
@@ -65,7 +68,6 @@ import { offloadQuest } from '@/utils/questOffloadUtils';
 import { cn, getThemeColor, useThemeColor } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { invalidateCloud } from '@/hooks/hybridCache';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { and, eq } from 'drizzle-orm';
@@ -80,7 +82,6 @@ import {
   RefreshCwIcon,
   SearchIcon,
   SettingsIcon,
-  UserPlusIcon,
   UsersIcon,
   XIcon
 } from 'lucide-react-native';
@@ -100,7 +101,6 @@ import z from 'zod';
 import { BibleBookList } from './BibleBookList';
 import { FiaBookList } from './FiaBookList';
 import { QuestListView } from './QuestListView';
-import { useHybridQuery } from '@/hooks/useHybridQuery';
 
 // Hook to determine if the invite banner should be shown for a project
 // Returns shouldShowInviteBanner=true if ALL of the following are true:
@@ -248,6 +248,7 @@ export default function ProjectDirectoryView() {
   }>();
   const { currentUser, isAuthenticated } = useAuth();
   const { t } = useLocalization();
+  const isConnected = useNetworkStatus();
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
   const primaryColor = useThemeColor('primary');
@@ -725,22 +726,24 @@ export default function ProjectDirectoryView() {
       return;
     }
 
-    // Check if quest is already downloaded
-    const { data, error } = await system.supabaseConnector.client
-      .from('quest')
-      .select('download_profiles')
-      .eq('id', questId)
-      .single<{ download_profiles: string[] | null }>();
+    // Check if this quest's download_profiles includes the current user and if it's published
+    const localQuest = await system.db.query.quest.findFirst({
+      where: (fields, { eq }) => eq(fields.id, questId),
+      columns: { download_profiles: true, published_at: true }
+    });
+    const profiles = localQuest?.download_profiles;
+    const parsed =
+      typeof profiles === 'string' ? JSON.parse(profiles) : profiles;
+    const isDownloaded =
+      Array.isArray(parsed) && parsed.includes(currentUser.id);
 
-    if (error) {
-      console.error('Error checking quest download status:', error);
+    if (isDownloaded && localQuest?.published_at == null) {
+      console.warn(
+        '🗑️ [Offload] Refusing to offload unpublished quest:',
+        questId
+      );
       return;
     }
-
-    const isDownloaded =
-      (data?.download_profiles as string[] | null | undefined)?.includes(
-        currentUser.id
-      ) ?? false;
 
     setQuestIdToDownload(questId);
 
@@ -846,13 +849,16 @@ export default function ProjectDirectoryView() {
     const questIdForSyncCallback = questIdToDownload;
 
     try {
-      await offloadQuest({
+      const result = await offloadQuest({
         questId: offloadQuestId,
         verifiedIds: verificationState.verifiedIds,
         onProgress: (progress, message) => {
           console.log(`🗑️ [Offload Progress] ${progress}%: ${message}`);
         }
       });
+      if (!result.localRowsRemoved) {
+        RNAlert.alert(t('success'), t('offloadSyncPending'));
+      }
     } catch (error) {
       console.error('🗑️ [Offload] Failed:', error);
       RNAlert.alert(t('error'), t('offloadError'));
@@ -901,6 +907,7 @@ export default function ProjectDirectoryView() {
     if (
       showOffloadDrawer &&
       questIdToDownload &&
+      isConnected &&
       !verificationState.isVerifying &&
       startedVerificationRef.current !== questIdToDownload
     ) {
@@ -915,7 +922,7 @@ export default function ProjectDirectoryView() {
     if (!showOffloadDrawer || !questIdToDownload) {
       startedVerificationRef.current = null;
     }
-  }, [showOffloadDrawer, questIdToDownload, verificationState]);
+  }, [showOffloadDrawer, questIdToDownload, isConnected, verificationState]);
 
   const { mutateAsync: createQuest, isPending: isCreatingQuest } = useMutation({
     mutationFn: async (values: FormData) => {
@@ -1107,9 +1114,10 @@ export default function ProjectDirectoryView() {
                 size="sm"
                 onPress={() => setShowPrivateAccessModal(true)}
                 testID="project-request-access"
+                accessibilityLabel="Request Membership"
               >
-                <Icon as={UserPlusIcon} size={16} />
                 <Icon as={LockIcon} size={16} />
+                <Text>{t('requestMembership')}</Text>
               </Button>
             )}
           </View>
@@ -1172,9 +1180,10 @@ export default function ProjectDirectoryView() {
                 size="sm"
                 onPress={() => setShowPrivateAccessModal(true)}
                 testID="project-request-access"
+                accessibilityLabel="Request Membership"
               >
-                <Icon as={UserPlusIcon} size={16} />
                 <Icon as={LockIcon} size={16} />
+                <Text>{t('requestMembership')}</Text>
               </Button>
             )}
           </View>
@@ -1224,9 +1233,10 @@ export default function ProjectDirectoryView() {
                 size="sm"
                 onPress={() => setShowPrivateAccessModal(true)}
                 testID="project-request-access"
+                accessibilityLabel="Request Membership"
               >
-                <Icon as={UserPlusIcon} size={16} />
                 <Icon as={LockIcon} size={16} />
+                <Text>{t('requestMembership')}</Text>
               </Button>
             )}
           </View>

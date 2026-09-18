@@ -446,10 +446,19 @@ export default function NextGenTranslationModal({
       animationType="slide"
       onRequestClose={handleClose}
     >
-      <TouchableWithoutFeedback onPress={handleClose}>
-        <View className="flex-1 items-center justify-center bg-black/50">
-          <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
-            <View className="h-[85%] max-h-[700px] w-[90%] rounded-lg bg-background">
+      <TouchableWithoutFeedback onPress={handleClose} accessible={false}>
+        <View
+          className="flex-1 items-center justify-center bg-black/50"
+          accessible={false}
+        >
+          <TouchableWithoutFeedback
+            onPress={(e) => e.stopPropagation()}
+            accessible={false}
+          >
+            <View
+              className="h-[85%] max-h-[700px] w-[90%] rounded-lg bg-background"
+              accessible={false}
+            >
               {/* Header */}
               <View className="flex-row items-center justify-between border-b border-border p-4">
                 <Text variant="h4">

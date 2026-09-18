@@ -199,7 +199,7 @@ export function ProjectListItem({
         className={className}
         key={project.id}
         testID="project-list-item"
-        accessibilityLabel="project-list-item"
+        accessibilityLabel={project.name || 'project-list-item'}
         onPress={() => goToProjectHelper()}
       >
         <Card

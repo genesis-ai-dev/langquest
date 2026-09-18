@@ -12,7 +12,6 @@ import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { and, eq } from 'drizzle-orm';
 import {
   CloudOffIcon,
-  DatabaseIcon,
   HardDriveDownloadIcon,
   InfoIcon,
   LanguagesIcon,
@@ -36,7 +35,6 @@ interface ModalDetailsProps {
   onClose: () => void;
   // Quest-specific props
   isDownloaded?: boolean;
-  estimatedStorageBytes?: number;
   onOffloadClick?: () => void;
 }
 
@@ -46,19 +44,10 @@ export const ModalDetails: React.FC<ModalDetailsProps> = ({
   content,
   onClose,
   isDownloaded = false,
-  estimatedStorageBytes = 0,
   onOffloadClick
 }) => {
   const { t } = useLocalization();
 
-  // Format storage size
-  const formatStorageSize = (bytes: number): string => {
-    if (bytes === 0) return '—';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return `${(bytes / Math.pow(k, i)).toFixed(2)} ${sizes[i]}`;
-  };
   // Fetch project source languages from project_language_link and single target from project
   // let sourceLanguages: Pick<Language, 'id' | 'native_name' | 'english_name'>[] =
   //   [];
@@ -147,21 +136,16 @@ export const ModalDetails: React.FC<ModalDetailsProps> = ({
         questId: content.id,
         questName: content.name,
         isDownloaded,
-        estimatedStorageBytes,
         hasOffloadClick: !!onOffloadClick,
         contentSource: content.source,
         shouldShowOffload:
-          isDownloaded && !!onOffloadClick && content.source !== 'local'
+          isDownloaded &&
+          !!onOffloadClick &&
+          content.source !== 'local' &&
+          (content as Quest).published_at != null
       });
     }
-  }, [
-    isVisible,
-    contentType,
-    content,
-    isDownloaded,
-    estimatedStorageBytes,
-    onOffloadClick
-  ]);
+  }, [isVisible, contentType, content, isDownloaded, onOffloadClick]);
 
   return (
     <Drawer
@@ -222,37 +206,18 @@ export const ModalDetails: React.FC<ModalDetailsProps> = ({
                 </Text>
               </View>
 
-              {isDownloaded && estimatedStorageBytes > 0 && (
-                <View className="flex-row items-center gap-3">
-                  <Icon as={DatabaseIcon} size={20} />
-                  <View className="flex-1 flex-row items-baseline gap-2">
-                    <Text className="text-sm text-muted-foreground">
-                      {t('storageUsed')}:
-                    </Text>
-                    <Text className="font-semibold">
-                      {formatStorageSize(estimatedStorageBytes)}
-                    </Text>
-                  </View>
-                </View>
-              )}
-
-              {/* Offload button - only show if quest is downloaded and cloud */}
+              {/* Offload button - only show if quest is downloaded and published */}
               {FEATURE_FLAG_CAN_OFFLOAD_QUEST &&
                 isDownloaded &&
                 onOffloadClick &&
-                content.source !== 'local' && (
+                content.source !== 'local' &&
+                (content as Quest).published_at != null && (
                   <View className="mt-4 rounded-lg border border-destructive/20 bg-destructive/5 p-4">
                     <Text className="mb-2 text-sm font-semibold text-destructive">
                       {t('freeUpSpace')}
                     </Text>
                     <Text className="mb-3 text-sm text-muted-foreground">
                       {t('offloadQuestDescription')}
-                      {estimatedStorageBytes > 0 && (
-                        <Text className="font-semibold">
-                          {' '}
-                          (~{formatStorageSize(estimatedStorageBytes)})
-                        </Text>
-                      )}
                     </Text>
                     <Button
                       variant="destructive"

@@ -545,9 +545,66 @@ export const localizations = {
     thai: 'ตรวจพบการอัปโหลดที่รอดำเนินการ',
     mandarin: '检测到待上传'
   },
+  cannotOffloadDraft: {
+    english: 'This quest is a draft',
+    french: 'Cette quête est un brouillon',
+    spanish: 'Esta quest es un borrador',
+    brazilian_portuguese: 'Esta quest é um rascunho',
+    tok_pisin: 'Dispela quest i draf yet',
+    indonesian: 'Quest ini masih draf',
+    nepali: 'यो क्वेस्ट ड्राफ्ट हो',
+    hindi: 'यह क्वेस्ट ड्राफ्ट है',
+    burmese: 'ဤ quest သည် မူကြမ်းဖြစ်သည်',
+    thai: 'เควสต์นี้ยังเป็นฉบับร่าง',
+    mandarin: '此任务仍为草稿'
+  },
+  cannotOffloadDraftMessage: {
+    english:
+      'Drafts stay on this device. Publish the quest before you offload it.',
+    french:
+      'Les brouillons restent sur cet appareil. Publiez la quête avant de la décharger.',
+    spanish:
+      'Los borradores permanecen en este dispositivo. Publica la quest antes de descargarla.',
+    brazilian_portuguese:
+      'Rascunhos ficam neste dispositivo. Publique a quest antes de descarregá-la.',
+    tok_pisin:
+      'Draf i stap long dispela mashin. Publishim quest pastaim long rausim.',
+    indonesian:
+      'Draf tetap di perangkat ini. Publikasikan quest sebelum melepasnya.',
+    nepali:
+      'ड्राफ्टहरू यो उपकरणमा रहन्छन्। हटाउनु अघि क्वेस्ट प्रकाशित गर्नुहोस्।',
+    hindi:
+      'ड्राफ्ट इस डिवाइस पर रहते हैं। अनलोड करने से पहले क्वेस्ट प्रकाशित करें।',
+    burmese:
+      'မူကြမ်းများသည် ဤစက်တွင် ရှိနေပါသည်။ ဖယ်ရှားရန် မလုပ်မီ quest ကို ထုတ်ဝေပါ။',
+    thai: 'ฉบับร่างยังอยู่บนอุปกรณ์นี้ เผยแพร่เควสต์ก่อนถอดออก',
+    mandarin: '草稿会留在此设备上。请先发布任务，然后再卸载。'
+  },
+  offloadSyncPending: {
+    english:
+      'The quest is offloaded on the server. Local copies will disappear after the next sync.',
+    french:
+      'La quête est déchargée sur le serveur. Les copies locales disparaîtront après la prochaine synchronisation.',
+    spanish:
+      'La quest está descargada en el servidor. Las copias locales desaparecerán tras la próxima sincronización.',
+    brazilian_portuguese:
+      'A quest foi descarregada no servidor. As cópias locais sumirão após a próxima sincronização.',
+    tok_pisin:
+      'Quest i rausim pinis long seva. Kopi long mashin bai go pinis bihain long next sync.',
+    indonesian:
+      'Quest sudah dilepas di server. Salinan lokal akan hilang setelah sinkronisasi berikutnya.',
+    nepali:
+      'क्वेस्ट सर्भरबाट हटाइएको छ। अर्को सिङ्कपछि स्थानीय प्रतिलिपिहरू हराउनेछन्।',
+    hindi:
+      'क्वेस्ट सर्वर से अनलोड हो गया है। अगले सिंक के बाद स्थानीय प्रतियां हट जाएंगी।',
+    burmese:
+      'Quest ကို ဆာဗာမှ ဖယ်ရှားပြီးပါပြီ။ နောက် sync တွင် ဒေသတွင်းမိတ္တူများ ပျောက်သွားပါမည်။',
+    thai: 'เควสต์ถูกถอดออกบนเซิร์ฟเวอร์แล้ว สำเนาท้องถิ่นจะหายไปหลังการซิงค์ครั้งถัดไป',
+    mandarin: '任务已在服务器上卸载。下次同步后，本地副本将消失。'
+  },
   pendingUploadsMessage: {
     english:
-      'Please wait for all changes to upload to the cloud before offloading. Connect to the internet and wait for sync to complete.',
+      'This quest still has changes uploading. Stay online and wait for sync to finish before you offload it.',
     french:
       'Veuillez attendre que toutes les modifications soient téléchargées sur le cloud avant de les décharger. Connectez-vous à Internet et attendez la fin de la synchronisation.',
     spanish:

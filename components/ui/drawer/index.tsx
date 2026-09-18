@@ -63,6 +63,8 @@ function Drawer({
   const ref = React.useRef<BSModalType | null>(null);
   const [isOpen, setIsOpen] = React.useState(open);
   const isOpenRef = React.useRef(open);
+  // iOS fires onDismiss if present() runs in the same turn the portal mounts.
+  const suppressDismissUntilRef = React.useRef(0);
 
   const onOpenChangeRef = React.useRef(onOpenChange);
   React.useEffect(() => {
@@ -70,6 +72,12 @@ function Drawer({
   }, [onOpenChange]);
 
   const syncOpen = React.useCallback((nextOpen: boolean) => {
+    if (
+      nextOpen === false &&
+      Date.now() < suppressDismissUntilRef.current
+    ) {
+      return;
+    }
     if (isOpenRef.current === nextOpen) return;
     isOpenRef.current = nextOpen;
     setIsOpen(nextOpen);
@@ -81,12 +89,17 @@ function Drawer({
   }, [open, syncOpen]);
 
   React.useEffect(() => {
-    if (isOpen) {
-      ref.current?.present();
-    } else {
-      // close() not dismiss() — avoids the v5 double-dismiss lock (#2492)
-      ref.current?.close();
+    if (!isOpen) {
+      return;
     }
+
+    suppressDismissUntilRef.current = Date.now() + 500;
+    const timer = setTimeout(() => {
+      ref.current?.present();
+    }, 50);
+    return () => {
+      clearTimeout(timer);
+    };
   }, [isOpen]);
 
   // Extract only stable props we need from drawerProps
@@ -191,7 +204,7 @@ const DrawerContent = React.forwardRef<
   const context = React.useContext(DrawerContext);
 
   const {
-    open: _open,
+    open,
     setOpen,
     ref: _ref,
     snapPoints: _snapPoints,
@@ -207,6 +220,10 @@ const DrawerContent = React.forwardRef<
   const backgroundColor = useThemeColor('background');
 
   const { top, bottom } = useSafeAreaInsets();
+
+  if (!open) {
+    return null;
+  }
 
   const Component = asChild
     ? Slot.Generic<React.ComponentPropsWithoutRef<typeof DrawerView>>
@@ -316,10 +333,17 @@ function DrawerFooter({
 function DrawerTitle({
   className,
   children,
+  testID = 'drawer-title',
   ...props
 }: React.ComponentProps<typeof Text> & { className?: string }) {
   return (
-    <Text className={className} variant="h4" {...props}>
+    <Text
+      className={className}
+      variant="h4"
+      testID={testID}
+      accessibilityLabel={testID}
+      {...props}
+    >
       {children}
     </Text>
   );

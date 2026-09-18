@@ -16,6 +16,16 @@ onFlowComplete:
     when:
       platform: Android
     commands:
+      # SIGNED_IN still runs system.init() after the create button shows.
+      # Airplane in that window cuts Metro and the lazy init import fails
+      # (LoadBundleFromServerRequestError). Open the drawer online first.
+      - runFlow: _open-app-drawer.yaml
+      - extendedWaitUntil:
+          notVisible: '(?i)(Disconnected|sync error)'
+          timeout: 20000
+      - tapOn:
+          id: drawer-projects
+          waitToSettleTimeoutMs: 0
       - setAirplaneMode: enabled
       - runFlow: _open-app-drawer.yaml
       - extendedWaitUntil:
@@ -35,21 +45,14 @@ onFlowComplete:
           id: project-create-name
           waitToSettleTimeoutMs: 0
       - inputText: ${output.projectName}
-      - hideKeyboard
+      - runFlow: _hide-keyboard.yaml
       - tapOn:
           id: project-create-language
           waitToSettleTimeoutMs: 0
-      - tapOn:
-          id: language-search
-          waitToSettleTimeoutMs: 0
+      - runFlow: _tap-language-search.yaml
       - inputText: ${output.projectLanguage}
-      - extendedWaitUntil:
-          visible: Add this as a new language
-          timeout: 20000
-      - tapOn:
-          text: Add this as a new language
-          waitToSettleTimeoutMs: 0
-      - hideKeyboard
+      - runFlow: _tap-language-create-new.yaml
+      - runFlow: _wait-language-search-gone.yaml
       - extendedWaitUntil:
           visible:
             id: project-create-submit

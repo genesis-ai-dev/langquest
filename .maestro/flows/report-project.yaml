@@ -17,7 +17,7 @@ onFlowStart:
 - tapOn:
     id: projects-search
 - inputText: ${output.projectName}
-- hideKeyboard
+- runFlow: _hide-keyboard.yaml
 - extendedWaitUntil:
     visible: ${output.projectName}
     timeout: 45000

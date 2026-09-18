@@ -27,7 +27,7 @@ onFlowStart:
 - tapOn:
     id: translation-text
 - inputText: ${output.translationText}
-- hideKeyboard
+- runFlow: _hide-keyboard.yaml
 - tapOn:
     id: translation-submit
 - extendedWaitUntil:

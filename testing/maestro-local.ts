@@ -124,6 +124,7 @@ function main() {
     '.maestro/flows/appearance.yaml',
     '.maestro/flows/settings-gated.yaml',
     '.maestro/flows/download-quest.yaml',
+    '.maestro/flows/offload-shared-draft.yaml',
     '.maestro/flows/offline-create-quest.yaml',
     '.maestro/flows/offline-create-project.yaml',
     '.maestro/flows/offline-translate-vote-sync.yaml',
@@ -150,6 +151,14 @@ function main() {
   const flows = flowArgs.length > 0 ? flowArgs : DEFAULT_LOCAL_FLOWS;
 
   const args = ['test'];
+  const platform = process.env.MAESTRO_PLATFORM;
+  const device = process.env.MAESTRO_DEVICE;
+  if (platform) {
+    args.push('--platform', platform);
+  }
+  if (device) {
+    args.push('--device', device);
+  }
   for (const [key, value] of Object.entries(maestroEnv)) {
     args.push('-e', `${key}=${value}`);
   }

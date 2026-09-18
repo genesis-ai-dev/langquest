@@ -677,6 +677,9 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
               loading={isSubmitting}
               className={!modal ? 'mt-4' : ''}
               testID="project-request-access"
+              accessibilityLabel={
+                isSubmitting ? t('requesting') : t('requestMembership')
+              }
             >
               <Text>
                 {isSubmitting ? t('requesting') : t('requestMembership')}
@@ -696,12 +699,16 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
         animationType="fade"
         onRequestClose={onClose}
       >
-        <TouchableWithoutFeedback onPress={onClose}>
+        <TouchableWithoutFeedback onPress={onClose} accessible={false}>
           <Pressable
             className="flex-1 items-center justify-center bg-black/50"
             onPress={onClose}
+            accessible={false}
           >
-            <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
+            <TouchableWithoutFeedback
+              onPress={(e) => e.stopPropagation()}
+              accessible={false}
+            >
               <View className="w-[90%] max-w-md rounded-lg bg-background p-6">
                 <View className="mb-4 flex-row items-center justify-between">
                   <Text variant="h3">{t('privateProject')}</Text>
@@ -759,12 +766,19 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
             animationType="fade"
             onRequestClose={() => setShowModal(false)}
           >
-            <TouchableWithoutFeedback onPress={() => setShowModal(false)}>
+            <TouchableWithoutFeedback
+              onPress={() => setShowModal(false)}
+              accessible={false}
+            >
               <Pressable
                 className="flex-1 items-center justify-center bg-black/50"
                 onPress={() => setShowModal(false)}
+                accessible={false}
               >
-                <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
+                <TouchableWithoutFeedback
+                  onPress={(e) => e.stopPropagation()}
+                  accessible={false}
+                >
                   <View className="w-[90%] max-w-md rounded-lg bg-background p-6">
                     <View className="mb-4 flex-row items-center justify-between">
                       <Text variant="h3">{t('privateProject')}</Text>

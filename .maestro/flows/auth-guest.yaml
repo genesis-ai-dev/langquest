@@ -45,7 +45,7 @@ onFlowComplete:
 - tapOn: Enter your email to reset your password
 - eraseText
 - inputText: ${output.signInEmail}
-- hideKeyboard
+- runFlow: _hide-keyboard.yaml
 - tapOn: Send Reset Email
 - extendedWaitUntil:
     visible: OK
@@ -69,7 +69,7 @@ onFlowComplete:
     waitToSettleTimeoutMs: 0
 - eraseText
 - inputText: wrong-password
-- hideKeyboard
+- runFlow: _hide-keyboard.yaml
 - tapOn:
     id: sign-in-submit
     waitToSettleTimeoutMs: 0

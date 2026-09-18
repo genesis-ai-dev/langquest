@@ -72,7 +72,7 @@ export function QuestVersionPickerCard({
 
   return (
     <Pressable
-      onPress={needsDownload ? onDownloadClick : onPress}
+      onPress={onPress}
       testID="bible-chapter-version"
       accessibilityLabel="bible-chapter-version"
       className={cn(

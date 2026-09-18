@@ -17,7 +17,7 @@ onFlowStart:
 - tapOn:
     id: projects-search
 - inputText: ${output.projectName}
-- hideKeyboard
+- runFlow: _hide-keyboard.yaml
 - extendedWaitUntil:
     visible: ${output.projectName}
     timeout: 45000
@@ -31,7 +31,17 @@ onFlowStart:
     timeout: 30000
 - tapOn:
     id: project-request-access
-- assertVisible: Request Membership
+    waitToSettleTimeoutMs: 0
+- runFlow:
+    when:
+      notVisible: Request Membership
+    commands:
+      - tapOn:
+          id: project-request-access
+          waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible: Request Membership
+    timeout: 15000
 - evalScript: ${output.api.deleteProject(output.projectName)}
 - evalScript: ${output.api.deleteUserIfExists(output.signInEmail)}
 - evalScript: ${output.api.deleteUserIfExists(output.ownerEmail)}

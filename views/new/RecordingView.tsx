@@ -52,7 +52,7 @@ import { useSingleAudioController } from '@/hooks/useSingleAudioController';
 import { useUndoHistory } from '@/hooks/useUndoHistory';
 import { useLocalStore } from '@/store/localStore';
 import { resolveExistingAudioUri } from '@/utils/attachmentPaths';
-import { resolvePlayableAudioUri } from '@/utils/resolvePlayableAudio';
+import { getAssetAudioUris as getPlayableAssetAudioUris } from '@/utils/getAssetAudioUris';
 import { resolveTable } from '@/utils/dbUtils';
 import { storeRecordedAudio } from '@/services/attachments/storeRecordedAudio';
 import RNAlert from '@blazejkustra/react-native-alert';
@@ -1223,61 +1223,8 @@ const RecordingView = () => {
   // AUDIO PLAYBACK
   // ============================================================================
 
-  // Fetch audio URIs for an asset
-  // Includes fallback logic for local-only files when server records are removed
   const getAssetAudioUris = React.useCallback(
-    async (assetId: string): Promise<string[]> => {
-      try {
-        // Get content links for this asset
-        const assetContentLinkTable = resolveTable('asset_content_link');
-        const uniqueLinks = await system.db
-          .select()
-          .from(assetContentLinkTable)
-          .where(eq(assetContentLinkTable.asset_id, assetId));
-
-        debugLog(
-          `📀 Found ${uniqueLinks.length} content link(s) for asset ${assetId.slice(0, 8)}`
-        );
-
-        if (uniqueLinks.length === 0) {
-          debugLog('No content links found for asset:', assetId);
-          return [];
-        }
-
-        // Get audio values from content links (can be URIs or attachment IDs)
-        const audioValues = uniqueLinks
-          .flatMap((link) => {
-            const audioArray = link.audio ?? [];
-            debugLog(
-              `  📎 Content link has ${audioArray.length} audio file(s):`,
-              audioArray
-            );
-            return audioArray;
-          })
-          .filter((value): value is string => !!value);
-
-        debugLog(`📊 Total audio files for asset: ${audioValues.length}`);
-
-        if (audioValues.length === 0) {
-          debugLog('No audio values found in content links');
-          return [];
-        }
-
-        const uris: string[] = [];
-        for (const audioValue of audioValues) {
-          const resolvedUri = await resolvePlayableAudioUri(audioValue);
-          if (resolvedUri) {
-            uris.push(resolvedUri);
-            debugLog('✅ Resolved audio URI:', resolvedUri.slice(0, 80));
-          }
-        }
-
-        return uris;
-      } catch (error) {
-        console.error('Failed to fetch audio URIs:', error);
-        return [];
-      }
-    },
+    (assetId: string) => getPlayableAssetAudioUris(assetId),
     []
   );
 
@@ -3643,8 +3590,6 @@ const RecordingView = () => {
       <View
         className="absolute bottom-0 left-0 right-0 z-40"
         testID="recording-controls"
-        accessibilityLabel="recording-controls"
-        importantForAccessibility="yes"
       >
         {isSelectionMode ? (
           <View style={{ paddingBottom: insets.bottom }}>

@@ -289,6 +289,7 @@ const AssetCardItemComponent: React.FC<AssetCardItemProps> = ({
       onPress={handlePress}
       onLongPress={handleLongPress}
       testID="asset-list-item"
+      accessible={false}
     >
       <Card
         className={`${
@@ -355,6 +356,7 @@ const AssetCardItemComponent: React.FC<AssetCardItemProps> = ({
                   <CardTitle
                     numberOfLines={2}
                     className="text-sm leading-tight"
+                    accessibilityLabel={asset.name || t('unnamedAsset')}
                   >
                     {asset.name || t('unnamedAsset')}
                   </CardTitle>

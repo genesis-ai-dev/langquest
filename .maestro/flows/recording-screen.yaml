@@ -73,9 +73,7 @@ onFlowStart:
 - assertVisible: '001'
 - evalScript: ${output.api.waitForAudioUploaded(output.questName, 90000, "002")}
 - evalScript: ${output.api.waitForQuestAssetOrder(output.questName, ["001", "002"], 45000)}
-- tapOn:
-    id: nav-back
-    waitToSettleTimeoutMs: 0
+- runFlow: _leave-recording-refresh.yaml
 - extendedWaitUntil:
     visible: '001'
     timeout: 20000

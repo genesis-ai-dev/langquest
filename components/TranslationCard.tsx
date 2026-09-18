@@ -62,6 +62,7 @@ export const TranslationCard = ({
       onPress={handleCardPress}
       className="w-full flex-col items-stretch"
       testID="translation-list-item"
+      accessibilityLabel={previewText || t('noText')}
     >
       <Card
         className={cn(

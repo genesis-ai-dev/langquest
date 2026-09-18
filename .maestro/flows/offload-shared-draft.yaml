@@ -1,0 +1,66 @@
+appId: ${MAESTRO_APP_ID}
+onFlowStart:
+  - runScript: ../api.js
+---
+# Drafts now live on the server (rows + audio) before publish. Offload of a
+# published quest must not treat a shared asset as exclusive to that quest:
+# undownloading or deleting it would drop the draft's copy and enqueue the
+# file for Storage deletion. Offload the published quest; the draft stays
+# downloaded, its asset_content_link and object remain, queue stays empty.
+- evalScript: ${output.projectName = "maestro-offsharep-" + Date.now()}
+- evalScript: ${output.publishedQuestName = "maestro-offshare-pub-" + Date.now()}
+- evalScript: ${output.draftQuestName = "maestro-offshare-draft-" + Date.now()}
+- evalScript: ${output.assetName = "maestro-offsharea-" + Date.now()}
+- evalScript: ${output.skipSignInCleanup = true}
+- runFlow: _start-signed-in.yaml
+- evalScript: ${output.api.seedProject(output.projectName, output.signInEmail, false)}
+- evalScript: ${output.api.seedQuest(output.projectName, output.publishedQuestName, output.signInEmail, true, true)}
+- evalScript: ${output.api.seedQuest(output.projectName, output.draftQuestName, output.signInEmail, false, true)}
+- evalScript: ${output.seeded = output.api.seedAudioAsset(output.projectName, output.publishedQuestName, output.signInEmail, output.assetName, "Shared offload source")}
+- evalScript: ${output.api.linkAssetToQuest(output.assetName, output.draftQuestName, output.signInEmail)}
+- evalScript: ${output.api.waitForQuestDownload(output.publishedQuestName, output.signInEmail, true)}
+- evalScript: ${output.api.waitForQuestDownload(output.draftQuestName, output.signInEmail, true)}
+# Owner-seeded: All hides the signed-in user's projects. My + list row.
+- runFlow: _open-named-project.yaml
+- extendedWaitUntil:
+    visible: ${output.publishedQuestName}
+    timeout: 45000
+- tapOn:
+    id: quest-download
+- extendedWaitUntil:
+    visible: Ready to offload
+    timeout: 45000
+- scrollUntilVisible:
+    element:
+      id: quest-offload-continue
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: quest-offload-continue
+- evalScript: ${output.api.waitForQuestDownload(output.publishedQuestName, output.signInEmail, false)}
+- evalScript: ${output.api.waitForQuestDownload(output.draftQuestName, output.signInEmail, true)}
+- evalScript: ${output.api.waitForAssetContent(output.assetName, 15000)}
+- evalScript: ${output.api.waitForStorageObject(output.seeded.objectName, 5000)}
+- evalScript: ${output.api.waitForDeletionNotQueued(output.seeded.objectName, 5000)}
+- tapOn:
+    text: ${output.draftQuestName}
+- runFlow:
+    when:
+      visible: ${output.draftQuestName}
+      notVisible:
+        id: assets-refresh-button
+    commands:
+      - tapOn:
+          text: ${output.draftQuestName}
+- extendedWaitUntil:
+    visible:
+      id: assets-refresh-button
+    timeout: 45000
+- tapOn:
+    id: assets-refresh-button
+- extendedWaitUntil:
+    visible: ${output.assetName}
+    timeout: 45000
+- evalScript: ${output.api.deleteProject(output.projectName)}
+- evalScript: ${output.api.cleanupStorageObjects([output.seeded.objectName])}
+- evalScript: ${output.api.deleteUserIfExists(output.signInEmail)}

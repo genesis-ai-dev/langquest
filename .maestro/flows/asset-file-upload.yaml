@@ -26,9 +26,7 @@ onFlowStart:
 - evalScript: ${output.objectName = output.api.assertFlatObjectName(output.recorded.audio[0])}
 - evalScript: ${output.api.waitForStorageObject(output.objectName, 60000)}
 - evalScript: ${output.api.waitForAudioUploaded(output.questName, 60000)}
-- tapOn:
-    id: nav-back
-    waitToSettleTimeoutMs: 0
+- runFlow: _leave-recording-refresh.yaml
 - extendedWaitUntil:
     visible: '001'
     timeout: 20000
@@ -59,7 +57,7 @@ onFlowStart:
 - tapOn:
     id: quest-publish-confirm
     waitToSettleTimeoutMs: 0
-- tapOn: Save
+- runFlow: _confirm-cloud-save.yaml
 - evalScript: ${output.api.waitForQuestPublished(output.questName, 45000)}
 # Publish must not rewrite the object reference.
 - evalScript: ${output.afterPublish = output.api.waitForAudioUploaded(output.questName, 30000)}

@@ -27,21 +27,16 @@ appId: ${MAESTRO_APP_ID}
     id: project-create-name
     waitToSettleTimeoutMs: 0
 - inputText: ${output.projectName}
-- hideKeyboard
+- runFlow: _hide-keyboard.yaml
 - tapOn:
     id: project-create-language
     waitToSettleTimeoutMs: 0
-- tapOn:
-    id: language-search
-    waitToSettleTimeoutMs: 0
+- runFlow: _tap-language-search.yaml
 - inputText: ${output.projectLanguage}
-- extendedWaitUntil:
-    visible: Add this as a new language
-    timeout: 20000
-- tapOn:
-    text: Add this as a new language
-    waitToSettleTimeoutMs: 0
-- hideKeyboard
+- runFlow: _tap-language-create-new.yaml
+# Closing the language modal dismisses the IME. Android hideKeyboard is
+# Back and will pop the New Project sheet once language-search is gone.
+- runFlow: _wait-language-search-gone.yaml
 - extendedWaitUntil:
     visible:
       id: project-create-submit
@@ -54,6 +49,9 @@ appId: ${MAESTRO_APP_ID}
     notVisible:
       id: project-create-name
     timeout: 15000
+- extendedWaitUntil:
+    visible: ${output.projectName}
+    timeout: 20000
 - tapOn:
     text: ${output.projectName}
     waitToSettleTimeoutMs: 0
@@ -64,6 +62,7 @@ appId: ${MAESTRO_APP_ID}
     id: quest-create-name
     waitToSettleTimeoutMs: 0
 - inputText: ${output.questName}
+- runFlow: _hide-keyboard.yaml
 - tapOn:
     id: quest-create-submit
     waitToSettleTimeoutMs: 0

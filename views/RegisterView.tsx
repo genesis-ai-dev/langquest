@@ -191,7 +191,7 @@ export default function RegisterView() {
                     submitBehavior="submit"
                     autoCapitalize="none"
                     autoCorrect={false}
-                    autoComplete="password"
+                    autoComplete="new-password"
                     prefix={LockIcon}
                     prefixStyling={false}
                     placeholder={t('password')}
@@ -215,7 +215,7 @@ export default function RegisterView() {
                     submitBehavior="blurAndSubmit"
                     autoCapitalize="none"
                     autoCorrect={false}
-                    autoComplete="password"
+                    autoComplete="new-password"
                     prefix={LockIcon}
                     prefixStyling={false}
                     placeholder={t('confirmPassword')}

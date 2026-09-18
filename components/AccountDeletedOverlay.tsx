@@ -102,9 +102,7 @@ export function AccountDeletedOverlay() {
         {
           text: t('restoreAccount'),
           onPress: () => {
-            void restoreAccount().then(() => {
-              goToProjects();
-            });
+            void restoreAccount();
           }
         }
       ]

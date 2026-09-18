@@ -15,33 +15,14 @@ onFlowStart:
     id: project-create-name
     waitToSettleTimeoutMs: 0
 - inputText: ${output.projectName}
-- hideKeyboard
+- runFlow: _hide-keyboard.yaml
 - tapOn:
     id: project-create-language
     waitToSettleTimeoutMs: 0
-- tapOn:
-    id: language-search
-    waitToSettleTimeoutMs: 0
+- runFlow: _tap-language-search.yaml
 - inputText: ${output.projectLanguage}
-- extendedWaitUntil:
-    visible: Add this as a new language
-    timeout: 20000
-- tapOn:
-    text: Add this as a new language
-    waitToSettleTimeoutMs: 0
-# Creating a languoid leaves the dropdown open on the new row. hideKeyboard
-# is Back and can pop the create drawer; tap the new language instead.
-- extendedWaitUntil:
-    visible: ${output.projectLanguage}
-    timeout: 15000
-- tapOn:
-    text: ${output.projectLanguage}
-    below:
-      id: language-search
-- extendedWaitUntil:
-    notVisible:
-      id: language-search
-    timeout: 15000
+- runFlow: _tap-language-create-new.yaml
+- runFlow: _wait-language-search-gone.yaml
 - tapOn:
     id: project-template-bible
 - extendedWaitUntil:

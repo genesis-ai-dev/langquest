@@ -24,7 +24,7 @@ onFlowStart:
 - tapOn:
     id: projects-search
 - inputText: ${output.projectName}
-- hideKeyboard
+- runFlow: _hide-keyboard.yaml
 - extendedWaitUntil:
     visible: ${output.projectName}
     timeout: 45000
@@ -74,6 +74,7 @@ onFlowStart:
 # The downloader fetches confirmed audio for synced rows. Download Status
 # counts local files against what should be on this device.
 - openLink: ${MAESTRO_APP_SCHEME}://download-status
+- runFlow: _ios-confirm-open-link.yaml
 - extendedWaitUntil:
     visible:
       id: download-status-screen

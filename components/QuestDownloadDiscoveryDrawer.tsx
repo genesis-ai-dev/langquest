@@ -10,6 +10,7 @@ import {
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useLocalization } from '@/hooks/useLocalization';
+import { countDiscoveredRecords } from '@/hooks/useQuestDownloadDiscovery';
 import type { DiscoveryState } from '@/hooks/useQuestDownloadDiscovery';
 import { cn } from '@/utils/styleUtils';
 import {
@@ -115,8 +116,13 @@ export function QuestDownloadDiscoveryDrawer({
   discoveryState
 }: QuestDownloadDiscoveryDrawerProps) {
   const { t } = useLocalization();
-  const { isDiscovering, progressSharedValues, totalRecordsShared, hasError } =
-    discoveryState;
+  const {
+    isDiscovering,
+    progressSharedValues,
+    totalRecordsShared,
+    hasError,
+    discoveredIds
+  } = discoveryState;
 
   // Use React state for display values
   const [progress, setProgress] = useState({
@@ -131,7 +137,7 @@ export function QuestDownloadDiscoveryDrawer({
     tags: { count: 0, isLoading: false, hasError: false },
     languages: { count: 0, isLoading: false, hasError: false }
   });
-  const [totalRecords, setTotalRecords] = useState(0);
+  const [animatedTotal, setAnimatedTotal] = useState(0);
 
   // Sync shared values to React state using useAnimatedReaction
   useAnimatedReaction(
@@ -163,10 +169,19 @@ export function QuestDownloadDiscoveryDrawer({
           tags: result.tags,
           languages: result.languages
         });
-        runOnJS(setTotalRecords)(result.total);
+        runOnJS(setAnimatedTotal)(result.total);
       }
     }
   );
+
+  // Shared-value totals can miss the React state update after discovery
+  // finishes. discoveredIds is set in the same turn as isDiscovering=false
+  // and is the source of truth for enabling Continue.
+  const discoveredTotal = countDiscoveredRecords(discoveredIds);
+  const displayTotal = isDiscovering
+    ? animatedTotal
+    : Math.max(animatedTotal, discoveredTotal);
+  const canContinue = !isDiscovering && discoveredIds.questIds.length > 0;
 
   return (
     <Drawer
@@ -235,14 +250,14 @@ export function QuestDownloadDiscoveryDrawer({
           <View className="flex-row items-center justify-between rounded-lg bg-muted p-3">
             <Text className="text-sm font-semibold">{t('totalRecords')}:</Text>
             <Text className="text-lg font-bold text-primary">
-              {totalRecords}
+              {displayTotal}
             </Text>
           </View>
 
           {hasError && !isDiscovering && (
             <View className="rounded-lg bg-destructive/10 p-3">
               <Text className="text-sm text-destructive">
-                {totalRecords === 0
+                {discoveredIds.questIds.length === 0
                   ? t('questNotFoundInCloud')
                   : t('discoveryErrorsOccurred')}
               </Text>
@@ -251,7 +266,7 @@ export function QuestDownloadDiscoveryDrawer({
 
           <Button
             onPress={onContinue}
-            disabled={isDiscovering || totalRecords === 0}
+            disabled={!canContinue}
             testID="quest-download-continue"
           >
             <Text className="font-bold">

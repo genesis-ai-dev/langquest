@@ -28,9 +28,9 @@ import { useSingleAudioController } from '@/hooks/useSingleAudioController';
 import type { LocalizationKey } from '@/services/localizations';
 import { syncCallbackService } from '@/services/syncCallbackService';
 import { useLocalStore } from '@/store/localStore';
-import { resolvePlayableAudioUri } from '@/utils/resolvePlayableAudio';
 import { bulkDownloadQuest } from '@/utils/bulkDownload';
-import { resolveTable, type WithSource } from '@/utils/dbUtils';
+import type { WithSource } from '@/utils/dbUtils';
+import { getAssetAudioUris as getPlayableAssetAudioUris } from '@/utils/getAssetAudioUris';
 import { formatQuestDisplayLabel } from '@/utils/questVersionLabel';
 import { cn, useThemeColor } from '@/utils/styleUtils';
 import { invalidateCloud } from '@/hooks/hybridCache';
@@ -1422,32 +1422,7 @@ export function ImportWizard({
   };
 
   const getAssetAudioUris = React.useCallback(
-    async (assetId: string): Promise<string[]> => {
-      try {
-        const assetContentLinkTable = resolveTable('asset_content_link');
-        const contentLinks = await system.db
-          .select()
-          .from(assetContentLinkTable)
-          .where(eq(assetContentLinkTable.asset_id, assetId));
-
-        const audioValues = contentLinks
-          .flatMap((link) => link.audio ?? [])
-          .filter((value): value is string => Boolean(value));
-
-        const uris: string[] = [];
-        for (const audioValue of audioValues) {
-          const localUri = await resolvePlayableAudioUri(audioValue);
-          if (localUri) {
-            uris.push(localUri);
-          }
-        }
-
-        return uris;
-      } catch (error) {
-        console.error('[ImportWizard] Failed to resolve asset audio:', error);
-        return [];
-      }
-    },
+    (assetId: string) => getPlayableAssetAudioUris(assetId),
     []
   );
 

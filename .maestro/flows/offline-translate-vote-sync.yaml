@@ -43,7 +43,7 @@ onFlowComplete:
           id: translation-text
           waitToSettleTimeoutMs: 0
       - inputText: ${output.translationText}
-      - hideKeyboard
+      - runFlow: _hide-keyboard.yaml
       - tapOn:
           id: translation-submit
           waitToSettleTimeoutMs: 0

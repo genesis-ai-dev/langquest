@@ -39,7 +39,7 @@ onFlowComplete:
       - eraseText: 200
       - eraseText: 200
       - inputText: ${output.projectName}
-      - hideKeyboard
+      - runFlow: _hide-keyboard.yaml
       - extendedWaitUntil:
           visible: ${output.projectName}
           timeout: 20000
@@ -60,7 +60,7 @@ onFlowComplete:
       - inputText: ${output.questName}
       # IME covers the drawer footer. Keyboard is up after inputText, so
       # hideKeyboard dismisses it instead of acting as Back.
-      - hideKeyboard
+      - runFlow: _hide-keyboard.yaml
       - extendedWaitUntil:
           visible:
             id: quest-create-submit

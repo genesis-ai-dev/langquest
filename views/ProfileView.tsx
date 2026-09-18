@@ -302,7 +302,7 @@ export default function ProfileView() {
             router.push('/(app)/feedback');
           }}
           testID="profile-feedback"
-          accessibilityLabel="profile-feedback"
+          accessibilityLabel={t('submitFeedback')}
         >
           <Text>{t('submitFeedback')}</Text>
         </Button>

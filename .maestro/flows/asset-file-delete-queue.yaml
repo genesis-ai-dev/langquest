@@ -58,9 +58,7 @@ onFlowStart:
 # Leaving the session runs the garbage collector: the two source rows are
 # deleted on the server and their object names land in the queue even
 # though the merged rows still point at them.
-- tapOn:
-    id: nav-back
-    waitToSettleTimeoutMs: 0
+- runFlow: _leave-recording-refresh.yaml
 - extendedWaitUntil:
     visible: '001'
     timeout: 20000
@@ -81,6 +79,7 @@ onFlowStart:
     timeout: 10000
 - tapOn:
     id: assets-batch-delete
+    point: '20%,50%'
     waitToSettleTimeoutMs: 0
 - extendedWaitUntil:
     notVisible: '001'

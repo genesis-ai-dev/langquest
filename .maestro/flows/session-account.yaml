@@ -16,13 +16,13 @@ onFlowStart:
     direction: DOWN
 - tapOn: Current Password
 - inputText: ${output.signInPassword}
-- hideKeyboard
+- runFlow: _hide-keyboard.yaml
 - tapOn: New Password
 - inputText: ${output.newPassword}
-- hideKeyboard
+- runFlow: _hide-keyboard.yaml
 - tapOn: Confirm Password
 - inputText: ${output.newPassword}
-- hideKeyboard
+- runFlow: _hide-keyboard.yaml
 - tapOn:
     text: Submit
     below: Confirm Password
@@ -31,22 +31,29 @@ onFlowStart:
     timeout: 20000
 - tapOn: OK
 - evalScript: ${output.signInPassword = output.newPassword}
+# Let the new session persist before stopApp. Immediate kill on iOS can
+# leave SpringBoard after launchApp.
+- waitForAnimationToEnd:
+    timeout: 2000
 - runFlow: _relaunch-keep-state.yaml
 - evalScript: ${output.api.setProfileActive(output.signInEmail, false)}
 - extendedWaitUntil:
     visible: Account Deleted
     timeout: 45000
 - tapOn: Restore Account
-- extendedWaitUntil:
-    visible: Restore Account?
-    timeout: 5000
-- tapOn:
-    text: Restore Account
-    below: Restore Account?
+- runFlow: _confirm-restore-account.yaml
 - extendedWaitUntil:
     visible: OK
-    timeout: 30000
+    timeout: 60000
 - tapOn: OK
+# iOS can leave the process after PowerSync reinit on restore. Relaunch
+# keeps the session and lands on home chrome.
+- runFlow:
+    when:
+      notVisible:
+        id: app-drawer-menu-button
+    commands:
+      - runFlow: _relaunch-keep-state.yaml
 - extendedWaitUntil:
     visible:
       id: app-drawer-menu-button

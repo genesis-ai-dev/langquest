@@ -35,10 +35,36 @@ onFlowComplete:
     waitToSettleTimeoutMs: 0
 - tapOn:
     id: projects-tab-all
+# Warm the public project in the hybrid cache while online. PowerSync
+# does not sync other people's public projects, and a later offline
+# search only finds what this session already fetched.
 - tapOn:
     id: projects-search
+- inputText: ${output.publicName}
+- runFlow: _hide-keyboard.yaml
+- extendedWaitUntil:
+    visible: ${output.publicName}
+    timeout: 45000
+- tapOn:
+    text: ${output.publicName}
+    below:
+      id: projects-search
+- extendedWaitUntil:
+    visible:
+      id: project-speed-dial
+    timeout: 30000
+- tapOn:
+    id: nav-back
+    waitToSettleTimeoutMs: 0
+- tapOn:
+    id: projects-search
+- eraseText: 200
+- runFlow: _hide-keyboard.yaml
+- tapOn:
+    id: projects-search
+- eraseText: 200
 - inputText: ${output.privateName}
-- hideKeyboard
+- runFlow: _hide-keyboard.yaml
 - extendedWaitUntil:
     visible: ${output.privateName}
     timeout: 45000
@@ -88,8 +114,13 @@ onFlowComplete:
           id: projects-tab-all
       - tapOn:
           id: projects-search
+      - eraseText: 200
+      - runFlow: _hide-keyboard.yaml
+      - tapOn:
+          id: projects-search
+      - eraseText: 200
       - inputText: ${output.publicName}
-      - hideKeyboard
+      - runFlow: _hide-keyboard.yaml
       - extendedWaitUntil:
           visible: ${output.publicName}
           timeout: 20000

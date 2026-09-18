@@ -1,0 +1,30 @@
+appId: ${MAESTRO_APP_ID}
+---
+# Android: hideKeyboard is Back, the system dismiss. iOS has no dismiss
+# API; Maestro's swipe then fails the step if the keyboard stays up
+# ("Couldn't hide the keyboard"). Prefer the drawer title — tapping the
+# 12% nav band closes a bottom sheet. Fall back to that band on full
+# screens (sign-in, register).
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - hideKeyboard
+- runFlow:
+    when:
+      platform: iOS
+      visible:
+        id: drawer-title
+    commands:
+      - tapOn:
+          id: drawer-title
+          waitToSettleTimeoutMs: 0
+- runFlow:
+    when:
+      platform: iOS
+      notVisible:
+        id: drawer-title
+    commands:
+      - tapOn:
+          point: 50%,12%
+          waitToSettleTimeoutMs: 0

@@ -6,10 +6,8 @@
  */
 
 import { DownloadConfirmationModal } from '@/components/DownloadConfirmationModal';
-import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { QuestDownloadDiscoveryDrawer } from '@/components/QuestDownloadDiscoveryDrawer';
 import { QuestVersionPickerCard } from '@/components/QuestVersionPickerCard';
-import { Button } from '@/components/ui/button';
 import {
   Drawer,
   DrawerContent,
@@ -21,7 +19,6 @@ import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { getBibleBook } from '@/constants/bibleStructure';
 import { useAuth } from '@/contexts/AuthContext';
-import { system } from '@/db/powersync/system';
 import { useProjectById } from '@/hooks/db/useProjects';
 import { useBibleChapterCreation } from '@/hooks/useBibleChapterCreation';
 import {
@@ -39,18 +36,20 @@ import { BOOK_ICON_MAP } from '@/utils/BOOK_GRAPHICS';
 import { bulkDownloadQuest } from '@/utils/bulkDownload';
 import { cn, useThemeColor } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
-import { LegendList } from '@/components/ui/legend-list';
 import { invalidateCloud } from '@/hooks/hybridCache';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Image } from 'expo-image';
 import {
   BookOpenIcon,
+  CircleArrowDownIcon,
+  CircleCheckIcon,
   CopyIcon,
   HardDriveIcon,
   PlusCircleIcon
 } from 'lucide-react-native';
 import React from 'react';
-import { ActivityIndicator, Pressable, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // --- Version card inside the picker drawer ---
 
@@ -101,7 +100,6 @@ function ChapterButton({
   isCreatingThis,
   onPress,
   disabled,
-  onDownloadClick,
   canCreateNew,
   downloadingQuestIds = new Set(),
   downloadedQuestIds = new Set()
@@ -111,12 +109,10 @@ function ChapterButton({
   isCreatingThis: boolean;
   onPress: () => void;
   disabled: boolean;
-  onDownloadClick: (questId: string) => void;
   canCreateNew: boolean;
   downloadingQuestIds?: Set<string>;
   downloadedQuestIds?: Set<string>;
 }) {
-  const { currentUser } = useAuth();
   const existingQuest = group?.primary;
   const exists = !!existingQuest;
   const hasLocalCopy = existingQuest?.hasLocalCopy ?? false;
@@ -124,6 +120,7 @@ function ChapterButton({
   const isCloudQuest = existingQuest?.source === 'cloud';
   const versionCount = group?.versions.length ?? 0;
   const primaryColor = useThemeColor('primary');
+  const isDisabled = disabled || (!existingQuest && !canCreateNew);
 
   const liveDownloaded = useQuestDownloadStatusLive(existingQuest?.id || null);
   const isDownloaded =
@@ -134,14 +131,6 @@ function ChapterButton({
     downloadingQuestIds.has(existingQuest.id) &&
     !isDownloaded
   );
-  const needsDownload = isCloudQuest && !isDownloaded;
-
-  const handleDownloadToggle = () => {
-    if (!currentUser?.id || !existingQuest?.id) return;
-    if (!isDownloaded) {
-      onDownloadClick(existingQuest.id);
-    }
-  };
 
   const getBackgroundColor = () => {
     if (hasSyncedCopy) return 'bg-chart-3';
@@ -157,75 +146,72 @@ function ChapterButton({
   };
 
   return (
-    <View className="relative w-full flex-col gap-1">
-      <Button
-        variant={exists ? 'default' : 'outline'}
-        className={cn(
-          'w-full flex-col gap-1 py-3',
-          !exists && 'border-dashed',
-          getBackgroundColor()
-        )}
-        onPress={onPress}
-        disabled={disabled || (!existingQuest && !canCreateNew)}
-        testID={`bible-chapter-${chapterNum}`}
-        accessibilityLabel={`bible-chapter-${chapterNum}`}
-      >
-        {isCreatingThis ? (
-          <ActivityIndicator size="small" color={primaryColor} />
-        ) : (
-          <View className="flex-col items-center gap-1">
-            <View className="flex-row items-center gap-1">
-              {hasLocalCopy && (
-                <Icon as={HardDriveIcon} size={14} className="text-secondary" />
-              )}
-              {exists && (hasSyncedCopy || isCloudQuest) && (
-                <View pointerEvents="none">
-                  <DownloadIndicator
-                    isFlaggedForDownload={isDownloaded}
-                    isLoading={Boolean(isOptimisticallyDownloading)}
-                    onPress={handleDownloadToggle}
-                    size={16}
-                    iconColor={
-                      hasSyncedCopy || hasLocalCopy
-                        ? 'text-secondary'
-                        : 'text-foreground'
-                    }
-                  />
-                </View>
-              )}
-              <Text className={cn('text-lg font-bold', getTextColor())}>
-                {chapterNum}
+    <Pressable
+      onPress={onPress}
+      disabled={isDisabled}
+      testID={`bible-chapter-${chapterNum}`}
+      accessibilityLabel={`bible-chapter-${chapterNum}`}
+      accessibilityRole="button"
+      className={cn(
+        'w-full flex-col items-center gap-1 rounded-md py-3',
+        !exists && 'border border-dashed border-input',
+        getBackgroundColor(),
+        isDisabled && 'opacity-50'
+      )}
+    >
+      {isCreatingThis ? (
+        <ActivityIndicator size="small" color={primaryColor} />
+      ) : (
+        <View className="flex-col items-center gap-1">
+          <View className="flex-row items-center gap-1">
+            {hasLocalCopy && (
+              <Icon as={HardDriveIcon} size={14} className="text-secondary" />
+            )}
+            {exists && (hasSyncedCopy || isCloudQuest) && (
+              isOptimisticallyDownloading ? (
+                <ActivityIndicator size="small" color={primaryColor} />
+              ) : (
+                <Icon
+                  as={isDownloaded ? CircleCheckIcon : CircleArrowDownIcon}
+                  size={16}
+                  className={
+                    hasSyncedCopy || hasLocalCopy
+                      ? 'text-secondary'
+                      : 'text-foreground'
+                  }
+                />
+              )
+            )}
+            <Text className={cn('text-lg font-bold', getTextColor())}>
+              {chapterNum}
+            </Text>
+          </View>
+          {versionCount > 1 && (
+            <View className="flex-row items-center gap-0.5">
+              <Icon
+                as={CopyIcon}
+                size={10}
+                className={
+                  hasSyncedCopy || hasLocalCopy
+                    ? 'text-secondary/70'
+                    : 'text-muted-foreground'
+                }
+              />
+              <Text
+                className={cn(
+                  'text-xxs',
+                  hasSyncedCopy || hasLocalCopy
+                    ? 'text-secondary/70'
+                    : 'text-muted-foreground'
+                )}
+              >
+                {versionCount}
               </Text>
             </View>
-            <View className="flex-row items-center gap-1">
-              {versionCount > 1 && (
-                <View className="flex-row items-center gap-0.5">
-                  <Icon
-                    as={CopyIcon}
-                    size={10}
-                    className={
-                      hasSyncedCopy || hasLocalCopy
-                        ? 'text-secondary/70'
-                        : 'text-muted-foreground'
-                    }
-                  />
-                  <Text
-                    className={cn(
-                      'text-xxs',
-                      hasSyncedCopy || hasLocalCopy
-                        ? 'text-secondary/70'
-                        : 'text-muted-foreground'
-                    )}
-                  >
-                    {versionCount}
-                  </Text>
-                </View>
-              )}
-            </View>
-          </View>
-        )}
-      </Button>
-    </View>
+          )}
+        </View>
+      )}
+    </Pressable>
   );
 }
 
@@ -253,6 +239,7 @@ export function BibleChapterList({
   const bookIconSource = BOOK_ICON_MAP[bookId];
   const primaryColor = useThemeColor('primary');
   const { t } = useLocalization();
+  const insets = useSafeAreaInsets();
 
   const { membership } = useUserPermissions(projectId, 'open_project');
   const canCreateNew = membership === 'member' || membership === 'owner';
@@ -340,6 +327,7 @@ export function BibleChapterList({
   });
 
   const handleDownloadClick = (questId: string) => {
+    setPickerChapterNum(null);
     setQuestIdToDownload(questId);
     setShowDiscoveryDrawer(true);
   };
@@ -355,10 +343,23 @@ export function BibleChapterList({
     endHandoff();
     setShowConfirmationModal(false);
     const questIdsToTrack = new Set(discoveryState.discoveredIds.questIds);
+    const targetQuestId = questIdToDownload;
+    const targetName = chapterGroups
+      .flatMap((group) => group.versions)
+      .find((version) => version.id === targetQuestId)?.name;
     setDownloadingQuestIds((prev) => new Set([...prev, ...questIdsToTrack]));
+    setPickerChapterNum(null);
 
     try {
       await bulkDownloadMutation.mutateAsync();
+      if (targetQuestId) {
+        goToQuest({
+          id: targetQuestId,
+          project_id: projectId,
+          name: targetName
+        });
+      }
+      setQuestIdToDownload(null);
     } catch {
       setDownloadingQuestIds((prev) => {
         const next = new Set(prev);
@@ -396,34 +397,20 @@ export function BibleChapterList({
     setQuestIdToDownload(null);
   };
 
-  const navigateToVersion = async (version: BibleChapterQuest) => {
-    if (!currentUser?.id) return;
+  const navigateToVersion = (version: BibleChapterQuest) => {
+    const profiles = version.download_profiles;
+    const profileDownloaded = Boolean(
+      currentUser?.id &&
+        Array.isArray(profiles) &&
+        profiles.includes(currentUser.id)
+    );
+    const needsDownload =
+      Boolean(currentUser?.id) &&
+      version.source === 'cloud' &&
+      !downloadedQuestIds.has(version.id) &&
+      !profileDownloaded;
 
-    if (version.source === 'local') {
-      goToQuest({
-        id: version.id,
-        project_id: projectId,
-        name: version.name
-      });
-      setPickerChapterNum(null);
-      return;
-    }
-
-    const questRow = await system.db.query.quest.findFirst({
-      where: (fields, { eq }) => eq(fields.id, version.id),
-      columns: { download_profiles: true, published_at: true }
-    });
-
-    const profiles = questRow?.download_profiles;
-    let isDownloaded = false;
-    if (profiles) {
-      const parsed =
-        typeof profiles === 'string' ? JSON.parse(profiles) : profiles;
-      isDownloaded = Array.isArray(parsed) && parsed.includes(currentUser.id);
-    }
-    const isCloudQuest = version.source === 'cloud';
-
-    if (isCloudQuest && !isDownloaded) {
+    if (needsDownload) {
       setPickerChapterNum(null);
       handleDownloadClick(version.id);
       return;
@@ -473,7 +460,7 @@ export function BibleChapterList({
   }
 
   const handleChapterPress = (chapterNum: number) => {
-    if (!currentUser?.id || isCreating) return;
+    if (isCreating) return;
 
     const group = chapterGroups.find((g) => g.chapterNumber === chapterNum);
 
@@ -493,6 +480,11 @@ export function BibleChapterList({
       return;
     }
 
+    if (group.versions.length === 1) {
+      navigateToVersion(group.versions[0]!);
+      return;
+    }
+
     setPickerChapterNum(chapterNum);
   };
 
@@ -506,6 +498,14 @@ export function BibleChapterList({
       isCreatingThis: creatingChapter === chapterNum
     };
   });
+
+  const visibleChapterItems = chapterItems.filter(
+    (item) => item.group || canCreateNew
+  );
+  const chapterRows: (typeof visibleChapterItems)[] = [];
+  for (let i = 0; i < visibleChapterItems.length; i += 4) {
+    chapterRows.push(visibleChapterItems.slice(i, i + 4));
+  }
 
   const hasNoChapters = chapterGroups.length === 0;
   const showEmptyState = !isLoadingChapters && hasNoChapters && !canCreateNew;
@@ -557,36 +557,46 @@ export function BibleChapterList({
             </View>
           </>
         ) : (
-          <LegendList
-            data={chapterItems}
-            keyExtractor={(item) => item.id.toString()}
-            numColumns={4}
-            estimatedItemSize={90}
-            ListHeaderComponent={renderBookHeader('mb-6 w-full')}
-            contentContainerStyle={{ paddingHorizontal: 16 }}
-            columnWrapperStyle={{ gap: 8 }}
-            extraData={`${[...downloadingQuestIds].join(',')}|${[...downloadedQuestIds].join(',')}`}
-            recycleItems
-            renderItem={({ item }) =>
-              (item.group || canCreateNew) && (
-                <ChapterButton
-                  chapterNum={item.chapterNum}
-                  group={item.group}
-                  isCreatingThis={item.isCreatingThis}
-                  onPress={() => handleChapterPress(item.chapterNum)}
-                  disabled={Boolean(isCreating)}
-                  onDownloadClick={handleDownloadClick}
-                  canCreateNew={canCreateNew}
-                  downloadingQuestIds={downloadingQuestIds}
-                  downloadedQuestIds={downloadedQuestIds}
-                />
-              )
-            }
-          />
+          <ScrollView
+            style={{ flex: 1 }}
+            contentContainerStyle={{
+              paddingHorizontal: 16,
+              paddingBottom: insets.bottom + 24
+            }}
+            keyboardShouldPersistTaps="handled"
+          >
+            {renderBookHeader('mb-6 w-full')}
+            <View className="flex-col gap-2">
+              {chapterRows.map((row) => (
+                <View
+                  key={row.map((item) => item.id).join('-')}
+                  className="flex-row gap-2"
+                >
+                  {row.map((item) => (
+                    <View key={item.id} className="flex-1">
+                      <ChapterButton
+                        chapterNum={item.chapterNum}
+                        group={item.group}
+                        isCreatingThis={item.isCreatingThis}
+                        onPress={() => handleChapterPress(item.chapterNum)}
+                        disabled={Boolean(isCreating)}
+                        canCreateNew={canCreateNew}
+                        downloadingQuestIds={downloadingQuestIds}
+                        downloadedQuestIds={downloadedQuestIds}
+                      />
+                    </View>
+                  ))}
+                  {row.length < 4 &&
+                    Array.from({ length: 4 - row.length }).map((_, index) => (
+                      <View key={`pad-${index}`} className="flex-1" />
+                    ))}
+                </View>
+              ))}
+            </View>
+          </ScrollView>
         )}
       </View>
 
-      {/* Version picker drawer */}
       <Drawer
         open={!!pickerChapterNum}
         onOpenChange={(open) => {

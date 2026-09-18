@@ -1,0 +1,28 @@
+appId: ${MAESTRO_APP_ID}
+---
+# Overlay Restore Account sits under the confirm alert and overlaps
+# Cancel. `below: Restore Account?` hits that overlay button (or Cancel)
+# and dismisses the sheet. iOS stacks the actions: Restore Account is
+# above Cancel. Android Material puts Cancel left and Restore right.
+- extendedWaitUntil:
+    visible: Restore Account?
+    timeout: 5000
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn:
+          text: Restore Account
+          above: Cancel
+          waitToSettleTimeoutMs: 0
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - tapOn:
+          text: Restore Account
+          rightOf: Cancel
+          waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    notVisible: Restore Account?
+    timeout: 10000

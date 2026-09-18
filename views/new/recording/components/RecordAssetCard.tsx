@@ -254,7 +254,7 @@ function RecordAssetCardInternal({
       activeOpacity={0.7}
       disabled={isSelectionMode} // Disable card press in selection mode (use checkbox instead)
       testID="recording-asset-card"
-      accessibilityLabel="recording-asset-card"
+      accessible={false}
     >
       <View
         className={cn(
@@ -327,6 +327,7 @@ function RecordAssetCardInternal({
               >
                 <Text
                   className={`text-sm font-medium ${isRenameable && !isSelectionMode && onRename ? 'text-foreground underline' : 'text-foreground'}`}
+                  accessibilityLabel={asset.name || t('unnamedAsset')}
                 >
                   {asset.name || t('unnamedAsset')}
                 </Text>

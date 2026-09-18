@@ -41,7 +41,7 @@
     "test:ci": "jest --ci --watchAll=false --watchman=false",
     "test:rls": "npm run sb -- test db",
     "maestro:local": "npx tsx ./testing/maestro-local.ts",
-    "maestro:local:assets": "npx tsx ./testing/maestro-local.ts .maestro/flows/asset-manage.yaml .maestro/flows/asset-settings.yaml .maestro/flows/recording-screen.yaml .maestro/flows/asset-batch-ops.yaml .maestro/flows/asset-file-upload.yaml .maestro/flows/asset-file-upload-offline.yaml .maestro/flows/asset-file-download.yaml .maestro/flows/asset-file-delete-queue.yaml",
+    "maestro:local:assets": "npx tsx ./testing/maestro-local.ts .maestro/flows/asset-manage.yaml .maestro/flows/asset-settings.yaml .maestro/flows/recording-screen.yaml .maestro/flows/asset-batch-ops.yaml .maestro/flows/asset-file-upload.yaml .maestro/flows/asset-file-upload-offline.yaml .maestro/flows/asset-file-download.yaml .maestro/flows/asset-file-delete-queue.yaml .maestro/flows/offload-shared-draft.yaml",
     "lint": "eslint",
     "lint:fix": "eslint --fix",
     "lint:inspect": "npx @eslint/config-inspector",

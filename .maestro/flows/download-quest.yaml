@@ -21,7 +21,7 @@ onFlowStart:
 - tapOn:
     id: projects-search
 - inputText: ${output.projectName}
-- hideKeyboard
+- runFlow: _hide-keyboard.yaml
 - extendedWaitUntil:
     visible: ${output.projectName}
     timeout: 45000
@@ -72,8 +72,10 @@ onFlowStart:
       id: quest-download-continue
     timeout: 15000
 - openLink: ${MAESTRO_APP_SCHEME}://download-status
+- runFlow: _ios-confirm-open-link.yaml
 - extendedWaitUntil:
-    visible: Download Status
+    visible:
+      id: download-status-screen
     timeout: 20000
 - assertVisible: Download Status
 - runFlow: _open-app-drawer.yaml

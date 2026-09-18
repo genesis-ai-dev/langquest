@@ -18,6 +18,6 @@ onFlowStart:
     id: quest-publish
 - tapOn:
     id: quest-publish-confirm
-- tapOn: Save
+- runFlow: _confirm-cloud-save.yaml
 - evalScript: ${output.api.deleteProject(output.projectName)}
 - evalScript: ${output.api.deleteUserIfExists(output.signInEmail)}

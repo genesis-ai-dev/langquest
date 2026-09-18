@@ -15,11 +15,23 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useLocalStore } from '@/store/localStore';
 import { createLanguoidOffline } from '@/utils/languoidUtils';
-import { cn, getThemeColor, useThemeColor } from '@/utils/styleUtils';
-import { LanguagesIcon, PlusCircleIcon, SearchIcon } from 'lucide-react-native';
+import { cn, useThemeColor } from '@/utils/styleUtils';
+import {
+  ChevronDownIcon,
+  LanguagesIcon,
+  PlusCircleIcon,
+  SearchIcon
+} from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
-import { Dropdown } from 'react-native-element-dropdown';
+import {
+  ActivityIndicator,
+  FlatList,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  View
+} from 'react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -133,6 +145,7 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
 
   // State for creation flow
   const [isCreating, setIsCreating] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
 
   // Store the currently selected languoid to preserve it in dropdown data
   const [selectedLanguoid, setSelectedLanguoid] = useState<
@@ -375,6 +388,7 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
 
         // Clear search
         setSearchQuery('');
+        setIsOpen(false);
       } catch (error) {
         console.error('Failed to create languoid:', error);
       } finally {
@@ -405,6 +419,7 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
 
       // Clear search after selection
       setSearchQuery('');
+      setIsOpen(false);
     },
     [
       handleCreateNew,
@@ -416,9 +431,10 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
     ]
   );
 
-  // Determine loading state
-  const isLoading =
-    isLocalLoading || (shouldUseServerSearch && isSearchLoading) || isCreating;
+  const closePicker = useCallback(() => {
+    setIsOpen(false);
+    setSearchQuery('');
+  }, [setSearchQuery]);
 
   // Show loading state while fetching initial data (only for uiReadyOnly mode)
   if (uiReadyOnly && isLocalLoading && localLanguoids.length === 0) {
@@ -429,161 +445,150 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
     );
   }
 
-  return (
-    <View className={cn('w-full', className)} testID={testID}>
-      <Dropdown
-        style={{
-          height: 48,
-          borderWidth: 1,
-          borderRadius: 8,
-          paddingHorizontal: 12,
-          backgroundColor: getThemeColor('card'),
-          borderColor: getThemeColor('border')
-        }}
-        placeholderStyle={{
-          fontSize: 14,
-          color: getThemeColor('muted-foreground')
-        }}
-        selectedTextStyle={{
-          fontSize: 14,
-          lineHeight: 48,
-          color: getThemeColor('foreground')
-        }}
-        iconStyle={{
-          width: 20,
-          height: 20
-        }}
-        containerStyle={{
-          borderRadius: 8,
-          overflow: 'hidden',
-          borderWidth: 1,
-          marginTop: 8,
-          backgroundColor: getThemeColor('card'),
-          borderColor: getThemeColor('border')
-        }}
-        dropdownPosition="auto"
-        itemTextStyle={{
-          fontSize: 14,
-          color: getThemeColor('foreground')
-        }}
-        itemContainerStyle={{
-          borderRadius: 8,
-          overflow: 'hidden'
-        }}
-        // activeColor={getThemeColor('primary')}
-        activeColor={getThemeColor('primary')}
-        data={sortedData}
-        search
-        maxHeight={400}
-        labelField="label"
-        valueField="value"
-        placeholder={t('selectLanguage')}
-        value={effectiveValue}
-        onChange={handleValueChange}
-        renderInputSearch={() => (
-          <View className="overflow-hidden border-b border-border">
-            <Input
-              value={immediateSearchQuery}
-              onChangeText={setSearchQuery}
-              testID={searchTestID}
-              placeholder={t('searchLanguages')}
-              prefix={SearchIcon}
-              size="sm"
-              className="border-0"
-              autoCapitalize="none"
-              autoCorrect={false}
-              suffix={
-                (isSearchLoading || isCreating) && immediateSearchQuery ? (
-                  <ActivityIndicator
-                    size="small"
-                    color={getThemeColor('primary')}
-                  />
-                ) : undefined
-              }
-            />
-          </View>
-        )}
-        flatListProps={{
-          style: {
-            backgroundColor: getThemeColor('card')
-          },
-          contentContainerStyle: {},
-          ListEmptyComponent: () => (
-            <View className="px-3 py-4">
-              <Text className="text-center text-sm text-muted-foreground">
-                {isSearchLoading
-                  ? t('searching')
-                  : debouncedSearchQuery.length >= 2
-                    ? t('noLanguagesFound')
-                    : t('typeToSearch', { min: 2 })}
-              </Text>
-            </View>
-          )
-        }}
-        renderLeftIcon={() => (
-          <Icon
-            as={LanguagesIcon}
-            className="mr-2 text-muted-foreground"
-            size={20}
-          />
-        )}
-        renderItem={(item, selected) => {
-          // Special rendering for "Create new" option
-          if (item.isCreateOption) {
-            return (
-              <ButtonPressable
-                className="flex flex-row items-center bg-primary/10 p-3"
-                onPress={() => handleValueChange(item)}
-              >
-                <Icon
-                  as={PlusCircleIcon}
-                  className="mr-2 text-primary"
-                  size={20}
-                />
-                <View className="flex-1">
-                  <Text className="text-sm font-medium text-primary">
-                    {t('createLanguage', { name: item.displayLabel })}
-                  </Text>
-                  <Text className="text-xs text-muted-foreground">
-                    Add this as a new language
-                  </Text>
-                </View>
-              </ButtonPressable>
-            );
-          }
+  const selectedLabel = selectedLanguoid?.name ?? t('selectLanguage');
+  const hasSelection = Boolean(selectedLanguoid);
 
-          // Normal item rendering
-          return (
-            <View
-              className={cn(
-                'flex flex-row items-center px-3 py-3',
-                selected && 'bg-accent'
-              )}
-            >
-              <View className="flex-1">
-                <Text
-                  className={cn(
-                    'flex-1 text-sm',
-                    selected
-                      ? 'font-medium text-accent-foreground'
-                      : 'text-foreground'
-                  )}
-                  numberOfLines={1}
-                >
-                  {item.displayLabel || item.label}
-                </Text>
-                {/* Show matched alias and/or ISO code if available */}
-                {(item.isoCode || item.matchedAlias) && (
-                  <Text className="text-xs text-muted-foreground">
-                    {item.matchedAlias && `[${item.matchedAlias}] `}
-                    {item.isoCode && `iso:${item.isoCode}`}
-                  </Text>
+  return (
+    <View className={cn('w-full', className)} accessible={false}>
+      <ButtonPressable
+        testID={testID}
+        accessibilityLabel={testID}
+        onPress={() => setIsOpen(true)}
+        className="h-12 flex-row items-center rounded-lg border border-border bg-card px-3"
+      >
+        <Icon
+          as={LanguagesIcon}
+          className="mr-2 text-muted-foreground"
+          size={20}
+        />
+        <Text
+          className={cn(
+            'flex-1 text-sm',
+            hasSelection ? 'text-foreground' : 'text-muted-foreground'
+          )}
+          numberOfLines={1}
+        >
+          {selectedLabel}
+        </Text>
+        <Icon as={ChevronDownIcon} className="text-muted-foreground" size={16} />
+      </ButtonPressable>
+
+      <Modal
+        visible={isOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={closePicker}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          className="flex-1"
+        >
+          <View className="flex-1 justify-center px-4">
+            <Pressable
+              accessibilityRole="button"
+              className="absolute inset-0 bg-black/40"
+              onPress={closePicker}
+            />
+            <View className="max-h-[70%] overflow-hidden rounded-xl border border-border bg-card">
+              <Input
+                value={immediateSearchQuery}
+                onChangeText={setSearchQuery}
+                testID={searchTestID}
+                accessibilityLabel={searchTestID}
+                placeholder={t('searchLanguages')}
+                prefix={SearchIcon}
+                size="sm"
+                className="border-0 border-b border-border"
+                autoCapitalize="none"
+                autoCorrect={false}
+                autoFocus
+                suffix={
+                  (isSearchLoading || isCreating) && immediateSearchQuery ? (
+                    <ActivityIndicator size="small" color={primaryColor} />
+                  ) : undefined
+                }
+              />
+              <FlatList
+                data={sortedData}
+                keyboardShouldPersistTaps="handled"
+                keyExtractor={(item) => item.value}
+                style={{ maxHeight: 360 }}
+                ListEmptyComponent={() => (
+                  <View className="px-3 py-4">
+                    <Text className="text-center text-sm text-muted-foreground">
+                      {isSearchLoading
+                        ? t('searching')
+                        : debouncedSearchQuery.length >= 2
+                          ? t('noLanguagesFound')
+                          : t('typeToSearch', { min: 2 })}
+                    </Text>
+                  </View>
                 )}
-              </View>
+                renderItem={({ item }) => {
+                  if (item.isCreateOption) {
+                    return (
+                      <ButtonPressable
+                        testID="language-create-new"
+                        accessibilityLabel="language-create-new"
+                        className="flex flex-row items-center bg-primary/10 p-3"
+                        onPress={() => handleValueChange(item)}
+                      >
+                        <Icon
+                          as={PlusCircleIcon}
+                          className="mr-2 text-primary"
+                          size={20}
+                        />
+                        <View className="flex-1">
+                          <Text className="text-sm font-medium text-primary">
+                            {t('createLanguage', { name: item.displayLabel })}
+                          </Text>
+                          <Text className="text-xs text-muted-foreground">
+                            Add this as a new language
+                          </Text>
+                        </View>
+                      </ButtonPressable>
+                    );
+                  }
+
+                  const selected = item.value === effectiveValue;
+                  const rowLabel = item.displayLabel || item.label;
+                  return (
+                    <ButtonPressable
+                      testID={rowLabel}
+                      accessibilityLabel={rowLabel}
+                      className={cn(
+                        'flex flex-row items-center px-3 py-3',
+                        selected && 'bg-accent'
+                      )}
+                      onPress={() => handleValueChange(item)}
+                    >
+                      <View className="flex-1">
+                        <Text
+                          className={cn(
+                            'flex-1 text-sm',
+                            selected
+                              ? 'font-medium text-accent-foreground'
+                              : 'text-foreground'
+                          )}
+                          numberOfLines={1}
+                        >
+                          {rowLabel}
+                        </Text>
+                        {(item.isoCode || item.matchedAlias) && (
+                          <Text className="text-xs text-muted-foreground">
+                            {item.matchedAlias && `[${item.matchedAlias}] `}
+                            {item.isoCode && `iso:${item.isoCode}`}
+                          </Text>
+                        )}
+                      </View>
+                    </ButtonPressable>
+                  );
+                }}
+              />
             </View>
-          );
-        }}
-      />
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 };

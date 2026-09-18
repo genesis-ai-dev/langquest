@@ -1,7 +1,10 @@
 appId: ${MAESTRO_APP_ID}
 ---
 # Relaunch without wiping session or onboarding. Preview keeps auth.
-# Development client may still need the Metro deep link after stopApp.
+# Android development client needs the Metro deep link after stopApp.
+# iOS: launchApp + openLink together kills the JS runtime
+# (EXJavaScriptObject SIGSEGV). The last Metro URL is still stored, so
+# launchApp alone is enough. If SpringBoard stays up, tap the icon.
 # Do not wait for projects-create-button: expo-router may restore Profile.
 - stopApp
 - launchApp:
@@ -9,15 +12,44 @@ appId: ${MAESTRO_APP_ID}
     stopApp: false
 - runFlow:
     when:
+      platform: Android
       true: ${output.useDevClient}
     commands:
       - openLink: ${MAESTRO_DEV_CLIENT_URL}
+- waitForAnimationToEnd:
+    timeout: 3000
 - repeat:
-    times: 10
+    times: 15
     while:
       notVisible:
         id: app-drawer-menu-button
     commands:
+      - runFlow:
+          when:
+            visible: '(?i)Connecting to the development server.*'
+          commands:
+            - extendedWaitUntil:
+                notVisible: '(?i)Connecting to the development server.*'
+                timeout: 90000
+      - runFlow:
+          when:
+            visible: Fitness
+            notVisible:
+              id: app-drawer-menu-button
+          commands:
+            - tapOn: 'LangQuest.*'
+      - runFlow:
+          when:
+            visible: '(?i)Fetch development servers'
+          commands:
+            - openLink: ${MAESTRO_DEV_CLIENT_URL}
+      - runFlow:
+          when:
+            visible: 'http://.*'
+            notVisible:
+              id: app-drawer-menu-button
+          commands:
+            - tapOn: 'http://.*'
       - runFlow:
           when:
             visible: Continue

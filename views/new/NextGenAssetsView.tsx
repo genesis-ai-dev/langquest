@@ -107,8 +107,7 @@ import { useBlockedAssetsCount } from '@/hooks/useBlockedCount';
 import { useQuestOffloadVerification } from '@/hooks/useQuestOffloadVerification';
 import { useHasUserReported } from '@/hooks/useReports';
 import { useUndoHistory } from '@/hooks/useUndoHistory';
-import { resolveTable } from '@/utils/dbUtils';
-import { resolvePlayableAudioUri } from '@/utils/resolvePlayableAudio';
+import { getAssetAudioUris as getPlayableAssetAudioUris } from '@/utils/getAssetAudioUris';
 import { publishQuest as publishQuestUtils } from '@/utils/publishQuest';
 import { offloadQuest } from '@/utils/questOffloadUtils';
 import { getThemeColor } from '@/utils/styleUtils';
@@ -820,47 +819,8 @@ export default function NextGenAssetsView() {
   // Special audio ID for "play all" mode
   // const PLAY_ALL_AUDIO_ID = 'play-all-assets';
 
-  // Fetch audio URIs for an asset (similar to RecordingViewSimplified)
-  // Includes fallback logic for local-only files when server records are removed
   const getAssetAudioUris = React.useCallback(
-    async (assetId: string): Promise<string[]> => {
-      try {
-        const assetContentLinkTable = resolveTable('asset_content_link');
-        const uniqueLinks = await system.db
-          .select()
-          .from(assetContentLinkTable)
-          .where(eq(assetContentLinkTable.asset_id, assetId));
-
-        if (uniqueLinks.length === 0) {
-          return [];
-        }
-
-        // Get audio values from content links (can be URIs or attachment IDs)
-        const audioValues = uniqueLinks
-          .flatMap((link) => {
-            const audioArray = link.audio ?? [];
-            return audioArray;
-          })
-          .filter((value): value is string => !!value);
-
-        if (audioValues.length === 0) {
-          return [];
-        }
-
-        const uris: string[] = [];
-        for (const audioValue of audioValues) {
-          const localUri = await resolvePlayableAudioUri(audioValue);
-          if (localUri) {
-            uris.push(localUri);
-          }
-        }
-
-        return uris;
-      } catch (error) {
-        console.error('Failed to fetch audio URIs:', error);
-        return [];
-      }
-    },
+    (assetId: string) => getPlayableAssetAudioUris(assetId),
     []
   );
 
@@ -1120,6 +1080,10 @@ export default function NextGenAssetsView() {
 
   // Handle offload button click - start verification
   const handleOffloadClick = () => {
+    if (selectedQuest?.published_at == null) {
+      console.warn('🗑️ [Offload] Refusing to offload unpublished quest');
+      return;
+    }
     console.log('🗑️ [Offload] Opening verification drawer');
     setShowOffloadDrawer(true);
     verificationState.startVerification();
@@ -1130,7 +1094,7 @@ export default function NextGenAssetsView() {
     console.log('🗑️ [Offload] User confirmed, executing offload');
     setIsOffloading(true);
     try {
-      await offloadQuest({
+      const result = await offloadQuest({
         questId: questId || '',
         verifiedIds: verificationState.verifiedIds,
         onProgress: (progress, message) => {
@@ -1149,7 +1113,10 @@ export default function NextGenAssetsView() {
         'project'
       );
 
-      RNAlert.alert(t('success'), t('offloadComplete'));
+      RNAlert.alert(
+        t('success'),
+        result.localRowsRemoved ? t('offloadComplete') : t('offloadSyncPending')
+      );
       setShowOffloadDrawer(false);
 
       router.back();
@@ -1537,18 +1504,9 @@ export default function NextGenAssetsView() {
                 onPress={() => {
                   console.log('📋 [Info] Opening details modal', {
                     selectedQuest: selectedQuest?.id,
-                    isDownloaded: isQuestDownloaded,
-                    storageBytes: verificationState.estimatedStorageBytes
+                    isDownloaded: isQuestDownloaded
                   });
                   setShowDetailsModal(true);
-                  // Start verification to get storage estimate if quest is downloaded and exists in cloud
-                  if (
-                    isQuestDownloaded &&
-                    !verificationState.isVerifying &&
-                    selectedQuest?.published_at != null
-                  ) {
-                    verificationState.startVerification();
-                  }
                 }}
               />
             </SpeedDialItems>
@@ -1692,7 +1650,6 @@ export default function NextGenAssetsView() {
           content={selectedQuest}
           onClose={() => setShowDetailsModal(false)}
           isDownloaded={isQuestDownloaded}
-          estimatedStorageBytes={verificationState.estimatedStorageBytes}
           onOffloadClick={handleOffloadClick}
         />
       )}

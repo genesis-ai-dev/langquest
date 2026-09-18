@@ -1,0 +1,20 @@
+appId: ${MAESTRO_APP_ID}
+---
+# Close an asset settings (or other) drawer and land on the quest assets
+# list. Android Back dismisses the sheet; iOS pressKey back is a no-op, so
+# the first nav-back closes the sheet and a second pops the detail.
+# Repeat until assets-search is up — do not assert after a single back.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - pressKey: back
+- repeat:
+    times: 5
+    while:
+      notVisible:
+        id: assets-search
+    commands:
+      - tapOn:
+          id: nav-back
+          waitToSettleTimeoutMs: 0

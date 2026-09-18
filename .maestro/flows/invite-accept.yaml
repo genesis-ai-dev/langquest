@@ -29,7 +29,7 @@ onFlowStart:
     id: membership-invite-email
     waitToSettleTimeoutMs: 0
 - inputText: ${output.inviteeEmail}
-- hideKeyboard
+- runFlow: _hide-keyboard.yaml
 - tapOn:
     id: membership-invite-send
     waitToSettleTimeoutMs: 0

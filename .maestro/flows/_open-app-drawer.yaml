@@ -3,7 +3,11 @@ appId: ${MAESTRO_APP_ID}
 # Expo's Dev Menu FAB defaults to the top-right, on top of the drawer
 # button. clearState resets it there every run. Drag it down the right
 # edge (it snaps to that edge) so the drawer tap hits the app, not Expo.
-# Preview/production builds skip this (MAESTRO_USE_DEV_CLIENT is unset).
+# Park on the left mid-screen. The FAB snaps to an edge; the right
+# edge covers the hamburger (top), settings-merge (toggle on the
+# right), recording-action-replace (card chrome), and batch-delete
+# (footer). Preview/production skip this (MAESTRO_USE_DEV_CLIENT
+# is unset).
 #
 # Leftover discovery (or another sheet) can swallow the first hamburger
 # tap after a deep link. Retry until drawer-projects is actually open;
@@ -14,7 +18,7 @@ appId: ${MAESTRO_APP_ID}
     commands:
       - swipe:
           start: 94%, 8%
-          end: 94%, 78%
+          end: 6%, 60%
           duration: 500
 - runFlow:
     when:
@@ -22,6 +26,13 @@ appId: ${MAESTRO_APP_ID}
     commands:
       - swipe:
           direction: DOWN
+# Airplane mid-init (or Expo losing Metro) shows this alert over the
+# hamburger. Dismiss it so the drawer tap can land.
+- runFlow:
+    when:
+      visible: Initialization Error
+    commands:
+      - tapOn: OK
 - repeat:
     times: 4
     while:

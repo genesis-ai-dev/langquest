@@ -162,10 +162,19 @@ export const ReportModal: React.FC<ReportModalProps> = ({
       animationType="slide"
       onRequestClose={onClose}
     >
-      <TouchableWithoutFeedback onPress={onClose}>
-        <Pressable className="flex-1 items-center justify-center bg-black/50">
-          <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
-            <View className="w-[90%] max-w-md rounded-lg bg-background p-6">
+      <TouchableWithoutFeedback onPress={onClose} accessible={false}>
+        <Pressable
+          className="flex-1 items-center justify-center bg-black/50"
+          accessible={false}
+        >
+          <TouchableWithoutFeedback
+            onPress={(e) => e.stopPropagation()}
+            accessible={false}
+          >
+            <View
+              className="w-[90%] max-w-md rounded-lg bg-background p-6"
+              accessible={false}
+            >
               <View className="mb-4 flex-row items-center justify-between">
                 <Text variant="h3">{modalTitle}</Text>
                 <Pressable className="p-1" onPress={onClose}>

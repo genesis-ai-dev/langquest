@@ -21,9 +21,27 @@ onFlowStart:
     visible: Continue
     timeout: 15000
 - tapOn: Continue
-- tapOn: Delete Account
-# Android AlertDialog uppercases the destructive button.
-- tapOn: DELETE ACCOUNT
+- tapOn:
+    id: account-deletion-confirm
+- extendedWaitUntil:
+    visible: 'Are you absolutely sure.*'
+    timeout: 5000
+# Android AlertDialog uppercases the destructive button. iOS stacks
+# Delete Account above Cancel; a bare Delete Account tap hits the page
+# button and leaves the alert up.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - tapOn: DELETE ACCOUNT
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn:
+          text: Delete Account
+          above: Cancel
+          waitToSettleTimeoutMs: 0
 - extendedWaitUntil:
     visible: Done
     timeout: 45000

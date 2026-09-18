@@ -395,7 +395,9 @@ function deleteProject(projectName) {
     'project?name=eq.' + encodeURIComponent(projectName) + '&select=id'
   );
   if (!projects || projects.length === 0) {
-    throw new Error('Project not found with name: ' + projectName);
+    // iOS skips airplane-mode creates; cleanup still runs.
+    console.log('deleteProject skipped, no row:', projectName);
+    return;
   }
 
   const projectId = projects[0].id;
@@ -831,6 +833,24 @@ function waitForAsset(assetName, timeoutMs) {
       encodeURIComponent(assetName) +
       '&select=id,name',
     'asset ' + assetName,
+    timeoutMs
+  );
+}
+
+// Content rows for an asset. Offload of a published quest that shares the
+// asset with a draft must leave these rows (and their audio[]) on the server.
+function waitForAssetContent(assetName, timeoutMs) {
+  if (!assetName || typeof assetName !== 'string' || assetName.trim() === '') {
+    throw new Error(
+      'waitForAssetContent requires assetName. Received: ' + assetName
+    );
+  }
+  const asset = waitForAsset(assetName, timeoutMs);
+  return waitForRows(
+    '/rest/v1/asset_content_link?asset_id=eq.' +
+      asset.id +
+      '&select=id,asset_id,audio,audio_uploaded_at',
+    'asset_content_link for ' + assetName,
     timeoutMs
   );
 }
@@ -2043,6 +2063,7 @@ output.api = {
   waitForLanguoid,
   waitForQuest,
   waitForAsset,
+  waitForAssetContent,
   waitForQuestAssetName,
   waitForAssetVisible,
   waitForAssetActive,

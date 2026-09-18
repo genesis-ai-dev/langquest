@@ -25,12 +25,15 @@ onFlowStart:
     timeout: 45000
 - tapOn:
     id: bible-chapter-1
-- extendedWaitUntil:
-    visible:
-      id: bible-chapter-version
-    timeout: 20000
-- tapOn:
-    id: bible-chapter-version
+# A single downloaded version opens the chapter directly. The picker
+# only appears when there are multiple versions.
+- runFlow:
+    when:
+      visible:
+        id: bible-chapter-version
+    commands:
+      - tapOn:
+          id: bible-chapter-version
 - runFlow:
     when:
       visible:

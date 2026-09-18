@@ -6,26 +6,30 @@ appId: ${MAESTRO_APP_ID}
 - tapOn:
     id: projects-search
 - inputText: ${output.projectName}
-- hideKeyboard
+- runFlow: _hide-keyboard.yaml
+# The search field already contains this name. Wait for the list row,
+# not the input text, or the tap below the field misses an empty list.
 - extendedWaitUntil:
-    visible: ${output.projectName}
+    visible:
+      id: project-list-item
     timeout: 45000
+# Tap the list row by id, not the shared search text. The first tap can
+# only dismiss the IME. Wait before retrying: a when: check during the
+# push still sees home chrome and a second tap misses. Do not wait for
+# quests-search — bible/FIA directories never show it.
 - tapOn:
-    text: ${output.projectName}
-    below:
-      id: projects-search
-# The row tap can miss while the list settles. A left swipe on this
-# screen is Android Back and returns to Projects, so wait until home
-# chrome is gone instead of hunting for a per-template control.
+    id: project-list-item
+    waitToSettleTimeoutMs: 0
+- waitForAnimationToEnd:
+    timeout: 2000
 - runFlow:
     when:
       visible:
         id: projects-create-button
     commands:
       - tapOn:
-          text: ${output.projectName}
-          below:
-            id: projects-search
+          id: project-list-item
+          waitToSettleTimeoutMs: 0
 - extendedWaitUntil:
     notVisible:
       id: projects-create-button

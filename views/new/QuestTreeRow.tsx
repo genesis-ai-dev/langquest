@@ -136,7 +136,7 @@ export const QuestTreeRow: React.FC<QuestTreeRowProps> = ({
       <Pressable
         className="flex-1 justify-center rounded-lg px-1 active:scale-[0.98] active:bg-accent/50"
         testID="quest-list-item"
-        accessibilityLabel="quest-list-item"
+        accessibilityLabel={quest.name || 'quest-list-item'}
         onPress={handleQuestPress}
         hitSlop={10}
       >

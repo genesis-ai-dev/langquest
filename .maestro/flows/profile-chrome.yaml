@@ -13,7 +13,8 @@ onFlowStart:
     id: drawer-profile
     waitToSettleTimeoutMs: 0
 - extendedWaitUntil:
-    visible: Submit Feedback
+    visible:
+      id: profile-feedback
     timeout: 15000
 - runFlow: _open-app-drawer.yaml
 - tapOn:
@@ -46,11 +47,11 @@ onFlowStart:
 - tapOn:
     id: feedback-title
 - inputText: ${output.feedbackTitle}
-- hideKeyboard
+- runFlow: _hide-keyboard.yaml
 - tapOn:
     id: feedback-description
 - inputText: maestro-feedback-body
-- hideKeyboard
+- runFlow: _hide-keyboard.yaml
 - scrollUntilVisible:
     element:
       id: feedback-submit
@@ -82,13 +83,7 @@ onFlowStart:
 - tapOn:
     id: profile-language
     waitToSettleTimeoutMs: 0
-- extendedWaitUntil:
-    visible:
-      id: language-search
-    timeout: 15000
-- tapOn:
-    id: language-search
-    waitToSettleTimeoutMs: 0
+- runFlow: _tap-language-search.yaml
 - inputText: Tok Pisin
 - extendedWaitUntil:
     visible:
@@ -107,10 +102,14 @@ onFlowStart:
       - tapOn:
           id: Tok Pisin
           waitToSettleTimeoutMs: 0
-- extendedWaitUntil:
-    notVisible:
-      id: language-search
-    timeout: 15000
+- runFlow:
+    when:
+      visible: '(?i)Search languages.*'
+    commands:
+      - tapOn:
+          id: Tok Pisin
+          waitToSettleTimeoutMs: 0
+- runFlow: _wait-language-search-gone.yaml
 - tapOn:
     id: profile-submit
 - extendedWaitUntil:

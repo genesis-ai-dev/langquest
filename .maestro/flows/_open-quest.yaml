@@ -1,9 +1,14 @@
 appId: ${MAESTRO_APP_ID}
 ---
-# After the quest drawer closes, the quest search field takes focus and
-# the keyboard comes up. The first tap on the list only dismisses the
-# keyboard. Hide it first and retry once if the list is still showing.
-- hideKeyboard
+# After the quest drawer closes, the quest search field can take focus.
+# The first tap on the list only dismisses the IME. Android hideKeyboard
+# is Back and pops the project once the keyboard is already down (we hid
+# it before quest-create-submit). iOS taps the header instead of Back.
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - runFlow: _hide-keyboard.yaml
 - tapOn:
     id: quest-list-item
 - runFlow:

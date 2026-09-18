@@ -93,6 +93,7 @@ onFlowStart:
     timeout: 10000
 - tapOn:
     id: assets-batch-delete
+    point: '20%,50%'
     waitToSettleTimeoutMs: 0
 - extendedWaitUntil:
     notVisible: '001'
@@ -203,14 +204,9 @@ onFlowStart:
 # caret varies, so read the result back instead of predicting it.
 - waitForAnimationToEnd:
     timeout: 3000
-- tapOn:
-    id: asset-rename-input
-    point: '5%,50%'
-    waitToSettleTimeoutMs: 0
-- inputText: x
-- copyTextFrom:
-    id: asset-rename-input
-- evalScript: ${output.renamedTake = output.api.assertInsertedOnce(maestro.copiedText, "004", "x", "rename input")}
+- evalScript: ${output.renameOriginal = "004"}
+- runFlow: _insert-rename-char.yaml
+- evalScript: ${output.renamedTake = output.renamedTyped}
 # The IME covers the drawer footer on this screen and hideKeyboard cannot
 # dismiss it. The input submits on Done, so press Enter; fall back to Save.
 - pressKey: Enter
@@ -232,9 +228,7 @@ onFlowStart:
 - evalScript: ${output.api.waitForQuestAssetName(output.questName, output.renamedTake, 45000)}
 - evalScript: ${output.api.waitForAsset(output.renamedTake, 45000)}
 # --- Leave: garbage collection drops the dead rows ------------------------
-- tapOn:
-    id: nav-back
-    waitToSettleTimeoutMs: 0
+- runFlow: _leave-recording-refresh.yaml
 - extendedWaitUntil:
     visible: ${output.renamedTake}
     timeout: 20000

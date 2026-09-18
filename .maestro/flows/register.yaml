@@ -4,26 +4,32 @@ onFlowStart:
 ---
 - evalScript: ${output.username = faker.internet().username()}
 - evalScript: ${output.email = faker.internet().emailAddress()}
+- evalScript: ${output.registerPassword = output.api.uniquePassword("register")}
 - runFlow: _launch-and-onboard.yaml
 - tapOn: Create Account
 - tapOn:
     id: register-username
 - inputText: ${output.username}-testing
-- hideKeyboard
+- runFlow: _hide-keyboard.yaml
 - tapOn:
     id: register-email
 - inputText: ${output.email}
-- hideKeyboard
+- runFlow: _hide-keyboard.yaml
 - tapOn:
     id: register-password
-- inputText: password
-- hideKeyboard
+- runFlow: _ios-dismiss-strong-password.yaml
+- eraseText
+- inputText: ${output.registerPassword}
+- runFlow: _hide-keyboard.yaml
 - tapOn:
     id: register-confirm-password
-- inputText: password
-- hideKeyboard
+- runFlow: _ios-dismiss-strong-password.yaml
+- eraseText
+- inputText: ${output.registerPassword}
+- runFlow: _hide-keyboard.yaml
 - tapOn:
     id: register-submit
+- runFlow: _ios-dismiss-save-password.yaml
 # Local Docker has confirmations off, so signUp creates a session and the
 # auth layout redirects home. Preview/production may land on Sign In first.
 - runFlow:
@@ -35,12 +41,12 @@ onFlowStart:
           id: sign-in-email
       - eraseText
       - inputText: ${output.email}
-      - hideKeyboard
+      - runFlow: _hide-keyboard.yaml
       - tapOn:
           id: sign-in-password
       - eraseText
-      - inputText: password
-      - hideKeyboard
+      - inputText: ${output.registerPassword}
+      - runFlow: _hide-keyboard.yaml
       - tapOn:
           text: Sign In
           below: I forgot my password

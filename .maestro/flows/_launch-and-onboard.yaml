@@ -24,6 +24,24 @@ appId: ${MAESTRO_APP_ID}
     while:
       notVisible: Terms & Privacy
     commands:
+      # clearState + openLink often lands here before the bundle is
+      # ready. The other when: checks skip, so 20 loops finish in
+      # seconds unless we wait the connecting screen out.
+      - runFlow:
+          when:
+            visible: '(?i)Connecting to the development server.*'
+          commands:
+            - extendedWaitUntil:
+                notVisible: '(?i)Connecting to the development server.*'
+                timeout: 90000
+      # Airplane in a prior flow can wipe the Dev Launcher recents.
+      # openLink then misses and we sit on "Fetch development servers"
+      # with no http:// row. Send the Metro URL again.
+      - runFlow:
+          when:
+            visible: '(?i)Fetch development servers'
+          commands:
+            - openLink: ${MAESTRO_DEV_CLIENT_URL}
       - runFlow:
           when:
             visible: 'http://.*'
@@ -41,6 +59,14 @@ appId: ${MAESTRO_APP_ID}
           commands:
             - swipe:
                 direction: DOWN
+      # Stale custom-scheme prompt from a prior flow (download-status).
+      # Cancel it; Open would land on the old route instead of Terms.
+      - runFlow:
+          when:
+            platform: iOS
+            visible: 'Open in .*'
+          commands:
+            - tapOn: Cancel
 - assertVisible: Terms & Privacy
 - scrollUntilVisible:
     element: I agree

@@ -6,7 +6,6 @@
  */
 
 import { DownloadConfirmationModal } from '@/components/DownloadConfirmationModal';
-import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { QuestDownloadDiscoveryDrawer } from '@/components/QuestDownloadDiscoveryDrawer';
 import { QuestVersionPickerCard } from '@/components/QuestVersionPickerCard';
 import { Button } from '@/components/ui/button';
@@ -20,7 +19,6 @@ import {
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
-import { system } from '@/db/powersync/system';
 import { useProjectById } from '@/hooks/db/useProjects';
 import type { FiaBook, FiaPericope } from '@/hooks/useFiaBooks';
 import { useFiaPericopeCreation } from '@/hooks/useFiaPericopeCreation';
@@ -45,6 +43,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Image } from 'expo-image';
 import {
   BookOpenIcon,
+  CircleArrowDownIcon,
+  CircleCheckIcon,
   FileStackIcon,
   HardDriveIcon,
   PlusCircleIcon,
@@ -103,7 +103,6 @@ function PericopeButton({
   isCreatingThis,
   onPress,
   disabled,
-  onDownloadClick,
   canCreateNew,
   downloadingQuestIds = new Set(),
   downloadedQuestIds = new Set()
@@ -114,12 +113,10 @@ function PericopeButton({
   isCreatingThis: boolean;
   onPress: () => void;
   disabled: boolean;
-  onDownloadClick: (questId: string) => void;
   canCreateNew: boolean;
   downloadingQuestIds?: Set<string>;
   downloadedQuestIds?: Set<string>;
 }) {
-  const { currentUser } = useAuth();
   const existingQuest = group?.primary;
   const exists = !!existingQuest;
   const hasLocalCopy = existingQuest?.hasLocalCopy ?? false;
@@ -136,14 +133,6 @@ function PericopeButton({
     downloadingQuestIds.has(existingQuest.id) &&
     !isDownloaded
   );
-  const needsDownload = isCloudQuest && !isDownloaded;
-
-  const handleDownloadToggle = () => {
-    if (!currentUser?.id || !existingQuest?.id) return;
-    if (!isDownloaded) {
-      onDownloadClick(existingQuest.id);
-    }
-  };
 
   const getBackgroundColor = () => {
     if (hasSyncedCopy) return 'bg-chart-3';
@@ -195,19 +184,23 @@ function PericopeButton({
                       />
                     )}
                     {exists && (hasSyncedCopy || isCloudQuest) && (
-                      <View pointerEvents="none">
-                        <DownloadIndicator
-                          isFlaggedForDownload={isDownloaded}
-                          isLoading={Boolean(isOptimisticallyDownloading)}
-                          onPress={handleDownloadToggle}
+                      isOptimisticallyDownloading ? (
+                        <ActivityIndicator size="small" color={primaryColor} />
+                      ) : (
+                        <Icon
+                          as={
+                            isDownloaded
+                              ? CircleCheckIcon
+                              : CircleArrowDownIcon
+                          }
                           size={16}
-                          iconColor={
+                          className={
                             hasSyncedCopy || hasLocalCopy
                               ? 'text-secondary'
                               : 'text-foreground'
                           }
                         />
-                      </View>
+                      )
                     )}
                   </View>
                 </View>
@@ -411,6 +404,7 @@ export function FiaPericopeList({
   });
 
   const handleDownloadClick = (questId: string) => {
+    setPickerPericopeId(null);
     setQuestIdToDownload(questId);
     setShowDiscoveryDrawer(true);
   };
@@ -426,10 +420,23 @@ export function FiaPericopeList({
     endHandoff();
     setShowConfirmationModal(false);
     const questIdsToTrack = new Set(discoveryState.discoveredIds.questIds);
+    const targetQuestId = questIdToDownload;
+    const targetName = pericopeGroups
+      .flatMap((group) => group.versions)
+      .find((version) => version.id === targetQuestId)?.name;
     setDownloadingQuestIds((prev) => new Set([...prev, ...questIdsToTrack]));
+    setPickerPericopeId(null);
 
     try {
       await bulkDownloadMutation.mutateAsync();
+      if (targetQuestId) {
+        goToQuest({
+          id: targetQuestId,
+          project_id: projectId,
+          name: targetName
+        });
+      }
+      setQuestIdToDownload(null);
     } catch {
       setDownloadingQuestIds((prev) => {
         const next = new Set(prev);
@@ -467,36 +474,20 @@ export function FiaPericopeList({
     setQuestIdToDownload(null);
   };
 
-  // Navigate to a specific quest version (with download check)
-  const navigateToVersion = async (version: FiaPericopeQuest) => {
-    if (!currentUser?.id) return;
+  const navigateToVersion = (version: FiaPericopeQuest) => {
+    const profiles = version.download_profiles;
+    const profileDownloaded = Boolean(
+      currentUser?.id &&
+        Array.isArray(profiles) &&
+        profiles.includes(currentUser.id)
+    );
+    const needsDownload =
+      Boolean(currentUser?.id) &&
+      version.source === 'cloud' &&
+      !downloadedQuestIds.has(version.id) &&
+      !profileDownloaded;
 
-    // Local versions can always be opened directly
-    if (version.source === 'local') {
-      goToQuest({
-        id: version.id,
-        project_id: projectId,
-        name: version.name
-      });
-      setPickerPericopeId(null);
-      return;
-    }
-
-    const questRow = await system.db.query.quest.findFirst({
-      where: (fields, { eq }) => eq(fields.id, version.id),
-      columns: { download_profiles: true, published_at: true }
-    });
-
-    const profiles = questRow?.download_profiles;
-    let isDownloaded = false;
-    if (profiles) {
-      const parsed =
-        typeof profiles === 'string' ? JSON.parse(profiles) : profiles;
-      isDownloaded = Array.isArray(parsed) && parsed.includes(currentUser.id);
-    }
-    const isCloudQuest = version.source === 'cloud';
-
-    if (isCloudQuest && !isDownloaded) {
+    if (needsDownload) {
       setPickerPericopeId(null);
       handleDownloadClick(version.id);
       return;
@@ -542,13 +533,18 @@ export function FiaPericopeList({
   };
 
   const handlePericopePress = async (pericope: FiaPericope) => {
-    if (!currentUser?.id || isCreating) return;
+    if (isCreating) return;
 
     const group = pericopeGroups.find((g) => g.pericopeId === pericope.id);
 
     if (!group || group.versions.length === 0) {
       if (!canCreateNew) return;
       await createNewVersion(pericope);
+      return;
+    }
+
+    if (group.versions.length === 1) {
+      navigateToVersion(group.versions[0]!);
       return;
     }
 
@@ -606,7 +602,6 @@ export function FiaPericopeList({
             isCreatingThis={item.isCreatingThis}
             onPress={() => handlePericopePress(item.pericope)}
             disabled={Boolean(isCreating)}
-            onDownloadClick={handleDownloadClick}
             canCreateNew={canCreateNew}
             downloadingQuestIds={downloadingQuestIds}
             downloadedQuestIds={downloadedQuestIds}
@@ -614,7 +609,6 @@ export function FiaPericopeList({
         )}
       />
 
-      {/* Version picker drawer */}
       <Drawer
         open={!!pickerPericopeId}
         onOpenChange={(open) => {

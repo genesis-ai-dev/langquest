@@ -15,13 +15,22 @@ appId: ${MAESTRO_APP_ID}
           waitToSettleTimeoutMs: 0
 - runFlow:
     when:
+      visible: '(?i)Two ways to record'
+    commands:
+      - tapOn:
+          text: '(?i)^OK$'
+          waitToSettleTimeoutMs: 0
+- runFlow:
+    when:
       visible: OK
+      notVisible:
+        id: recording-screen
     commands:
       - tapOn: OK
 - extendedWaitUntil:
     visible:
       id: recording-screen
-    timeout: 15000
+    timeout: 20000
 - runFlow:
     when:
       visible:

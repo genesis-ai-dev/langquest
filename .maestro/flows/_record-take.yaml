@@ -5,6 +5,9 @@ appId: ${MAESTRO_APP_ID}
 # prefer the mic id and fall back to holding the Record control by point.
 # Set output.expectTake ("002") first to wait for that card by name; the
 # generic card wait alone passes as soon as any earlier take is on screen.
+# The Expo Tools FAB can open the Dev Menu over the session; dismiss it
+# or the take name never appears.
+- runFlow: _dismiss-dev-menu.yaml
 - runFlow:
     when:
       visible:

@@ -23,7 +23,7 @@ onFlowComplete:
 - tapOn:
     id: projects-search
 - inputText: ${output.projectName}
-- hideKeyboard
+- runFlow: _hide-keyboard.yaml
 - extendedWaitUntil:
     visible: ${output.projectName}
     timeout: 45000
@@ -134,6 +134,11 @@ onFlowComplete:
       - tapOn:
           id: offline-undownload-confirm
           waitToSettleTimeoutMs: 0
+      # Drawer can open offline. Cloud verification waits for radios.
+      - extendedWaitUntil:
+          visible: Offload Quest
+          timeout: 15000
+      - setAirplaneMode: disabled
       - extendedWaitUntil:
           visible: Ready to offload
           timeout: 45000
@@ -144,7 +149,6 @@ onFlowComplete:
           timeout: 20000
       - tapOn:
           id: quest-offload-continue
-      - setAirplaneMode: disabled
       - evalScript: ${output.api.waitForQuestDownload(output.questName, output.signInEmail, false)}
 - evalScript: ${output.api.deleteProject(output.projectName)}
 - evalScript: ${output.api.deleteUserIfExists(output.signInEmail)}

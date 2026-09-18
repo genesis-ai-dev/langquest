@@ -23,7 +23,7 @@ onFlowStart:
 - tapOn:
     id: projects-search
 - inputText: ${output.mineName}
-- hideKeyboard
+- runFlow: _hide-keyboard.yaml
 - extendedWaitUntil:
     visible:
       id: project-list-item
@@ -41,7 +41,7 @@ onFlowStart:
 - tapOn:
     id: quests-search
 - inputText: ${output.questName}
-- hideKeyboard
+- runFlow: _hide-keyboard.yaml
 # Seeded quests are cloud-source; opening one as a signed-in user shows
 # Download Required instead of the assets screen. Search is proven when
 # the name is in the list. One back returns to projects.
@@ -62,12 +62,12 @@ onFlowStart:
 - tapOn:
     id: projects-search
 - eraseText: 200
-- hideKeyboard
+- runFlow: _hide-keyboard.yaml
 - tapOn:
     id: projects-search
 - eraseText: 200
 - inputText: ${output.publicName}
-- hideKeyboard
+- runFlow: _hide-keyboard.yaml
 - extendedWaitUntil:
     visible:
       id: project-list-item

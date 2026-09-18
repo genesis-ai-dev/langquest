@@ -95,15 +95,7 @@ onFlowStart:
     id: asset-settings-visible-general
     waitToSettleTimeoutMs: 0
 - evalScript: ${output.api.waitForAssetVisible(output.assetName, true, 45000)}
-- pressKey: back
-- runFlow:
-    when:
-      visible:
-        id: asset-translate-button
-    commands:
-      - tapOn:
-          id: nav-back
-          waitToSettleTimeoutMs: 0
+- runFlow: _leave-to-assets-list.yaml
 - extendedWaitUntil:
     visible:
       id: assets-search

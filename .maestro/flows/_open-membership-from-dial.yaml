@@ -1,8 +1,17 @@
 appId: ${MAESTRO_APP_ID}
 ---
-# Speed dial is bottom-right. Do not swipe across the project to move
-# the Expo FAB: a horizontal swipe at 50% is Android Back and pops to
-# Projects. The drawer flow already parks that FAB on the right edge.
+# Speed dial is bottom-right. _open-app-drawer parks the Expo Tools FAB
+# on that corner. Drag the FAB to mid-right, dismiss the Dev Menu if
+# dragging opened it, then tap the dial. Retry after another dismiss.
+- runFlow:
+    when:
+      true: ${output.useDevClient}
+    commands:
+      - swipe:
+          start: 94%, 85%
+          end: 94%, 45%
+          duration: 500
+- runFlow: _dismiss-dev-menu.yaml
 - extendedWaitUntil:
     visible:
       id: project-speed-dial
@@ -10,14 +19,19 @@ appId: ${MAESTRO_APP_ID}
 - tapOn:
     id: project-speed-dial
     waitToSettleTimeoutMs: 0
-- runFlow:
-    when:
+- runFlow: _dismiss-dev-menu.yaml
+- repeat:
+    times: 4
+    while:
       notVisible:
         id: project-membership
     commands:
+      - runFlow: _dismiss-dev-menu.yaml
       - tapOn:
           id: project-speed-dial
           waitToSettleTimeoutMs: 0
+      - waitForAnimationToEnd:
+          timeout: 2000
 - extendedWaitUntil:
     visible:
       id: project-membership

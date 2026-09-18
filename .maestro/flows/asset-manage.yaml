@@ -39,7 +39,7 @@ onFlowStart:
 - tapOn:
     id: assets-search
 - inputText: keep
-- hideKeyboard
+- runFlow: _hide-keyboard.yaml
 - extendedWaitUntil:
     visible: ${output.keepName}
     timeout: 20000
@@ -63,15 +63,10 @@ onFlowStart:
 # predicting it.
 - waitForAnimationToEnd:
     timeout: 3000
-- tapOn:
-    id: asset-rename-input
-    point: '5%,50%'
-    waitToSettleTimeoutMs: 0
-- inputText: x
-- copyTextFrom:
-    id: asset-rename-input
-- evalScript: ${output.renamedName = output.api.assertInsertedOnce(maestro.copiedText, output.keepName, "x", "rename input")}
-- hideKeyboard
+- evalScript: ${output.renameOriginal = output.keepName}
+- runFlow: _insert-rename-char.yaml
+- evalScript: ${output.renamedName = output.renamedTyped}
+- runFlow: _hide-keyboard.yaml
 - tapOn:
     id: asset-rename-save
     waitToSettleTimeoutMs: 0
@@ -118,7 +113,7 @@ onFlowStart:
 - extendedWaitUntil:
     visible: Enter asset name
     timeout: 5000
-- hideKeyboard
+- runFlow: _hide-keyboard.yaml
 - tapOn:
     id: asset-rename-save
     waitToSettleTimeoutMs: 0
@@ -131,8 +126,12 @@ onFlowStart:
     timeout: 20000
 - evalScript: ${output.api.waitForQuestAssetName(output.questName, output.renamedName)}
 # Long press enters selection mode on a draft; cancel leaves it.
+# `id: asset-list-item` can match a filtered-out row still in the
+# FlatList tree (the hide card). Press the visible renamed name.
 - longPressOn:
-    id: asset-list-item
+    text: ${output.renamedName}
+    below:
+      id: assets-search
 - extendedWaitUntil:
     visible:
       id: assets-selection-cancel
@@ -148,12 +147,12 @@ onFlowStart:
 - tapOn:
     id: assets-search
 - eraseText: 200
-- hideKeyboard
+- runFlow: _hide-keyboard.yaml
 - tapOn:
     id: assets-search
 - eraseText: 200
 - inputText: ${output.noMatchQuery}
-- hideKeyboard
+- runFlow: _hide-keyboard.yaml
 - extendedWaitUntil:
     notVisible: ${output.renamedName}
     timeout: 20000
@@ -161,11 +160,11 @@ onFlowStart:
 - tapOn:
     id: assets-search
 - eraseText: 200
-- hideKeyboard
+- runFlow: _hide-keyboard.yaml
 - tapOn:
     id: assets-search
 - eraseText: 200
-- hideKeyboard
+- runFlow: _hide-keyboard.yaml
 - extendedWaitUntil:
     visible: ${output.renamedName}
     timeout: 20000
@@ -176,7 +175,7 @@ onFlowStart:
     id: assets-search
 - eraseText: 200
 - inputText: ${output.hideName}
-- hideKeyboard
+- runFlow: _hide-keyboard.yaml
 - extendedWaitUntil:
     visible: ${output.hideName}
     timeout: 20000
@@ -206,15 +205,7 @@ onFlowStart:
     id: asset-settings-visible-general
     waitToSettleTimeoutMs: 0
 - evalScript: ${output.api.waitForAssetVisible(output.hideName, false, 45000)}
-- pressKey: back
-- runFlow:
-    when:
-      visible:
-        id: asset-translate-button
-    commands:
-      - tapOn:
-          id: nav-back
-          waitToSettleTimeoutMs: 0
+- runFlow: _leave-to-assets-list.yaml
 - extendedWaitUntil:
     visible:
       id: assets-search
@@ -222,11 +213,11 @@ onFlowStart:
 - tapOn:
     id: assets-search
 - eraseText: 200
-- hideKeyboard
+- runFlow: _hide-keyboard.yaml
 - tapOn:
     id: assets-search
 - eraseText: 200
-- hideKeyboard
+- runFlow: _hide-keyboard.yaml
 - extendedWaitUntil:
     visible: ${output.renamedName}
     timeout: 20000
@@ -246,7 +237,7 @@ onFlowStart:
 - tapOn:
     id: quest-publish-confirm
     waitToSettleTimeoutMs: 0
-- tapOn: Save
+- runFlow: _confirm-cloud-save.yaml
 - evalScript: ${output.api.waitForQuestPublished(output.questName, 45000)}
 - extendedWaitUntil:
     visible:
@@ -257,7 +248,9 @@ onFlowStart:
       id: asset-rename
     timeout: 20000
 - longPressOn:
-    id: asset-list-item
+    text: ${output.renamedName}
+    below:
+      id: assets-search
 - assertNotVisible:
     id: assets-selection-cancel
 - evalScript: ${output.api.deleteProject(output.projectName)}
