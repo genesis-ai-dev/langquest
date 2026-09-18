@@ -156,7 +156,10 @@ function ProjectInviteMembersSection({
 
   if (!canInvite) {
     return (
-      <View className="items-center justify-center gap-2 py-6">
+      <View
+        testID="membership-only-owners"
+        className="items-center justify-center gap-2 py-6"
+      >
         <Icon as={CrownIcon} size={24} className="text-muted-foreground" />
         <Text className="text-center leading-5 text-muted-foreground">
           {t('onlyOwnersCanInvite')}
@@ -184,6 +187,7 @@ function ProjectInviteMembersSection({
         keyboardType="email-address"
         autoCapitalize="none"
         className="mb-2"
+        testID="membership-invite-email"
       />
       <View className="mb-2 flex-row items-center justify-between">
         <Pressable
@@ -214,6 +218,7 @@ function ProjectInviteMembersSection({
         onPress={() => void handleSend()}
         disabled={!isInviteButtonEnabled || isSubmitting}
         loading={isSubmitting}
+        testID="membership-invite-send"
       >
         <Text>{isSubmitting ? t('sending') : t('sendInvitation')}</Text>
       </Button>
@@ -543,20 +548,34 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
     return [...new Set(requestsData.map((r) => r.sender_profile_id))];
   }, [requestsData]);
 
-  // Query for requester profiles
+  // Requester profiles are not PowerSync co-members, so local SQLite is
+  // empty until we pull them. RLS allows project members to read pending
+  // requester profiles (same pattern as NotificationsView).
   const { data: requesterProfiles = [] } = useHybridQuery<
     typeof profile.$inferSelect
   >({
     queryKey: ['requester-profiles', ...requesterIds],
-
     offlineQuery:
       requesterIds.length > 0
         ? toCompilableQuery(
             system.db.query.profile.findMany({
-              where: (profile, { inArray }) => inArray(profile.id, requesterIds)
+              where: (profileTable, { inArray }) =>
+                inArray(profileTable.id, requesterIds)
             })
           )
-        : 'SELECT * FROM profile WHERE 1=0'
+        : 'SELECT * FROM profile WHERE 1=0',
+    cloudQueryFn: async () => {
+      if (requesterIds.length === 0) return [];
+      const { data, error } = await system.supabaseConnector.client
+        .from('profile')
+        .select('*')
+        .in('id', requesterIds)
+        .overrideTypes<(typeof profile.$inferSelect)[]>();
+      if (error) throw error;
+      return data;
+    },
+    enableOfflineQuery: requesterIds.length > 0,
+    enableCloudQuery: requesterIds.length > 0
   });
 
   // Create requester profile map
@@ -1270,6 +1289,8 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                   onPress={() =>
                     handleRemoveMember(member.id, member.name || member.email)
                   }
+                  testID="membership-remove-member"
+                  accessibilityLabel="membership-remove-member"
                 >
                   <Icon
                     as={Trash2Icon}
@@ -1436,7 +1457,8 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
 
   const renderRequest = (req: typeof request.$inferSelect) => {
     const requester = requesterProfileMap[req.sender_profile_id];
-    if (!requester) return null;
+    const displayName =
+      requester?.username || requester?.email || t('unknown');
 
     return (
       <View
@@ -1446,16 +1468,14 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
         <View className="flex-1 flex-row items-center">
           <View className="mr-3 h-10 w-10 items-center justify-center rounded-full bg-primary">
             <Text className="font-semibold text-primary-foreground">
-              {(requester.username || requester.email || '?')
-                .charAt(0)
-                .toUpperCase()}
+              {displayName.charAt(0).toUpperCase()}
             </Text>
           </View>
           <View className="flex-1">
             <Text variant="large" className="font-semibold">
-              {requester.username || requester.email}
+              {displayName}
             </Text>
-            {requester.email && (
+            {requester?.email && (
               <Text variant="small" className="mt-0.5 text-muted-foreground">
                 {requester.email}
               </Text>
@@ -1472,21 +1492,20 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                 handleApproveRequest(
                   req.id,
                   req.sender_profile_id,
-                  requester.username || requester.email || ''
+                  displayName
                 )
               }
+              testID={`membership-request-approve-${req.sender_profile_id}`}
+              accessibilityLabel="membership-request-approve"
             >
               <Icon as={CircleCheckIcon} size={20} className="text-green-600" />
             </Button>
             <Button
               variant="outline"
               size="icon-sm"
-              onPress={() =>
-                handleDenyRequest(
-                  req.id,
-                  requester.username || requester.email || ''
-                )
-              }
+              onPress={() => handleDenyRequest(req.id, displayName)}
+              testID={`membership-request-deny-${req.sender_profile_id}`}
+              accessibilityLabel="membership-request-deny"
             >
               <Icon as={CircleXIcon} size={20} className="text-destructive" />
             </Button>
@@ -1535,7 +1554,11 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                 className="flex-1"
               >
                 <TabsList className="mb-4 w-full">
-                  <TabsTrigger value="members" className="min-w-0 flex-1">
+                  <TabsTrigger
+                    value="members"
+                    className="min-w-0 flex-1"
+                    testID="membership-tab-members"
+                  >
                     <Text
                       variant="small"
                       numberOfLines={1}
@@ -1544,7 +1567,11 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                       {t('members')} ({sortedMembers.length})
                     </Text>
                   </TabsTrigger>
-                  <TabsTrigger value="invited" className="min-w-0 flex-1">
+                  <TabsTrigger
+                    value="invited"
+                    className="min-w-0 flex-1"
+                    testID="membership-tab-invited"
+                  >
                     <Text
                       variant="small"
                       numberOfLines={1}
@@ -1554,7 +1581,11 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                     </Text>
                   </TabsTrigger>
                   {sendInvitePermissions.hasAccess && (
-                    <TabsTrigger value="requests" className="min-w-0 flex-1">
+                    <TabsTrigger
+                      value="requests"
+                      className="min-w-0 flex-1"
+                      testID="membership-tab-requests"
+                    >
                       <Text
                         variant="small"
                         numberOfLines={1}

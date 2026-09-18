@@ -1,0 +1,32 @@
+appId: ${MAESTRO_APP_ID}
+---
+- tapOn:
+    id: projects-tab-my
+    waitToSettleTimeoutMs: 0
+- tapOn:
+    id: projects-search
+- inputText: ${output.projectName}
+- hideKeyboard
+- extendedWaitUntil:
+    visible: ${output.projectName}
+    timeout: 45000
+- tapOn:
+    text: ${output.projectName}
+    below:
+      id: projects-search
+# The row tap can miss while the list settles. A left swipe on this
+# screen is Android Back and returns to Projects, so wait until home
+# chrome is gone instead of hunting for a per-template control.
+- runFlow:
+    when:
+      visible:
+        id: projects-create-button
+    commands:
+      - tapOn:
+          text: ${output.projectName}
+          below:
+            id: projects-search
+- extendedWaitUntil:
+    notVisible:
+      id: projects-create-button
+    timeout: 20000

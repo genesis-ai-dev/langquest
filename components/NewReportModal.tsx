@@ -197,6 +197,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
                           key={option.value}
                           value={option.value}
                           label={option.label}
+                          testID={`report-reason-${option.value}`}
                         />
                       ))}
                     </RadioGroup>
@@ -211,6 +212,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
                       value={details}
                       onChangeText={setDetails}
                       drawerInput={false}
+                      testID="report-details"
                     />
                   </View>
 
@@ -258,6 +260,8 @@ export const ReportModal: React.FC<ReportModalProps> = ({
               <Button
                 className="mt-4"
                 onPress={handleSubmit}
+                testID="report-submit"
+                accessibilityLabel="report-submit"
                 disabled={
                   !reason || report.isCreatingReport || hasAlreadyReported
                 }

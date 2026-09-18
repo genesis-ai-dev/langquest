@@ -700,6 +700,10 @@ const WalkieTalkieRecorder: React.FC<WalkieTalkieRecorderProps> = ({
         <Pressable
           onPressIn={handlePressIn}
           onPressOut={handlePressOut}
+          testID="recording-mic-button"
+          accessibilityLabel="recording-mic-button"
+          accessible
+          importantForAccessibility="yes"
           className={cn(
             'relative h-20 w-full items-center justify-center overflow-hidden rounded-[10px]',
             buttonBgClass

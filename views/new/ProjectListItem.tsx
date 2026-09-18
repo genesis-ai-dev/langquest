@@ -198,6 +198,8 @@ export function ProjectListItem({
       <Pressable
         className={className}
         key={project.id}
+        testID="project-list-item"
+        accessibilityLabel="project-list-item"
         onPress={() => goToProjectHelper()}
       >
         <Card

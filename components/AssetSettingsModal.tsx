@@ -188,6 +188,7 @@ export const AssetSettingsModal: React.FC<AssetSettingsModalProps> = ({
               onChange={() => handleToggleStatusGeneral('visible')}
               disabled={isLoading || !isOwner}
               icon={assetData?.visible ? EyeIcon : EyeOffIcon}
+              testID="asset-settings-visible-general"
             />
 
             <SwitchBox
@@ -201,6 +202,7 @@ export const AssetSettingsModal: React.FC<AssetSettingsModalProps> = ({
               onChange={() => handleToggleStatusGeneral('active')}
               disabled={isLoading || !isOwner}
               icon={assetData?.active ? CheckCircleIcon : PauseIcon}
+              testID="asset-settings-active-general"
             />
 
             <View className="h-6" />
@@ -226,6 +228,7 @@ export const AssetSettingsModal: React.FC<AssetSettingsModalProps> = ({
               onChange={() => handleToggleStatusQuest('visible')}
               disabled={isLoading || !isOwner || !assetData?.active}
               icon={assetQuestData?.visible ? EyeIcon : EyeOffIcon}
+              testID="asset-settings-visible-quest"
             />
 
             <SwitchBox
@@ -239,6 +242,7 @@ export const AssetSettingsModal: React.FC<AssetSettingsModalProps> = ({
               onChange={() => handleToggleStatusQuest('active')}
               disabled={isLoading || !isOwner || !assetData?.active}
               icon={assetQuestData?.active ? CheckCircleIcon : PauseIcon}
+              testID="asset-settings-active-quest"
             />
           </View>
         )}

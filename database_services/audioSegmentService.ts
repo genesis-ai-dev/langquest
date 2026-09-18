@@ -1,6 +1,5 @@
-import { storageAudioObjectName } from '@/utils/attachmentPaths';
+import { storeRecordedAudio } from '@/services/attachments/storeRecordedAudio';
 import { resolveTable } from '@/utils/dbUtils';
-import { saveAudioLocally } from '@/utils/fileUtils';
 import { eq } from 'drizzle-orm';
 import uuid from 'react-native-uuid';
 import { system } from '../db/powersync/system';
@@ -25,9 +24,10 @@ export class AudioSegmentService {
     projectId: string
   ): Promise<{ assetId: string; audioUri: string }> {
     try {
-      const localUri = await saveAudioLocally(segment.uri);
+      // Bare '{uuid}.{ext}': on-disk filename and storage object name.
+      const localUri = await storeRecordedAudio(segment.uri);
 
-      console.log('[AUDIO SEGMENT SERVICE] Local URI:', localUri);
+      console.log('[AUDIO SEGMENT SERVICE] Stored audio:', localUri);
 
       const newAsset = await system.db.transaction(async (tx) => {
         const [newAsset] = await tx
@@ -56,18 +56,15 @@ export class AudioSegmentService {
             download_profiles: [creatorId]
           });
 
-        // TODO: only publish the audio to the supabase storage bucket once the user hits publish (store locally only right now)
-
         await tx
           .insert(resolveTable('asset_content_link', { localOverride: true }))
           .values({
             asset_id: newAsset.id,
             source_language_id: sourceLanguageId,
             text: segment.name,
-            // File stays at local/{uuid}.ext on disk until publish. The DB
-            // stores the storage object name so publish does not have to
-            // rewrite audio[]. AudioUploader waits for published_at.
-            audio: [storageAudioObjectName(localUri)],
+            // Inserting this row enqueues the upload; AudioUploader starts
+            // as soon as it is online (no publish gate).
+            audio: [localUri],
             download_profiles: [creatorId]
           });
 

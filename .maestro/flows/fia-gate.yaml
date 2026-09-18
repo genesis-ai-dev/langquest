@@ -1,0 +1,22 @@
+appId: ${MAESTRO_APP_ID}
+onFlowStart:
+  - runScript: ../api.js
+---
+# 6.5 seed an FIA project while enableFia is off (default after clearState).
+# Do not hit the live FIA pericope API.
+- evalScript: ${output.projectName = "maestro-fia-" + Date.now()}
+- evalScript: ${output.skipSignInCleanup = true}
+- runFlow: _start-signed-in.yaml
+- evalScript: ${output.api.seedProject(output.projectName, output.signInEmail, false, "fia")}
+- runFlow: _open-named-project.yaml
+- extendedWaitUntil:
+    visible: FIA Projects are Experimental
+    timeout: 45000
+- tapOn:
+    id: fia-open-settings
+- extendedWaitUntil:
+    visible:
+      id: settings-screen
+    timeout: 15000
+- evalScript: ${output.api.deleteProject(output.projectName)}
+- evalScript: ${output.api.deleteUserIfExists(output.signInEmail)}

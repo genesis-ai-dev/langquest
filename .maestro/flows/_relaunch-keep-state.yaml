@@ -1,0 +1,37 @@
+appId: ${MAESTRO_APP_ID}
+---
+# Relaunch without wiping session or onboarding. Preview keeps auth.
+# Development client may still need the Metro deep link after stopApp.
+# Do not wait for projects-create-button: expo-router may restore Profile.
+- stopApp
+- launchApp:
+    clearState: false
+    stopApp: false
+- runFlow:
+    when:
+      true: ${output.useDevClient}
+    commands:
+      - openLink: ${MAESTRO_DEV_CLIENT_URL}
+- repeat:
+    times: 10
+    while:
+      notVisible:
+        id: app-drawer-menu-button
+    commands:
+      - runFlow:
+          when:
+            visible: Continue
+            notVisible:
+              id: app-drawer-menu-button
+          commands:
+            - tapOn: Continue
+      - runFlow:
+          when:
+            visible: Toggle performance monitor
+          commands:
+            - swipe:
+                direction: DOWN
+- extendedWaitUntil:
+    visible:
+      id: app-drawer-menu-button
+    timeout: 45000

@@ -271,6 +271,8 @@ const AssetCardItemComponent: React.FC<AssetCardItemProps> = ({
       onPress={() => onToggleSelect?.(asset.id)}
       className="mr-1 flex h-7 w-7 items-center justify-center"
       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      testID="asset-select-toggle"
+      accessibilityLabel="asset-select-toggle"
     >
       <Icon
         as={isSelected ? CheckSquareIcon : SquareIcon}
@@ -283,7 +285,11 @@ const AssetCardItemComponent: React.FC<AssetCardItemProps> = ({
   );
 
   return (
-    <Pressable onPress={handlePress} onLongPress={handleLongPress}>
+    <Pressable
+      onPress={handlePress}
+      onLongPress={handleLongPress}
+      testID="asset-list-item"
+    >
       <Card
         className={`${
           !allowEditing ? 'opacity-50' : ''
@@ -397,6 +403,8 @@ const AssetCardItemComponent: React.FC<AssetCardItemProps> = ({
                     }}
                     className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/20 active:bg-primary/40"
                     hitSlop={8}
+                    testID="asset-rename"
+                    accessibilityLabel="asset-rename"
                   >
                     <Icon
                       as={PencilLineIcon}
@@ -425,6 +433,7 @@ const AssetCardItemComponent: React.FC<AssetCardItemProps> = ({
                     className="mr-2 disabled:opacity-40"
                     hitSlop={8}
                     accessibilityState={{ disabled: !canOpenAssetDetails }}
+                    testID="asset-open-details"
                     accessibilityLabel={
                       canOpenAssetDetails
                         ? 'Open asset details'

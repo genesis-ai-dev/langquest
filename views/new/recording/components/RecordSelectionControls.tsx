@@ -75,13 +75,15 @@ export const RecordSelectionControls = React.memo(
               </Button>
             )}
             {showMerge && (
-              <Button
-                variant="default"
-                size="default"
-                disabled={selectedCount < 2 || !canMerge}
-                onPress={onMerge}
-                className="p-1"
-              >
+            <Button
+              variant="default"
+              size="default"
+              disabled={selectedCount < 2 || !canMerge}
+              onPress={onMerge}
+              className="p-1"
+              testID="assets-merge"
+              accessibilityLabel="assets-merge"
+            >
                 <View className="flex-row items-center px-0">
                   <Icon as={Merge} />
                   <Text className="ml-2 text-xs">{t('merge')}</Text>
@@ -93,6 +95,8 @@ export const RecordSelectionControls = React.memo(
               disabled={selectedCount < 1}
               onPress={onDelete}
               size="default"
+              testID="assets-batch-delete"
+              accessibilityLabel="assets-batch-delete"
             >
               <Icon as={Trash2} />
             </Button>
@@ -102,6 +106,8 @@ export const RecordSelectionControls = React.memo(
             onPress={onCancel}
             className="ml-1 mt-1"
             size="icon"
+            testID="assets-selection-cancel"
+            accessibilityLabel="assets-selection-cancel"
           >
             <Icon as={X} />
           </Button>

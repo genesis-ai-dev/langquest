@@ -252,6 +252,7 @@ export function QuestDownloadDiscoveryDrawer({
           <Button
             onPress={onContinue}
             disabled={isDiscovering || totalRecords === 0}
+            testID="quest-download-continue"
           >
             <Text className="font-bold">
               {isDiscovering ? t('discovering') : t('continueToDownload')}

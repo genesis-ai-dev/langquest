@@ -28,8 +28,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import type { asset_content_link, language } from '@/db/drizzleSchema';
 import { project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import { promoteLocalAudio } from '@/services/attachments/promoteLocalAudio';
-import { storageAudioObjectName } from '@/utils/attachmentPaths';
+import { storeRecordedAudio } from '@/services/attachments/storeRecordedAudio';
 import { useLanguageById } from '@/hooks/db/useLanguages';
 import { useLanguoidById } from '@/hooks/db/useLanguoids';
 import { useLocalization } from '@/hooks/useLocalization';
@@ -44,11 +43,7 @@ import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useLocalStore } from '@/store/localStore';
 import { resolveTable } from '@/utils/dbUtils';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
-import {
-  deleteIfExists,
-  getLocalAttachmentUri,
-  saveAudioLocally
-} from '@/utils/fileUtils';
+import { deleteIfExists } from '@/utils/fileUtils';
 import { cn, getThemeColor } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -473,24 +468,11 @@ export default function NextGenNewTranslationModal({
 
         let audioAttachment: string | null = null;
         if (data.audioUri) {
-          // Convert recording to local attachment path
-          // - On web: converts blob URL to OPFS file
-          // - On native: moves from cache dir to local attachments dir
-          const localAudioPath = await saveAudioLocally(data.audioUri);
-
-          if (isLocalSource) {
-            // File stays at local/{uuid}.ext until the quest is published.
-            // Store the storage object name so publish does not rewrite audio[].
-            audioAttachment = storageAudioObjectName(localAudioPath);
-          } else {
-            // The row goes straight to the synced tables and syncs now, so
-            // the file must take its published filename now; the acl row
-            // (audio_uploaded_at null) is what makes the AudioUploader
-            // pick it up.
-            audioAttachment = await promoteLocalAudio(
-              getLocalAttachmentUri(localAudioPath)
-            );
-          }
+          // Move the recording into shared_attachments/ under its storage
+          // object name (web: blob URL → OPFS; native: cache dir → documents).
+          // The acl row below (audio_uploaded_at null) is what makes the
+          // AudioUploader pick it up — for drafts and published quests alike.
+          audioAttachment = await storeRecordedAudio(data.audioUri);
         }
 
         // Guard against anonymous users
@@ -1040,6 +1022,7 @@ export default function NextGenNewTranslationModal({
                             <Textarea
                               {...transformInputProps(field)}
                               ref={textareaRef}
+                              testID="translation-text"
                               placeholder={
                                 contentType === 'transcription'
                                   ? t('enterYourTranscriptionIn', {
@@ -1119,6 +1102,7 @@ export default function NextGenNewTranslationModal({
                 (translationType === 'audio' && !form.getValues('audioUri'))
               }
               onPress={() => void handleFormSubmit()}
+              testID="translation-submit"
             >
               <Text className="text-base font-bold">{t('createObject')}</Text>
             </FormSubmit>

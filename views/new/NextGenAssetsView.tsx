@@ -1330,6 +1330,7 @@ export default function NextGenAssetsView() {
               variant="ghost"
               size="icon"
               disabled={isRefreshing}
+              testID="assets-refresh-button"
               onPress={async () => {
                 setIsRefreshing(true);
                 console.log('🔄 Manually refreshing assets queries...');
@@ -1359,6 +1360,8 @@ export default function NextGenAssetsView() {
                   size="icon"
                   disabled={!hasUndoHistory || !currentUndoOperation?.canUndo}
                   onPress={handleUndoAction}
+                  testID="assets-undo"
+                  accessibilityLabel="assets-undo"
                 >
                   <Icon as={Undo2} size={18} className="text-primary" />
                 </Button>
@@ -1367,6 +1370,8 @@ export default function NextGenAssetsView() {
                   size="icon"
                   disabled={!hasRedoHistory || !currentRedoOperation?.canUndo}
                   onPress={handleRedoAction}
+                  testID="assets-redo"
+                  accessibilityLabel="assets-redo"
                 >
                   <Icon as={Redo2} size={18} className="text-primary" />
                 </Button>
@@ -1409,6 +1414,8 @@ export default function NextGenAssetsView() {
         prefixStyling={false}
         size="sm"
         returnKeyType="search"
+        testID="assets-search"
+        accessibilityLabel="assets-search"
         suffix={
           isFetching && searchQuery ? (
             <ActivityIndicator size="small" color={getThemeColor('primary')} />
@@ -1578,6 +1585,7 @@ export default function NextGenAssetsView() {
             <Pressable
               className="ml-14 w-full flex-row items-center justify-around gap-2 rounded-lg bg-primary p-2 px-2"
               onPress={() => void handleGoToRecording()}
+              testID="asset-record-button"
             >
               <Icon as={MicIcon} size={24} className="text-secondary" />
               <View className="ml-1 flex-col items-start justify-start gap-0">

@@ -3805,6 +3805,8 @@ export default function BibleAssetsView() {
                 size="icon"
                 disabled={!hasUndoHistory || !currentUndoOperation?.canUndo}
                 onPress={handleUndoAction}
+                testID="assets-undo"
+                accessibilityLabel="assets-undo"
               >
                 <Icon as={Undo2} size={18} className="text-primary" />
               </Button>
@@ -3813,6 +3815,8 @@ export default function BibleAssetsView() {
                 size="icon"
                 disabled={!hasRedoHistory || !currentRedoOperation?.canUndo}
                 onPress={handleRedoAction}
+                testID="assets-redo"
+                accessibilityLabel="assets-redo"
               >
                 <Icon as={Redo2} size={18} className="text-primary" />
               </Button>

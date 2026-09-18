@@ -14,15 +14,19 @@
  * object name still starts with `local/`. Historically-lost files stop
  * being retried and simply stay absent.
  *
+ * Files always land at shared_attachments/{uuid}.{ext} (the value minus any
+ * legacy `local/` prefix); the LocalFileIndex is keyed the same way.
+ *
  * Nothing here marks anything "synced": a file is downloaded when it's on
  * disk, which the LocalFileIndex reflects immediately.
  */
 
 import type * as drizzleSchema from '@/db/drizzleSchema';
-import { asset, asset_content_link, quest, quest_asset_link } from '@/db/drizzleSchema';
+import { asset_content_link } from '@/db/drizzleSchema';
 import type { SupabaseStorageAdapter } from '@/db/supabase/SupabaseStorageAdapter';
 import {
   isRemoteAudioObject,
+  localAudioFileName,
   storageAudioObjectName
 } from '@/utils/attachmentPaths';
 import { getLocalAttachmentUri, writeFile } from '@/utils/fileUtils';
@@ -65,7 +69,15 @@ export interface AudioDownloaderOptions {
   isOnline: () => boolean;
 }
 
+interface DownloadItem {
+  /** Bare on-disk filename (LocalFileIndex key). */
+  filename: string;
+  /** Storage object names to try, in order (raw audio[] values first). */
+  storageNames: string[];
+}
+
 export class AudioDownloader {
+  /** Keyed by on-disk filename. */
   private attempts = new Map<string, FileAttemptState>();
   private draining = false;
   private dirty = false;
@@ -173,18 +185,34 @@ export class AudioDownloader {
     }
   }
 
-  private async getWorkList(): Promise<string[]> {
+  private async getWorkList(): Promise<DownloadItem[]> {
     const rows = await this.confirmedAudioQuery();
-    const names = new Set<string>();
+    // A legacy `local/x` value and a modern `x` value share one on-disk file;
+    // group by filename and remember every object name that might hold it.
+    const byFilename = new Map<string, Set<string>>();
     for (const row of rows) {
       for (const value of row.audio ?? []) {
         if (!value || !isRemoteAudioObject(value)) {
           continue;
         }
+        const filename = localAudioFileName(value);
+        if (this.options.fileIndex.has(filename)) continue;
+        let names = byFilename.get(filename);
+        if (!names) {
+          names = new Set();
+          byFilename.set(filename, names);
+        }
         names.add(value);
       }
     }
-    return [...names].filter((name) => !this.options.fileIndex.has(name));
+    return [...byFilename.entries()].map(([filename, names]) => {
+      const storageNames = [...names];
+      for (const raw of names) {
+        const stripped = storageAudioObjectName(raw);
+        if (!names.has(stripped)) storageNames.push(stripped);
+      }
+      return { filename, storageNames };
+    });
   }
 
   private async drainOnce(): Promise<void> {
@@ -192,7 +220,7 @@ export class AudioDownloader {
 
     const workList = await this.getWorkList();
 
-    const workSet = new Set(workList);
+    const workSet = new Set(workList.map((item) => item.filename));
     for (const name of this.attempts.keys()) {
       if (!workSet.has(name)) this.attempts.delete(name);
     }
@@ -211,7 +239,7 @@ export class AudioDownloader {
 
     const now = Date.now();
     const ready = workList.filter(
-      (name) => (this.attempts.get(name)?.nextAttemptAt ?? 0) <= now
+      (item) => (this.attempts.get(item.filename)?.nextAttemptAt ?? 0) <= now
     );
     if (ready.length === 0) {
       this.publishWorkStatus(workList, 0);
@@ -243,8 +271,8 @@ export class AudioDownloader {
         queue.length = 0;
         return;
       }
-      const filename = queue.shift();
-      if (filename === undefined) return;
+      const item = queue.shift();
+      if (item === undefined) return;
       active++;
       this.publishWorkStatus(
         workList,
@@ -254,7 +282,7 @@ export class AudioDownloader {
         succeeded
       );
       try {
-        if (await this.downloadOne(filename)) succeeded++;
+        if (await this.downloadOne(item)) succeeded++;
       } finally {
         active--;
         completed++;
@@ -281,11 +309,10 @@ export class AudioDownloader {
   }
 
   /** @returns true if the file is now on disk. */
-  private async downloadOne(filename: string): Promise<boolean> {
-    const storageNames = [filename];
-    const stripped = storageAudioObjectName(filename);
-    if (stripped !== filename) storageNames.push(stripped);
-
+  private async downloadOne({
+    filename,
+    storageNames
+  }: DownloadItem): Promise<boolean> {
     let lastError: unknown;
     for (const storageName of storageNames) {
       try {
@@ -322,14 +349,14 @@ export class AudioDownloader {
   }
 
   private publishWorkStatus(
-    workList: string[],
+    workList: DownloadItem[],
     active: number,
     batchTotal = 0,
     batchDone = 0,
     batchSucceeded = 0
   ): void {
     const failing = workList.filter(
-      (name) => (this.attempts.get(name)?.failures ?? 0) > 0
+      (item) => (this.attempts.get(item.filename)?.failures ?? 0) > 0
     ).length;
     this.updateStatus({
       // The work list is derived once per pass, so subtract this pass's

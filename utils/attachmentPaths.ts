@@ -2,17 +2,18 @@
  * Deterministic resolution of asset_content_link.audio values to local files.
  *
  * Audio values come in three shapes:
- *   - '{uuid}.{ext}'        storage object name (what the DB stores, including
- *                           on drafts). Until publish the file lives at
- *                           shared_attachments/local/{uuid}.{ext}.
- *   - 'local/{uuid}.{ext}'  on-disk staging path; also present in audio[]
- *                           on older published rows (storage object name).
+ *   - '{uuid}.{ext}'        storage object name (what the DB stores). The file
+ *                           lives at shared_attachments/{uuid}.{ext} from the
+ *                           moment it is recorded.
+ *   - 'local/{uuid}.{ext}'  legacy: pre-2.6 published rows stored the on-disk
+ *                           staging path, and that string is also their
+ *                           storage object name. On disk the file is at
+ *                           shared_attachments/{uuid}.{ext} (2.7 folds the
+ *                           old local/ folder into the root at startup).
  *   - 'file://…'            legacy full URI stored by very old clients
  *
  * There is no database involved: the on-disk location is a pure function of
- * the value. (The old attachment queue's `local_uri` column was always
- * `shared_attachments/{filename}`, so this is behavior-identical to the old
- * table lookup.)
+ * the value (`localAudioFileName`).
  */
 
 import {
@@ -24,8 +25,8 @@ import {
 
 export const LOCAL_AUDIO_PREFIX = 'local/';
 
-/** True for on-disk staging paths (`local/{uuid}.{ext}`). */
-export function isLocalOnlyAudio(audioValue: string): boolean {
+/** True for legacy `local/{uuid}.{ext}` values. */
+function isLocalOnlyAudio(audioValue: string): boolean {
   return audioValue.startsWith(LOCAL_AUDIO_PREFIX);
 }
 
@@ -37,11 +38,22 @@ export function isRemoteAudioObject(audioValue: string): boolean {
   return !isInvalidAudioValue(audioValue) && !audioValue.startsWith('file://');
 }
 
-/** Storage object name: strips the on-disk `local/` prefix. */
+/** Storage object name as the *server* knows it: strips the legacy `local/` prefix. */
 export function storageAudioObjectName(audioValue: string): string {
   return isLocalOnlyAudio(audioValue)
     ? audioValue.slice(LOCAL_AUDIO_PREFIX.length)
     : audioValue;
+}
+
+/**
+ * Bare filename under shared_attachments/ for an audio[] value: the value
+ * itself, minus any legacy `local/` prefix or `file://` directory part.
+ */
+export function localAudioFileName(audioValue: string): string {
+  if (audioValue.startsWith('file://')) {
+    return getFileName(audioValue) ?? audioValue;
+  }
+  return storageAudioObjectName(audioValue);
 }
 
 /** Strip `local/` from each audio[] value. Returns null when `audio` is not an array. */
@@ -55,7 +67,7 @@ export function normalizeStoredAudioArray(
 }
 
 /** True for values that can never resolve to a real attachment file. */
-export function isInvalidAudioValue(audioValue: string): boolean {
+function isInvalidAudioValue(audioValue: string): boolean {
   return audioValue.trim() === '' || audioValue.includes('blob:');
 }
 
@@ -63,10 +75,8 @@ export function isInvalidAudioValue(audioValue: string): boolean {
  * Resolve an audio value to a playable local URI, returning null when the
  * file is not on this device.
  *
- * Checks the value's canonical location first, then the counterpart location
- * (a `local/…` value whose file was already promoted at publish, or a bare
- * filename whose file has not been promoted yet). This covers the states a
- * publish interruption can leave behind.
+ * Checks the flat location first, then the legacy `local/` staging folder
+ * (only populated if the 2.7 startup migration could not move a file).
  */
 export async function resolveExistingAudioUri(
   audioValue: string
@@ -80,9 +90,8 @@ export async function resolveExistingAudioUri(
     return filename ? resolveExistingAudioUri(filename) : null;
   }
 
-  const candidates = isLocalOnlyAudio(audioValue)
-    ? [audioValue, audioValue.slice(LOCAL_AUDIO_PREFIX.length)]
-    : [audioValue, `${LOCAL_AUDIO_PREFIX}${audioValue}`];
+  const name = localAudioFileName(audioValue);
+  const candidates = [name, `${LOCAL_AUDIO_PREFIX}${name}`];
 
   for (const candidate of candidates) {
     // Existence is checked on the raw path (cheap on both platforms) before

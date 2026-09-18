@@ -1,0 +1,170 @@
+import { spawn } from 'node:child_process';
+import { existsSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+
+const ROOT = process.cwd();
+const ENV_PATH = resolve(ROOT, '.env.local');
+
+function parseEnvFile(contents: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const line of contents.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const eq = trimmed.indexOf('=');
+    if (eq === -1) continue;
+    const key = trimmed.slice(0, eq);
+    let value = trimmed.slice(eq + 1);
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+    out[key] = value;
+  }
+  return out;
+}
+
+function requireVar(
+  env: Record<string, string>,
+  key: string,
+  fallbackKeys: string[] = []
+): string {
+  const direct = process.env[key] || env[key];
+  if (direct) return direct;
+  for (const fallback of fallbackKeys) {
+    const value = process.env[fallback] || env[fallback];
+    if (value) return value;
+  }
+  throw new Error(
+    `Missing ${key}. Run npm run generate-env and npm run env:start.`
+  );
+}
+
+function main() {
+  if (!existsSync(ENV_PATH)) {
+    throw new Error(
+      'No .env.local found. Run npm run generate-env, then npm run env:start.'
+    );
+  }
+
+  const fileEnv = parseEnvFile(readFileSync(ENV_PATH, 'utf8'));
+  // MAESTRO_APP_VARIANT lets Maestro target a preview/production build
+  // installed alongside the dev client without changing the variant that
+  // drives `expo run:android` and `expo start`.
+  const variant =
+    process.env.MAESTRO_APP_VARIANT ||
+    fileEnv.MAESTRO_APP_VARIANT ||
+    fileEnv.EXPO_PUBLIC_APP_VARIANT ||
+    'development';
+  if (!['development', 'preview', 'production'].includes(variant)) {
+    throw new Error(
+      `MAESTRO_APP_VARIANT must be development, preview, or production. Received: ${variant}`
+    );
+  }
+  const appId =
+    process.env.MAESTRO_APP_ID ||
+    fileEnv.MAESTRO_APP_ID ||
+    (variant === 'preview'
+      ? 'com.etengenesis.langquest.preview'
+      : variant === 'production'
+        ? 'com.etengenesis.langquest'
+        : 'com.etengenesis.langquest.development');
+
+  const isDevClient = appId.endsWith('.development');
+  const metroUrl =
+    process.env.MAESTRO_METRO_URL ||
+    fileEnv.MAESTRO_METRO_URL ||
+    fileEnv.EXPO_PUBLIC_SITE_URL ||
+    'http://localhost:8081';
+  const maestroEnv: Record<string, string> = {
+    MAESTRO_APP_ID: appId,
+    MAESTRO_SUPABASE_URL: requireVar(fileEnv, 'MAESTRO_SUPABASE_URL', [
+      'EXPO_PUBLIC_SUPABASE_URL'
+    ]),
+    MAESTRO_SUPABASE_SERVICE_ROLE_KEY: requireVar(
+      fileEnv,
+      'MAESTRO_SUPABASE_SERVICE_ROLE_KEY',
+      ['SUPABASE_SERVICE_ROLE_KEY']
+    ),
+    MAESTRO_SITE_URL: requireVar(fileEnv, 'MAESTRO_SITE_URL', [
+      'EXPO_PUBLIC_SITE_URL'
+    ]),
+    // Bucket the app uploads audio to; api.js seeds and inspects objects there.
+    MAESTRO_SUPABASE_BUCKET:
+      process.env.MAESTRO_SUPABASE_BUCKET ||
+      fileEnv.MAESTRO_SUPABASE_BUCKET ||
+      fileEnv.EXPO_PUBLIC_SUPABASE_BUCKET ||
+      'local',
+    MAESTRO_USE_DEV_CLIENT: isDevClient ? 'true' : 'false',
+    MAESTRO_DEV_CLIENT_URL: isDevClient
+      ? `exp+langquest://expo-development-client/?url=${encodeURIComponent(metroUrl)}`
+      : '',
+    MAESTRO_APP_SCHEME:
+      variant === 'preview'
+        ? 'langquest-preview'
+        : variant === 'production'
+          ? 'langquest'
+          : 'langquest-dev'
+  };
+
+  const DEFAULT_LOCAL_FLOWS = [
+    '.maestro/flows/local-suite.yaml',
+    '.maestro/flows/register.yaml',
+    '.maestro/flows/public-browse.yaml',
+    '.maestro/flows/private-access-gate.yaml',
+    '.maestro/flows/invite-accept.yaml',
+    '.maestro/flows/invite-decline.yaml',
+    '.maestro/flows/membership-moderation.yaml',
+    '.maestro/flows/auth-guest.yaml',
+    '.maestro/flows/session-account.yaml',
+    '.maestro/flows/account-deletion.yaml',
+    '.maestro/flows/search-and-tabs.yaml',
+    '.maestro/flows/profile-chrome.yaml',
+    '.maestro/flows/download-quest.yaml',
+    '.maestro/flows/offline-create-quest.yaml',
+    '.maestro/flows/asset-manage.yaml',
+    '.maestro/flows/asset-settings.yaml',
+    '.maestro/flows/recording-screen.yaml',
+    '.maestro/flows/asset-batch-ops.yaml',
+    '.maestro/flows/asset-file-upload.yaml',
+    '.maestro/flows/asset-file-upload-offline.yaml',
+    '.maestro/flows/asset-file-download.yaml',
+    '.maestro/flows/asset-file-delete-queue.yaml',
+    '.maestro/flows/bible-navigation.yaml',
+    '.maestro/flows/create-bible-project.yaml',
+    '.maestro/flows/fia-gate.yaml',
+    '.maestro/flows/report-project.yaml'
+  ];
+
+  const flowArgs = process.argv.slice(2);
+  const flows = flowArgs.length > 0 ? flowArgs : DEFAULT_LOCAL_FLOWS;
+
+  const args = ['test'];
+  for (const [key, value] of Object.entries(maestroEnv)) {
+    args.push('-e', `${key}=${value}`);
+  }
+  args.push(...flows);
+
+  console.log(`Maestro app: ${maestroEnv.MAESTRO_APP_ID} (${variant})`);
+  console.log(`Maestro supabase: ${maestroEnv.MAESTRO_SUPABASE_URL}`);
+  if (isDevClient) {
+    console.log(`Maestro metro: ${metroUrl}`);
+  }
+  console.log(`Flows: ${flows.join(' ')}`);
+
+  const child = spawn('maestro', args, { stdio: 'inherit' });
+  child.on('exit', (code) => {
+    process.exit(code ?? 1);
+  });
+  child.on('error', (error) => {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      console.error('maestro is not on PATH. Install it: https://maestro.dev');
+    } else {
+      console.error(error);
+    }
+    process.exit(1);
+  });
+}
+
+main();

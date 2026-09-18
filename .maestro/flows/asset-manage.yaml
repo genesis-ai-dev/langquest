@@ -1,0 +1,264 @@
+appId: ${MAESTRO_APP_ID}
+onFlowStart:
+  - runScript: ../api.js
+---
+# Seeded text assets: search (match, no match, clear), rename plus
+# undo/redo, empty rename rejected, selection mode enter/cancel, hide with
+# a show/hide round trip, then publish: no rename control and no batch
+# selection on a published quest. Batch delete/merge on local recordings
+# live in asset-batch-ops.yaml.
+- evalScript: ${output.keepName = "maestro-keep-" + Date.now()}
+- evalScript: ${output.hideName = "maestro-hide-" + Date.now()}
+# Rename types one character and reads the field back, so the final name
+# (renamedName) is only known at that point. See the rename step.
+- evalScript: ${output.renamedName = null}
+- evalScript: ${output.noMatchQuery = "zz-nomatch-" + Date.now()}
+- evalScript: ${output.projectName = "maestro-assets-" + Date.now()}
+- evalScript: ${output.questName = "maestro-assets-q-" + Date.now()}
+- evalScript: ${output.skipSignInCleanup = true}
+- runFlow: _start-signed-in.yaml
+- runFlow: _create-project-quest.yaml
+- extendedWaitUntil:
+    visible:
+      id: asset-record-button
+    timeout: 30000
+- evalScript: ${output.api.seedSourceAsset(output.projectName, output.questName, output.signInEmail, output.keepName, "Keep source")}
+- evalScript: ${output.api.seedSourceAsset(output.projectName, output.questName, output.signInEmail, output.hideName, "Hide source")}
+- tapOn:
+    id: assets-refresh-button
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible: ${output.keepName}
+    timeout: 45000
+- extendedWaitUntil:
+    visible: ${output.hideName}
+    timeout: 20000
+# Filter on "keep" (matches only keepName) rather than the full name: the
+# rename below inserts a character near the start, and the card must stay
+# in the filtered list afterwards.
+- tapOn:
+    id: assets-search
+- inputText: keep
+- hideKeyboard
+- extendedWaitUntil:
+    visible: ${output.keepName}
+    timeout: 20000
+- extendedWaitUntil:
+    notVisible: ${output.hideName}
+    timeout: 20000
+- assertVisible:
+    id: asset-rename
+- tapOn:
+    id: asset-rename
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: asset-rename-input
+    timeout: 10000
+# Let the drawer finish sliding in first: a tap during the slide misses and
+# inputText goes nowhere. Tap the left end of the field (the right end is
+# off limits: the Expo dev-client Tools button drifts there). A single
+# character is all the controlled input takes reliably from ADB, and where
+# Android drops the caret varies, so read the result back instead of
+# predicting it.
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn:
+    id: asset-rename-input
+    point: '5%,50%'
+    waitToSettleTimeoutMs: 0
+- inputText: x
+- copyTextFrom:
+    id: asset-rename-input
+- evalScript: ${output.renamedName = output.api.assertInsertedOnce(maestro.copiedText, output.keepName, "x", "rename input")}
+- hideKeyboard
+- tapOn:
+    id: asset-rename-save
+    waitToSettleTimeoutMs: 0
+# Search still has "keep"; the renamed card still matches that filter.
+- extendedWaitUntil:
+    visible: ${output.renamedName}
+    timeout: 45000
+- evalScript: ${output.api.waitForQuestAssetName(output.questName, output.renamedName)}
+- extendedWaitUntil:
+    visible:
+      id: assets-undo
+      enabled: true
+    timeout: 15000
+- tapOn:
+    id: assets-undo
+    enabled: true
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible: ${output.keepName}
+    timeout: 30000
+- evalScript: ${output.api.waitForQuestAssetName(output.questName, output.keepName)}
+- tapOn:
+    id: assets-redo
+    enabled: true
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible: ${output.renamedName}
+    timeout: 30000
+- evalScript: ${output.api.waitForQuestAssetName(output.questName, output.renamedName)}
+# Empty rename is a no-op: the drawer closes and the name stays.
+- tapOn:
+    id: asset-rename
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: asset-rename-input
+    timeout: 10000
+# The drawer auto-focuses the input with the whole name selected, so one
+# Backspace empties it. (eraseText's burst of backspaces scrambles a
+# controlled TextInput on Android and leaves a garbage name behind.)
+- waitForAnimationToEnd:
+    timeout: 3000
+- pressKey: Backspace
+- extendedWaitUntil:
+    visible: Enter asset name
+    timeout: 5000
+- hideKeyboard
+- tapOn:
+    id: asset-rename-save
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    notVisible:
+      id: asset-rename-input
+    timeout: 10000
+- extendedWaitUntil:
+    visible: ${output.renamedName}
+    timeout: 20000
+- evalScript: ${output.api.waitForQuestAssetName(output.questName, output.renamedName)}
+# Long press enters selection mode on a draft; cancel leaves it.
+- longPressOn:
+    id: asset-list-item
+- extendedWaitUntil:
+    visible:
+      id: assets-selection-cancel
+    timeout: 10000
+- tapOn:
+    id: assets-selection-cancel
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    notVisible:
+      id: assets-selection-cancel
+    timeout: 10000
+# No match hides both rows; clearing the query brings them back.
+- tapOn:
+    id: assets-search
+- eraseText: 200
+- hideKeyboard
+- tapOn:
+    id: assets-search
+- eraseText: 200
+- inputText: ${output.noMatchQuery}
+- hideKeyboard
+- extendedWaitUntil:
+    notVisible: ${output.renamedName}
+    timeout: 20000
+- assertNotVisible: ${output.hideName}
+- tapOn:
+    id: assets-search
+- eraseText: 200
+- hideKeyboard
+- tapOn:
+    id: assets-search
+- eraseText: 200
+- hideKeyboard
+- extendedWaitUntil:
+    visible: ${output.renamedName}
+    timeout: 20000
+- extendedWaitUntil:
+    visible: ${output.hideName}
+    timeout: 20000
+- tapOn:
+    id: assets-search
+- eraseText: 200
+- inputText: ${output.hideName}
+- hideKeyboard
+- extendedWaitUntil:
+    visible: ${output.hideName}
+    timeout: 20000
+- tapOn:
+    id: asset-open-details
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible: Hide source
+    timeout: 30000
+- tapOn:
+    id: asset-settings-open
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: asset-settings-visible-general
+    timeout: 15000
+- tapOn:
+    id: asset-settings-visible-general
+    waitToSettleTimeoutMs: 0
+# Round trip: hidden → shown → hidden, each confirmed on the server.
+- evalScript: ${output.api.waitForAssetVisible(output.hideName, false, 45000)}
+- tapOn:
+    id: asset-settings-visible-general
+    waitToSettleTimeoutMs: 0
+- evalScript: ${output.api.waitForAssetVisible(output.hideName, true, 45000)}
+- tapOn:
+    id: asset-settings-visible-general
+    waitToSettleTimeoutMs: 0
+- evalScript: ${output.api.waitForAssetVisible(output.hideName, false, 45000)}
+- pressKey: back
+- runFlow:
+    when:
+      visible:
+        id: asset-translate-button
+    commands:
+      - tapOn:
+          id: nav-back
+          waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: assets-search
+    timeout: 20000
+- tapOn:
+    id: assets-search
+- eraseText: 200
+- hideKeyboard
+- tapOn:
+    id: assets-search
+- eraseText: 200
+- hideKeyboard
+- extendedWaitUntil:
+    visible: ${output.renamedName}
+    timeout: 20000
+# Owners still see their own hidden row (dimmed). Assert REST visible=false.
+- evalScript: ${output.api.waitForAssetVisible(output.hideName, false)}
+# Published quest: rename and batch selection are gone, the synced badge
+# replaces the publish button.
+- assertVisible:
+    id: asset-rename
+- tapOn:
+    id: quest-publish
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: quest-publish-confirm
+    timeout: 15000
+- tapOn:
+    id: quest-publish-confirm
+    waitToSettleTimeoutMs: 0
+- tapOn: Save
+- evalScript: ${output.api.waitForQuestPublished(output.questName, 45000)}
+- extendedWaitUntil:
+    visible:
+      id: quest-synced-badge
+    timeout: 45000
+- extendedWaitUntil:
+    notVisible:
+      id: asset-rename
+    timeout: 20000
+- longPressOn:
+    id: asset-list-item
+- assertNotVisible:
+    id: assets-selection-cancel
+- evalScript: ${output.api.deleteProject(output.projectName)}
+- evalScript: ${output.api.deleteUserIfExists(output.signInEmail)}

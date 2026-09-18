@@ -1,0 +1,47 @@
+appId: ${MAESTRO_APP_ID}
+onFlowStart:
+  - runScript: ../api.js
+---
+# 6.1–6.3: seeded bible project → Genesis book → chapter grid → verse asset.
+# Skip import wizard (6.4) and live FIA fetch. download_profiles includes the
+# owner so the chapter version opens instead of Download Required.
+- evalScript: ${output.projectName = "maestro-bible-" + Date.now()}
+- evalScript: ${output.assetName = "maestro-gen1-" + Date.now()}
+- evalScript: ${output.skipSignInCleanup = true}
+- runFlow: _start-signed-in.yaml
+- evalScript: ${output.api.seedProject(output.projectName, output.signInEmail, false, "bible")}
+- evalScript: ${output.api.seedBibleHierarchy(output.projectName, output.signInEmail)}
+- evalScript: ${output.api.seedSourceAsset(output.projectName, "Genesis 1", output.signInEmail, output.assetName, "In the beginning")}
+- runFlow: _open-named-project.yaml
+- extendedWaitUntil:
+    visible:
+      id: bible-book-gen
+    timeout: 45000
+- tapOn:
+    id: bible-book-gen
+- extendedWaitUntil:
+    visible:
+      id: bible-chapter-1
+    timeout: 45000
+- tapOn:
+    id: bible-chapter-1
+- extendedWaitUntil:
+    visible:
+      id: bible-chapter-version
+    timeout: 20000
+- tapOn:
+    id: bible-chapter-version
+- runFlow:
+    when:
+      visible:
+        id: assets-refresh-button
+    commands:
+      - tapOn:
+          id: assets-refresh-button
+- extendedWaitUntil:
+    visible:
+      id: asset-list-item
+    timeout: 45000
+- assertVisible: ${output.assetName}
+- evalScript: ${output.api.deleteProject(output.projectName)}
+- evalScript: ${output.api.deleteUserIfExists(output.signInEmail)}

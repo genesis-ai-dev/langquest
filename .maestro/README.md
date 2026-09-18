@@ -1,0 +1,92 @@
+# Maestro
+
+Device flows for the native app. EAS runs register, reset-password, and sign-in against preview/production. Local runs target the development client and Docker.
+
+## Local
+
+1. `npm run env:start`
+2. Install `com.etengenesis.langquest.development` (`npm run android` or `ios`) and leave Metro running
+3. `npm run maestro:local` — signed-in contribute (`local-suite.yaml`), register, public browse, private gate, invite/accept/remove, invite decline, request approve/deny, auth/account (guest CTA, session, deletion), search/tabs and profile chrome (drawer, terms, feedback, UI language), download/offload and offline quest create, asset search/rename/hide/settings, recording plus batch ops, the audio file lifecycle (upload at record time, offline upload, download + playback, deletion queue), then bible/FIA templates and a project report
+
+`local-suite.yaml` signs in once and covers create, empty quest, offline publish, translate/vote, one recorded take, and publish (asserting the object name survives publish and the synced badge ends without a pending percent). `invite-accept.yaml` uses `clearState` to switch the two accounts on one device. Individual flows still work for debugging. `maestro:local:core` is sign-in + register + create-records. `maestro:local:membership` is invite + decline + request moderation. `maestro:local:auth` is guest sign-in/offline/forgot/wrong-password, change-password + relaunch + deleted overlay, and account deletion. `maestro:local:settings` is project/quest search plus My vs All, then drawer destinations, terms, feedback, and a UI language change. `maestro:local:sync` is download/offload a seeded published quest plus Android airplane-mode quest create. `maestro:local:assets` is the asset set below. `maestro:local:templates` is bible book/chapter/asset navigation, create-project Bible template, the FIA experimental gate, and reporting a public project. Reset-password stays on EAS (`.maestro/flows/reset-password.yaml`). New `testID`s need a rebuild of the installed app (preview APK included).
+
+### Asset files
+
+Audio uploads to Storage as soon as a take is recorded (not at publish), `audio[]` holds bare `{uuid}.{ext}` object names, and objects whose `asset_content_link` row is deleted are removed through `storage_object_deletion_queue` after a 24h grace period. `npm run maestro:local:assets` runs:
+
+- `asset-manage.yaml` — seeded text assets: search match/no-match/clear, rename + undo/redo, empty rename rejected, selection enter/cancel, hide → show → hide round trip, then publish (no rename control, no batch selection, synced badge).
+- `asset-settings.yaml` — a source shared by two draft quests: quest-scoped visible/active only touch this quest's `quest_asset_link`, general active disables the quest toggles, general visibility round trip.
+- `recording-screen.yaml` — hold-to-record, assert the row, the flat object name, `audio_uploaded_at`; play; undo (object queued but kept), redo (same object re-referenced, sweep says `kept_referenced`); second take order.
+- `asset-batch-ops.yaml` — merge (both objects on the merged rows) + undo/redo, batch delete + undo/redo, selection cancel, replace (new object) + undo/redo, rename from the session card, then leave: dropped objects are queued, the sweep keeps the live one (`kept_referenced`, since undoing the replace queued it before redo re-referenced it), nothing is removed yet.
+- `asset-file-upload.yaml` — record on a draft, storage object + `audio_uploaded_at` exist before publish, Upload Status shows `1/1` audio, publish leaves `audio[0]` untouched, synced badge complete.
+- `asset-file-upload-offline.yaml` — Android: record in airplane mode, nothing on the server, pending percent on the publish button; radios on → row, object, confirmation, percent clears.
+- `asset-file-download.yaml` — `seedAudioAsset` uploads a WAV and points a published asset at it; the device downloads the quest, Download Status reaches `1/1 files`, the detail player renders and plays, offload leaves the object alone.
+- `asset-file-delete-queue.yaml` — merge two takes (sources GC'd → names queued → sweep `kept_referenced`), delete the merged asset (soft: nothing queued), undo/redo, leave (GC → queued, objects survive), then `waitForSweptObjectGone` skips the grace period, runs `process_storage_object_deletions()` and waits for Storage to drop the objects.
+
+`api.js` storage helpers use `MAESTRO_SUPABASE_BUCKET` (from `EXPO_PUBLIC_SUPABASE_BUCKET`, default `local`). Maestro's http client only sends UTF-8 strings, so `seedAudioAsset` uploads an 8-bit PCM WAV whose bytes are all < 0x80. The sweep calls the security-definer RPC as the service role; it needs `supabase_url` and `supabase_service_role_key` in the local vault (the migration's cron job uses the same). `config.toml` seeds those from `SERVICE_ROLE_KEY` in `supabase/.env.local` at `supabase start`. Recorded takes are named `001`, `002`, …; `waitForRecordedAudio(quest, timeout, "002")` narrows to one take. Under 30 assets merge/delete have no confirmation alert. `deleteProject` also removes the referenced storage objects and their queue rows.
+
+`publish-offline.yaml` and `offline-create-quest.yaml` are Android-only for airplane mode: they turn radios off, assert the offline behavior, then turn radios back on (`onFlowComplete` also forces `setAirplaneMode: disabled`). iOS Simulator has no airplane mode, so those blocks are skipped. Download Status is not in the drawer; `download-quest.yaml` opens it with `MAESTRO_APP_SCHEME://download-status`. Or one flow:
+
+```bash
+npm run maestro:local -- .maestro/flows/sign-in.yaml
+```
+
+The script reads `.env.local` and sets `MAESTRO_APP_ID`, `MAESTRO_SUPABASE_URL`, `MAESTRO_SUPABASE_SERVICE_ROLE_KEY`, `MAESTRO_SITE_URL`, `MAESTRO_SUPABASE_BUCKET`, `MAESTRO_APP_SCHEME`, and (for the development client) `MAESTRO_DEV_CLIENT_URL` from `EXPO_PUBLIC_SITE_URL`. Android needs the LAN IP already written by `npm run generate-env` so the emulator can reach Supabase and Metro.
+
+Set `MAESTRO_APP_VARIANT=preview` (env var or `.env.local`) to drive a preview build installed alongside the dev client. Non-development variants skip the dev-client deep link and Dev Menu handling. Build one with `EXPO_PUBLIC_APP_VARIANT=preview npx expo run:android --variant release`; release builds refuse cleartext `http://`, so local Supabase/PowerSync need `usesCleartextTraffic` enabled for non-production variants in `app.config.ts`.
+
+`launchApp: clearState` wipes Expo’s last Metro URL, so each local run reopens the app with `exp+langquest://expo-development-client/?url=...`. Override the Metro host with `MAESTRO_METRO_URL` if the default site URL is wrong (Android emulator + `adb reverse` often wants `http://127.0.0.1:8081`).
+
+Reset-password stays on EAS. Local deep links against Metro are not wired yet.
+
+Do not `env:clean` between flows. Each run creates its own user.
+
+## testIDs
+
+Stable English IDs, never i18n strings. Prefer `id:` in YAML over visible text.
+
+After a search, tap the name `below:` the search field. The typed name is still in the input. Do not `eraseText` then `inputText` on `projects-search` to re-filter the same query: the field is controlled and leftover digits concat (`maestro-dl-…5723625723`), so the list shows No projects found. `search-and-tabs.yaml` only retypes when the query must change (erase, hideKeyboard, tap the field, erase, then type).
+
+After creating a quest, the quest search field takes focus and the keyboard comes up; the first tap on the list only dismisses it. `_open-quest.yaml` hides the keyboard and retries the row tap. Any step after `inputText` should `hideKeyboard` before tapping a list. Seeded published quests arrive as cloud rows. Authenticated users get Download Required on tap; guest browse can open them. Search/tab flows should assert the list, not the assets screen.
+
+Profile language is LanguageCombobox (`language-search`), same as Sign In and New Project. Open `profile-language`, type Tok Pisin, tap `id: Tok Pisin` (the list row; the search field still contains that text). The first tap after `inputText` only dismisses the IME — retry if `language-search` is still visible, then `id: profile-submit`. Do not `hideKeyboard` while the list is open (Back closes it).
+
+Do not `hideKeyboard` when the keyboard is already down: Android implements it as Back and will pop the current screen. After `inputText` in the new-quest sheet the IME covers `quest-create-submit`; hide it then.
+
+The rename drawer (`asset-rename-input`) is a controlled `TextInput` that auto-focuses with the whole name selected. `extendedWaitUntil visible` passes while the drawer is still sliding in, so `waitForAnimationToEnd` before tapping it or the tap misses and `inputText` types into nothing. A burst of ADB keystrokes drops or reorders characters (`eraseText: 100` left `metoke-798441956x`; typing a 9-char name gave `00x638`), so flows type exactly one character, `copyTextFrom` the field, and derive the expected name with `api.assertInsertedOnce`. To empty it, one `pressKey: Backspace` on the selected text. Tap the left end of the field: the Expo dev-client Tools button (gear) drifts across the screen and often parks over the right end, and tapping it opens the Dev Menu.
+
+After confirming a quest download, discovery must be gone (`quest-download-continue` not visible). If Continue to Download is still on screen, the confirmation sheet stacked on a `close()`d discovery sheet; Cancel is then a no-op because React already has `open=false`. Wait for that id to disappear, then leave through `MAESTRO_APP_SCHEME://download-status` for Download Status (5.2). The first hamburger tap after that deep link can hit leftover UI; `_open-app-drawer.yaml` retries until `drawer-projects` is visible. If Download Required appears, cancel it and wait; do not tap Download Now.
+
+Offload opens with **Ready to offload** in the header. `Offload from Device` is `quest-offload-continue` in the footer; wait for Ready to offload, then `scrollUntilVisible` that id (the verification list is taller than the sheet). Do not wait on the English footer string alone.
+
+Seeded bible book/chapter quests need `metadata` plus `download_profiles` for the signed-in owner; otherwise the chapter version card starts Download Required. `seedSourceAsset` looks up the quest by name **and** `project_id` — `Genesis 1` is not unique across leftover failed runs. After adding a language on New Project, tap the new row and wait until `language-search` is gone before the template radios; `hideKeyboard` can pop the create drawer. The report modal is a React Native `Modal`: `hideKeyboard`/Back closes it, and `scrollUntilVisible` swipes the directory behind it. FIA book lists hit a live edge API — the Maestro case only asserts the experimental gate with `enableFia` off. Import wizard is skipped (matching published chapter sources).
+
+The Expo Dev Menu and Dev Launcher appear at unpredictable moments while Metro loads. `_launch-and-onboard.yaml` loops dismissing them until the Terms screen shows. Closing onboarding can leave an empty Android Dialog; if the hamburger never appears, that flow restarts the process without `clearState` and retries close. After opening a named project, wait until `projects-create-button` is gone; a left swipe on that screen is Android Back. Request approve/deny ids are `membership-request-approve-${profileId}` / `membership-request-deny-${profileId}` so two pending rows are not the same control.
+
+When a flow fails, do not guess. Reproduce the state, then inspect with `maestro --device emulator-5554 hierarchy`, `adb exec-out screencap -p > /tmp/s.png`, and `adb shell input tap X Y`. Failure hierarchies are in `~/.maestro/tests/<run>/<flow>/screen-hierarchy/`.
+
+Auth form validation, offline submit mapping, private-request pending/expired/denied, and remaining localStore settings keys (`autoBackup`, `offlineUndownloadWarningEnabled`) are Jest, not Maestro. Import wizard stays skipped. Quest/asset reports stay skipped (project report is covered). Reset-password stays on EAS. `_open-recording-screen.yaml` gets from a quest's assets screen to Ready to record (help dialog, mic permission, VAD drawer); `_record-take.yaml` hold-to-records one take (`recording-mic-button`; Maestro's default long press is 3s) even without a live mic — set `output.expectTake = "002"` first to wait for that card. Batch delete/merge/replace only apply to local recordings (`recording-asset-select`, `recording-action-new` / `recording-action-replace` on the highlighted card). Undo/redo pointer rules live in Jest (`hooks/__tests__/useUndoHistory.test.ts`); the legacy `local/` directory flattening and path resolution are Jest too (`services/attachments/__tests__/`, `utils/__tests__/attachmentPaths.test.ts`); the deletion-queue triggers and processor are pgTAP (`supabase/tests/storage_deletion_queue.sql`).
+
+`deleteProject` removes votes, content links, assets, and quests before the project row, then the storage objects those content rows referenced and their deletion-queue rows.
+
+Local Docker has `enable_confirmations = false`, so `signUp` creates a session and the auth layout sends the user home. Unpublished seeded quests (`published_at` null) are creator-only; guest browse must pass `true` as the fourth `seedQuest` argument. Seeded quests are cloud-only on the device (Download Required on tap) unless the fifth argument is `true`, which adds the creator to `download_profiles` (`asset-settings.yaml` uses this for its second quest). Seeded assets must set `download_profiles` to the owner's id; PowerSync and the ACL insert trigger both key off that array, otherwise the list shows the name while the detail card is `(No text)`.
+
+- Projects: `projects-tab-my`, `projects-tab-all`, `projects-search`, `project-list-item`, `project-create-language`, `language-search`, `home-sign-in`
+- Quest assets: `quest-list-item`, `asset-list-item`, `asset-select-toggle`, `asset-open-details`, `asset-audio-play`, `assets-refresh-button`, `asset-record-button`, `assets-search`, `asset-rename`, `asset-rename-input`, `asset-rename-save`, `asset-settings-open`, `asset-settings-visible-general`, `asset-settings-active-general`, `asset-settings-visible-quest`, `asset-settings-active-quest`, `assets-merge`, `assets-batch-delete`, `assets-selection-cancel`, `assets-undo`, `assets-redo`
+- Translation: `asset-translate-button`, `translation-text`, `translation-submit`, `translation-list-item`, `translation-modal-close`
+- Vote: `vote-up`, `vote-down`
+- Publish / upload status: `quest-publish`, `quest-publish-percent` (only while something is pending), `quest-publish-confirm`, `quest-synced-badge`, `quest-synced-percent`, `upload-status-summary`, `upload-status-records`, `upload-status-audio` (the `confirmed/total` texts)
+- Private gate: `project-request-access`
+- Recording: `recording-screen`, `recording-help-ok`, `recording-vad-settings-open`, `recording-vad-settings-drawer`, `recording-vad-done`, `recording-mic-button`, `recording-mic-permission-grant`, `recording-asset-card`, `recording-asset-play`, `recording-asset-select`, `recording-action-new`, `recording-action-replace`, `recording-controls`, `recording-undo`, `recording-redo`
+- Header: `nav-back`
+- Membership: `project-invite-banner`, `project-speed-dial`, `project-membership`, `membership-invite-email`, `membership-invite-send`, `membership-only-owners`, `membership-tab-members`, `membership-tab-invited`, `membership-tab-requests`, `membership-remove-member`, `membership-request-approve-${profileId}`, `membership-request-deny-${profileId}`
+- Notifications: `drawer-notifications`, `notification-invite-accept`, `notification-invite-decline`
+- Auth: `sign-in-forgot-password`, `sign-in-submit`, `forgot-password-email`, `forgot-password-submit`, `offline-alert`
+- Account: `account-deleted-overlay`, `account-deleted-restore`, `account-deleted-logout`, `profile-current-password`, `profile-new-password`, `profile-confirm-password`, `profile-submit`, `profile-advanced`, `profile-delete-account`, `account-deletion-continue`, `account-deletion-confirm`, `profile-feedback`, `profile-language`
+- Quest directory: `quests-search`
+- Feedback: `feedback-title`, `feedback-description`, `feedback-submit`
+- Terms: `terms-screen`, `terms-close`
+- Settings/notifications: `settings-screen`, `settings-appearance`, `settings-fia`, `notifications-screen`, `appearance-screen`
+- Download/offload: `quest-download`, `quest-download-continue`, `quest-download-confirm`, `quest-offload-continue`, `download-status-screen`, `download-status-files` (`synced/total files`)
+- Bible/FIA: `project-template-bible`, `project-template-unstructured`, `project-template-fia`, `bible-book-gen`, `bible-chapter-1`, `bible-chapter-version`, `fia-open-settings`
+- Reports: `project-report`, `report-reason-spam`, `report-details`, `report-submit`

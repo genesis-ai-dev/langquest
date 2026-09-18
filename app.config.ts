@@ -299,9 +299,8 @@ export default ({ config }: ConfigContext): ExpoConfig =>
       [
         'expo-build-properties',
         {
-          ios: {
-            deploymentTarget: '15.5'
-          }
+          ios: { deploymentTarget: '15.5' },
+          android: { usesCleartextTraffic: appVariant !== 'production' }
         }
       ],
       [

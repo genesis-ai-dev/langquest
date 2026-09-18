@@ -3,9 +3,12 @@ import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useQuestUploadProgress } from '@/hooks/useQuestUploadProgress';
+import { Text } from '@/components/ui/text';
+import { cn } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
-import { CloudUpload } from 'lucide-react-native';
+import { CloudUpload, ListChecks } from 'lucide-react-native';
 import React from 'react';
+import { View } from 'react-native';
 
 interface PublishQuestButtonProps {
   questId?: string | null;
@@ -70,20 +73,40 @@ export function PublishQuestButton({
     ? 'text-primary-foreground'
     : 'text-foreground';
 
-  // No percent here: this button only renders for a draft, and a draft has
-  // nothing uploaded to report on. Confirmation progress belongs to
-  // QuestSyncedBadge, which replaces this button once published_at is set.
+  // Draft rows and audio upload as soon as they are created, so a draft has
+  // real backup progress to show. Mirror QuestSyncedBadge (which replaces
+  // this button once published_at is set): icon only when everything is
+  // confirmed, queue icon + percent while something is still in flight.
+  const showPercent = !isPublishing && progress.isPending;
   return (
     <>
       <Button
         variant={isHighlighted ? 'default' : 'outline'}
-        size="icon"
+        size={showPercent ? 'sm' : 'icon'}
+        className={cn(showPercent && 'py-0')}
         disabled={disabled}
         loading={isPublishing}
         onPress={() => setIsDrawerOpen(true)}
+        testID="quest-publish"
       >
         {!isPublishing && (
-          <Icon as={CloudUpload} size={18} className={foregroundClass} />
+          <View className="flex-row items-center gap-0.5">
+            <Icon as={CloudUpload} size={18} className={foregroundClass} />
+            {showPercent && (
+              <>
+                <Icon as={ListChecks} size={14} className={foregroundClass} />
+                <Text
+                  className={cn(
+                    'native:text-xs text-xs font-semibold',
+                    foregroundClass
+                  )}
+                  testID="quest-publish-percent"
+                >
+                  {progress.percent}%
+                </Text>
+              </>
+            )}
+          </View>
         )}
       </Button>
 

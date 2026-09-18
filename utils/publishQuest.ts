@@ -1,16 +1,9 @@
 import { asset, asset_content_link, project, quest, quest_asset_link } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { getNetworkStatus } from '@/hooks/useNetworkStatus';
-import { promoteLocalAudio } from '@/services/attachments/promoteLocalAudio';
-import {
-  isInvalidAudioValue,
-  LOCAL_AUDIO_PREFIX,
-  normalizeStoredAudioArray,
-  storageAudioObjectName
-} from '@/utils/attachmentPaths';
+import { normalizeStoredAudioArray } from '@/utils/attachmentPaths';
 import { and, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
 import { aliasedColumn } from './dbUtils';
-import { getLocalAttachmentUri } from './fileUtils';
 
 // ============================================================================
 // TYPES
@@ -23,7 +16,6 @@ export interface PublishQuestResult {
   publishedQuestIds?: string[];
   publishedAssetIds?: string[];
   publishedProjectId?: string;
-  pendingAttachments?: number;
   errors: string[];
   warnings: string[];
 }
@@ -281,7 +273,10 @@ export async function publishQuest(
 
     const publishedAt = new Date().toISOString();
 
-    const audioUploadResults = await system.db.transaction(async (tx) => {
+    // Audio files are already at their final on-disk location and have been
+    // uploading since they were recorded (see AudioUploader). Publishing only
+    // flips visibility; there is no file promotion step.
+    await system.db.transaction(async (tx) => {
       // Strip leftover 2.5 `local/` prefixes while the quest is still a
       // draft. After published_at is set, ACL updates are rejected.
       if (nestedAssetIds.length > 0) {
@@ -313,47 +308,10 @@ export async function publishQuest(
         .where(
           and(inArray(quest.id, unpublishedQuestIds), isNull(quest.published_at))
         );
-
-      // audio[] stores the storage object name. Move the on-disk file from
-      // local/{name} to the published location.
-      const localAudioFilesForAssets =
-        nestedAssetIds.length > 0
-          ? await Promise.all(
-              (
-                await tx.query.asset_content_link.findMany({
-                  columns: { audio: true },
-                  where: and(
-                    inArray(asset_content_link.asset_id, nestedAssetIds),
-                    isNotNull(asset_content_link.audio)
-                  )
-                })
-              )
-                .flatMap((link) => link.audio ?? [])
-                .filter(
-                  (value): value is string =>
-                    Boolean(value) && !isInvalidAudioValue(value)
-                )
-                .map((value) =>
-                  getLocalAttachmentUri(
-                    `${LOCAL_AUDIO_PREFIX}${storageAudioObjectName(value)}`
-                  )
-                )
-            )
-          : [];
-
-      return Promise.allSettled(
-        localAudioFilesForAssets.map((audio) => promoteLocalAudio(audio))
-      );
     });
 
+    // Anything still unconfirmed (e.g. recorded offline) retries right away.
     system.audioUploader?.trigger();
-
-    const failedAudioResults = audioUploadResults.filter(
-      (result) => result.status === 'rejected'
-    );
-    if (failedAudioResults.length > 0) {
-      console.error('Failed to save audio attachments', failedAudioResults);
-    }
 
     console.log('Quest published successfully');
     return {
@@ -362,7 +320,6 @@ export async function publishQuest(
       message: 'Quest published successfully',
       publishedQuestIds: unpublishedQuestIds,
       publishedAssetIds: nestedAssetIds,
-      pendingAttachments: audioUploadResults.length,
       errors,
       warnings
     };

@@ -393,6 +393,7 @@ export default function SettingsView() {
               checked={item.value || false}
               onCheckedChange={() => item.onPress?.()}
               disabled={isDisabled}
+              testID={`settings-${item.id}`}
               className={cn(!item.value && 'dark:bg-accent/60')}
             />
           </Card>
@@ -437,6 +438,8 @@ export default function SettingsView() {
                 }
               }}
               disabled={isDisabled}
+              testID={`settings-${item.id}`}
+              accessibilityLabel={`settings-${item.id}`}
             >
               <CardHeader className="flex-1 p-0">
                 <CardTitle className="text-primary">{item.title}</CardTitle>
@@ -458,7 +461,9 @@ export default function SettingsView() {
     >
       <View className="gap-6">
         <View className="flex-row items-center justify-between">
-          <Text className="text-2xl font-bold">{t('settings')}</Text>
+          <Text className="text-2xl font-bold" testID="settings-screen">
+            {t('settings')}
+          </Text>
         </View>
 
         {!isOnline && (

@@ -3,7 +3,9 @@
   "entry": ["app/**/*.{js,ts,tsx}", "views/**/*.{js,ts,tsx}"],
   "project": ["**/*.{js,ts,tsx}"],
   "ignore": [
-    "components/ui/**/*.{js,ts,tsx}"
+    "components/ui/**/*.{js,ts,tsx}",
+    "testing/jest.setup.ts",
+    "testing/maestro-local.ts"
   ],
   "typescript": true
 }

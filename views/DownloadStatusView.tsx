@@ -68,6 +68,7 @@ export default function DownloadStatusView() {
     <ScrollView
       className="flex-1 bg-background"
       contentContainerClassName="pb-safe android:pb-[calc(env(safe-area-inset-bottom)+1rem)]"
+      testID="download-status-screen"
     >
       <View className="flex-1 gap-4 p-4">
         {/* Header */}
@@ -221,7 +222,10 @@ export default function DownloadStatusView() {
                   <Text className="text-sm font-medium text-foreground">
                     {t('overallProgress')}
                   </Text>
-                  <Text className="text-sm text-muted-foreground">
+                  <Text
+                    className="text-sm text-muted-foreground"
+                    testID="download-status-files"
+                  >
                     {progress.synced}/{progress.total} {t('files')}
                   </Text>
                 </View>

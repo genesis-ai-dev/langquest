@@ -146,11 +146,6 @@ export function SimpleOnboardingFlow({
     onClose();
   };
 
-  // Guard: Don't render if not visible
-  if (!visible) {
-    return null;
-  }
-
   const handleAction = () => {
     // Just continue to next step - buttons are informational, not action buttons
     handleNext();
@@ -166,6 +161,8 @@ export function SimpleOnboardingFlow({
     }
   };
 
+  // Keep Modal mounted with visible={false}. Returning null unmounts a
+  // still-visible Android Dialog and can leave a blank window over home.
   return (
     <Modal
       visible={visible}
@@ -173,6 +170,8 @@ export function SimpleOnboardingFlow({
       animationType="slide"
       onRequestClose={handleClose}
     >
+      {!visible ? null : (
+      <>
       <View className="flex-1 bg-background" style={{ paddingTop: insets.top }}>
         {/* PortalHost for Select dropdowns inside Modal */}
         <PortalHost />
@@ -540,6 +539,8 @@ export function SimpleOnboardingFlow({
         )}
       </View>
       <KeyboardToolbar />
+      </>
+      )}
     </Modal>
   );
 }

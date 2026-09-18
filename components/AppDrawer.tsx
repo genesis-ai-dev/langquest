@@ -52,6 +52,7 @@ interface DrawerItemType {
   onPress: () => void;
   notificationCount?: number;
   disabled?: boolean;
+  testID?: string;
 }
 
 export default function AppDrawer({
@@ -318,7 +319,8 @@ export default function AppDrawer({
         name: t('projects'),
         view: 'projects',
         icon: HomeIcon,
-        onPress: handleGoToProjects
+        onPress: handleGoToProjects,
+        testID: 'drawer-projects'
       }
     ];
 
@@ -329,20 +331,23 @@ export default function AppDrawer({
         view: 'notifications',
         icon: BellIcon,
         onPress: handleGoToNotifications,
-        notificationCount
+        notificationCount,
+        testID: 'drawer-notifications'
       });
       items.push(
         {
           name: t('profile'),
           view: 'profile',
           icon: UserIcon,
-          onPress: handleGoToProfile
+          onPress: handleGoToProfile,
+          testID: 'drawer-profile'
         },
         {
           name: t('settings'),
           view: 'settings',
           icon: SettingsIcon,
-          onPress: handleGoToSettings
+          onPress: handleGoToSettings,
+          testID: 'drawer-settings'
         }
       );
     } else {
@@ -629,6 +634,8 @@ export default function AppDrawer({
               return (
                 <Button
                   key={index}
+                  testID={item.testID}
+                  accessibilityLabel={item.testID}
                   variant={isActive ? 'secondary' : 'ghost'}
                   className={cn(
                     'native:px-2 h-auto justify-start px-2 py-4',

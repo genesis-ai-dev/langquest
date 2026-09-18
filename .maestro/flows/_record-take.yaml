@@ -1,0 +1,37 @@
+appId: ${MAESTRO_APP_ID}
+---
+# Hold-to-record one take. Works without a live mic: the recorder still
+# writes a file. Footer IDs sit under the session list in UiAutomator, so
+# prefer the mic id and fall back to holding the Record control by point.
+# Set output.expectTake ("002") first to wait for that card by name; the
+# generic card wait alone passes as soon as any earlier take is on screen.
+- runFlow:
+    when:
+      visible:
+        id: recording-mic-button
+    commands:
+      - longPressOn:
+          id: recording-mic-button
+- runFlow:
+    when:
+      notVisible:
+        id: recording-mic-button
+    commands:
+      - longPressOn:
+          point: '50%,91%'
+- runFlow:
+    when:
+      true: ${output.expectTake != null && output.expectTake !== ""}
+    commands:
+      - extendedWaitUntil:
+          visible: ${output.expectTake}
+          timeout: 45000
+- runFlow:
+    when:
+      true: ${output.expectTake == null || output.expectTake === ""}
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: recording-asset-card
+          timeout: 45000
+- evalScript: ${output.expectTake = null}

@@ -1,0 +1,85 @@
+appId: ${MAESTRO_APP_ID}
+onFlowStart:
+  - runScript: ../api.js
+---
+# Empty quest → recording session. Hold-to-record still writes a file
+# without a live mic. Assert the session card, asset_content_link.audio and
+# the server-side upload confirmation for the first take (audio uploads at
+# record time — this is the cheapest regression guard for that), play it
+# back, undo and redo the take, then record a second take and check order.
+- evalScript: ${output.projectName = "maestro-project-" + Date.now()}
+- evalScript: ${output.questName = "maestro-quest-" + Date.now()}
+- evalScript: ${output.skipSignInCleanup = true}
+- runFlow: _start-signed-in.yaml
+- runFlow: _create-project-quest.yaml
+- extendedWaitUntil:
+    visible:
+      id: asset-record-button
+    timeout: 30000
+- runFlow: _open-recording-screen.yaml
+- evalScript: ${output.expectTake = "001"}
+- runFlow: _record-take.yaml
+- evalScript: ${output.recorded = output.api.waitForRecordedAudio(output.questName)}
+- evalScript: ${output.o1 = output.api.assertFlatObjectName(output.recorded.audio[0])}
+- evalScript: ${output.api.waitForAudioUploaded(output.questName, 90000, "001")}
+# Playback from the card must not raise "Audio not available".
+- tapOn:
+    id: recording-asset-play
+    index: 0
+    waitToSettleTimeoutMs: 0
+- assertNotVisible: Audio not available
+- extendedWaitUntil:
+    visible:
+      id: recording-undo
+      enabled: true
+    timeout: 15000
+- tapOn:
+    id: recording-undo
+    enabled: true
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    notVisible:
+      id: recording-asset-card
+    timeout: 30000
+- evalScript: ${output.api.waitForNoRecordedAudio(output.questName)}
+# Undo of a create hard-deletes the row: the object is queued for deletion
+# but survives the grace period so redo can point at it again.
+- evalScript: ${output.api.waitForDeletionQueued(output.o1, 60000)}
+- evalScript: ${output.api.waitForStorageObject(output.o1, 5000)}
+- extendedWaitUntil:
+    visible:
+      id: recording-redo
+      enabled: true
+    timeout: 15000
+- tapOn:
+    id: recording-redo
+    enabled: true
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: recording-asset-card
+    timeout: 45000
+- assertVisible: '001'
+- evalScript: ${output.redone = output.api.waitForRecordedAudio(output.questName)}
+- evalScript: ${output.api.assertEqual(output.redone.audio[0], output.o1, "redo re-references the same object")}
+# Referenced again: a sweep keeps the object and drops the queue row.
+- evalScript: ${output.api.expectSweepAction(output.o1, "kept_referenced")}
+- evalScript: ${output.api.waitForStorageObject(output.o1, 5000)}
+- evalScript: ${output.api.waitForDeletionNotQueued(output.o1, 0)}
+- evalScript: ${output.api.waitForAudioUploaded(output.questName, 90000, "001")}
+# Second take appends after the first.
+- evalScript: ${output.expectTake = "002"}
+- runFlow: _record-take.yaml
+- assertVisible: '001'
+- evalScript: ${output.api.waitForAudioUploaded(output.questName, 90000, "002")}
+- evalScript: ${output.api.waitForQuestAssetOrder(output.questName, ["001", "002"], 45000)}
+- tapOn:
+    id: nav-back
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible: '001'
+    timeout: 20000
+- assertVisible: '002'
+- evalScript: ${output.api.deleteProject(output.projectName)}
+- evalScript: ${output.api.cleanupStorageObjects([output.o1])}
+- evalScript: ${output.api.deleteUserIfExists(output.signInEmail)}

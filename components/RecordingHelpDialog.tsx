@@ -70,7 +70,13 @@ export function RecordingHelpDialog({ onClose }: RecordingHelpDialogProps) {
 
           {/* Button */}
           <View className="mt-6">
-            <Button variant="default" onPress={handleOk} className="w-full">
+            <Button
+              variant="default"
+              onPress={handleOk}
+              className="w-full"
+              testID="recording-help-ok"
+              accessibilityLabel="recording-help-ok"
+            >
               <Text>{t('ok')}</Text>
             </Button>
           </View>

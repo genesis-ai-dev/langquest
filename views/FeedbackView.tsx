@@ -161,6 +161,8 @@ export default function FeedbackView({ onClose }: FeedbackViewProps) {
                   type="next"
                   placeholder={t('feedbackTitlePlaceholder')}
                   placeholderTextColor={colors.textSecondary}
+                  testID="feedback-title"
+                  accessibilityLabel="feedback-title"
                 />
               </FormControl>
               <FormMessage />
@@ -212,6 +214,8 @@ export default function FeedbackView({ onClose }: FeedbackViewProps) {
                   drawerInput={false}
                   numberOfLines={6}
                   maxLength={2000}
+                  testID="feedback-description"
+                  accessibilityLabel="feedback-description"
                 />
               </FormControl>
               <FormMessage />
@@ -236,7 +240,11 @@ export default function FeedbackView({ onClose }: FeedbackViewProps) {
         )}
 
         {/* Submit Button */}
-        <FormSubmit onPress={handleFormSubmit}>
+        <FormSubmit
+          onPress={handleFormSubmit}
+          testID="feedback-submit"
+          accessibilityLabel="feedback-submit"
+        >
           <Text>{t('submit')}</Text>
         </FormSubmit>
       </KeyboardAwareScrollView>

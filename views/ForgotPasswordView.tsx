@@ -13,6 +13,11 @@ import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 import { system } from '@/db/powersync/system';
+import {
+  createForgotPasswordSchema,
+  requireOnline
+} from '@/features/auth/validation';
+import type { ForgotPasswordFormValues } from '@/features/auth/validation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import RNAlert from '@blazejkustra/react-native-alert';
@@ -24,7 +29,6 @@ import React from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { Linking, View } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
-import { z } from 'zod';
 
 const { supabaseConnector } = system;
 
@@ -33,26 +37,21 @@ export default function ForgotPasswordView() {
   const router = useRouter();
   const { t } = useLocalization();
   const isOnline = useNetworkStatus();
-  const formSchema = z.object({
-    email: z
-      .email(t('enterValidEmail'))
-      .nonempty(t('emailRequired'))
-      .toLowerCase()
-      .trim()
+  const formSchema = createForgotPasswordSchema({
+    enterValidEmail: t('enterValidEmail'),
+    emailRequired: t('emailRequired')
   });
 
   const { mutateAsync: resetPassword, isPending } = useMutation({
-    mutationFn: async (data: z.infer<typeof formSchema>) => {
-      if (!isOnline) {
-        throw new Error(t('internetConnectionRequired'));
-      }
+    mutationFn: async (data: ForgotPasswordFormValues) => {
+      requireOnline(isOnline, t('internetConnectionRequired'));
       const { error } =
         await supabaseConnector.client.auth.resetPasswordForEmail(data.email);
       if (error) throw error;
     },
     onSuccess: () => {
       if (__DEV__ && process.env.NODE_ENV === 'development')
-        Linking.openURL(process.env.EXPO_PUBLIC_RESEND_LOCAL_INBOX_URL!);
+        void Linking.openURL(process.env.EXPO_PUBLIC_RESEND_LOCAL_INBOX_URL!);
       RNAlert.alert(t('success'), t('checkEmailForResetLink'), [
         {
           text: t('ok'),
@@ -74,7 +73,7 @@ export default function ForgotPasswordView() {
     }
   });
 
-  const form = useForm<z.infer<typeof formSchema>>({
+  const form = useForm<ForgotPasswordFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       email: initialEmail || ''
@@ -116,6 +115,7 @@ export default function ForgotPasswordView() {
                     returnKeyType="done"
                     onSubmitEditing={handleFormSubmit}
                     mask
+                    testID="forgot-password-email"
                   />
                 </FormControl>
                 <FormMessage />
@@ -125,7 +125,11 @@ export default function ForgotPasswordView() {
 
           <OfflineAlert />
           <View className="flex w-full flex-col">
-            <FormSubmit onPress={handleFormSubmit} disabled={!isOnline}>
+            <FormSubmit
+              onPress={handleFormSubmit}
+              disabled={!isOnline}
+              testID="forgot-password-submit"
+            >
               <Text>{t('sendResetEmail')}</Text>
             </FormSubmit>
 

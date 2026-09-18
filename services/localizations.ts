@@ -13974,18 +13974,18 @@ export const localizations = {
     thai: 'สถานะการอัปโหลด',
     mandarin: '上传状态'
   },
-  nothingPublishedYet: {
-    english: 'Nothing has been published yet',
-    french: "Rien n'a encore été publié",
-    spanish: 'Aún no se ha publicado nada',
-    brazilian_portuguese: 'Nada foi publicado ainda',
-    tok_pisin: 'I no gat wanpela samting i pablis yet',
-    indonesian: 'Belum ada yang dipublikasikan',
-    nepali: 'अहिलेसम्म केही प्रकाशित गरिएको छैन',
-    hindi: 'अभी तक कुछ प्रकाशित नहीं हुआ है',
-    burmese: 'ဘာမှ မထုတ်ဝေရသေးပါ',
-    thai: 'ยังไม่มีการเผยแพร่ใดๆ',
-    mandarin: '尚未发布任何内容'
+  nothingToUploadYet: {
+    english: 'Nothing to upload yet',
+    french: 'Rien à téléverser pour le moment',
+    spanish: 'Nada que subir todavía',
+    brazilian_portuguese: 'Nada para enviar ainda',
+    tok_pisin: 'I no gat samting bilong aplod yet',
+    indonesian: 'Belum ada yang perlu diunggah',
+    nepali: 'अहिलेसम्म अपलोड गर्न केही छैन',
+    hindi: 'अभी अपलोड करने के लिए कुछ नहीं है',
+    burmese: 'အပ်လုဒ်တင်ရန် ဘာမှ မရှိသေးပါ',
+    thai: 'ยังไม่มีอะไรต้องอัปโหลด',
+    mandarin: '暂无需要上传的内容'
   },
   allUploadsConfirmed: {
     english: 'All records and files are confirmed uploaded',

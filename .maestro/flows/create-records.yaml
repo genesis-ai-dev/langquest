@@ -2,44 +2,10 @@ appId: ${MAESTRO_APP_ID}
 onFlowStart:
   - runScript: ../api.js
 ---
-- evalScript: ${output.projectName = "Test project"}
-- evalScript: ${output.questName = "Test quest"}
+- evalScript: ${output.projectName = "maestro-project-" + Date.now()}
+- evalScript: ${output.questName = "maestro-quest-" + Date.now()}
 - evalScript: ${output.skipSignInCleanup = true}
-- runFlow: sign-in.yaml
-
-# Create project
-- runFlow:
-    commands:
-      - tapOn:
-          id: app-drawer-menu-button
-      - tapOn: # go back to projects page
-          text: Projects
-          below: Connected
-      - tapOn: New Project
-      - tapOn: Project Name
-      - inputText: ${output.projectName}
-      # - inputText: Modern English
-      # - tapOn: '[Modern English]' - for some reason Maestro is not finding content in drawers
-      - assertVisible:
-          text: English
-          below: ${output.projectName}
-      - tapOn: Create
-      - assertVisible:
-          text: ${output.projectName}, English
-
-# Create quest
-- runFlow:
-    commands:
-      - tapOn: ${output.projectName}, English
-      - tapOn: Create
-      - tapOn: Quest Name
-      - inputText: ${output.questName}
-      - pressKey: Enter
-      - tapOn:
-          text: Create
-          above: Cancel
-      - assertVisible: ${output.questName}
-
-# Cleanup
+- runFlow: _start-signed-in.yaml
+- runFlow: _create-project-quest.yaml
 - evalScript: ${output.api.deleteProject(output.projectName)}
 - evalScript: ${output.api.deleteUserIfExists(output.signInEmail)}

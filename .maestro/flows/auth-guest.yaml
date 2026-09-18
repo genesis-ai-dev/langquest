@@ -1,0 +1,80 @@
+appId: ${MAESTRO_APP_ID}
+onFlowStart:
+  - runScript: ../api.js
+onFlowComplete:
+  - setAirplaneMode: disabled
+---
+# Guest landing: My Projects Sign In CTA, offline sign-in gate,
+# forgot-password confirmation, wrong password error.
+- evalScript: ${output.signInEmail = output.api.uniqueEmail("guestauth")}
+- evalScript: ${output.signInPassword = output.api.uniquePassword("guestauth")}
+- evalScript: ${output.api.createConfirmedUser(output.signInEmail, output.signInPassword)}
+- runFlow: _launch-and-onboard.yaml
+- tapOn:
+    id: projects-tab-my
+    waitToSettleTimeoutMs: 0
+- assertVisible:
+    id: home-sign-in
+- tapOn:
+    id: home-sign-in
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: sign-in-email
+    timeout: 15000
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - setAirplaneMode: enabled
+      - extendedWaitUntil:
+          visible: Internet connection required
+          timeout: 15000
+      - assertVisible:
+          text: Sign In
+          below: I forgot my password
+          enabled: false
+      - setAirplaneMode: disabled
+      - extendedWaitUntil:
+          notVisible: Internet connection required
+          timeout: 20000
+- tapOn: I forgot my password
+- extendedWaitUntil:
+    visible: Send Reset Email
+    timeout: 15000
+- tapOn: Enter your email to reset your password
+- eraseText
+- inputText: ${output.signInEmail}
+- hideKeyboard
+- tapOn: Send Reset Email
+- extendedWaitUntil:
+    visible: OK
+    timeout: 20000
+- tapOn: OK
+# dismissTo from the alert is unreliable; the Reset Password screen
+# stays up with Back to Login still visible.
+- runFlow:
+    when:
+      visible: Back to Login
+    commands:
+      - tapOn: Back to Login
+- extendedWaitUntil:
+    visible:
+      id: sign-in-email
+    timeout: 15000
+# Back to Login already fills the email. Re-typing it concatenates and
+# Zod rejects the field, so the Error alert never appears.
+- tapOn:
+    id: sign-in-password
+    waitToSettleTimeoutMs: 0
+- eraseText
+- inputText: wrong-password
+- hideKeyboard
+- tapOn:
+    id: sign-in-submit
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible: Invalid login credentials
+    timeout: 15000
+- tapOn: OK
+- evalScript: ${output.api.deleteUserIfExists(output.signInEmail)}

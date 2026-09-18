@@ -61,6 +61,7 @@ export const TranslationCard = ({
       size="auto"
       onPress={handleCardPress}
       className="w-full flex-col items-stretch"
+      testID="translation-list-item"
     >
       <Card
         className={cn(

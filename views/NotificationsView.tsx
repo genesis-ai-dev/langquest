@@ -1164,6 +1164,7 @@ export default function NotificationsView() {
                   )
                 }
                 loading={isProcessing}
+                testID={`notification-${item.type}-accept`}
               >
                 <Icon as={CheckIcon} />
                 <Text>{t('accept')}</Text>
@@ -1175,6 +1176,7 @@ export default function NotificationsView() {
                 className="flex-1"
                 onPress={() => handleDecline(item.id, item.type)}
                 loading={isProcessing}
+                testID={`notification-${item.type}-decline`}
               >
                 <Icon as={XIcon} />
                 <Text>{t('decline')}</Text>
@@ -1333,7 +1335,9 @@ export default function NotificationsView() {
 
   return (
     <View className="flex-1 gap-4 px-4 pt-4">
-      <Text className="text-2xl font-bold">{t('notifications')}</Text>
+      <Text className="text-2xl font-bold" testID="notifications-screen">
+        {t('notifications')}
+      </Text>
 
       {!isOnline && (
         <Alert icon={WifiIcon}>

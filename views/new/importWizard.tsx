@@ -23,6 +23,7 @@ import { useAudioPlaybackCheckpoint } from '@/hooks/useAudioPlaybackCheckpoint';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useQuestDownloadDiscovery } from '@/hooks/useQuestDownloadDiscovery';
 import { useQuestDownloadStatusLive } from '@/hooks/useQuestDownloadStatusLive';
+import { useSheetHandoff } from '@/hooks/useSheetHandoff';
 import { useSingleAudioController } from '@/hooks/useSingleAudioController';
 import type { LocalizationKey } from '@/services/localizations';
 import { syncCallbackService } from '@/services/syncCallbackService';
@@ -983,10 +984,7 @@ export function ImportWizard({
   >(null);
   const [isImporting, setIsImporting] = React.useState(false);
   const startedDiscoveryRef = React.useRef<string | null>(null);
-  const isTransitioningToConfirmationRef = React.useRef(false);
-  const confirmationTimerRef = React.useRef<ReturnType<
-    typeof setTimeout
-  > | null>(null);
+  const { handoff, isHandingOff, endHandoff } = useSheetHandoff();
   const stopCurrentSoundRef = React.useRef(audioContext.stopCurrentSound);
 
   // Only reflect actively playing audio so the icon returns to play on pause/end.
@@ -998,14 +996,6 @@ export function ImportWizard({
   React.useEffect(() => {
     stopCurrentSoundRef.current = audioContext.stopCurrentSound;
   }, [audioContext.stopCurrentSound]);
-
-  React.useEffect(() => {
-    return () => {
-      if (confirmationTimerRef.current) {
-        clearTimeout(confirmationTimerRef.current);
-      }
-    };
-  }, []);
 
   const currentContext = React.useMemo(
     () => getQuestContext(currentQuest.metadata),
@@ -1535,7 +1525,7 @@ export function ImportWizard({
   });
 
   const handleDownloadQuest = (questId: string) => {
-    isTransitioningToConfirmationRef.current = false;
+    endHandoff();
     setQuestIdToDownload(questId);
     setHideWizardForDownloadOverlay(true);
     setShowDiscoveryDrawer(true);
@@ -1557,19 +1547,14 @@ export function ImportWizard({
   };
 
   const handleDiscoveryContinue = () => {
-    isTransitioningToConfirmationRef.current = true;
-    setShowDiscoveryDrawer(false);
-    if (confirmationTimerRef.current) {
-      clearTimeout(confirmationTimerRef.current);
-    }
-    confirmationTimerRef.current = setTimeout(() => {
-      setShowConfirmationModal(true);
-      confirmationTimerRef.current = null;
-    }, 350);
+    handoff(
+      () => setShowDiscoveryDrawer(false),
+      () => setShowConfirmationModal(true)
+    );
   };
 
   const handleConfirmDownload = async () => {
-    isTransitioningToConfirmationRef.current = false;
+    endHandoff();
     setShowConfirmationModal(false);
     setHideWizardForDownloadOverlay(false);
     const questIdsToTrack = new Set(discoveryState.discoveredIds.questIds);
@@ -1589,7 +1574,7 @@ export function ImportWizard({
   };
 
   const handleCancelConfirmation = () => {
-    isTransitioningToConfirmationRef.current = false;
+    endHandoff();
     if (questIdToDownload) {
       syncCallbackService.cancelCallback(questIdToDownload);
       const questIdsToClear = discoveryState.discoveredIds.questIds;
@@ -1831,7 +1816,7 @@ export function ImportWizard({
       <QuestDownloadDiscoveryDrawer
         isOpen={showDiscoveryDrawer}
         onOpenChange={(open) => {
-          if (!open && !isTransitioningToConfirmationRef.current) {
+          if (!open && !isHandingOff()) {
             handleCancelDiscovery();
           }
         }}

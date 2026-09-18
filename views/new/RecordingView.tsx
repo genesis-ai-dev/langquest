@@ -54,7 +54,7 @@ import { useLocalStore } from '@/store/localStore';
 import { resolveExistingAudioUri } from '@/utils/attachmentPaths';
 import { resolvePlayableAudioUri } from '@/utils/resolvePlayableAudio';
 import { resolveTable } from '@/utils/dbUtils';
-import { saveAudioLocally } from '@/utils/fileUtils';
+import { storeRecordedAudio } from '@/services/attachments/storeRecordedAudio';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -1732,10 +1732,12 @@ const RecordingView = () => {
           // Native module flushes the file before sending onSegmentComplete event.
           // File should be ready, but iOS Simulator may need a moment (handled by retry logic in saveAudioLocally).
 
-          // Save audio file locally (with retry logic for timing issues)
+          // Save audio file locally (with retry logic for timing issues).
+          // The returned name is the storage object name; the uploader picks
+          // it up as soon as the acl row below exists.
           const saveResult = await (async () => {
             try {
-              const savedUri = await saveAudioLocally(uri);
+              const savedUri = await storeRecordedAudio(uri);
               return { success: true as const, uri: savedUri };
             } catch (error) {
               // Release the reserved name on error
@@ -3479,7 +3481,7 @@ const RecordingView = () => {
   ]);
 
   return (
-    <View className="flex-1 bg-background">
+    <View className="flex-1 bg-background" testID="recording-screen">
       {bookChapterLabelFull && (
         <Stack.Screen options={{ title: bookChapterLabelFull }} />
       )}
@@ -3543,6 +3545,8 @@ const RecordingView = () => {
               !currentUndoOperation?.canUndo
             }
             onPress={handleUndoAction}
+            testID="recording-undo"
+            accessibilityLabel="recording-undo"
           >
             {/* <Icon as={Undo2} size={20} className="text-primary" /> */}
             <Icon as={Undo2} size={20} className="text-primary" />
@@ -3558,6 +3562,8 @@ const RecordingView = () => {
               !currentRedoOperation?.canUndo
             }
             onPress={handleRedoAction}
+            testID="recording-redo"
+            accessibilityLabel="recording-redo"
           >
             <Icon as={Redo2} size={20} className="text-primary" />
           </Button>
@@ -3634,7 +3640,12 @@ const RecordingView = () => {
       </View>
 
       {/* Bottom controls - absolutely positioned */}
-      <View className="absolute bottom-0 left-0 right-0 z-40">
+      <View
+        className="absolute bottom-0 left-0 right-0 z-40"
+        testID="recording-controls"
+        accessibilityLabel="recording-controls"
+        importantForAccessibility="yes"
+      >
         {isSelectionMode ? (
           <View style={{ paddingBottom: insets.bottom }}>
             <RecordSelectionControls

@@ -1,0 +1,31 @@
+appId: ${MAESTRO_APP_ID}
+---
+# Speed dial is bottom-right. Do not swipe across the project to move
+# the Expo FAB: a horizontal swipe at 50% is Android Back and pops to
+# Projects. The drawer flow already parks that FAB on the right edge.
+- extendedWaitUntil:
+    visible:
+      id: project-speed-dial
+    timeout: 20000
+- tapOn:
+    id: project-speed-dial
+    waitToSettleTimeoutMs: 0
+- runFlow:
+    when:
+      notVisible:
+        id: project-membership
+    commands:
+      - tapOn:
+          id: project-speed-dial
+          waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: project-membership
+    timeout: 8000
+- tapOn:
+    id: project-membership
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: membership-tab-members
+    timeout: 15000

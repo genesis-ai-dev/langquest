@@ -518,7 +518,11 @@ export default function NextGenTranslationModal({
                       />
                     </Button>
                   )}
-                  <Pressable onPress={handleClose} className="p-2">
+                  <Pressable
+                    onPress={handleClose}
+                    className="p-2"
+                    testID="translation-modal-close"
+                  >
                     <Icon as={XIcon} size={24} className="text-foreground" />
                   </Pressable>
                 </View>
@@ -628,6 +632,7 @@ export default function NextGenTranslationModal({
                                 onPress={() => handleVote({ voteType: 'up' })}
                                 disabled={isVotePending}
                                 className="flex-row items-center justify-center bg-green-500 px-6 py-3"
+                                testID="vote-up"
                               >
                                 {pendingVoteType === 'up' ? (
                                   <ActivityIndicator
@@ -668,6 +673,7 @@ export default function NextGenTranslationModal({
                                 onPress={() => handleVote({ voteType: 'down' })}
                                 disabled={isVotePending}
                                 className="flex-row items-center justify-center bg-red-600 px-6 py-3"
+                                testID="vote-down"
                               >
                                 {pendingVoteType === 'down' ? (
                                   <ActivityIndicator

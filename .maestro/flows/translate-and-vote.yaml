@@ -1,0 +1,46 @@
+appId: ${MAESTRO_APP_ID}
+onFlowStart:
+  - runScript: ../api.js
+---
+- evalScript: ${output.projectName = "maestro-project-" + Date.now()}
+- evalScript: ${output.questName = "maestro-quest-" + Date.now()}
+- evalScript: ${output.assetName = "maestro-asset-" + Date.now()}
+- evalScript: ${output.translationText = "maestro-translation-" + Date.now()}
+- evalScript: ${output.otherTranslation = "other-translation-" + Date.now()}
+- evalScript: ${output.voterEmail = output.api.uniqueEmail("voter")}
+- evalScript: ${output.voterPassword = output.api.uniquePassword("voter")}
+- evalScript: ${output.skipSignInCleanup = true}
+- runFlow: _start-signed-in.yaml
+- runFlow: _create-project-quest.yaml
+- evalScript: ${output.api.seedSourceAsset(output.projectName, output.questName, output.signInEmail, output.assetName, "Hello source")}
+- evalScript: ${output.api.createConfirmedUser(output.voterEmail, output.voterPassword)}
+- evalScript: ${output.api.seedTranslation(output.assetName, output.voterEmail, output.otherTranslation, output.otherTranslation)}
+- tapOn:
+    id: assets-refresh-button
+- extendedWaitUntil:
+    visible: ${output.assetName}
+    timeout: 45000
+- tapOn:
+    id: asset-open-details
+- tapOn:
+    id: asset-translate-button
+- tapOn:
+    id: translation-text
+- inputText: ${output.translationText}
+- hideKeyboard
+- tapOn:
+    id: translation-submit
+- extendedWaitUntil:
+    visible: ${output.translationText}
+    timeout: 30000
+- extendedWaitUntil:
+    visible: ${output.otherTranslation}
+    timeout: 45000
+- tapOn: ${output.otherTranslation}
+- tapOn:
+    id: vote-up
+- tapOn:
+    id: vote-down
+- evalScript: ${output.api.deleteProject(output.projectName)}
+- evalScript: ${output.api.deleteUserIfExists(output.signInEmail)}
+- evalScript: ${output.api.deleteUserIfExists(output.voterEmail)}

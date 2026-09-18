@@ -1,0 +1,25 @@
+appId: ${MAESTRO_APP_ID}
+---
+- tapOn:
+    id: home-sign-in
+    waitToSettleTimeoutMs: 0
+- tapOn:
+    id: sign-in-email
+    waitToSettleTimeoutMs: 0
+- eraseText
+- inputText: ${output.signInEmail}
+- hideKeyboard
+- tapOn:
+    id: sign-in-password
+    waitToSettleTimeoutMs: 0
+- eraseText
+- inputText: ${output.signInPassword}
+- hideKeyboard
+- tapOn:
+    text: Sign In
+    below: I forgot my password
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: projects-create-button
+    timeout: 30000

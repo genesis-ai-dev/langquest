@@ -156,7 +156,9 @@ export async function saveRecording(
       download_profiles: [userId]
     });
 
-    // 4. Add audio content with languoid_id
+    // 4. Add audio content with languoid_id. audio[] holds the storage object
+    // name (= on-disk filename); inserting this row is what enqueues the
+    // upload, which starts right away (no publish gate).
     await tx.insert(contentLocal).values({
       asset_id: newAssetId,
       source_language_id: targetLanguoidId, // Deprecated field, kept for backward compatibility

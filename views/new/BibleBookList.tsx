@@ -77,6 +77,8 @@ export function BibleBookList({
         )}
         onPress={() => onBookSelect(book.id)}
         disabled={isDisabled}
+        testID={`bible-book-${book.id}`}
+        accessibilityLabel={`bible-book-${book.id}`}
       >
         <Image
           source={iconSource}

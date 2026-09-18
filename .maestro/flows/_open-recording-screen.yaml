@@ -1,0 +1,64 @@
+appId: ${MAESTRO_APP_ID}
+---
+# From a quest's assets screen (asset-record-button visible) into the
+# recording session, past the help dialog, mic permission, and the VAD
+# settings drawer that opens on first use. Ends on "Ready to record".
+- tapOn:
+    id: asset-record-button
+- runFlow:
+    when:
+      visible:
+        id: recording-help-ok
+    commands:
+      - tapOn:
+          id: recording-help-ok
+          waitToSettleTimeoutMs: 0
+- runFlow:
+    when:
+      visible: OK
+    commands:
+      - tapOn: OK
+- extendedWaitUntil:
+    visible:
+      id: recording-screen
+    timeout: 15000
+- runFlow:
+    when:
+      visible:
+        id: recording-mic-permission-grant
+    commands:
+      - tapOn:
+          id: recording-mic-permission-grant
+          waitToSettleTimeoutMs: 0
+      - runFlow:
+          when:
+            visible: While using the app
+          commands:
+            - tapOn: While using the app
+- runFlow:
+    when:
+      visible:
+        id: recording-vad-settings-open
+    commands:
+      - tapOn:
+          id: recording-vad-settings-open
+          waitToSettleTimeoutMs: 0
+      - runFlow:
+          when:
+            visible: While using the app
+          commands:
+            - tapOn: While using the app
+      - extendedWaitUntil:
+          visible:
+            id: recording-vad-done
+          timeout: 15000
+      - tapOn:
+          id: recording-vad-done
+          waitToSettleTimeoutMs: 0
+      - extendedWaitUntil:
+          notVisible:
+            id: recording-vad-done
+          timeout: 10000
+- extendedWaitUntil:
+    visible: Ready to record
+    timeout: 20000

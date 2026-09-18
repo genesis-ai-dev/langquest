@@ -116,7 +116,10 @@ export function AccountDeletedOverlay() {
   };
 
   return (
-    <View className="flex-1 items-center justify-center bg-background p-6">
+    <View
+      testID="account-deleted-overlay"
+      className="flex-1 items-center justify-center bg-background p-6"
+    >
       <View className="w-full max-w-md flex-col gap-6">
         {/* Icon/Warning */}
         <View className="items-center">
@@ -148,6 +151,7 @@ export function AccountDeletedOverlay() {
             disabled={isPending}
             loading={isPending}
             className="w-full"
+            testID="account-deleted-restore"
           >
             {!isPending && (
               <Icon
@@ -167,6 +171,7 @@ export function AccountDeletedOverlay() {
             onPress={handleLogout}
             disabled={isPending}
             className="w-full"
+            testID="account-deleted-logout"
           >
             <Icon as={LogOutIcon} size={20} className="mr-2 text-foreground" />
             <Text className="text-lg font-semibold text-foreground">

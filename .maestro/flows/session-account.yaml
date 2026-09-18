@@ -1,0 +1,65 @@
+appId: ${MAESTRO_APP_ID}
+onFlowStart:
+  - runScript: ../api.js
+---
+# Signed-in: change password, relaunch keeps session, restore deleted
+# account, then logout from the deleted overlay.
+- evalScript: ${output.newPassword = output.api.uniquePassword("changed")}
+- evalScript: ${output.skipSignInCleanup = true}
+- runFlow: _start-signed-in.yaml
+- runFlow: _open-app-drawer.yaml
+- tapOn:
+    id: drawer-profile
+    waitToSettleTimeoutMs: 0
+- scrollUntilVisible:
+    element: Current Password
+    direction: DOWN
+- tapOn: Current Password
+- inputText: ${output.signInPassword}
+- hideKeyboard
+- tapOn: New Password
+- inputText: ${output.newPassword}
+- hideKeyboard
+- tapOn: Confirm Password
+- inputText: ${output.newPassword}
+- hideKeyboard
+- tapOn:
+    text: Submit
+    below: Confirm Password
+- extendedWaitUntil:
+    visible: OK
+    timeout: 20000
+- tapOn: OK
+- evalScript: ${output.signInPassword = output.newPassword}
+- runFlow: _relaunch-keep-state.yaml
+- evalScript: ${output.api.setProfileActive(output.signInEmail, false)}
+- extendedWaitUntil:
+    visible: Account Deleted
+    timeout: 45000
+- tapOn: Restore Account
+- extendedWaitUntil:
+    visible: Restore Account?
+    timeout: 5000
+- tapOn:
+    text: Restore Account
+    below: Restore Account?
+- extendedWaitUntil:
+    visible: OK
+    timeout: 30000
+- tapOn: OK
+- extendedWaitUntil:
+    visible:
+      id: app-drawer-menu-button
+    timeout: 30000
+- evalScript: ${output.api.setProfileActive(output.signInEmail, true)}
+- evalScript: ${output.api.waitForProfileActive(output.signInEmail, true)}
+- evalScript: ${output.api.setProfileActive(output.signInEmail, false)}
+- extendedWaitUntil:
+    visible: Account Deleted
+    timeout: 45000
+- tapOn: Back to Login
+- extendedWaitUntil:
+    visible:
+      id: home-sign-in
+    timeout: 30000
+- evalScript: ${output.api.deleteUserIfExists(output.signInEmail)}

@@ -135,7 +135,12 @@ export default function AppHeader({
 
         <View className="flex-1 flex-row gap-2 overflow-hidden">
           {router.canGoBack() && !isProjectsView && (
-            <Button variant="ghost" size="icon" onPress={() => router.back()}>
+            <Button
+              variant="ghost"
+              size="icon"
+              onPress={() => router.back()}
+              testID="nav-back"
+            >
               <Icon as={ChevronLeftIcon} className="size-6" />
             </Button>
           )}

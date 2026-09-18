@@ -335,6 +335,14 @@ export function getLocalAttachmentUri(filePath: string) {
   return getLocalUri(getLocalFilePathSuffix(filePath));
 }
 
+/**
+ * Move a recorded audio file into shared_attachments/ under a fresh
+ * `{uuid}.{ext}` name — its final on-disk location and its storage object
+ * name. Prefer `storeRecordedAudio` (services/attachments), which also
+ * registers the file in the LocalFileIndex so the uploader sees it at once.
+ *
+ * @returns the bare filename ('{uuid}.{ext}')
+ */
 export async function saveAudioLocally(uri: string) {
   // Reject blob URLs - they must be converted to files first
   if (uri.includes('blob:')) {
@@ -350,7 +358,7 @@ export async function saveAudioLocally(uri: string) {
   // Extract extension before further processing
   const extension = cleanSourceUri.split('.').pop() || 'wav';
 
-  const newUri = `local/${uuid.v4()}.${extension}`;
+  const newUri = `${uuid.v4()}.${extension}`;
   console.log('Saving audio file locally:', cleanSourceUri, newUri);
 
   // Initial delay to allow native module to finish writing the file

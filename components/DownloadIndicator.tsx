@@ -28,6 +28,7 @@ interface DownloadIndicatorProps {
   className?: string;
   // Override default icon color logic
   iconColor?: string;
+  testID?: string;
 }
 
 export const DownloadIndicator: React.FC<DownloadIndicatorProps> = ({
@@ -40,7 +41,8 @@ export const DownloadIndicator: React.FC<DownloadIndicatorProps> = ({
   downloadType,
   stats,
   className,
-  iconColor
+  iconColor,
+  testID
 }) => {
   const { isAuthenticated } = useAuth();
   const isConnected = useNetworkStatus();
@@ -124,6 +126,8 @@ export const DownloadIndicator: React.FC<DownloadIndicatorProps> = ({
         className={cn(isDisabled && 'opacity-50', className)}
         hitSlop={10}
         disabled={isDisabled || isLoading}
+        testID={testID}
+        accessibilityLabel={testID}
       >
         {isLoading ? (
           <ActivityIndicator size={size} color={primaryColor} />

@@ -27,7 +27,7 @@ export interface QuestUploadBreakdown {
 }
 
 export interface QuestUploadProgress {
-  /** Total published records being tracked (quest, links, assets, content). */
+  /** Total records being tracked (quest, links, assets, content). */
   totalRecords: number;
   /** Records the server has confirmed via uploaded_at. */
   confirmedRecords: number;
@@ -39,22 +39,17 @@ export interface QuestUploadProgress {
   percent: number;
   /** Per-table breakdown for the details drawer. */
   breakdown: QuestUploadBreakdown;
-  /** True once there is something published and everything is confirmed. */
+  /** True once there is something to track and everything is confirmed. */
   isComplete: boolean;
   /** True while at least one record or audio file is still unconfirmed. */
   isPending: boolean;
-  /** True when nothing has been published for this quest yet. */
+  /** True when the quest has no records to track yet. */
   isEmpty: boolean;
 }
 
 interface CountsRow {
   total: number;
   confirmed: number;
-}
-
-interface QuestCountsRow extends CountsRow {
-  /** 1 when the quest row exists and is published, 0 for a draft. */
-  published: number;
 }
 
 interface AclCountsRow extends CountsRow {
@@ -142,20 +137,21 @@ function toProgress(
 }
 
 /**
- * Live upload-confirmation progress for a published quest.
+ * Live upload-confirmation progress for a quest, draft or published.
  *
  * Counts the quest's spline records (confirmed via uploaded_at) and its
  * audio files (confirmed via audio_uploaded_at) and returns a combined percent
  * plus a per-table breakdown. Both signals are stamped server-side and synced
  * back down, so watching these rows in local SQLite reflects real server
- * confirmation, not just the optimistic "queued" state at publish time.
+ * confirmation, not just the optimistic "queued" state.
  *
  * Only the spline tables that carry uploaded_at are counted (quest,
  * quest_asset_link, asset, asset_content_link). Tag-link tables have no
  * uploaded_at column.
  *
- * Drafts report EMPTY. Drafts and published quests share the same tables
- * (`published_at` distinguishes them).
+ * Drafts and published quests share the same tables and are counted the same
+ * way: draft rows sync and draft audio uploads at record time, so the percent
+ * is a backup indicator independent of `published_at`.
  */
 export function useQuestUploadProgress(
   questId: string | null | undefined
@@ -175,8 +171,7 @@ export function useQuestUploadProgress(
     const questCounts = system.db
       .select({
         total: sql<number>`count(*)`,
-        confirmed: sql<number>`count(*) filter (where ${quest.uploaded_at} is not null)`,
-        published: sql<number>`count(*) filter (where ${quest.published_at} is not null)`
+        confirmed: sql<number>`count(*) filter (where ${quest.uploaded_at} is not null)`
       })
       .from(quest)
       .where(eq(quest.id, questId));
@@ -219,7 +214,7 @@ export function useQuestUploadProgress(
     // Hold partial results and only publish once every watch has reported, so
     // consumers never see a mix of fresh and missing categories.
     const rows: {
-      quest?: QuestCountsRow;
+      quest?: CountsRow;
       qal?: CountsRow;
       asset?: CountsRow;
       acl?: AclCountsRow;
@@ -228,13 +223,9 @@ export function useQuestUploadProgress(
     const publish = () => {
       if (abortController.signal.aborted) return;
       if (!rows.quest || !rows.qal || !rows.asset || !rows.acl) return;
-      // A draft's rows have never been sent, so uploaded_at is null on all of
-      // them by definition. Counting them would report a partial percent for a
-      // quest the user has not published yet.
-      if (!rows.quest.published) {
-        setProgress(EMPTY);
-        return;
-      }
+      // Drafts count too: their rows sync (uploaded_at) and their audio
+      // uploads as soon as it is recorded (audio_uploaded_at), so the percent
+      // is a real backup indicator before the user ever publishes.
       setProgress(toProgress(rows.quest, rows.qal, rows.asset, rows.acl));
     };
 
@@ -258,7 +249,7 @@ export function useQuestUploadProgress(
       );
     };
 
-    watch<QuestCountsRow>(questCounts, (row) => (rows.quest = row));
+    watch<CountsRow>(questCounts, (row) => (rows.quest = row));
     watch<CountsRow>(qalCounts, (row) => (rows.qal = row));
     watch<CountsRow>(assetCounts, (row) => (rows.asset = row));
     watch<AclCountsRow>(aclCounts, (row) => (rows.acl = row));

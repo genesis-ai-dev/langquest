@@ -32,6 +32,7 @@ import {
 import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useQuestDownloadDiscovery } from '@/hooks/useQuestDownloadDiscovery';
+import { useSheetHandoff } from '@/hooks/useSheetHandoff';
 import { useQuestDownloadStatusLive } from '@/hooks/useQuestDownloadStatusLive';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { enqueue as enqueueFiaAttachment } from '@/services/FiaAttachmentQueue';
@@ -132,8 +133,8 @@ function PericopeButton({
     Boolean(existingQuest?.id && downloadedQuestIds.has(existingQuest.id));
   const isOptimisticallyDownloading = Boolean(
     existingQuest?.id &&
-      downloadingQuestIds.has(existingQuest.id) &&
-      !isDownloaded
+    downloadingQuestIds.has(existingQuest.id) &&
+    !isDownloaded
   );
   const needsDownload = isCloudQuest && !isDownloaded;
 
@@ -356,6 +357,7 @@ export function FiaPericopeList({
   const [showDiscoveryDrawer, setShowDiscoveryDrawer] = React.useState(false);
   const [showConfirmationModal, setShowConfirmationModal] =
     React.useState(false);
+  const { handoff, isHandingOff, endHandoff } = useSheetHandoff();
   const [downloadingQuestIds, setDownloadingQuestIds] = React.useState<
     Set<string>
   >(new Set());
@@ -414,11 +416,14 @@ export function FiaPericopeList({
   };
 
   const handleDiscoveryContinue = () => {
-    setShowDiscoveryDrawer(false);
-    setShowConfirmationModal(true);
+    handoff(
+      () => setShowDiscoveryDrawer(false),
+      () => setShowConfirmationModal(true)
+    );
   };
 
   const handleConfirmDownload = async () => {
+    endHandoff();
     setShowConfirmationModal(false);
     const questIdsToTrack = new Set(discoveryState.discoveredIds.questIds);
     setDownloadingQuestIds((prev) => new Set([...prev, ...questIdsToTrack]));
@@ -449,6 +454,7 @@ export function FiaPericopeList({
   };
 
   const handleCancelConfirmation = () => {
+    endHandoff();
     if (questIdToDownload) {
       const questIdsToClear = discoveryState.discoveredIds.questIds;
       setDownloadingQuestIds((prev) => {
@@ -670,7 +676,7 @@ export function FiaPericopeList({
       <QuestDownloadDiscoveryDrawer
         isOpen={showDiscoveryDrawer}
         onOpenChange={(open) => {
-          if (!open) handleCancelDiscovery();
+          if (!open && !isHandingOff()) handleCancelDiscovery();
         }}
         onContinue={handleDiscoveryContinue}
         discoveryState={discoveryState}

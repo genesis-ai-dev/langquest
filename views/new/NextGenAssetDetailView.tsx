@@ -804,6 +804,8 @@ export default function NextGenAssetDetailView() {
               variant="ghost"
               size="icon"
               className="p-2"
+              testID="asset-settings-open"
+              accessibilityLabel="asset-settings-open"
             >
               <Icon as={SettingsIcon} size={22} className="text-foreground" />
             </Button>
@@ -1110,6 +1112,7 @@ export default function NextGenAssetDetailView() {
             <Button
               className="flex-row items-center justify-center gap-2 px-6 py-4"
               onPress={onPress}
+              testID="asset-translate-button"
             >
               <Icon
                 as={LockIcon}
@@ -1133,6 +1136,7 @@ export default function NextGenAssetDetailView() {
         <Button
           className="-mx-4 flex-row items-center justify-center gap-2 px-6 py-4"
           onPress={() => router.push('/(auth)/sign-in')}
+          testID="asset-translate-button"
         >
           <Icon as={LockIcon} size={24} />
           <Text className="font-bold text-secondary">
@@ -1144,6 +1148,7 @@ export default function NextGenAssetDetailView() {
           className="-mx-4 flex-row items-center justify-center gap-2 px-6 py-4"
           disabled={!canTranslate}
           onPress={handleNewTranslationPress}
+          testID="asset-translate-button"
         >
           <Icon as={PlusIcon} size={24} />
           <Text className="font-bold text-secondary">

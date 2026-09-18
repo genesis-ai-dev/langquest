@@ -1,0 +1,177 @@
+appId: ${MAESTRO_APP_ID}
+onFlowStart:
+  - runScript: ../api.js
+---
+# Real bytes across the wire. The owner (API-only) has a published quest
+# whose asset points at a storage object the seed uploaded. The device user
+# downloads the quest, opens the asset, and plays it; Download Status must
+# report the one file synced. Offload afterwards returns the quest to
+# Download Required (local files are kept by design).
+- evalScript: ${output.ownerEmail = output.api.uniqueEmail("audioowner")}
+- evalScript: ${output.ownerPassword = output.api.uniquePassword("audioowner")}
+- evalScript: ${output.projectName = "maestro-adl-" + Date.now()}
+- evalScript: ${output.questName = "maestro-adlq-" + Date.now()}
+- evalScript: ${output.assetName = "maestro-adla-" + Date.now()}
+- evalScript: ${output.api.createConfirmedUser(output.ownerEmail, output.ownerPassword)}
+- evalScript: ${output.api.seedProject(output.projectName, output.ownerEmail, false)}
+- evalScript: ${output.api.seedQuest(output.projectName, output.questName, output.ownerEmail, true)}
+- evalScript: ${output.seeded = output.api.seedAudioAsset(output.projectName, output.questName, output.ownerEmail, output.assetName, "Download audio source")}
+- evalScript: ${output.api.waitForStorageObject(output.seeded.objectName, 15000)}
+- evalScript: ${output.skipSignInCleanup = true}
+- runFlow: _start-signed-in.yaml
+- tapOn:
+    id: projects-tab-all
+- tapOn:
+    id: projects-search
+- inputText: ${output.projectName}
+- hideKeyboard
+- extendedWaitUntil:
+    visible: ${output.projectName}
+    timeout: 45000
+- tapOn:
+    text: ${output.projectName}
+    below:
+      id: projects-search
+- extendedWaitUntil:
+    visible:
+      id: quest-list-item
+    timeout: 45000
+- tapOn:
+    id: quest-list-item
+- runFlow:
+    when:
+      visible:
+        id: quest-list-item
+      notVisible: '(?i)Download Now'
+    commands:
+      - tapOn:
+          id: quest-list-item
+- extendedWaitUntil:
+    visible: '(?i)Download Now'
+    timeout: 15000
+- tapOn:
+    text: '(?i)Download Now'
+- extendedWaitUntil:
+    visible: Continue to Download
+    timeout: 45000
+- tapOn:
+    id: quest-download-continue
+- extendedWaitUntil:
+    visible:
+      id: quest-download-confirm
+    timeout: 20000
+- tapOn:
+    id: quest-download-confirm
+- evalScript: ${output.api.waitForQuestDownload(output.questName, output.signInEmail, true)}
+- extendedWaitUntil:
+    notVisible:
+      id: quest-download-confirm
+    timeout: 15000
+- extendedWaitUntil:
+    notVisible:
+      id: quest-download-continue
+    timeout: 15000
+# The downloader fetches confirmed audio for synced rows. Download Status
+# counts local files against what should be on this device.
+- openLink: ${MAESTRO_APP_SCHEME}://download-status
+- extendedWaitUntil:
+    visible:
+      id: download-status-screen
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      id: download-status-files
+      text: '^1/1 .*'
+    timeout: 90000
+- runFlow: _open-app-drawer.yaml
+- tapOn:
+    id: drawer-projects
+    waitToSettleTimeoutMs: 0
+- tapOn:
+    id: projects-tab-all
+- extendedWaitUntil:
+    visible: ${output.projectName}
+    timeout: 45000
+- tapOn:
+    text: ${output.projectName}
+    below:
+      id: projects-search
+- extendedWaitUntil:
+    visible:
+      id: quest-list-item
+    timeout: 45000
+- tapOn:
+    id: quest-list-item
+# Local watch can still lag. Cancel Download Required and wait; do not
+# tap Download Now (that reopens discovery).
+- repeat:
+    times: 6
+    while:
+      visible: '(?i)Download Now'
+    commands:
+      - tapOn: '(?i)^Cancel$'
+      - waitForAnimationToEnd:
+          timeout: 10000
+      - tapOn:
+          id: quest-list-item
+- extendedWaitUntil:
+    visible:
+      id: assets-refresh-button
+    timeout: 45000
+- tapOn:
+    id: assets-refresh-button
+- extendedWaitUntil:
+    visible: ${output.assetName}
+    timeout: 45000
+- tapOn:
+    id: asset-open-details
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible: Download audio source
+    timeout: 30000
+# The player renders once the audio value resolved to a playable URI.
+- extendedWaitUntil:
+    visible:
+      id: asset-audio-play
+    timeout: 30000
+- tapOn:
+    id: asset-audio-play
+    waitToSettleTimeoutMs: 0
+- assertNotVisible: Audio not available
+- tapOn:
+    id: nav-back
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: assets-refresh-button
+    timeout: 20000
+- tapOn:
+    id: nav-back
+- extendedWaitUntil:
+    visible:
+      id: quest-list-item
+    timeout: 45000
+- tapOn:
+    id: quest-download
+- extendedWaitUntil:
+    visible: Ready to offload
+    timeout: 45000
+- scrollUntilVisible:
+    element:
+      id: quest-offload-continue
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: quest-offload-continue
+- evalScript: ${output.api.waitForQuestDownload(output.questName, output.signInEmail, false)}
+- tapOn:
+    id: quest-list-item
+- extendedWaitUntil:
+    visible: '(?i)Download Now'
+    timeout: 15000
+# Offload never touches the storage object.
+- evalScript: ${output.api.waitForStorageObject(output.seeded.objectName, 5000)}
+- evalScript: ${output.api.deleteProject(output.projectName)}
+- evalScript: ${output.api.cleanupStorageObjects([output.seeded.objectName])}
+- evalScript: ${output.api.deleteUserIfExists(output.signInEmail)}
+- evalScript: ${output.api.deleteUserIfExists(output.ownerEmail)}

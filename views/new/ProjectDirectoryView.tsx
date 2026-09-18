@@ -55,6 +55,7 @@ import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useProjectSourceLanguoid } from '@/hooks/useProjectSourceLanguoid';
 import { useQuestDownloadDiscovery } from '@/hooks/useQuestDownloadDiscovery';
 import { useQuestOffloadVerification } from '@/hooks/useQuestOffloadVerification';
+import { useSheetHandoff } from '@/hooks/useSheetHandoff';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { syncCallbackService } from '@/services/syncCallbackService';
 import { useLocalStore } from '@/store/localStore';
@@ -142,6 +143,7 @@ function InviteMembersBanner({
           size="sm"
           className={cn('h-7 gap-1 px-3')}
           onPress={onInvite}
+          testID="project-invite-banner"
         >
           <Text className="text-xs font-medium text-primary-foreground">
             {t('invite')}
@@ -320,6 +322,7 @@ export default function ProjectDirectoryView() {
   const [showDiscoveryDrawer, setShowDiscoveryDrawer] = React.useState(false);
   const [showConfirmationModal, setShowConfirmationModal] =
     React.useState(false);
+  const { handoff, isHandingOff, endHandoff } = useSheetHandoff();
 
   // Track quest IDs that are currently downloading (for optimistic UI updates)
   const [downloadingQuestIds, setDownloadingQuestIds] = React.useState<
@@ -759,12 +762,15 @@ export default function ProjectDirectoryView() {
 
   // Handle discovery completion - show confirmation
   const handleDiscoveryContinue = () => {
-    setShowDiscoveryDrawer(false);
-    setShowConfirmationModal(true);
+    handoff(
+      () => setShowDiscoveryDrawer(false),
+      () => setShowConfirmationModal(true)
+    );
   };
 
   // Handle confirmation - execute bulk download
   const handleConfirmDownload = async () => {
+    endHandoff();
     setShowConfirmationModal(false);
 
     // Track all discovered quest IDs as downloading for optimistic UI
@@ -810,6 +816,7 @@ export default function ProjectDirectoryView() {
   };
 
   const handleCancelConfirmation = () => {
+    endHandoff();
     console.log('📥 [Download] User cancelled confirmation');
 
     // Cancel sync callback if registered
@@ -860,7 +867,12 @@ export default function ProjectDirectoryView() {
       syncCallbackService.registerCallback(questIdForSyncCallback, async () => {
         console.log('🗑️ [Offload] Sync completed - invalidating queries');
 
-        await invalidateCloud(queryClient, 'quests', 'assets', 'download-status');
+        await invalidateCloud(
+          queryClient,
+          'quests',
+          'assets',
+          'download-status'
+        );
 
         console.log('🗑️ [Offload] Queries invalidated - UI will refresh');
       });
@@ -1094,6 +1106,7 @@ export default function ProjectDirectoryView() {
                 variant="default"
                 size="sm"
                 onPress={() => setShowPrivateAccessModal(true)}
+                testID="project-request-access"
               >
                 <Icon as={UserPlusIcon} size={16} />
                 <Icon as={LockIcon} size={16} />
@@ -1129,6 +1142,8 @@ export default function ProjectDirectoryView() {
             <Button
               variant="default"
               onPress={() => router.push('/(app)/settings')}
+              testID="fia-open-settings"
+              accessibilityLabel="fia-open-settings"
             >
               <Icon as={SettingsIcon} size={16} />
               <Text>{t('openSettings')}</Text>
@@ -1156,6 +1171,7 @@ export default function ProjectDirectoryView() {
                 variant="default"
                 size="sm"
                 onPress={() => setShowPrivateAccessModal(true)}
+                testID="project-request-access"
               >
                 <Icon as={UserPlusIcon} size={16} />
                 <Icon as={LockIcon} size={16} />
@@ -1207,6 +1223,7 @@ export default function ProjectDirectoryView() {
                 variant="default"
                 size="sm"
                 onPress={() => setShowPrivateAccessModal(true)}
+                testID="project-request-access"
               >
                 <Icon as={UserPlusIcon} size={16} />
                 <Icon as={LockIcon} size={16} />
@@ -1224,6 +1241,8 @@ export default function ProjectDirectoryView() {
             prefixStyling={false}
             size="sm"
             returnKeyType="search"
+            testID="quests-search"
+            accessibilityLabel="quests-search"
             suffix={
               questListFetching && searchQuery ? (
                 <ActivityIndicator
@@ -1268,6 +1287,8 @@ export default function ProjectDirectoryView() {
               }}
             >
               <Button
+                testID="quest-create-button"
+                accessibilityLabel="quest-create-button"
                 onPress={() => openCreateForParent(null)}
                 variant="default"
                 size="sm"
@@ -1311,6 +1332,7 @@ export default function ProjectDirectoryView() {
                       <FormControl>
                         <Input
                           {...transformInputProps(field)}
+                          testID="quest-create-name"
                           placeholder={t('questName')}
                           size="sm"
                           prefix={FolderPenIcon}
@@ -1342,6 +1364,8 @@ export default function ProjectDirectoryView() {
               </View>
               <DrawerFooter>
                 <FormSubmit
+                  testID="quest-create-submit"
+                  accessibilityLabel="quest-create-submit"
                   onPress={form.handleSubmit((data) => createQuest(data))}
                 >
                   <Text>{t('createObject')}</Text>
@@ -1386,6 +1410,7 @@ export default function ProjectDirectoryView() {
                     icon={FlagIcon}
                     variant="outline"
                     onPress={() => setShowReportModal(true)}
+                    testID="project-report"
                   />
                 ) : null}
                 {project?.source !== 'local' &&
@@ -1394,6 +1419,7 @@ export default function ProjectDirectoryView() {
                       icon={UsersIcon}
                       variant="outline"
                       onPress={() => openMembershipModal('members')}
+                      testID="project-membership"
                     />
                   )}
               </>
@@ -1405,7 +1431,7 @@ export default function ProjectDirectoryView() {
               onPress={() => setShowProjectDetails(true)}
             />
           </SpeedDialItems>
-          <SpeedDialTrigger />
+          <SpeedDialTrigger testID="project-speed-dial" />
         </SpeedDial>
       </View>
 
@@ -1458,7 +1484,7 @@ export default function ProjectDirectoryView() {
       <QuestDownloadDiscoveryDrawer
         isOpen={showDiscoveryDrawer}
         onOpenChange={(open) => {
-          if (!open) handleCancelDiscovery();
+          if (!open && !isHandingOff()) handleCancelDiscovery();
         }}
         onContinue={handleDiscoveryContinue}
         discoveryState={discoveryState}

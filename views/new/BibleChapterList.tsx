@@ -32,6 +32,7 @@ import {
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useQuestDownloadDiscovery } from '@/hooks/useQuestDownloadDiscovery';
+import { useSheetHandoff } from '@/hooks/useSheetHandoff';
 import { useQuestDownloadStatusLive } from '@/hooks/useQuestDownloadStatusLive';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { BOOK_ICON_MAP } from '@/utils/BOOK_GRAPHICS';
@@ -130,8 +131,8 @@ function ChapterButton({
     Boolean(existingQuest?.id && downloadedQuestIds.has(existingQuest.id));
   const isOptimisticallyDownloading = Boolean(
     existingQuest?.id &&
-      downloadingQuestIds.has(existingQuest.id) &&
-      !isDownloaded
+    downloadingQuestIds.has(existingQuest.id) &&
+    !isDownloaded
   );
   const needsDownload = isCloudQuest && !isDownloaded;
 
@@ -166,6 +167,8 @@ function ChapterButton({
         )}
         onPress={onPress}
         disabled={disabled || (!existingQuest && !canCreateNew)}
+        testID={`bible-chapter-${chapterNum}`}
+        accessibilityLabel={`bible-chapter-${chapterNum}`}
       >
         {isCreatingThis ? (
           <ActivityIndicator size="small" color={primaryColor} />
@@ -283,6 +286,7 @@ export function BibleChapterList({
   const [showDiscoveryDrawer, setShowDiscoveryDrawer] = React.useState(false);
   const [showConfirmationModal, setShowConfirmationModal] =
     React.useState(false);
+  const { handoff, isHandingOff, endHandoff } = useSheetHandoff();
   const [downloadingQuestIds, setDownloadingQuestIds] = React.useState<
     Set<string>
   >(new Set());
@@ -341,11 +345,14 @@ export function BibleChapterList({
   };
 
   const handleDiscoveryContinue = () => {
-    setShowDiscoveryDrawer(false);
-    setShowConfirmationModal(true);
+    handoff(
+      () => setShowDiscoveryDrawer(false),
+      () => setShowConfirmationModal(true)
+    );
   };
 
   const handleConfirmDownload = async () => {
+    endHandoff();
     setShowConfirmationModal(false);
     const questIdsToTrack = new Set(discoveryState.discoveredIds.questIds);
     setDownloadingQuestIds((prev) => new Set([...prev, ...questIdsToTrack]));
@@ -376,6 +383,7 @@ export function BibleChapterList({
   };
 
   const handleCancelConfirmation = () => {
+    endHandoff();
     if (questIdToDownload) {
       const questIdsToClear = discoveryState.discoveredIds.questIds;
       setDownloadingQuestIds((prev) => {
@@ -640,7 +648,7 @@ export function BibleChapterList({
       <QuestDownloadDiscoveryDrawer
         isOpen={showDiscoveryDrawer}
         onOpenChange={(open) => {
-          if (!open) handleCancelDiscovery();
+          if (!open && !isHandingOff()) handleCancelDiscovery();
         }}
         onContinue={handleDiscoveryContinue}
         discoveryState={discoveryState}

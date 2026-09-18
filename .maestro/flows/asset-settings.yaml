@@ -1,0 +1,141 @@
+appId: ${MAESTRO_APP_ID}
+onFlowStart:
+  - runScript: ../api.js
+---
+# Asset settings on a source shared by two draft quests. Quest-scoped
+# visible/active only touch this quest's quest_asset_link; general active
+# flips asset.active and disables the quest toggles; the general
+# visibility round trip restores asset.visible. The second quest keeps its
+# link untouched throughout.
+- evalScript: ${output.assetName = "maestro-settings-" + Date.now()}
+- evalScript: ${output.projectName = "maestro-settingsp-" + Date.now()}
+- evalScript: ${output.questName = "maestro-settingsq1-" + Date.now()}
+- evalScript: ${output.otherQuestName = "maestro-settingsq2-" + Date.now()}
+- evalScript: ${output.skipSignInCleanup = true}
+- runFlow: _start-signed-in.yaml
+- runFlow: _create-project-quest.yaml
+- extendedWaitUntil:
+    visible:
+      id: asset-record-button
+    timeout: 30000
+# Seed the second quest as downloaded so it opens straight to its assets
+# instead of Download Required at the end.
+- evalScript: ${output.api.seedQuest(output.projectName, output.otherQuestName, output.signInEmail, false, true)}
+- evalScript: ${output.api.seedSourceAsset(output.projectName, output.questName, output.signInEmail, output.assetName, "Settings source")}
+- evalScript: ${output.api.linkAssetToQuest(output.assetName, output.otherQuestName, output.signInEmail)}
+- tapOn:
+    id: assets-refresh-button
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible: ${output.assetName}
+    timeout: 45000
+- tapOn:
+    id: asset-open-details
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible: Settings source
+    timeout: 30000
+- tapOn:
+    id: asset-settings-open
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: asset-settings-visible-quest
+    timeout: 15000
+# --- Quest-scoped visibility: only this quest's link ---------------------
+- tapOn:
+    id: asset-settings-visible-quest
+    waitToSettleTimeoutMs: 0
+- evalScript: ${output.api.waitForQuestAssetLinkState(output.questName, output.assetName, "visible", false, 45000)}
+- evalScript: ${output.api.waitForQuestAssetLinkState(output.otherQuestName, output.assetName, "visible", true, 10000)}
+- evalScript: ${output.api.waitForAssetVisible(output.assetName, true, 10000)}
+- tapOn:
+    id: asset-settings-visible-quest
+    waitToSettleTimeoutMs: 0
+- evalScript: ${output.api.waitForQuestAssetLinkState(output.questName, output.assetName, "visible", true, 45000)}
+# --- Quest-scoped active ---------------------------------------------------
+- tapOn:
+    id: asset-settings-active-quest
+    waitToSettleTimeoutMs: 0
+- evalScript: ${output.api.waitForQuestAssetLinkState(output.questName, output.assetName, "active", false, 45000)}
+- evalScript: ${output.api.waitForQuestAssetLinkState(output.otherQuestName, output.assetName, "active", true, 10000)}
+- evalScript: ${output.api.waitForAssetActive(output.assetName, true, 10000)}
+- tapOn:
+    id: asset-settings-active-quest
+    waitToSettleTimeoutMs: 0
+- evalScript: ${output.api.waitForQuestAssetLinkState(output.questName, output.assetName, "active", true, 45000)}
+# --- General active disables the quest toggles ---------------------------
+- tapOn:
+    id: asset-settings-active-general
+    waitToSettleTimeoutMs: 0
+- evalScript: ${output.api.waitForAssetActive(output.assetName, false, 45000)}
+- extendedWaitUntil:
+    visible:
+      id: asset-settings-visible-quest
+      enabled: false
+    timeout: 15000
+- assertVisible:
+    id: asset-settings-active-quest
+    enabled: false
+- tapOn:
+    id: asset-settings-active-general
+    waitToSettleTimeoutMs: 0
+- evalScript: ${output.api.waitForAssetActive(output.assetName, true, 45000)}
+- extendedWaitUntil:
+    visible:
+      id: asset-settings-visible-quest
+      enabled: true
+    timeout: 15000
+# --- General visibility round trip ---------------------------------------
+- tapOn:
+    id: asset-settings-visible-general
+    waitToSettleTimeoutMs: 0
+- evalScript: ${output.api.waitForAssetVisible(output.assetName, false, 45000)}
+- tapOn:
+    id: asset-settings-visible-general
+    waitToSettleTimeoutMs: 0
+- evalScript: ${output.api.waitForAssetVisible(output.assetName, true, 45000)}
+- pressKey: back
+- runFlow:
+    when:
+      visible:
+        id: asset-translate-button
+    commands:
+      - tapOn:
+          id: nav-back
+          waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: assets-search
+    timeout: 20000
+# --- The other quest still lists the shared asset -------------------------
+- tapOn:
+    id: nav-back
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible: ${output.otherQuestName}
+    timeout: 30000
+- tapOn:
+    text: ${output.otherQuestName}
+    waitToSettleTimeoutMs: 0
+- runFlow:
+    when:
+      visible: ${output.otherQuestName}
+      notVisible:
+        id: assets-refresh-button
+    commands:
+      - tapOn:
+          text: ${output.otherQuestName}
+          waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: assets-refresh-button
+    timeout: 45000
+- tapOn:
+    id: assets-refresh-button
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible: ${output.assetName}
+    timeout: 45000
+- evalScript: ${output.api.deleteProject(output.projectName)}
+- evalScript: ${output.api.deleteUserIfExists(output.signInEmail)}

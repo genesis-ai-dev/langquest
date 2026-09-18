@@ -158,6 +158,7 @@ interface ItemProps {
   variant?: React.ComponentProps<typeof Button>['variant'];
   size?: React.ComponentProps<typeof Button>['size'];
   iconClassName?: string;
+  testID?: string;
 }
 
 // Internal-only props injected by SpeedDialItems
@@ -173,6 +174,7 @@ function SpeedDialItem({
   variant,
   size,
   iconClassName,
+  testID,
   _order = 0
 }: ItemProps & ItemInjectedProps) {
   const { setOpen, closeOnItemPress } = useSpeedDialContext();
@@ -195,6 +197,8 @@ function SpeedDialItem({
         size={size ?? 'icon-xl'}
         variant={variant}
         className={cn('bg-primary/95', className)}
+        testID={testID}
+        accessibilityLabel={testID}
       >
         <Icon
           as={icon}

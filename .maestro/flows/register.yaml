@@ -4,25 +4,56 @@ onFlowStart:
 ---
 - evalScript: ${output.username = faker.internet().username()}
 - evalScript: ${output.email = faker.internet().emailAddress()}
-# - runFlow:
-#     when:
-#       platform: iOS
-#     file: _ios-toggle-autofill-passwords.yaml
 - runFlow: _launch-and-onboard.yaml
 - tapOn: Create Account
-- tapOn: Username
-- inputText: ${output.username}-testing
-- tapOn: Enter your email
-- inputText: ${output.email}
-- tapOn: Password
-- inputText: password
-- tapOn: Confirm Password
-- inputText: password
-- tapOn: Register
-- tapOn: Register
-- assertVisible: Projects
 - tapOn:
-    id: app-drawer-menu-button
-- tapOn: Profile
+    id: register-username
+- inputText: ${output.username}-testing
+- hideKeyboard
+- tapOn:
+    id: register-email
+- inputText: ${output.email}
+- hideKeyboard
+- tapOn:
+    id: register-password
+- inputText: password
+- hideKeyboard
+- tapOn:
+    id: register-confirm-password
+- inputText: password
+- hideKeyboard
+- tapOn:
+    id: register-submit
+# Local Docker has confirmations off, so signUp creates a session and the
+# auth layout redirects home. Preview/production may land on Sign In first.
+- runFlow:
+    when:
+      visible:
+        id: sign-in-password
+    commands:
+      - tapOn:
+          id: sign-in-email
+      - eraseText
+      - inputText: ${output.email}
+      - hideKeyboard
+      - tapOn:
+          id: sign-in-password
+      - eraseText
+      - inputText: password
+      - hideKeyboard
+      - tapOn:
+          text: Sign In
+          below: I forgot my password
+- extendedWaitUntil:
+    visible:
+      id: projects-create-button
+    timeout: 30000
+- runFlow: _open-app-drawer.yaml
+- extendedWaitUntil:
+    visible:
+      id: drawer-profile
+    timeout: 30000
+- tapOn:
+    id: drawer-profile
 - assertVisible: Profile
 - evalScript: ${output.api.deleteUser(output.email)}

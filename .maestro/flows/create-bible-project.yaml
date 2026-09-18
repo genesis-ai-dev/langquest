@@ -1,0 +1,67 @@
+appId: ${MAESTRO_APP_ID}
+onFlowStart:
+  - runScript: ../api.js
+---
+# 6.6 create a bible project from the New Project drawer (Custom is already
+# covered by create-records). Language add is required before submit.
+- evalScript: ${output.projectName = "maestro-bibleui-" + Date.now()}
+- evalScript: ${output.projectLanguage = "maestro-biblelang-" + Date.now()}
+- evalScript: ${output.skipSignInCleanup = true}
+- runFlow: _start-signed-in.yaml
+- tapOn:
+    id: projects-create-button
+    waitToSettleTimeoutMs: 0
+- tapOn:
+    id: project-create-name
+    waitToSettleTimeoutMs: 0
+- inputText: ${output.projectName}
+- hideKeyboard
+- tapOn:
+    id: project-create-language
+    waitToSettleTimeoutMs: 0
+- tapOn:
+    id: language-search
+    waitToSettleTimeoutMs: 0
+- inputText: ${output.projectLanguage}
+- extendedWaitUntil:
+    visible: Add this as a new language
+    timeout: 20000
+- tapOn:
+    text: Add this as a new language
+    waitToSettleTimeoutMs: 0
+# Creating a languoid leaves the dropdown open on the new row. hideKeyboard
+# is Back and can pop the create drawer; tap the new language instead.
+- extendedWaitUntil:
+    visible: ${output.projectLanguage}
+    timeout: 15000
+- tapOn:
+    text: ${output.projectLanguage}
+    below:
+      id: language-search
+- extendedWaitUntil:
+    notVisible:
+      id: language-search
+    timeout: 15000
+- tapOn:
+    id: project-template-bible
+- extendedWaitUntil:
+    visible:
+      id: project-create-submit
+    timeout: 15000
+- tapOn:
+    id: project-create-submit
+    waitToSettleTimeoutMs: 0
+- evalScript: ${output.api.waitForProject(output.projectName)}
+- extendedWaitUntil:
+    notVisible:
+      id: project-create-name
+    timeout: 15000
+- tapOn:
+    text: ${output.projectName}
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: bible-book-gen
+    timeout: 45000
+- evalScript: ${output.api.deleteProject(output.projectName)}
+- evalScript: ${output.api.deleteUserIfExists(output.signInEmail)}

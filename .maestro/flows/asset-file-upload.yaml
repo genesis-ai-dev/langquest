@@ -1,0 +1,79 @@
+appId: ${MAESTRO_APP_ID}
+onFlowStart:
+  - runScript: ../api.js
+---
+# Audio uploads at record time, not at publish. Record one take on a draft
+# quest, then prove the storage object exists and the server stamped
+# asset_content_link.audio_uploaded_at before anything is published. The
+# draft toolbar and Upload Status drawer must report that, and publishing
+# afterwards must leave the object name untouched (publish no longer moves
+# or renames files).
+- evalScript: ${output.projectName = "maestro-upload-" + Date.now()}
+- evalScript: ${output.questName = "maestro-uploadq-" + Date.now()}
+- evalScript: ${output.skipSignInCleanup = true}
+- runFlow: _start-signed-in.yaml
+- runFlow: _create-project-quest.yaml
+- extendedWaitUntil:
+    visible:
+      id: asset-record-button
+    timeout: 30000
+- runFlow: _open-recording-screen.yaml
+- runFlow: _record-take.yaml
+- assertVisible: '001'
+# Row reaches the server first (PowerSync), then the uploader pushes the
+# object and the storage trigger stamps audio_uploaded_at.
+- evalScript: ${output.recorded = output.api.waitForRecordedAudio(output.questName)}
+- evalScript: ${output.objectName = output.api.assertFlatObjectName(output.recorded.audio[0])}
+- evalScript: ${output.api.waitForStorageObject(output.objectName, 60000)}
+- evalScript: ${output.api.waitForAudioUploaded(output.questName, 60000)}
+- tapOn:
+    id: nav-back
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible: '001'
+    timeout: 20000
+# Draft toolbar: the publish button carries a percent only while something
+# is still awaiting confirmation. Everything is confirmed, so no percent.
+- extendedWaitUntil:
+    visible:
+      id: quest-publish
+    timeout: 20000
+- extendedWaitUntil:
+    notVisible:
+      id: quest-publish-percent
+    timeout: 45000
+- tapOn:
+    id: quest-publish
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: upload-status-audio
+    timeout: 15000
+- assertVisible:
+    id: upload-status-audio
+    text: '1/1'
+# Records: confirmed equals total (count varies with tags/links).
+- assertVisible:
+    id: upload-status-records
+    text: "^(\\d+)/\\1$"
+- tapOn:
+    id: quest-publish-confirm
+    waitToSettleTimeoutMs: 0
+- tapOn: Save
+- evalScript: ${output.api.waitForQuestPublished(output.questName, 45000)}
+# Publish must not rewrite the object reference.
+- evalScript: ${output.afterPublish = output.api.waitForAudioUploaded(output.questName, 30000)}
+- evalScript: ${output.api.assertEqual(output.afterPublish.audio[0], output.objectName, "audio[0] unchanged by publish")}
+- evalScript: ${output.api.waitForStorageObject(output.objectName, 15000)}
+# Published: the synced badge replaces the publish button and shows complete.
+- extendedWaitUntil:
+    visible:
+      id: quest-synced-badge
+    timeout: 45000
+- extendedWaitUntil:
+    notVisible:
+      id: quest-synced-percent
+    timeout: 45000
+- evalScript: ${output.api.deleteProject(output.projectName)}
+- evalScript: ${output.api.cleanupStorageObjects([output.objectName])}
+- evalScript: ${output.api.deleteUserIfExists(output.signInEmail)}

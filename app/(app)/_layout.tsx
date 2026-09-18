@@ -102,11 +102,6 @@ function AppContent() {
     return () => backHandler.remove();
   }, [drawerIsVisible]);
 
-  // Account deleted: block everything with overlay
-  if (accountDeleted) {
-    return <AccountDeletedOverlay />;
-  }
-
   return (
     <View style={{ flex: 1 }}>
       <View className="p-4">
@@ -131,6 +126,12 @@ function AppContent() {
           onClose={() => setOnboardingIsOpen(false)}
         />
       </Suspense>
+
+      {accountDeleted ? (
+        <View className="absolute inset-0 z-50">
+          <AccountDeletedOverlay />
+        </View>
+      ) : null}
     </View>
   );
 }

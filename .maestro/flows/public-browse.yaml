@@ -1,0 +1,44 @@
+appId: ${MAESTRO_APP_ID}
+onFlowStart:
+  - runScript: ../api.js
+---
+- evalScript: ${output.ownerEmail = output.api.uniqueEmail("pubowner")}
+- evalScript: ${output.ownerPassword = output.api.uniquePassword("pubowner")}
+- evalScript: ${output.projectName = "maestro-public-" + Date.now()}
+- evalScript: ${output.questName = "maestro-pub-quest-" + Date.now()}
+- evalScript: ${output.assetName = "maestro-pub-asset-" + Date.now()}
+- evalScript: ${output.api.createConfirmedUser(output.ownerEmail, output.ownerPassword)}
+- evalScript: ${output.api.seedProject(output.projectName, output.ownerEmail, false)}
+- evalScript: ${output.api.seedQuest(output.projectName, output.questName, output.ownerEmail, true)}
+- evalScript: ${output.api.seedSourceAsset(output.projectName, output.questName, output.ownerEmail, output.assetName, "Public source")}
+- runFlow: _launch-and-onboard.yaml
+- tapOn:
+    id: projects-tab-all
+- tapOn:
+    id: projects-search
+- inputText: ${output.projectName}
+- hideKeyboard
+- extendedWaitUntil:
+    visible: ${output.projectName}
+    timeout: 45000
+- tapOn:
+    text: ${output.projectName}
+    below:
+      id: projects-search
+- extendedWaitUntil:
+    visible:
+      id: quest-list-item
+    timeout: 45000
+- tapOn:
+    id: quest-list-item
+- tapOn:
+    id: assets-refresh-button
+- extendedWaitUntil:
+    visible: ${output.assetName}
+    timeout: 45000
+- tapOn:
+    id: asset-open-details
+- assertVisible:
+    id: asset-translate-button
+- evalScript: ${output.api.deleteProject(output.projectName)}
+- evalScript: ${output.api.deleteUserIfExists(output.ownerEmail)}

@@ -1,0 +1,19 @@
+appId: ${MAESTRO_APP_ID}
+---
+# After the quest drawer closes, the quest search field takes focus and
+# the keyboard comes up. The first tap on the list only dismisses the
+# keyboard. Hide it first and retry once if the list is still showing.
+- hideKeyboard
+- tapOn:
+    id: quest-list-item
+- runFlow:
+    when:
+      visible:
+        id: quest-list-item
+    commands:
+      - tapOn:
+          id: quest-list-item
+- extendedWaitUntil:
+    visible:
+      id: assets-refresh-button
+    timeout: 45000

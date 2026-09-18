@@ -56,6 +56,8 @@ interface LanguageComboboxProps {
   allowCreate?: boolean;
   /** Callback when a new language is created (receives the new languoid ID) */
   onCreateNew?: (languoidId: string, name: string) => void;
+  testID?: string;
+  searchTestID?: string;
 }
 
 function LoadingState() {
@@ -117,7 +119,9 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
   uiReadyOnly = false,
   toggleUILocalization,
   allowCreate = false,
-  onCreateNew
+  onCreateNew,
+  testID,
+  searchTestID
 }) => {
   const primaryColor = useThemeColor('primary');
   const setSavedLanguage = useLocalStore((state) => state.setSavedLanguage);
@@ -426,7 +430,7 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
   }
 
   return (
-    <View className={cn('w-full', className)}>
+    <View className={cn('w-full', className)} testID={testID}>
       <Dropdown
         style={{
           height: 48,
@@ -481,6 +485,7 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
             <Input
               value={immediateSearchQuery}
               onChangeText={setSearchQuery}
+              testID={searchTestID}
               placeholder={t('searchLanguages')}
               prefix={SearchIcon}
               size="sm"

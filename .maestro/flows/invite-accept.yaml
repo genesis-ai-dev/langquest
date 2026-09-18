@@ -1,0 +1,81 @@
+appId: ${MAESTRO_APP_ID}
+onFlowStart:
+  - runScript: ../api.js
+---
+# Owner invites from the banner, invitee accepts, member cannot invite,
+# owner removes the member. Three launches; one device, two accounts.
+- evalScript: ${output.inviteeEmail = output.api.uniqueEmail("invitee")}
+- evalScript: ${output.inviteePassword = output.api.uniquePassword("invitee")}
+- evalScript: ${output.projectName = "maestro-invite-" + Date.now()}
+- evalScript: ${output.skipSignInCleanup = true}
+- evalScript: ${output.api.createConfirmedUser(output.inviteeEmail, output.inviteePassword)}
+- runFlow: _start-signed-in.yaml
+- evalScript: ${output.ownerEmail = output.signInEmail}
+- evalScript: ${output.ownerPassword = output.signInPassword}
+- evalScript: ${output.api.seedProject(output.projectName, output.ownerEmail, false)}
+- runFlow: _open-named-project.yaml
+- extendedWaitUntil:
+    visible:
+      id: project-invite-banner
+    timeout: 30000
+- tapOn:
+    id: project-invite-banner
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: membership-invite-email
+    timeout: 15000
+- tapOn:
+    id: membership-invite-email
+    waitToSettleTimeoutMs: 0
+- inputText: ${output.inviteeEmail}
+- hideKeyboard
+- tapOn:
+    id: membership-invite-send
+    waitToSettleTimeoutMs: 0
+- tapOn: OK
+- evalScript: ${output.api.waitForInvite(output.projectName, output.inviteeEmail, "pending")}
+
+- evalScript: ${output.signInEmail = output.inviteeEmail}
+- evalScript: ${output.signInPassword = output.inviteePassword}
+- runFlow: _sign-in-existing.yaml
+- runFlow: _open-app-drawer.yaml
+- tapOn:
+    id: drawer-notifications
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: notification-invite-accept
+    timeout: 45000
+- tapOn:
+    id: notification-invite-accept
+    waitToSettleTimeoutMs: 0
+- tapOn: OK
+- evalScript: ${output.api.waitForInvite(output.projectName, output.inviteeEmail, "accepted")}
+- evalScript: ${output.api.waitForMembership(output.projectName, output.inviteeEmail)}
+
+- runFlow: _open-app-drawer.yaml
+- tapOn:
+    id: drawer-projects
+    waitToSettleTimeoutMs: 0
+- runFlow: _open-named-project.yaml
+- runFlow: _open-membership-from-dial.yaml
+- assertVisible:
+    id: membership-only-owners
+
+- evalScript: ${output.signInEmail = output.ownerEmail}
+- evalScript: ${output.signInPassword = output.ownerPassword}
+- runFlow: _sign-in-existing.yaml
+- runFlow: _open-named-project.yaml
+- runFlow: _open-membership-from-dial.yaml
+- tapOn:
+    id: membership-tab-members
+    waitToSettleTimeoutMs: 0
+- tapOn:
+    id: membership-remove-member
+    waitToSettleTimeoutMs: 0
+- tapOn: Remove
+- evalScript: ${output.api.waitForNoMembership(output.projectName, output.inviteeEmail)}
+- evalScript: ${output.api.deleteProject(output.projectName)}
+- evalScript: ${output.api.deleteUserIfExists(output.ownerEmail)}
+- evalScript: ${output.api.deleteUserIfExists(output.inviteeEmail)}

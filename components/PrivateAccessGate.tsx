@@ -8,11 +8,10 @@ import {
   request
 } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
+import { membershipRequestUiStatus } from '@/features/access/requestStatus';
 import { useLocalization } from '@/hooks/useLocalization';
 import type { PrivateAccessAction } from '@/hooks/useUserPermissions';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
-
-import { isExpiredByLastUpdated } from '@/utils/dateUtils';
 import { useHybridQuery } from '@/hooks/useHybridQuery';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
@@ -105,7 +104,12 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
   // Query for existing membership request using useHybridQuery
   // Watch for updates when modal is visible to catch newly created requests
   const { data: existingRequests } = useHybridQuery({
-    queryKey: ['membership-request', projectId, currentUser?.id || '', refreshKey],
+    queryKey: [
+      'membership-request',
+      projectId,
+      currentUser?.id || '',
+      refreshKey
+    ],
 
     // PowerSync query using Drizzle
     offlineQuery: toCompilableQuery(
@@ -147,22 +151,7 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
   });
 
   const existingRequest = existingRequests[0];
-
-  // Determine the current status
-  const getRequestStatus = () => {
-    if (!existingRequest) return null;
-
-    if (
-      existingRequest.status === 'pending' &&
-      isExpiredByLastUpdated(existingRequest.last_updated)
-    ) {
-      return 'expired';
-    }
-
-    return existingRequest.status;
-  };
-
-  const currentStatus = getRequestStatus();
+  const currentStatus = membershipRequestUiStatus(existingRequest);
   const hasPendingRequest = currentStatus === 'pending';
 
   // Determine if we should actively watch for membership changes
@@ -532,6 +521,7 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
                 disabled={isSubmitting}
                 loading={isSubmitting}
                 className={!modal ? 'mt-4' : ''}
+                testID="project-request-access"
               >
                 <Text>
                   {isSubmitting ? t('requesting') : t('requestAgain')}
@@ -581,6 +571,7 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
                 disabled={isSubmitting}
                 loading={isSubmitting}
                 className={!modal ? 'mt-4' : ''}
+                testID="project-request-access"
               >
                 <Text>
                   {isSubmitting ? t('requesting') : t('requestAgain')}
@@ -625,6 +616,7 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
               disabled={isSubmitting}
               loading={isSubmitting}
               className={!modal ? 'mt-4' : ''}
+              testID="project-request-access"
             >
               <Text>
                 {isSubmitting ? t('requesting') : t('requestMembership')}
@@ -684,6 +676,7 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
               disabled={isSubmitting}
               loading={isSubmitting}
               className={!modal ? 'mt-4' : ''}
+              testID="project-request-access"
             >
               <Text>
                 {isSubmitting ? t('requesting') : t('requestMembership')}

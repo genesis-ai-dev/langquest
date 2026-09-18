@@ -5,7 +5,6 @@ import {
   DrawerContent,
   DrawerFooter,
   DrawerHeader,
-  DrawerScrollView,
   DrawerTitle
 } from '@/components/ui/drawer';
 import { Icon } from '@/components/ui/icon';
@@ -245,7 +244,6 @@ export function QuestOffloadVerificationDrawer({
     <Drawer
       open={isOpen}
       onOpenChange={onOpenChange}
-      snapPoints={[1000, 770]}
       dismissible={!isOffloading}
     >
       <DrawerContent className="pb-safe">
@@ -271,11 +269,7 @@ export function QuestOffloadVerificationDrawer({
           </View>
         </DrawerHeader>
 
-        {/* Scrollable Content */}
-        <DrawerScrollView
-          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 16 }}
-          style={{ flexGrow: 1 }}
-        >
+        <View className="flex flex-col gap-2 px-4">
           {hasPendingUploads ? (
             <View className="flex flex-col gap-4 py-6">
               <View className="rounded-lg bg-yellow-500/10 p-4">
@@ -432,7 +426,7 @@ export function QuestOffloadVerificationDrawer({
               )}
             </>
           )}
-        </DrawerScrollView>
+        </View>
 
         <DrawerFooter>
           <Button
@@ -440,6 +434,7 @@ export function QuestOffloadVerificationDrawer({
             disabled={!isReadyToOffload || hasPendingUploads}
             loading={isOffloading}
             variant={isReadyToOffload ? 'destructive' : 'default'}
+            testID="quest-offload-continue"
           >
             <Text className="font-bold">
               {isVerifying

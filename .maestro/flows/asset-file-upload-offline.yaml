@@ -1,0 +1,72 @@
+appId: ${MAESTRO_APP_ID}
+onFlowStart:
+  - runScript: ../api.js
+# Always restore radios. Airplane mode cuts Metro and Docker reachability
+# from the device; leaving it on would fail every flow after this one.
+onFlowComplete:
+  - setAirplaneMode: disabled
+---
+# Record while offline: the take stays local, the draft toolbar shows a
+# pending percent, and nothing reaches the server. Radios back on: the row
+# syncs, the uploader pushes the object without any publish, and the
+# percent clears. Android only — iOS Simulator has no airplane mode.
+- evalScript: ${output.projectName = "maestro-offup-" + Date.now()}
+- evalScript: ${output.questName = "maestro-offupq-" + Date.now()}
+- evalScript: ${output.skipSignInCleanup = true}
+- runFlow: _start-signed-in.yaml
+- runFlow: _create-project-quest.yaml
+- extendedWaitUntil:
+    visible:
+      id: asset-record-button
+    timeout: 30000
+# Open the session online (permission + VAD prompts), then cut the radios.
+- runFlow: _open-recording-screen.yaml
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - setAirplaneMode: enabled
+      - runFlow: _record-take.yaml
+      - assertVisible: '001'
+      # Nothing on the server yet: no 001-style take exists for this quest.
+      - evalScript: ${output.api.waitForNoRecordedAudio(output.questName, 5000)}
+      - tapOn:
+          id: nav-back
+          waitToSettleTimeoutMs: 0
+      - extendedWaitUntil:
+          visible: '001'
+          timeout: 20000
+      # Draft toolbar shows the pending percent while offline (button itself
+      # is disabled without a network, so do not open the drawer here).
+      - extendedWaitUntil:
+          visible:
+            id: quest-publish-percent
+          timeout: 30000
+      - setAirplaneMode: disabled
+      - evalScript: ${output.recorded = output.api.waitForRecordedAudio(output.questName, 90000)}
+      - evalScript: ${output.objectName = output.api.assertFlatObjectName(output.recorded.audio[0])}
+      - evalScript: ${output.api.waitForStorageObject(output.objectName, 90000)}
+      - evalScript: ${output.api.waitForAudioUploaded(output.questName, 90000)}
+      - extendedWaitUntil:
+          notVisible:
+            id: quest-publish-percent
+          timeout: 60000
+      - extendedWaitUntil:
+          visible:
+            id: quest-publish
+            enabled: true
+          timeout: 20000
+      - tapOn:
+          id: quest-publish
+          waitToSettleTimeoutMs: 0
+      - extendedWaitUntil:
+          visible:
+            id: upload-status-audio
+          timeout: 15000
+      - assertVisible:
+          id: upload-status-audio
+          text: '1/1'
+      - tapOn: Cancel
+- evalScript: ${output.api.deleteProject(output.projectName)}
+- evalScript: ${output.api.cleanupStorageObjects([output.objectName])}
+- evalScript: ${output.api.deleteUserIfExists(output.signInEmail)}

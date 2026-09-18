@@ -38,6 +38,10 @@
     "web": "npm run powersync:copy-assets && expo start --web",
     "db:view": "npx drizzle-lab@latest visualizer --project-id LangQuest",
     "test": "jest --watchAll",
+    "test:ci": "jest --ci --watchAll=false --watchman=false",
+    "test:rls": "npm run sb -- test db",
+    "maestro:local": "npx tsx ./testing/maestro-local.ts",
+    "maestro:local:assets": "npx tsx ./testing/maestro-local.ts .maestro/flows/asset-manage.yaml .maestro/flows/asset-settings.yaml .maestro/flows/recording-screen.yaml .maestro/flows/asset-batch-ops.yaml .maestro/flows/asset-file-upload.yaml .maestro/flows/asset-file-upload-offline.yaml .maestro/flows/asset-file-download.yaml .maestro/flows/asset-file-delete-queue.yaml",
     "lint": "eslint",
     "lint:fix": "eslint --fix",
     "lint:inspect": "npx @eslint/config-inspector",
@@ -68,9 +72,6 @@
     "prepare": "git config core.hooksPath .githooks",
     "adb:tunnel": "adb reverse tcp:8081 tcp:8081",
     "android:eas:build:preview": "eas build --platform android --profile preview"
-  },
-  "jest": {
-    "preset": "jest-expo"
   },
   "dependencies": {
     "@azure/core-asynciterator-polyfill": "^1.0.2",
@@ -193,6 +194,7 @@
     "@modelcontextprotocol/sdk": "^1.0.4",
     "@posthog/cli": "^0.7.16",
     "@react-native-community/cli": "latest",
+    "@testing-library/react-native": "^14.0.1",
     "@total-typescript/ts-reset": "^0.6.1",
     "@types/bidirectional-map": "^1.0.4",
     "@types/default-gateway": "^7.2.2",

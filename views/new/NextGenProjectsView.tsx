@@ -13,10 +13,7 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
 import type { WithSource } from '@/utils/dbUtils';
 import { cn, getThemeColor } from '@/utils/styleUtils';
-import {
-  useHybridInfiniteQuery,
-  useHybridQuery
-} from '@/hooks/useHybridQuery';
+import { useHybridInfiniteQuery, useHybridQuery } from '@/hooks/useHybridQuery';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { LegendList } from '@/components/ui/legend-list';
 import {
@@ -148,6 +145,7 @@ export default function NextGenProjectsView() {
   });
 
   const savedLanguage = useLocalStore((state) => state.savedLanguage);
+  const uiLanguage = useLocalStore((state) => state.uiLanguage);
   const setSavedLanguage = useLocalStore((state) => state.setSavedLanguage);
 
   const resetForm = () => {
@@ -174,6 +172,8 @@ export default function NextGenProjectsView() {
           );
         }
       }
+    } else if (uiLanguage?.id) {
+      form.setValue('target_languoid_id', uiLanguage.id);
     }
   };
 
@@ -304,8 +304,10 @@ export default function NextGenProjectsView() {
           );
         }
       }
+    } else if (uiLanguage?.id && !form.getValues('target_languoid_id')) {
+      form.setValue('target_languoid_id', uiLanguage.id);
     }
-  }, [form, savedLanguage, currentUser?.id]);
+  }, [form, savedLanguage, uiLanguage, currentUser?.id]);
 
   const enableFia = useLocalStore((state) => state.enableFia);
   const setEnableFia = useLocalStore((state) => state.setEnableFia);
@@ -459,9 +461,10 @@ export default function NextGenProjectsView() {
         .eq('status', 'pending')
         .eq('active', true);
       if (match) query = query.or(match);
-      const { data, error } = await query.overrideTypes<
-        { id: string; project_id: string; status: string }[]
-      >();
+      const { data, error } =
+        await query.overrideTypes<
+          { id: string; project_id: string; status: string }[]
+        >();
       if (error) throw error;
       if (!userId) return data;
       const { data: memberships, error: membershipError } =
@@ -617,7 +620,8 @@ export default function NextGenProjectsView() {
   );
 
   const myProjectIds = React.useMemo(
-    () => new Set(myProjectsQuery.data.map((memberProject) => memberProject.id)),
+    () =>
+      new Set(myProjectsQuery.data.map((memberProject) => memberProject.id)),
     [myProjectsQuery.data]
   );
 
@@ -710,19 +714,19 @@ export default function NextGenProjectsView() {
                 <TabsList className="w-full">
                   {isAuthenticated ? (
                     <>
-                      <TabsTrigger value="my">
+                      <TabsTrigger value="my" testID="projects-tab-my">
                         <Text>{t('myProjects')}</Text>
                       </TabsTrigger>
-                      <TabsTrigger value="all">
+                      <TabsTrigger value="all" testID="projects-tab-all">
                         <Text>{t('allProjects')}</Text>
                       </TabsTrigger>
                     </>
                   ) : (
                     <>
-                      <TabsTrigger value="my">
+                      <TabsTrigger value="my" testID="projects-tab-my">
                         <Text>{t('signIn')}</Text>
                       </TabsTrigger>
-                      <TabsTrigger value="all">
+                      <TabsTrigger value="all" testID="projects-tab-all">
                         <Text>{t('allProjects')}</Text>
                       </TabsTrigger>
                     </>
@@ -745,6 +749,7 @@ export default function NextGenProjectsView() {
                       size="lg"
                       onPress={() => router.push('/(auth)/sign-in')}
                       className="w-full"
+                      testID="home-sign-in"
                     >
                       <Text className="font-semibold">{t('signIn')}</Text>
                     </Button>
@@ -782,6 +787,7 @@ export default function NextGenProjectsView() {
                       placeholder={t('searchProjects')}
                       value={searchQuery}
                       onChangeText={setSearchQuery}
+                      testID="projects-search"
                       prefix={SearchIcon}
                       prefixStyling={false}
                       size="sm"
@@ -798,7 +804,11 @@ export default function NextGenProjectsView() {
                       hitSlop={12}
                     />
                     {currentUser && (
-                      <DrawerTrigger size="icon-lg">
+                      <DrawerTrigger
+                        size="icon-lg"
+                        testID="projects-create-button"
+                        accessibilityLabel="projects-create-button"
+                      >
                         <Icon
                           as={PlusIcon}
                           className="text-primary-foreground"
@@ -880,6 +890,8 @@ export default function NextGenProjectsView() {
                       {activeTab === 'my' && !searchQuery && (
                         <Button
                           variant="default"
+                          testID="projects-create-button"
+                          accessibilityLabel="projects-create-button"
                           onPress={() => setIsCreateOpen(true)}
                           className="mt-2"
                         >
@@ -909,6 +921,7 @@ export default function NextGenProjectsView() {
                     <FormControl>
                       <Input
                         {...transformInputProps(field)}
+                        testID="project-create-name"
                         placeholder={t('projectName')}
                         size="sm"
                         prefix={FolderPenIcon}
@@ -928,6 +941,8 @@ export default function NextGenProjectsView() {
                     <FormItem>
                       <FormControl>
                         <LanguageCombobox
+                          testID="project-create-language"
+                          searchTestID="language-search"
                           value={field.value}
                           onChange={(languoid) => {
                             field.onChange(languoid.id);
@@ -1003,6 +1018,7 @@ export default function NextGenProjectsView() {
                             key={option}
                             value={option}
                             label={t(option)}
+                            testID={`project-template-${option}`}
                           >
                             <Text className="capitalize">{t(option)}</Text>
                           </RadioGroupItem>
@@ -1090,6 +1106,8 @@ export default function NextGenProjectsView() {
             </View>
             <DrawerFooter>
               <FormSubmit
+                testID="project-create-submit"
+                accessibilityLabel="project-create-submit"
                 disabled={isCreatingProject}
                 onPress={form.handleSubmit((data) => createProject(data))}
                 className="flex-row items-center gap-2"

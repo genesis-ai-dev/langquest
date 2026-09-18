@@ -223,7 +223,9 @@ export default function AppearanceView() {
       >
         <View className="gap-6">
           <View className="gap-1">
-            <Text className="text-2xl font-bold">{t('appIconTheme')}</Text>
+            <Text className="text-2xl font-bold" testID="appearance-screen">
+              {t('appIconTheme')}
+            </Text>
             <Text className="text-muted-foreground">
               {t('appIconThemeDescription')}
             </Text>
