@@ -1,8 +1,8 @@
 import { BibleReaderContent } from '@/components/BibleReaderContent';
 import { BibleTranslationDrawer } from '@/components/BibleTranslationDrawer';
-import { Button } from '@/components/ui/button';
 import { CheckpointMediaPlayer } from '@/components/CheckpointMediaPlayer';
 import { FiaIcon } from '@/components/icons/FiaIcon';
+import { Button } from '@/components/ui/button';
 import {
   Collapsible,
   CollapsibleContent,
@@ -17,7 +17,6 @@ import {
   DrawerTitle
 } from '@/components/ui/drawer';
 import { Icon } from '@/components/ui/icon';
-import { Slider } from '@/components/ui/slider';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Text } from '@/components/ui/text';
 import { useAudio } from '@/contexts/AudioContext';
@@ -29,6 +28,7 @@ import type {
   FiaTerm
 } from '@/hooks/useFiaPericopeSteps';
 import { useFiaPericopeSteps } from '@/hooks/useFiaPericopeSteps';
+import { useLocalization } from '@/hooks/useLocalization';
 import { useProjectFiaLanguageCode } from '@/hooks/useProjectFiaLanguageCode';
 import {
   enqueue as enqueueFiaAttachment,
@@ -39,6 +39,7 @@ import {
 import { cn, useThemeColor } from '@/utils/styleUtils';
 import { Ionicons } from '@expo/vector-icons';
 import { ReactNativeZoomableView } from '@openspacelabs/react-native-zoomable-view';
+import { Image } from 'expo-image';
 import {
   BookOpenIcon,
   CheckIcon,
@@ -51,7 +52,6 @@ import {
   TheaterIcon,
   UsersIcon
 } from 'lucide-react-native';
-import { Image } from 'expo-image';
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
@@ -145,7 +145,7 @@ function getCalloutText(block: FiaBlock | string): string {
     return stripMarkSyntax(block.content.map(getCalloutText).join(''));
   }
   if (block.content && typeof block.content === 'object') {
-    return getCalloutText(block.content as FiaBlock);
+    return getCalloutText(block.content);
   }
   return '';
 }
@@ -157,9 +157,9 @@ type SingleMatch =
 
 function findAnchorRefs(
   block: FiaBlock | string
-): Array<{ url: string; text: string }> {
+): { url: string; text: string }[] {
   if (typeof block === 'string') return [];
-  const results: Array<{ url: string; text: string }> = [];
+  const results: { url: string; text: string }[] = [];
   if (block.type === 'anchor' && typeof block.url === 'string') {
     results.push({
       url: block.url,
@@ -171,7 +171,7 @@ function findAnchorRefs(
       results.push(...findAnchorRefs(child));
     }
   } else if (block.content && typeof block.content === 'object') {
-    results.push(...findAnchorRefs(block.content as FiaBlock));
+    results.push(...findAnchorRefs(block.content));
   }
   return results;
 }
@@ -180,19 +180,19 @@ function resolveAnchors(block: FiaBlock, ctx: MediaContext): SingleMatch[] {
   const anchors = findAnchorRefs(block);
   const results: SingleMatch[] = [];
   for (const anchor of anchors) {
-    const mediaMatch = anchor.url.match(/^#m(\d+)$/);
+    const mediaMatch = /^#m(\d+)$/.exec(anchor.url);
     if (mediaMatch) {
       const nodeId = mediaMatch[1]!;
       const item = ctx.mediaItems.find((m) => m.nodeId === nodeId);
       if (item) results.push({ type: 'image', item });
     }
-    const mapMatch = anchor.url.match(/^#c(\d+)$/);
+    const mapMatch = /^#c(\d+)$/.exec(anchor.url);
     if (mapMatch) {
       const nodeId = mapMatch[1]!;
       const item = ctx.maps.find((m) => m.nodeId === nodeId);
       if (item) results.push({ type: 'map', item });
     }
-    const termMatch = anchor.url.match(/^#t(\d+)$/);
+    const termMatch = /^#t(\d+)$/.exec(anchor.url);
     if (termMatch) {
       const nodeId = termMatch[1]!;
       const item = ctx.terms.find((t) => t.nodeId === nodeId);
@@ -256,7 +256,7 @@ function preprocessMarkSpans(items: ContentItem[]): ContentItem[] {
     }
 
     const openIdx = item.lastIndexOf('[');
-    if (openIdx === -1 || item.indexOf(']', openIdx) !== -1) {
+    if (openIdx === -1 || item.includes(']', openIdx)) {
       result.push(item);
       i++;
       continue;
@@ -768,11 +768,12 @@ function MediaGalleryContent({
   mediaItems: FiaMediaItem[];
   maps: FiaMap[];
 }) {
+  const { t } = useLocalization();
   if (mediaItems.length === 0 && maps.length === 0) {
     return (
       <View className="items-center justify-center py-12">
         <Text className="text-center text-muted-foreground">
-          No media available for this pericope.
+          {t('noMediaAvailable')}
         </Text>
       </View>
     );
@@ -819,6 +820,7 @@ function StepContent({
   maps: FiaMap[];
   onBrowseMedia?: () => void;
 }) {
+  const { t } = useLocalization();
   const mediaCtx: MediaContext = {
     mediaItems,
     terms,
@@ -854,7 +856,7 @@ function StepContent({
   return (
     <View className="items-center justify-center py-12">
       <Text className="text-center text-muted-foreground">
-        No text available for this step.
+        {t('noTextAvailable')}
       </Text>
     </View>
   );

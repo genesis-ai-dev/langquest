@@ -2,7 +2,7 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { cn } from '@/utils/styleUtils';
 import { ChevronRight } from 'lucide-react-native';
 import React from 'react';
-import { Pressable, View } from 'react-native';
+import { Pressable, useWindowDimensions, View } from 'react-native';
 import { Icon } from './ui/icon';
 import { Text } from './ui/text';
 
@@ -13,13 +13,24 @@ interface RecordButtonProps {
   size?: 'small' | 'large';
 }
 
+const COMPACT_WIDTH = 400;
+
 export function RecordButton({
   onPress,
   disabled = false,
   className,
   size = 'small'
 }: RecordButtonProps) {
+  const { width } = useWindowDimensions();
   const { t } = useLocalization();
+  const isCompact = width < COMPACT_WIDTH;
+
+  const label = isCompact
+    ? t('doRecord')
+    : size === 'small'
+      ? t('onboardingStartRecording')
+      : t('startRecordingSession');
+
   return (
     <Pressable
       onPress={onPress}
@@ -27,7 +38,8 @@ export function RecordButton({
       accessibilityRole="button"
       className={cn(
         'flex-row items-center justify-between gap-4 self-center rounded-full bg-primary px-3 py-1.5 active:opacity-90',
-        size === 'large' && 'h-12 w-72 px-4 py-2',
+        size === 'large' &&
+          (isCompact ? 'h-12 w-56 px-3' : 'h-12 w-72 px-4 py-2'),
         disabled && 'opacity-50',
         className
       )}
@@ -38,9 +50,10 @@ export function RecordButton({
 
       <View className="items-center justify-center">
         <Text className="text-center text-xs font-semibold uppercase text-secondary">
-          {size === 'small'
+          {/* {size === 'small'
             ? t('onboardingStartRecording')
-            : t('startRecordingSession')}
+            : t('startRecordingSession')} */}
+          {label}
         </Text>
       </View>
 

@@ -67,7 +67,8 @@ import Animated, {
   withTiming
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ImportWizard, type ImportWizardVerseLabel } from './importWizard';
+import type { ImportWizardVerseLabel } from './importWizard';
+import { ImportWizard } from './importWizard';
 import { useHybridData } from './useHybridData';
 
 import { AssetListSkeleton } from '@/components/AssetListSkeleton';
@@ -99,11 +100,11 @@ import {
   getAssetOperationMessage,
   MAX_ASSETS_WITHOUT_CONFIRMATION
 } from '@/constants/assetOperations';
+import type { ChapterVerse } from '@/constants/bibleStructure';
 import {
   BIBLE_BOOKS,
   buildPericopeSequence,
-  formatPericopeVerseLabel,
-  type ChapterVerse
+  formatPericopeVerseLabel
 } from '@/constants/bibleStructure';
 import { run as runAssetGarbageCollector } from '@/database_services/assetGarbageCollectorService';
 import type { AssetUpdatePayload } from '@/database_services/assetService';
@@ -229,7 +230,7 @@ function parseFiaVerseRange(verseRange: string): {
   endChapter: number;
   endVerse: number;
 } | null {
-  const match = verseRange.match(/^(\d+):(\d+)[a-z]?-(?:(\d+):)?(\d+)[a-z]?$/);
+  const match = /^(\d+):(\d+)[a-z]?-(?:(\d+):)?(\d+)[a-z]?$/.exec(verseRange);
   if (!match) return null;
   const startChapter = parseInt(match[1]!, 10);
   const startVerse = parseInt(match[2]!, 10);
@@ -4460,7 +4461,7 @@ export default function BibleAssetsView() {
       {isPrivateProject && showPrivateAccessModal && (
         <PrivateAccessGate
           projectId={projectId || ''}
-          projectName={projectName as string}
+          projectName={projectName}
           isPrivate={isPrivateProject as boolean}
           action="contribute"
           modal={true}
