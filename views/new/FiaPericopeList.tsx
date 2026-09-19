@@ -308,7 +308,6 @@ export function FiaPericopeList({
   const [creatingPericopeId, setCreatingPericopeId] = React.useState<
     string | null
   >(null);
-
   const { project } = useProjectById(projectId);
   const isPrivate = project?.private ?? false;
   const primaryColor = useThemeColor('primary');
@@ -664,7 +663,7 @@ export function FiaPericopeList({
         <DrawerContent>
           <DrawerHeader>
             <DrawerTitle>
-              {pickerPericope?.verseRange ?? 'Pericope'} {t('versions')}
+              {pickerPericope?.verseRange ?? t('pericope')} {t('versions')}
             </DrawerTitle>
             <DrawerDescription>
               {/* {pickerGroup?.versions.length ?? 0} version
@@ -676,7 +675,7 @@ export function FiaPericopeList({
             </DrawerDescription>
           </DrawerHeader>
 
-          <View className={cn('gap-3')}>
+          <View className={cn('gap-3 pb-8')}>
             {pickerGroup?.versions.map((version) => (
               <VersionCard
                 key={version.id}

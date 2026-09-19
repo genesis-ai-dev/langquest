@@ -641,7 +641,7 @@ export function BibleChapterList({
             </DrawerDescription>
           </DrawerHeader>
 
-          <View className={cn('gap-3')}>
+          <View className={cn('gap-3 pb-8')}>
             {pickerGroup?.versions.map((version) => (
               <VersionCard
                 key={version.id}

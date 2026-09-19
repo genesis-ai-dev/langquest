@@ -14312,6 +14312,19 @@ export const localizations = {
     burmese: 'ဤသတ်မှတ်ချက်ကို အရာဝတ္ထုများ တင်သွင်းသည့်အခါမှသာ အသုံးပြုမည်။',
     thai: 'การกำหนดนี้จะมีผลเฉพาะเมื่อนำเข้าองค์ประกอบเท่านั้น',
     mandarin: '此分配仅在导入元素时应用。'
+  },
+  draft: {
+    english: 'Draft',
+    french: 'Brouillon',
+    spanish: 'Borrador',
+    brazilian_portuguese: 'Rascunho',
+    tok_pisin: 'Draft',
+    indonesian: 'Draf',
+    nepali: 'मस्यौदा',
+    hindi: 'मसौदा',
+    burmese: 'မူကြမ်း',
+    thai: 'ฉบับร่าง',
+    mandarin: '草稿'
   }
 } as const;
 
