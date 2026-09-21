@@ -44,6 +44,8 @@ describe('localStore persisted slices', () => {
       bibleRecentTranslations: {},
       dismissedInviteBanners: {},
       dismissedInvitedRows: {},
+      dismissedStoreUpdateTimestamp: null,
+      dismissedStoreUpdateVersion: null,
       vadThreshold: VAD_THRESHOLD_DEFAULT,
       enablePlayAll: false
     });
@@ -154,6 +156,22 @@ describe('localStore persisted slices', () => {
     expect(
       useLocalStore.getState().dismissedInviteBanners['proj-1']
     ).toBeUndefined();
+  });
+
+  it('dismissStoreUpdate persists version and timestamp and reset clears them', async () => {
+    useLocalStore.getState().dismissStoreUpdate('2.3.0');
+    expect(useLocalStore.getState().dismissedStoreUpdateVersion).toBe('2.3.0');
+    expect(useLocalStore.getState().dismissedStoreUpdateTimestamp).toEqual(
+      expect.any(Number)
+    );
+
+    const persisted = await persistedState();
+    expect(persisted.dismissedStoreUpdateVersion).toBe('2.3.0');
+    expect(persisted.dismissedStoreUpdateTimestamp).toEqual(expect.any(Number));
+
+    useLocalStore.getState().resetStoreUpdateDismissal();
+    expect(useLocalStore.getState().dismissedStoreUpdateVersion).toBeNull();
+    expect(useLocalStore.getState().dismissedStoreUpdateTimestamp).toBeNull();
   });
 
   it('setBibleTranslation updates the recent list and caps at 10', () => {
