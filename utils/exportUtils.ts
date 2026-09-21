@@ -3,25 +3,25 @@ import { projectService } from '@/database_services/projectService';
 import { questService } from '@/database_services/questService';
 import { escapeCsvField } from '@/utils/backupUtils';
 import {
-  concatenateAudioListToFile,
-  getQuestAudioUrisByAssetList
+    concatenateAudioListToFile,
+    getQuestAudioUrisByAssetList
 } from '@/utils/localAudioConcat';
 import { Directory, File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { Share as NativeShare, Platform } from 'react-native';
-import { getFiaSequenceFromQuestMetadata } from './fiaUtils';
 import {
-  ensureUniqueFileNames,
-  formatCurrentDateTime,
-  getFIAVerseSuffix,
-  getMimeTypeFromFileName,
-  getMetadataVerseForCsv,
-  getMetadataVerseForFiaCsv,
-  getUniqueFileName,
-  getVerseSuffix,
-  isUserCancellationError,
-  sanitizeNamePart
+    ensureUniqueFileNames,
+    formatCurrentDateTime,
+    getFIAVerseSuffix,
+    getMetadataVerseForCsv,
+    getMetadataVerseForFiaCsv,
+    getMimeTypeFromFileName,
+    getUniqueFileName,
+    getVerseSuffix,
+    isUserCancellationError,
+    sanitizeNamePart
 } from './exportNaming';
+import { getFiaSequenceFromQuestMetadata } from './fiaUtils';
 
 async function getZipArchive() {
   const { zip } = await import('react-native-zip-archive');

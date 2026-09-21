@@ -9,9 +9,11 @@ appId: ${MAESTRO_APP_ID}
 # (footer). Preview/production skip this (MAESTRO_USE_DEV_CLIENT
 # is unset).
 #
-# Leftover discovery (or another sheet) can swallow the first hamburger
-# tap after a deep link. Retry until drawer-projects is actually open;
-# do not use Back to dismiss sheets (that pops the screen).
+# Leftover discovery, the private-access Modal (Go Back), or
+# Initialization Error can swallow the hamburger or take it out of the
+# tree. Dismiss those first. The hamburger tap is optional so a miss
+# retries instead of failing the helper. Do not use Back to dismiss
+# sheets (that pops the screen).
 - runFlow:
     when:
       true: ${output.useDevClient}
@@ -26,21 +28,39 @@ appId: ${MAESTRO_APP_ID}
     commands:
       - swipe:
           direction: DOWN
-# Airplane mid-init (or Expo losing Metro) shows this alert over the
-# hamburger. Dismiss it so the drawer tap can land.
 - runFlow:
     when:
       visible: Initialization Error
     commands:
       - tapOn: OK
+- runFlow:
+    when:
+      visible: Go Back
+      notVisible:
+        id: app-drawer-menu-button
+    commands:
+      - tapOn: Go Back
 - repeat:
     times: 4
     while:
       notVisible:
         id: drawer-projects
     commands:
+      - runFlow:
+          when:
+            visible: Initialization Error
+          commands:
+            - tapOn: OK
+      - runFlow:
+          when:
+            visible: Go Back
+            notVisible:
+              id: app-drawer-menu-button
+          commands:
+            - tapOn: Go Back
       - tapOn:
           id: app-drawer-menu-button
+          optional: true
           waitToSettleTimeoutMs: 0
       - waitForAnimationToEnd:
           timeout: 2000

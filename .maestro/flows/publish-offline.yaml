@@ -4,7 +4,7 @@ onFlowStart:
 # Always restore radios. Airplane mode cuts Metro and Docker; leaving it
 # on would fail every flow after this one.
 onFlowComplete:
-  - setAirplaneMode: disabled
+  - runFlow: _recover-after-airplane.yaml
 ---
 - evalScript: ${output.projectName = "maestro-project-" + Date.now()}
 - evalScript: ${output.questName = "maestro-quest-" + Date.now()}

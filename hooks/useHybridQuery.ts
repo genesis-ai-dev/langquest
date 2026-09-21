@@ -75,6 +75,11 @@ interface HybridQueryOptions<TOfflineData, TCloudData = TOfflineData> {
   enableOfflineQuery?: boolean;
 
   enabled?: boolean;
+
+  merge?: (
+    local: WithSource<TOfflineData>[],
+    remote: WithSource<TOfflineData>[]
+  ) => WithSource<TOfflineData>[];
 }
 
 interface HybridQueryResult<T> {
@@ -106,7 +111,8 @@ export function useHybridQuery<TOfflineData, TCloudData = TOfflineData>(
     cloudQueryOptions,
     enableCloudQuery,
     enableOfflineQuery = true,
-    enabled = true
+    enabled = true,
+    merge
   } = options;
 
   const { dataType, rest: queryKeyParams } = splitHybridQueryKey(queryKey);
@@ -140,8 +146,10 @@ export function useHybridQuery<TOfflineData, TCloudData = TOfflineData>(
     const remote = (cloud.data ?? []).map((item) =>
       tagCloud<TOfflineData>(item, transformCloudData)
     );
-    return mergeLocalFirst(local, remote, getItemId);
-  }, [offline.data, cloud.data, getItemId, transformCloudData]);
+    return merge
+      ? merge(local, remote)
+      : mergeLocalFirst(local, remote, getItemId);
+  }, [offline.data, cloud.data, getItemId, transformCloudData, merge]);
 
   const isOfflineLoading = watchOffline && offline.isLoading;
   const isCloudLoading = cloud.isLoading;

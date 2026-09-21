@@ -68,7 +68,12 @@ export const QuestTreeRow: React.FC<QuestTreeRowProps> = ({
   const handleQuestPress = () => {
     // Anonymous users can navigate directly to cloud records (cloud-only browsing)
     // Authenticated users need to download cloud quests before viewing
-    if (currentUser && isCloudQuest && !isDownloaded) {
+    if (
+      currentUser &&
+      isCloudQuest &&
+      !isDownloaded &&
+      !isOptimisticallyDownloading
+    ) {
       RNAlert.alert(t('downloadRequired'), t('downloadQuestToView'), [
         { text: t('cancel'), style: 'cancel' },
         {

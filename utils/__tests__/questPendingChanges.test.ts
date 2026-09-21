@@ -16,9 +16,9 @@ jest.mock('@/services/attachments/LocalFileIndex', () => ({
 
 import type { QuestScope } from '../questPendingChanges';
 import {
-  countPendingAudioFiles,
-  crudEntryTouchesQuest,
-  parseCrudEntry
+    countPendingAudioFiles,
+    crudEntryTouchesQuest,
+    parseCrudEntry
 } from '../questPendingChanges';
 
 const scope: QuestScope = {

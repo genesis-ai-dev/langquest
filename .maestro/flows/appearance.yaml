@@ -2,18 +2,10 @@ appId: ${MAESTRO_APP_ID}
 onFlowStart:
   - runScript: ../api.js
 ---
-# Settings → Appearance: pick a non-default icon theme, relaunch, it sticks,
-# then restore the default so the device is clean for the next flow.
-#
-# Applying a theme swaps the launcher <activity-alias>. On Android that
-# disables .MainActivity, which force-finishes the app the moment OK is
-# tapped, so nothing after the tap can be asserted in-process. Persistence is
-# verified after relaunch instead. The Expo development client cannot
-# relaunch at all while an alias is active (the Dev Launcher starts
-# .MainActivity by explicit class and fails), so on the dev client the flow
-# only opens the confirm drawer and cancels. Run with MAESTRO_APP_VARIANT=
-# preview (or on EAS) to exercise the real switch. iOS shows a system alert
-# after the change; it is dismissed with OK.
+# Settings → Appearance: pick a non-default icon theme, the process stays
+# up so the selected row can be asserted, then relaunch to confirm it
+# sticks. Restore the default the same way. Dev client still cancels
+# because swapping aliases breaks the Expo Dev Launcher.
 - evalScript: ${output.skipSignInCleanup = true}
 - runFlow: _start-signed-in.yaml
 - runFlow: _open-app-drawer.yaml
@@ -64,7 +56,8 @@ onFlowStart:
       - assertVisible:
           id: appearance-theme-default-selected
 
-# Preview/production: apply, survive the Android kill, relaunch, verify, restore.
+# Preview/production: apply without killing the process, then relaunch
+# to confirm the preference survived.
 - runFlow:
     when:
       true: ${!output.useDevClient}
@@ -80,6 +73,10 @@ onFlowStart:
                 visible: OK
                 timeout: 10000
             - tapOn: OK
+      - extendedWaitUntil:
+          visible:
+            id: appearance-theme-first-selected
+          timeout: 15000
       - runFlow: _relaunch-keep-state.yaml
       - runFlow: _open-app-drawer.yaml
       - tapOn:
@@ -98,7 +95,7 @@ onFlowStart:
           visible:
             id: appearance-theme-first-selected
           timeout: 15000
-      # Restore the default icon (kills the app again on Android).
+      # Restore the default icon without killing this process.
       - tapOn:
           id: appearance-theme-default
           waitToSettleTimeoutMs: 0

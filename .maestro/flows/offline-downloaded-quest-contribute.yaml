@@ -2,7 +2,7 @@ appId: ${MAESTRO_APP_ID}
 onFlowStart:
   - runScript: ../api.js
 onFlowComplete:
-  - setAirplaneMode: disabled
+  - runFlow: _recover-after-airplane.yaml
 ---
 # Download a published quest online, then open it with radios down (no
 # Download Required). A sibling cloud-only quest still shows Download Now.
@@ -73,16 +73,7 @@ onFlowComplete:
     timeout: 15000
 - tapOn:
     text: ${output.questName}
-- repeat:
-    times: 6
-    while:
-      visible: '(?i)Download Now'
-    commands:
-      - tapOn: '(?i)^Cancel$'
-      - waitForAnimationToEnd:
-          timeout: 10000
-      - tapOn:
-          text: ${output.questName}
+    waitToSettleTimeoutMs: 0
 - extendedWaitUntil:
     visible:
       id: assets-refresh-button
@@ -100,15 +91,6 @@ onFlowComplete:
       - setAirplaneMode: enabled
       - tapOn:
           text: ${output.questName}
-      - runFlow:
-          when:
-            visible: '(?i)Download Now'
-          commands:
-            - tapOn: '(?i)^Cancel$'
-            - waitForAnimationToEnd:
-                timeout: 10000
-            - tapOn:
-                text: ${output.questName}
       - extendedWaitUntil:
           visible:
             id: assets-refresh-button

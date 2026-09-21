@@ -2,7 +2,7 @@ appId: ${MAESTRO_APP_ID}
 onFlowStart:
   - runScript: ../api.js
 onFlowComplete:
-  - setAirplaneMode: disabled
+  - runFlow: _recover-after-airplane.yaml
 ---
 # One launch, one sign-in, one project. Covers create / empty quest / offline
 # publish / translate+vote / recording / publish without repeating onboarding.
@@ -121,11 +121,7 @@ onFlowComplete:
 - tapOn:
     id: nav-back
     waitToSettleTimeoutMs: 0
-# This screen stays mounted under the session, so the cloud page is still
-# the pre-record list (seeded source only). Refresh picks up 001.
-- tapOn:
-    id: assets-refresh-button
-    waitToSettleTimeoutMs: 0
+# New takes appear on the assets list without a manual refresh.
 - extendedWaitUntil:
     visible: '001'
     timeout: 45000

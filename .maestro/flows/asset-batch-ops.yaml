@@ -132,26 +132,22 @@ onFlowStart:
     timeout: 10000
 - assertVisible: '002'
 # --- Replace "002" with a fresh take → "004" with a new object -----------
-# Tapping a card highlights it (Add / Replace appear); tapping the already
-# highlighted card moves the insertion point back to the end, so retry once
-# if the actions did not show.
+# One tap highlights the card and shows Add / Replace. A second tap on the
+# same card must not move the insertion point.
 - tapOn:
     id: recording-asset-card
     index: 0
     waitToSettleTimeoutMs: 0
-- runFlow:
-    when:
-      notVisible:
-        id: recording-action-replace
-    commands:
-      - tapOn:
-          id: recording-asset-card
-          index: 0
-          waitToSettleTimeoutMs: 0
 - extendedWaitUntil:
     visible:
       id: recording-action-replace
     timeout: 10000
+- tapOn:
+    id: recording-asset-card
+    index: 0
+    waitToSettleTimeoutMs: 0
+- assertVisible:
+    id: recording-action-replace
 - tapOn:
     id: recording-action-replace
     waitToSettleTimeoutMs: 0

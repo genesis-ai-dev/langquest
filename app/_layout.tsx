@@ -39,6 +39,7 @@ import {
   useSessionStore
 } from '@/store/localStore';
 import { EntryGate } from '@/features/appearance/EntryGate';
+import { useDeferredIconTheme } from '@/features/appearance/useDeferredIconTheme';
 import { initializeNetwork } from '@/store/networkStore';
 import { toNavTheme } from '@/utils/styleUtils';
 import { TermsGateView } from '@/views/TermsGateView';
@@ -93,13 +94,17 @@ export const FORM_SHEET_OPTIONS = {
  * Instead, (auth)/_layout.tsx handles auth routing with <Redirect href="/">.
  */
 function RootNavigator() {
-  const { isLoading, isAuthenticated, migrationNeeded, appUpgradeNeeded } =
+  useDeferredIconTheme();
+  const { isLoading, isAuthenticated, isSystemReady, migrationNeeded, appUpgradeNeeded } =
     useAuth();
 
   const needsMigration = isAuthenticated && !!migrationNeeded;
   const needsUpgrade = isAuthenticated && !!appUpgradeNeeded;
+  const waitingForSystem =
+    isAuthenticated && !isSystemReady && !needsMigration && !needsUpgrade;
 
-  const appReady = !needsMigration && !needsUpgrade && !isLoading;
+  const appReady =
+    !needsMigration && !needsUpgrade && !isLoading && !waitingForSystem;
 
   const isReady = appReady || needsMigration || needsUpgrade;
 

@@ -322,7 +322,11 @@ export default ({ config }: ConfigContext): ExpoConfig =>
       withAppearanceLabels,
       ['expo-alternate-app-icons', getAppearanceIcons()],
       ['testflight-dev-deploy', { enabled: appVariant === 'development' }],
-      ['posthog-react-native/expo', { skipOnConflict: true }],
+      // Sourcemap upload needs POSTHOG_CLI_* (EAS secrets). Skip locally so
+      // `expo run:* --variant release` does not fail without those keys.
+      ...(process.env.EAS_BUILD || process.env.POSTHOG_CLI_API_KEY
+        ? [['posthog-react-native/expo', { skipOnConflict: true }]]
+        : []),
       withGradleMemory,
       withDebuggableVariants
     ],

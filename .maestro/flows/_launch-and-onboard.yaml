@@ -10,23 +10,38 @@ appId: ${MAESTRO_APP_ID}
 # Expo Dev Launcher / Dev Menu opens instead of LangQuest. EAS preview
 # and production builds skip this (MAESTRO_USE_DEV_CLIENT is unset).
 - evalScript: ${output.useDevClient = typeof MAESTRO_USE_DEV_CLIENT !== 'undefined' && String(MAESTRO_USE_DEV_CLIENT) === 'true'}
+- evalScript: ${output.launchLanded = false}
+- evalScript: ${output.needsTerms = false}
+- evalScript: ${output.launchSpin = 0}
 - runFlow:
     when:
       true: ${output.useDevClient}
     commands:
       - openLink: ${MAESTRO_DEV_CLIENT_URL}
-# The Dev Launcher recents list, the first-run Dev Menu ("Continue"), and
-# the Dev Menu sheet appear at unpredictable moments while Metro loads the
-# bundle. Keep dismissing whatever is on screen until the app's own Terms
-# screen shows. A single `when:` check races the bundle load.
+# Reach a known screen (Terms, hamburger, or Connecting). `when: visible`
+# is one snapshot; without a beat the loop finishes while Metro is still
+# compiling and the Terms assert fails. Already-onboarded (hamburger)
+# skips Terms. Empty launcher after airplane gets another deep link.
 - repeat:
-    times: 20
+    times: 45
     while:
-      notVisible: Terms & Privacy
+      true: ${!output.launchLanded}
     commands:
-      # clearState + openLink often lands here before the bundle is
-      # ready. The other when: checks skip, so 20 loops finish in
-      # seconds unless we wait the connecting screen out.
+      - evalScript: ${output.launchSpin = output.launchSpin + 1}
+      - runFlow:
+          when:
+            visible:
+              id: terms-screen
+          commands:
+            - evalScript: ${output.launchLanded = true}
+            - evalScript: ${output.needsTerms = true}
+      - runFlow:
+          when:
+            visible:
+              id: app-drawer-menu-button
+          commands:
+            - evalScript: ${output.launchLanded = true}
+            - evalScript: ${output.needsTerms = false}
       - runFlow:
           when:
             visible: '(?i)Connecting to the development server.*'
@@ -34,9 +49,6 @@ appId: ${MAESTRO_APP_ID}
             - extendedWaitUntil:
                 notVisible: '(?i)Connecting to the development server.*'
                 timeout: 90000
-      # Airplane in a prior flow can wipe the Dev Launcher recents.
-      # openLink then misses and we sit on "Fetch development servers"
-      # with no http:// row. Send the Metro URL again.
       - runFlow:
           when:
             visible: '(?i)Fetch development servers'
@@ -59,26 +71,69 @@ appId: ${MAESTRO_APP_ID}
           commands:
             - swipe:
                 direction: DOWN
-      # Stale custom-scheme prompt from a prior flow (download-status).
-      # Cancel it; Open would land on the old route instead of Terms.
       - runFlow:
           when:
             platform: iOS
             visible: 'Open in .*'
           commands:
             - tapOn: Cancel
-- assertVisible: Terms & Privacy
-- scrollUntilVisible:
-    element: I agree
-- tapOn:
-    text: I agree
-    waitToSettleTimeoutMs: 0 # stop waiting for onboarding animation
-- assertVisible:
-    text: Every language. Every culture.
-    waitToSettleTimeoutMs: 0 # stop waiting for onboarding animation
-- tapOn:
-    id: onboarding-close-button
-    waitToSettleTimeoutMs: 0 # stop waiting for onboarding animation
+      - runFlow:
+          when:
+            true: ${output.useDevClient && !output.launchLanded && output.launchSpin > 4}
+          commands:
+            - openLink: ${MAESTRO_DEV_CLIENT_URL}
+            - evalScript: ${output.launchSpin = 0}
+      - runFlow:
+          when:
+            true: ${!output.launchLanded}
+          commands:
+            - waitForAnimationToEnd:
+                timeout: 2000
+- runFlow:
+    when:
+      true: ${!output.launchLanded}
+    commands:
+      - assertVisible:
+          id: terms-screen
+- runFlow:
+    when:
+      true: ${output.needsTerms}
+    commands:
+      - scrollUntilVisible:
+          element: I agree
+      - tapOn:
+          text: I agree
+          waitToSettleTimeoutMs: 0
+      # Do not assert onboarding copy. It is gone if the modal already
+      # closed. Wait for the close control or home chrome.
+      - repeat:
+          times: 15
+          while:
+            notVisible:
+              id: app-drawer-menu-button
+          commands:
+            - runFlow:
+                when:
+                  visible:
+                    id: onboarding-close-button
+                commands:
+                  - tapOn:
+                      id: onboarding-close-button
+                      waitToSettleTimeoutMs: 0
+            - runFlow:
+                when:
+                  visible: Continue
+                  notVisible: I agree
+                commands:
+                  - tapOn: Continue
+            - runFlow:
+                when:
+                  visible: Toggle performance monitor
+                commands:
+                  - swipe:
+                      direction: DOWN
+            - waitForAnimationToEnd:
+                timeout: 1000
 # Home chrome is always `app-drawer-menu-button`. Create Account only
 # exists on the guest My tab, so wait for the drawer first, retry close
 # if the modal is still up, then pin My.
@@ -108,60 +163,8 @@ appId: ${MAESTRO_APP_ID}
           commands:
             - swipe:
                 direction: DOWN
-# Closing the RN Modal by unmounting it can leave an empty Dialog that
-# hides the hamburger. Restarting the process (keep zustand) dismisses it.
-- runFlow:
-    when:
-      notVisible:
-        id: app-drawer-menu-button
-    commands:
-      - stopApp
-      - launchApp:
-          clearState: false
-          stopApp: false
-          permissions:
-            android.permission.RECORD_AUDIO: allow
-            microphone: allow
-      - runFlow:
-          when:
-            true: ${output.useDevClient}
-          commands:
-            - openLink: ${MAESTRO_DEV_CLIENT_URL}
-      - repeat:
-          times: 15
-          while:
-            notVisible:
-              id: app-drawer-menu-button
-          commands:
-            - runFlow:
-                when:
-                  visible: Terms & Privacy
-                commands:
-                  - scrollUntilVisible:
-                      element: I agree
-                  - tapOn:
-                      text: I agree
-                      waitToSettleTimeoutMs: 0
-            - runFlow:
-                when:
-                  visible:
-                    id: onboarding-close-button
-                commands:
-                  - tapOn:
-                      id: onboarding-close-button
-                      waitToSettleTimeoutMs: 0
-            - runFlow:
-                when:
-                  visible: Continue
-                  notVisible: I agree
-                commands:
-                  - tapOn: Continue
-            - runFlow:
-                when:
-                  visible: Toggle performance monitor
-                commands:
-                  - swipe:
-                      direction: DOWN
+# Closing onboarding must leave home chrome visible. Do not restart the
+# process to dismiss a leftover Android Dialog.
 - extendedWaitUntil:
     visible:
       id: app-drawer-menu-button

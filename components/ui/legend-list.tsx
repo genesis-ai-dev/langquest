@@ -32,6 +32,7 @@ function LegendListInner<T>(
     bottomExtra = 0,
     ignoreSafeBottom = false,
     ListFooterComponent,
+    keyboardShouldPersistTaps = 'handled',
     ...rest
   }: AppLegendListProps<T>,
   ref: React.Ref<LegendListRef>
@@ -42,6 +43,7 @@ function LegendListInner<T>(
   return (
     <LegendListBase
       ref={ref}
+      keyboardShouldPersistTaps={keyboardShouldPersistTaps}
       {...rest}
       ListFooterComponent={() => (
         <View>

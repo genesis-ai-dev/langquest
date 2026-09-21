@@ -73,16 +73,7 @@ onFlowStart:
     timeout: 15000
 - tapOn:
     id: quest-list-item
-- repeat:
-    times: 6
-    while:
-      visible: '(?i)Download Now'
-    commands:
-      - tapOn: '(?i)^Cancel$'
-      - waitForAnimationToEnd:
-          timeout: 10000
-      - tapOn:
-          id: quest-list-item
+    waitToSettleTimeoutMs: 0
 - extendedWaitUntil:
     visible:
       id: assets-refresh-button
@@ -118,8 +109,7 @@ onFlowStart:
 - tapOn:
     id: report-details
 - inputText: ${output.questReportDetails}
-- tapOn:
-    id: report-reason-spam
+- runFlow: _hide-keyboard.yaml
 - extendedWaitUntil:
     visible:
       id: report-submit
@@ -150,8 +140,7 @@ onFlowStart:
 - tapOn:
     id: report-details
 - inputText: ${output.assetReportDetails}
-- tapOn:
-    id: report-reason-spam
+- runFlow: _hide-keyboard.yaml
 - extendedWaitUntil:
     visible:
       id: report-submit

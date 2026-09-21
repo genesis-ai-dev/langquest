@@ -427,6 +427,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
 
           case 'SIGNED_IN': {
+            setIsLoading(true);
+            setIsSystemReady(false);
             // Update session for sign in events
             setSession(session);
             system.supabaseConnector.updateSession(session);

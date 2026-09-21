@@ -46,10 +46,8 @@ onFlowStart:
 - tapOn:
     id: report-details
 - inputText: ${output.reportDetails}
-# hideKeyboard is Back and closes this RN Modal. Blur via the reason row
-# instead; do not scrollUntilVisible (that swipes the directory behind).
-- tapOn:
-    id: report-reason-spam
+# Back dismisses the IME, not the report sheet. Submit stays on screen.
+- runFlow: _hide-keyboard.yaml
 - extendedWaitUntil:
     visible:
       id: report-submit

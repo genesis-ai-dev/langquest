@@ -2,7 +2,7 @@ appId: ${MAESTRO_APP_ID}
 onFlowStart:
   - runScript: ../api.js
 onFlowComplete:
-  - setAirplaneMode: disabled
+  - runFlow: _recover-after-airplane.yaml
 ---
 # Record on a draft while offline, kill the app, reopen with radios still
 # down, and the take is still there. Development client needs Metro after

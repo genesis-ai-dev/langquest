@@ -24,7 +24,6 @@ import { Switch } from '@/components/ui/switch';
 import { Text } from '@/components/ui/text';
 import { clearPin, hasPin, setPin } from '@/features/appearance/guard';
 import { ICON_PREVIEWS } from '@/features/appearance/iconAssets';
-import { applyTheme } from '@/features/appearance/iconTheme';
 import { normalizeKeypadInput } from '@/features/appearance/matchSequence';
 import {
   getFamilyLabel,
@@ -112,15 +111,13 @@ export default function AppearanceView() {
   }, []);
 
   const applySelection = useCallback(
-    async (pending: PendingTheme) => {
+    (pending: PendingTheme) => {
       if (pending.kind === 'default') {
         setAppearanceThemeId(null);
-        await applyTheme(null);
         return;
       }
       setAppearanceThemeId(pending.id);
       setEntryGuardMode(pending.family);
-      await applyTheme(pending.id);
     },
     [setAppearanceThemeId, setEntryGuardMode]
   );
@@ -129,7 +126,7 @@ export default function AppearanceView() {
     if (!pendingTheme) return;
     const next = pendingTheme;
     setPendingTheme(null);
-    void applySelection(next);
+    applySelection(next);
   }, [applySelection, pendingTheme]);
 
   const handleCancelTheme = useCallback(() => {

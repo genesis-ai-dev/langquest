@@ -11632,6 +11632,19 @@ export const localizations = {
     thai: 'กู้คืนบัญชี',
     mandarin: '恢复账户'
   },
+  confirmRestore: {
+    english: 'Confirm restore',
+    french: 'Confirmer la restauration',
+    spanish: 'Confirmar restauración',
+    brazilian_portuguese: 'Confirmar restauração',
+    tok_pisin: 'Confirm restore',
+    indonesian: 'Konfirmasi pemulihan',
+    nepali: 'पुनर्स्थापना पुष्टि गर्नुहोस्',
+    hindi: 'पुनर्स्थापना की पुष्टि करें',
+    burmese: 'ပြန်လည်ရယူရန် အတည်ပြုပါ',
+    thai: 'ยืนยันการกู้คืน',
+    mandarin: '确认恢复'
+  },
   restoreAccountConfirmTitle: {
     english: 'Restore Account?',
     french: 'Restaurer le compte ?',

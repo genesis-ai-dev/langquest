@@ -59,6 +59,10 @@ import { scheduleOnRN } from 'react-native-worklets';
 import NextGenNewTranslationModal from './NextGenNewTranslationModal';
 import NextGenTranslationsList from './NextGenTranslationsList';
 import { useHybridQuery } from '@/hooks/useHybridQuery';
+import {
+  defaultGetItemId,
+  mergeLocalFirst
+} from '@/hooks/hybridQueryUtils';
 
 // Static viewability config for FlatList - defined outside component to avoid recreation
 const VIEWABILITY_CONFIG = {
@@ -167,7 +171,23 @@ function useNextGenOfflineAsset(assetId: string) {
       });
     },
     enableCloudQuery: !!assetId,
-    enableOfflineQuery: !!assetId
+    enableOfflineQuery: !!assetId,
+    merge: (local, remote) => {
+      const merged = mergeLocalFirst(local, remote, defaultGetItemId);
+      return merged.map((item) => {
+        const localContent = (
+          item as { content?: unknown[] }
+        ).content;
+        if (localContent && localContent.length > 0) return item;
+        const fromCloud = remote.find(
+          (row) => defaultGetItemId(row) === defaultGetItemId(item)
+        ) as { content?: unknown[] } | undefined;
+        if (fromCloud?.content && fromCloud.content.length > 0) {
+          return { ...item, content: fromCloud.content };
+        }
+        return item;
+      });
+    }
   });
 }
 

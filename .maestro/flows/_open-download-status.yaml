@@ -1,0 +1,11 @@
+appId: ${MAESTRO_APP_ID}
+---
+# Download Status is a drawer destination, not a deep link.
+- runFlow: _open-app-drawer.yaml
+- tapOn:
+    id: drawer-download-status
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: download-status-screen
+    timeout: 20000

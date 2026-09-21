@@ -3,8 +3,8 @@ onFlowStart:
   - runScript: ../api.js
 ---
 # 5.1 download a published public quest as a second user, 5.2 Download
-# Status via deep link, 5.5 offload. Owner is API-only; the device is the
-# downloader. Drawer has no Download Status item, so open the route.
+# Status from the drawer, 5.5 offload. Owner is API-only; the device is
+# the downloader.
 - evalScript: ${output.ownerEmail = output.api.uniqueEmail("dlowner")}
 - evalScript: ${output.ownerPassword = output.api.uniquePassword("dlowner")}
 - evalScript: ${output.projectName = "maestro-dl-" + Date.now()}
@@ -71,12 +71,7 @@ onFlowStart:
     notVisible:
       id: quest-download-continue
     timeout: 15000
-- openLink: ${MAESTRO_APP_SCHEME}://download-status
-- runFlow: _ios-confirm-open-link.yaml
-- extendedWaitUntil:
-    visible:
-      id: download-status-screen
-    timeout: 20000
+- runFlow: _open-download-status.yaml
 - assertVisible: Download Status
 - runFlow: _open-app-drawer.yaml
 - tapOn:
@@ -100,18 +95,9 @@ onFlowStart:
     timeout: 45000
 - tapOn:
     id: quest-list-item
-# Local watch can still lag. Cancel Download Required and wait; do not
-# tap Download Now (that reopens discovery).
-- repeat:
-    times: 6
-    while:
-      visible: '(?i)Download Now'
-    commands:
-      - tapOn: '(?i)^Cancel$'
-      - waitForAnimationToEnd:
-          timeout: 10000
-      - tapOn:
-          id: quest-list-item
+    waitToSettleTimeoutMs: 0
+# After a confirmed download, the quest opens. Download Required must not
+# still be on screen.
 - extendedWaitUntil:
     visible:
       id: assets-refresh-button

@@ -125,13 +125,10 @@ onFlowStart:
     visible: ${output.renamedName}
     timeout: 20000
 - evalScript: ${output.api.waitForQuestAssetName(output.questName, output.renamedName)}
-# Long press enters selection mode on a draft; cancel leaves it.
-# `id: asset-list-item` can match a filtered-out row still in the
-# FlatList tree (the hide card). Press the visible renamed name.
+# Long press the renamed row by id. Hidden/recycled rows must not share
+# that testID or steal the press.
 - longPressOn:
-    text: ${output.renamedName}
-    below:
-      id: assets-search
+    id: ${'asset-list-item-' + output.renamedName}
 - extendedWaitUntil:
     visible:
       id: assets-selection-cancel

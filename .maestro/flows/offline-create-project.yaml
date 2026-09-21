@@ -2,7 +2,7 @@ appId: ${MAESTRO_APP_ID}
 onFlowStart:
   - runScript: ../api.js
 onFlowComplete:
-  - setAirplaneMode: disabled
+  - runFlow: _recover-after-airplane.yaml
 ---
 # Create a project (and languoid) while offline, then wait until both land
 # on the server. Language search has no local catalog, so the empty result
@@ -16,16 +16,8 @@ onFlowComplete:
     when:
       platform: Android
     commands:
-      # SIGNED_IN still runs system.init() after the create button shows.
-      # Airplane in that window cuts Metro and the lazy init import fails
-      # (LoadBundleFromServerRequestError). Open the drawer online first.
-      - runFlow: _open-app-drawer.yaml
-      - extendedWaitUntil:
-          notVisible: '(?i)(Disconnected|sync error)'
-          timeout: 20000
-      - tapOn:
-          id: drawer-projects
-          waitToSettleTimeoutMs: 0
+      # Home chrome is up only after system.init(). Airplane here must not
+      # strand the session on a failed lazy init.
       - setAirplaneMode: enabled
       - runFlow: _open-app-drawer.yaml
       - extendedWaitUntil:

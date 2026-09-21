@@ -425,7 +425,8 @@ export default function NextGenAssetsView() {
     isFetchingNextPage,
     isLoading,
     isOnline,
-    isFetching
+    isFetching,
+    refetch
   } = useAssetsByQuest(
     questId || '',
     debouncedSearchQuery,
@@ -451,8 +452,12 @@ export default function NextGenAssetsView() {
       }
     }
 
-    return Array.from(assetMap.values());
-  }, [data.pages]);
+    return Array.from(assetMap.values()).filter((item) => {
+      const term = searchQuery.trim().toLowerCase();
+      if (!term) return true;
+      return (item.name ?? '').toLowerCase().includes(term);
+    });
+  }, [data.pages, searchQuery]);
 
   const selectedAssetForRecording = React.useMemo(() => {
     const selectedAssetId = Array.from(selectedAssetIds)[0];
@@ -1183,8 +1188,9 @@ export default function NextGenAssetsView() {
   // This prevents memory leaks when navigating away from the assets view
   useFocusEffect(
     React.useCallback(() => {
+      void refetch();
       void runAssetGarbageCollector();
-    }, [])
+    }, [refetch])
   );
 
   React.useEffect(() => {
@@ -1386,6 +1392,7 @@ export default function NextGenAssetsView() {
         returnKeyType="search"
         testID="assets-search"
         accessibilityLabel="assets-search"
+        selectTextOnFocus
         suffix={
           isFetching && searchQuery ? (
             <ActivityIndicator size="small" color={getThemeColor('primary')} />
@@ -1410,10 +1417,14 @@ export default function NextGenAssetsView() {
         )
       ) : (
         <LegendList
+          key={searchQuery}
           data={assets}
           keyExtractor={(item) => item.id}
-          extraData={[currentlyPlayingAssetId, selectedAssetIds]}
-          recycleItems
+          extraData={[
+            currentlyPlayingAssetId,
+            selectedAssetIds,
+            debouncedSearchQuery
+          ]}
           renderItem={({ item }) => renderItem({ item, isPublished })}
           onEndReached={onEndReached}
           onEndReachedThreshold={0.5}

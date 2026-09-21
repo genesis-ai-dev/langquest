@@ -17,7 +17,7 @@ import {
 } from '@gorhom/bottom-sheet';
 import { cssInterop } from 'nativewind';
 import * as React from 'react';
-import { Platform, View } from 'react-native';
+import { Keyboard, Platform, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../button';
 import { Text } from '../text';
@@ -80,6 +80,9 @@ function Drawer({
     }
     if (isOpenRef.current === nextOpen) return;
     isOpenRef.current = nextOpen;
+    if (!nextOpen) {
+      Keyboard.dismiss();
+    }
     setIsOpen(nextOpen);
     onOpenChangeRef.current?.(nextOpen);
   }, []);
@@ -107,6 +110,8 @@ function Drawer({
   const stableSnapPoints = drawerProps.snapPoints;
   const stableEnableDynamicSizing = drawerProps.enableDynamicSizing;
   const stableGestureEventsHandlersHook = drawerProps.gestureEventsHandlersHook;
+  const stableAndroidKeyboardInputMode = drawerProps.android_keyboardInputMode;
+  const stableStackBehavior = drawerProps.stackBehavior;
 
   // Memoize snapPoints array to prevent unnecessary re-renders
   const memoizedSnapPoints = React.useMemo(() => {
@@ -124,7 +129,9 @@ function Drawer({
       snapPoints: memoizedSnapPoints,
       enableDynamicSizing: stableEnableDynamicSizing,
       gestureEventsHandlersHook: stableGestureEventsHandlersHook,
-      dismissible
+      dismissible,
+      android_keyboardInputMode: stableAndroidKeyboardInputMode,
+      stackBehavior: stableStackBehavior
     };
   }, [
     ref,
@@ -133,7 +140,9 @@ function Drawer({
     memoizedSnapPoints,
     stableEnableDynamicSizing,
     stableGestureEventsHandlersHook,
-    dismissible
+    dismissible,
+    stableAndroidKeyboardInputMode,
+    stableStackBehavior
   ]);
 
   return (

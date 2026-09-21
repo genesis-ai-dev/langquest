@@ -2,7 +2,7 @@ appId: ${MAESTRO_APP_ID}
 onFlowStart:
   - runScript: ../api.js
 onFlowComplete:
-  - setAirplaneMode: disabled
+  - runFlow: _recover-after-airplane.yaml
 ---
 # Guest landing: My Projects Sign In CTA, offline sign-in gate,
 # forgot-password confirmation, wrong password error.
@@ -22,6 +22,9 @@ onFlowComplete:
     visible:
       id: sign-in-email
     timeout: 15000
+# Auth is a form sheet. The hamburger behind it must not be in the tree.
+- assertNotVisible:
+    id: app-drawer-menu-button
 - runFlow:
     when:
       platform: Android
@@ -48,16 +51,15 @@ onFlowComplete:
 - runFlow: _hide-keyboard.yaml
 - tapOn: Send Reset Email
 - extendedWaitUntil:
-    visible: OK
+    visible: Please check your email for the password reset link
     timeout: 20000
-- tapOn: OK
-# dismissTo from the alert is unreliable; the Reset Password screen
-# stays up with Back to Login still visible.
-- runFlow:
-    when:
-      visible: Back to Login
-    commands:
-      - tapOn: Back to Login
+- tapOn:
+    id: forgot-password-ok
+    waitToSettleTimeoutMs: 0
+# Confirmation returns to sign-in. Back to Login must not still be on screen.
+- extendedWaitUntil:
+    notVisible: Back to Login
+    timeout: 15000
 - extendedWaitUntil:
     visible:
       id: sign-in-email

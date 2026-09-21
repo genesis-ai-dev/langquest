@@ -46,14 +46,7 @@ onFlowStart:
     visible: OK
     timeout: 60000
 - tapOn: OK
-# iOS can leave the process after PowerSync reinit on restore. Relaunch
-# keeps the session and lands on home chrome.
-- runFlow:
-    when:
-      notVisible:
-        id: app-drawer-menu-button
-    commands:
-      - runFlow: _relaunch-keep-state.yaml
+# Restore must land on home chrome without killing the process.
 - extendedWaitUntil:
     visible:
       id: app-drawer-menu-button
@@ -64,7 +57,12 @@ onFlowStart:
 - extendedWaitUntil:
     visible: Account Deleted
     timeout: 45000
-- tapOn: Back to Login
+- tapOn:
+    id: account-deleted-logout
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    notVisible: Account Deleted
+    timeout: 20000
 - extendedWaitUntil:
     visible:
       id: home-sign-in

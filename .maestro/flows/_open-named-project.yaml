@@ -3,33 +3,25 @@ appId: ${MAESTRO_APP_ID}
 - tapOn:
     id: projects-tab-my
     waitToSettleTimeoutMs: 0
-- tapOn:
-    id: projects-search
-- inputText: ${output.projectName}
-- runFlow: _hide-keyboard.yaml
-# The search field already contains this name. Wait for the list row,
-# not the input text, or the tap below the field misses an empty list.
+# Retyping into a still-filtered field concatenates the query
+# (`maestro-offrl-…maestro-offrl-…`) and shows No projects found.
+- runFlow:
+    when:
+      notVisible: ${output.projectName}
+    commands:
+      - tapOn:
+          id: projects-search
+      - inputText: ${output.projectName}
+      - runFlow: _hide-keyboard.yaml
 - extendedWaitUntil:
     visible:
       id: project-list-item
     timeout: 45000
-# Tap the list row by id, not the shared search text. The first tap can
-# only dismiss the IME. Wait before retrying: a when: check during the
-# push still sees home chrome and a second tap misses. Do not wait for
-# quests-search — bible/FIA directories never show it.
+# One tap opens the project. The list must keep taps while the keyboard
+# is up; home chrome must not steal the press during the push.
 - tapOn:
     id: project-list-item
     waitToSettleTimeoutMs: 0
-- waitForAnimationToEnd:
-    timeout: 2000
-- runFlow:
-    when:
-      visible:
-        id: projects-create-button
-    commands:
-      - tapOn:
-          id: project-list-item
-          waitToSettleTimeoutMs: 0
 - extendedWaitUntil:
     notVisible:
       id: projects-create-button

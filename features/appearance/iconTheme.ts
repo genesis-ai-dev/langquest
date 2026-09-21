@@ -11,11 +11,9 @@ import { getAppIconName, setAlternateAppIcon } from 'expo-alternate-app-icons';
  * Applies the icon theme with the given id. Passing null restores the default
  * app icon.
  *
- * On Android this must run while the app is still foregrounded:
- * `expo-alternate-app-icons` needs a live Activity/ReactContext, so a
- * background-deferred call is a silent no-op in release builds. Disabling the
- * current launcher component can kill the process; that is accepted — the icon
- * change itself is what matters.
+ * On Android this must not run while the current Activity is in the
+ * foreground: disabling the launcher alias force-finishes the process.
+ * Call this when the app is already backgrounding (see useDeferredIconTheme).
  *
  * On iOS the system shows an unavoidable confirmation alert; that is accepted
  * behaviour.

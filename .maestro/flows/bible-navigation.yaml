@@ -43,7 +43,7 @@ onFlowStart:
           id: assets-refresh-button
 - extendedWaitUntil:
     visible:
-      id: asset-list-item
+      id: asset-list-item-.*
     timeout: 45000
 - assertVisible: ${output.assetName}
 - evalScript: ${output.api.deleteProject(output.projectName)}

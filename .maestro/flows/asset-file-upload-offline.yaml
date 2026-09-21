@@ -4,7 +4,7 @@ onFlowStart:
 # Always restore radios. Airplane mode cuts Metro and Docker reachability
 # from the device; leaving it on would fail every flow after this one.
 onFlowComplete:
-  - setAirplaneMode: disabled
+  - runFlow: _recover-after-airplane.yaml
 ---
 # Record while offline: the take stays local, the draft toolbar shows a
 # pending percent, and nothing reaches the server. Radios back on: the row

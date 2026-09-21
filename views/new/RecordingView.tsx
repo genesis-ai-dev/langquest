@@ -2733,12 +2733,10 @@ const RecordingView = () => {
         if (isSelectionModeRef.current) {
           toggleSelectRef.current(assetId);
         } else {
-          // Toggle highlight: if clicking on already highlighted card, move to end
           if (insertionIndexRef.current === index) {
-            setInsertionIndex(sessionItemsRef.current.length);
-          } else {
-            setInsertionIndex(index);
+            return;
           }
+          setInsertionIndex(index);
         }
       },
       onLongPress: () => {
@@ -2761,12 +2759,10 @@ const RecordingView = () => {
   const createPillCallbacks = React.useCallback(
     (index: number) => ({
       onPress: () => {
-        // Toggle highlight: if clicking on already highlighted pill, move to end
         if (insertionIndexRef.current === index) {
-          setInsertionIndex(sessionItemsRef.current.length);
-        } else {
-          setInsertionIndex(index);
+          return;
         }
+        setInsertionIndex(index);
       }
     }),
     [] // Zero dependencies - all values read from refs
@@ -3001,6 +2997,10 @@ const RecordingView = () => {
       if (isSelectionModeRef.current && item && isAsset(item)) {
         debugLog(`📋 List onChange (selection mode): toggling ${item.name}`);
         toggleSelectRef.current(item.id);
+        return;
+      }
+
+      if (insertionIndexRef.current === newIndex) {
         return;
       }
 

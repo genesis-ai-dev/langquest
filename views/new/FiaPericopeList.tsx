@@ -350,7 +350,8 @@ export function FiaPericopeList({
   const [showDiscoveryDrawer, setShowDiscoveryDrawer] = React.useState(false);
   const [showConfirmationModal, setShowConfirmationModal] =
     React.useState(false);
-  const { handoff, isHandingOff, endHandoff } = useSheetHandoff();
+  const { handoff, isHandingOff, endHandoff, completeHandoff } =
+    useSheetHandoff();
   const [downloadingQuestIds, setDownloadingQuestIds] = React.useState<
     Set<string>
   >(new Set());
@@ -670,7 +671,9 @@ export function FiaPericopeList({
       <QuestDownloadDiscoveryDrawer
         isOpen={showDiscoveryDrawer}
         onOpenChange={(open) => {
-          if (!open && !isHandingOff()) handleCancelDiscovery();
+          if (open) return;
+          if (isHandingOff()) completeHandoff();
+          else handleCancelDiscovery();
         }}
         onContinue={handleDiscoveryContinue}
         discoveryState={discoveryState}

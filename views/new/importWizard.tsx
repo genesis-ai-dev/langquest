@@ -984,7 +984,8 @@ export function ImportWizard({
   >(null);
   const [isImporting, setIsImporting] = React.useState(false);
   const startedDiscoveryRef = React.useRef<string | null>(null);
-  const { handoff, isHandingOff, endHandoff } = useSheetHandoff();
+  const { handoff, isHandingOff, endHandoff, completeHandoff } =
+    useSheetHandoff();
   const stopCurrentSoundRef = React.useRef(audioContext.stopCurrentSound);
 
   // Only reflect actively playing audio so the icon returns to play on pause/end.
@@ -1792,9 +1793,9 @@ export function ImportWizard({
       <QuestDownloadDiscoveryDrawer
         isOpen={showDiscoveryDrawer}
         onOpenChange={(open) => {
-          if (!open && !isHandingOff()) {
-            handleCancelDiscovery();
-          }
+          if (open) return;
+          if (isHandingOff()) completeHandoff();
+          else handleCancelDiscovery();
         }}
         onContinue={handleDiscoveryContinue}
         discoveryState={discoveryState}

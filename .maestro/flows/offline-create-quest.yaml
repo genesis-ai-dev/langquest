@@ -4,7 +4,7 @@ onFlowStart:
 # Always restore radios. Airplane mode cuts Metro and Docker reachability
 # from the device; leaving it on would fail every flow after this one.
 onFlowComplete:
-  - setAirplaneMode: disabled
+  - runFlow: _recover-after-airplane.yaml
 ---
 # 5.3 create a quest while offline then wait until it lands on the server.
 # 5.4 open the drawer while radios are down and leave via Projects. Android

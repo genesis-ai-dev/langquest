@@ -80,36 +80,35 @@ onFlowStart:
     timeout: 15000
 # Profile uses LanguageCombobox (same as Sign In / New Project). Search,
 # then tap id: Tok Pisin — the list row, not the search field text.
+- scrollUntilVisible:
+    element:
+      id: profile-language
+    direction: UP
+    centerElement: true
+    timeout: 20000
 - tapOn:
     id: profile-language
     waitToSettleTimeoutMs: 0
+- waitForAnimationToEnd:
+    timeout: 2000
 - runFlow: _tap-language-search.yaml
 - inputText: Tok Pisin
 - extendedWaitUntil:
     visible:
       id: Tok Pisin
     timeout: 20000
-# The typed value is still in the search field. Tap the list row id, not
-# the TextView; the first tap after inputText only dismisses the IME.
 - tapOn:
     id: Tok Pisin
     waitToSettleTimeoutMs: 0
-- runFlow:
-    when:
-      visible:
-        id: language-search
-    commands:
-      - tapOn:
-          id: Tok Pisin
-          waitToSettleTimeoutMs: 0
-- runFlow:
-    when:
-      visible: '(?i)Search languages.*'
-    commands:
-      - tapOn:
-          id: Tok Pisin
-          waitToSettleTimeoutMs: 0
 - runFlow: _wait-language-search-gone.yaml
+- waitForAnimationToEnd:
+    timeout: 2000
+- scrollUntilVisible:
+    element:
+      id: profile-submit
+    direction: UP
+    centerElement: true
+    timeout: 15000
 - tapOn:
     id: profile-submit
 - extendedWaitUntil:

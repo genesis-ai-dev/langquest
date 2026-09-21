@@ -1,27 +1,18 @@
 appId: ${MAESTRO_APP_ID}
 ---
-# RNAlert "Save to Cloud" sits above the upload-status drawer, which
-# already has a Save. `below: Save to Cloud` still hits the drawer
-# footer. iOS: the alert Save is the right button at ~68%,70% on a
-# 402×874 point iPhone. Android: Cancel is left, Save is right of it.
+# Confirm publish from the system alert. The upload-status drawer must
+# already be gone so its Save is not under the alert.
 - extendedWaitUntil:
     visible: Save to Cloud
     timeout: 20000
-- runFlow:
-    when:
-      platform: iOS
-    commands:
-      - tapOn:
-          point: 68%,70%
-          waitToSettleTimeoutMs: 0
-- runFlow:
-    when:
-      platform: Android
-    commands:
-      - tapOn:
-          text: Save
-          rightOf: Cancel
-          waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    notVisible:
+      id: quest-publish-confirm
+    timeout: 5000
+- tapOn:
+    text: Save
+    below: Save to Cloud
+    waitToSettleTimeoutMs: 0
 - extendedWaitUntil:
     notVisible: Save to Cloud
     timeout: 20000

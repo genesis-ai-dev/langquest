@@ -23,15 +23,8 @@ import {
   SearchIcon
 } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  ActivityIndicator,
-  FlatList,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  View
-} from 'react-native';
+import { ActivityIndicator, Keyboard, View } from 'react-native';
+import { Drawer, DrawerContent } from './ui/drawer';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -386,7 +379,7 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
         setSavedLanguage(newLanguoid as any);
         onChange?.(newLanguoid);
 
-        // Clear search
+        Keyboard.dismiss();
         setSearchQuery('');
         setIsOpen(false);
       } catch (error) {
@@ -417,7 +410,7 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
         onChange?.(item.languoid);
       }
 
-      // Clear search after selection
+      Keyboard.dismiss();
       setSearchQuery('');
       setIsOpen(false);
     },
@@ -432,6 +425,7 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
   );
 
   const closePicker = useCallback(() => {
+    Keyboard.dismiss();
     setIsOpen(false);
     setSearchQuery('');
   }, [setSearchQuery]);
@@ -473,122 +467,112 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
         <Icon as={ChevronDownIcon} className="text-muted-foreground" size={16} />
       </ButtonPressable>
 
-      <Modal
-        visible={isOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={closePicker}
+      <Drawer
+        open={isOpen}
+        onOpenChange={(open) => {
+          if (!open) closePicker();
+        }}
+        snapPoints={['75%']}
+        stackBehavior="push"
+        android_keyboardInputMode="adjustResize"
       >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          className="flex-1"
-        >
-          <View className="flex-1 justify-center px-4">
-            <Pressable
-              accessibilityRole="button"
-              className="absolute inset-0 bg-black/40"
-              onPress={closePicker}
+        <DrawerContent className="pb-safe">
+          <View accessible={false}>
+            <Input
+              drawerInput
+              value={immediateSearchQuery}
+              onChangeText={setSearchQuery}
+              testID={searchTestID}
+              placeholder={t('searchLanguages')}
+              prefix={SearchIcon}
+              size="sm"
+              className="border-0 border-b border-border"
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoFocus
+              suffix={
+                (isSearchLoading || isCreating) && immediateSearchQuery ? (
+                  <ActivityIndicator size="small" color={primaryColor} />
+                ) : undefined
+              }
             />
-            <View className="max-h-[70%] overflow-hidden rounded-xl border border-border bg-card">
-              <Input
-                value={immediateSearchQuery}
-                onChangeText={setSearchQuery}
-                testID={searchTestID}
-                accessibilityLabel={searchTestID}
-                placeholder={t('searchLanguages')}
-                prefix={SearchIcon}
-                size="sm"
-                className="border-0 border-b border-border"
-                autoCapitalize="none"
-                autoCorrect={false}
-                autoFocus
-                suffix={
-                  (isSearchLoading || isCreating) && immediateSearchQuery ? (
-                    <ActivityIndicator size="small" color={primaryColor} />
-                  ) : undefined
-                }
-              />
-              <FlatList
-                data={sortedData}
-                keyboardShouldPersistTaps="handled"
-                keyExtractor={(item) => item.value}
-                style={{ maxHeight: 360 }}
-                ListEmptyComponent={() => (
-                  <View className="px-3 py-4">
-                    <Text className="text-center text-sm text-muted-foreground">
-                      {isSearchLoading
-                        ? t('searching')
-                        : debouncedSearchQuery.length >= 2
-                          ? t('noLanguagesFound')
-                          : t('typeToSearch', { min: 2 })}
-                    </Text>
-                  </View>
-                )}
-                renderItem={({ item }) => {
-                  if (item.isCreateOption) {
-                    return (
-                      <ButtonPressable
-                        testID="language-create-new"
-                        accessibilityLabel="language-create-new"
-                        className="flex flex-row items-center bg-primary/10 p-3"
-                        onPress={() => handleValueChange(item)}
-                      >
-                        <Icon
-                          as={PlusCircleIcon}
-                          className="mr-2 text-primary"
-                          size={20}
-                        />
-                        <View className="flex-1">
-                          <Text className="text-sm font-medium text-primary">
-                            {t('createLanguage', { name: item.displayLabel })}
-                          </Text>
-                          <Text className="text-xs text-muted-foreground">
-                            Add this as a new language
-                          </Text>
-                        </View>
-                      </ButtonPressable>
-                    );
-                  }
-
-                  const selected = item.value === effectiveValue;
-                  const rowLabel = item.displayLabel || item.label;
-                  return (
-                    <ButtonPressable
-                      testID={rowLabel}
-                      accessibilityLabel={rowLabel}
-                      className={cn(
-                        'flex flex-row items-center px-3 py-3',
-                        selected && 'bg-accent'
-                      )}
-                      onPress={() => handleValueChange(item)}
-                    >
-                      <View className="flex-1">
-                        <Text
-                          className={cn(
-                            'flex-1 text-sm',
-                            selected
-                              ? 'font-medium text-accent-foreground'
-                              : 'text-foreground'
-                          )}
-                          numberOfLines={1}
-                        >
-                          {rowLabel}
-                        </Text>
-                        {(item.isoCode || item.matchedAlias) && (
-                          <Text className="text-xs text-muted-foreground">
-                            {item.matchedAlias && `[${item.matchedAlias}] `}
-                            {item.isoCode && `iso:${item.isoCode}`}
-                          </Text>
-                        )}
-                      </View>
-                    </ButtonPressable>
-                  );
-                }}
-              />
-            </View>
           </View>
-        </KeyboardAvoidingView>
-      </Modal>
+          {sortedData.length === 0 ? (
+            <View className="px-3 py-4">
+              <Text className="text-center text-sm text-muted-foreground">
+                {isSearchLoading
+                  ? t('searching')
+                  : debouncedSearchQuery.length >= 2
+                    ? t('noLanguagesFound')
+                    : t('typeToSearch', { min: 2 })}
+              </Text>
+            </View>
+          ) : (
+            sortedData.map((item) => {
+              if (item.isCreateOption) {
+                return (
+                  <ButtonPressable
+                    key={item.value}
+                    testID="language-create-new"
+                    accessibilityLabel="language-create-new"
+                    className="flex flex-row items-center bg-primary/10 p-3"
+                    onPress={() => handleValueChange(item)}
+                  >
+                    <Icon
+                      as={PlusCircleIcon}
+                      className="mr-2 text-primary"
+                      size={20}
+                    />
+                    <View className="flex-1">
+                      <Text className="text-sm font-medium text-primary">
+                        {t('createLanguage', { name: item.displayLabel })}
+                      </Text>
+                      <Text className="text-xs text-muted-foreground">
+                        Add this as a new language
+                      </Text>
+                    </View>
+                  </ButtonPressable>
+                );
+              }
+
+              const selected = item.value === effectiveValue;
+              const rowLabel = item.displayLabel || item.label;
+              return (
+                <ButtonPressable
+                  key={item.value}
+                  testID={rowLabel}
+                  accessibilityLabel={rowLabel}
+                  className={cn(
+                    'flex flex-row items-center px-3 py-3',
+                    selected && 'bg-accent'
+                  )}
+                  onPress={() => handleValueChange(item)}
+                >
+                  <View className="flex-1" accessible={false}>
+                    <Text
+                      className={cn(
+                        'flex-1 text-sm',
+                        selected
+                          ? 'font-medium text-accent-foreground'
+                          : 'text-foreground'
+                      )}
+                      numberOfLines={1}
+                    >
+                      {rowLabel}
+                    </Text>
+                    {(item.isoCode || item.matchedAlias) && (
+                      <Text className="text-xs text-muted-foreground">
+                        {item.matchedAlias && `[${item.matchedAlias}] `}
+                        {item.isoCode && `iso:${item.isoCode}`}
+                      </Text>
+                    )}
+                  </View>
+                </ButtonPressable>
+              );
+            })
+          )}
+        </DrawerContent>
+      </Drawer>
     </View>
   );
 };

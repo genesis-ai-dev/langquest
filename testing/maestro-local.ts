@@ -1,3 +1,4 @@
+/// <reference types="node" />
 import { spawn } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -41,7 +42,18 @@ function requireVar(
   );
 }
 
+const ANDROID_STUDIO_JBR =
+  '/Applications/Android Studio.app/Contents/jbr/Contents/Home';
+
+function ensureJavaHome(): void {
+  if (process.env.JAVA_HOME) return;
+  if (!existsSync(ANDROID_STUDIO_JBR)) return;
+  process.env.JAVA_HOME = ANDROID_STUDIO_JBR;
+  process.env.PATH = `${ANDROID_STUDIO_JBR}/bin:${process.env.PATH ?? ''}`;
+}
+
 function main() {
+  ensureJavaHome();
   if (!existsSync(ENV_PATH)) {
     throw new Error(
       'No .env.local found. Run npm run generate-env, then npm run env:start.'
@@ -150,39 +162,124 @@ function main() {
   const flowArgs = process.argv.slice(2);
   const flows = flowArgs.length > 0 ? flowArgs : DEFAULT_LOCAL_FLOWS;
 
-  const args = ['test'];
-  const platform = process.env.MAESTRO_PLATFORM;
-  const device = process.env.MAESTRO_DEVICE;
-  if (platform) {
-    args.push('--platform', platform);
+  function maestroArgs(flowFiles: string[]): string[] {
+    const args = ['test'];
+    const platform = process.env.MAESTRO_PLATFORM;
+    const device = process.env.MAESTRO_DEVICE;
+    if (platform) {
+      args.push('--platform', platform);
+    }
+    if (device) {
+      args.push('--device', device);
+    }
+    for (const [key, value] of Object.entries(maestroEnv)) {
+      args.push('-e', `${key}=${value}`);
+    }
+    args.push(...flowFiles);
+    return args;
   }
-  if (device) {
-    args.push('--device', device);
+
+  function flowBaseName(flowFile: string): string {
+    return flowFile.replace(/^.*\//, '').replace(/\.ya?ml$/i, '');
   }
-  for (const [key, value] of Object.entries(maestroEnv)) {
-    args.push('-e', `${key}=${value}`);
+
+  function stripAnsi(text: string): string {
+    return text.replace(/\u001b\[[0-9;]*m/g, '');
   }
-  args.push(...flows);
+
+  function namesFromOutput(output: string, label: 'Passed' | 'Failed'): Set<string> {
+    const names = new Set<string>();
+    const re = new RegExp(`\\[${label}\\]\\s+(\\S+)`, 'g');
+    for (const match of stripAnsi(output).matchAll(re)) {
+      const name = match[1];
+      if (name) names.add(name);
+    }
+    return names;
+  }
+
+  function flowsForNames(flowFiles: string[], names: Set<string>): string[] {
+    return flowFiles.filter((flowFile) => names.has(flowBaseName(flowFile)));
+  }
+
+  function runMaestro(
+    flowFiles: string[],
+    options: { inherit: boolean }
+  ): Promise<{ code: number; output: string }> {
+    return new Promise((resolve) => {
+      const child = spawn('maestro', maestroArgs(flowFiles), {
+        stdio: options.inherit ? 'inherit' : ['inherit', 'pipe', 'pipe'],
+        env: process.env
+      });
+      let output = '';
+      if (!options.inherit) {
+        const onChunk = (chunk: Buffer) => {
+          const text = chunk.toString();
+          output += text;
+          process.stdout.write(chunk);
+        };
+        child.stdout?.on('data', onChunk);
+        child.stderr?.on('data', (chunk: Buffer) => {
+          output += chunk.toString();
+          process.stderr.write(chunk);
+        });
+      }
+      child.on('exit', (code) => {
+        resolve({ code: code ?? 1, output });
+      });
+      child.on('error', (error) => {
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+          console.error(
+            'maestro is not on PATH. Install it: https://maestro.dev'
+          );
+        } else {
+          console.error(error);
+        }
+        resolve({ code: 1, output });
+      });
+    });
+  }
 
   console.log(`Maestro app: ${maestroEnv.MAESTRO_APP_ID} (${variant})`);
   console.log(`Maestro supabase: ${maestroEnv.MAESTRO_SUPABASE_URL}`);
+  if (process.env.JAVA_HOME) {
+    console.log(`Maestro JAVA_HOME: ${process.env.JAVA_HOME}`);
+  }
   if (isDevClient) {
     console.log(`Maestro metro: ${metroUrl}`);
+    console.log(
+      'Dev client: Metro and the Dev Menu can flake launch. Prefer MAESTRO_APP_VARIANT=preview (npm run maestro:local:preview) for the full suite.'
+    );
   }
   console.log(`Flows: ${flows.join(' ')}`);
 
-  const child = spawn('maestro', args, { stdio: 'inherit' });
-  child.on('exit', (code) => {
-    process.exit(code ?? 1);
-  });
-  child.on('error', (error) => {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-      console.error('maestro is not on PATH. Install it: https://maestro.dev');
-    } else {
-      console.error(error);
+  void (async () => {
+    // One flow: Maestro's per-step checkboxes. A suite (two or more)
+    // uses the compact [Passed]/[Failed] reporter.
+    const detailed = flows.length === 1;
+    const first = await runMaestro(flows, { inherit: detailed });
+    if (first.code === 0) {
+      process.exit(0);
     }
-    process.exit(1);
-  });
+
+    let retryFlows: string[];
+    if (detailed) {
+      retryFlows = flows;
+    } else {
+      const failedNames = namesFromOutput(first.output, 'Failed');
+      const passedNames = namesFromOutput(first.output, 'Passed');
+      retryFlows =
+        failedNames.size > 0
+          ? flowsForNames(flows, failedNames)
+          : flows.filter((flow) => !passedNames.has(flowBaseName(flow)));
+    }
+    if (retryFlows.length === 0) {
+      process.exit(first.code);
+    }
+
+    console.log(`[Retry] ${retryFlows.join(' ')}`);
+    const retry = await runMaestro(retryFlows, { inherit: detailed });
+    process.exit(retry.code);
+  })();
 }
 
 main();

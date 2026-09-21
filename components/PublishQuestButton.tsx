@@ -34,9 +34,28 @@ export function PublishQuestButton({
   const { t } = useLocalization();
   const progress = useQuestUploadProgress(questId);
   const [isDrawerOpen, setIsDrawerOpen] = React.useState(false);
+  const pendingPublishAlertRef = React.useRef(false);
 
-  // Tapping the toolbar button opens the details drawer; the actual publish
-  // action (with its confirmation alert) lives in the drawer footer.
+  const showPublishAlert = React.useCallback(() => {
+    const displayQuestName = questName || 'this chapter';
+    RNAlert.alert(
+      t('publishChapter'),
+      t('publishChapterMessage').replace('{questName}', displayQuestName),
+      [
+        { text: t('cancel'), style: 'cancel' },
+        {
+          text: t('publish'),
+          style: 'default',
+          isPreferred: true,
+          onPress: () => {
+            onPublish();
+          }
+        }
+      ]
+    );
+  }, [onPublish, questName, t]);
+
+  // Close the upload drawer first so its Save is not under the system alert.
   const handlePublishPress = () => {
     if (!isOnline) {
       RNAlert.alert(t('error'), t('cannotPublishWhileOffline'));
@@ -48,24 +67,16 @@ export function PublishQuestButton({
       return;
     }
 
-    const displayQuestName = questName || 'this chapter';
+    pendingPublishAlertRef.current = true;
+    setIsDrawerOpen(false);
+  };
 
-    RNAlert.alert(
-      t('publishChapter'),
-      t('publishChapterMessage').replace('{questName}', displayQuestName),
-      [
-        { text: t('cancel'), style: 'cancel' },
-        {
-          text: t('publish'),
-          style: 'default',
-          isPreferred: true,
-          onPress: () => {
-            setIsDrawerOpen(false);
-            onPublish();
-          }
-        }
-      ]
-    );
+  const handleDrawerOpenChange = (open: boolean) => {
+    setIsDrawerOpen(open);
+    if (!open && pendingPublishAlertRef.current) {
+      pendingPublishAlertRef.current = false;
+      showPublishAlert();
+    }
   };
 
   const isHighlighted = hasLocalAssets;
@@ -112,7 +123,7 @@ export function PublishQuestButton({
 
       <QuestUploadDetailsDrawer
         isOpen={isDrawerOpen}
-        onOpenChange={setIsDrawerOpen}
+        onOpenChange={handleDrawerOpenChange}
         questName={questName}
         progress={progress}
         canPublish={!disabled && !isPublishing}

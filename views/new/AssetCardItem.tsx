@@ -288,7 +288,7 @@ const AssetCardItemComponent: React.FC<AssetCardItemProps> = ({
     <Pressable
       onPress={handlePress}
       onLongPress={handleLongPress}
-      testID="asset-list-item"
+      testID={`asset-list-item-${asset.name ?? asset.id}`}
       accessible={false}
     >
       <Card

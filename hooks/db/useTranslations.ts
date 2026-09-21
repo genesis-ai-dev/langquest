@@ -109,7 +109,7 @@ export function useTargetAssetsWithVoteCountByAssetId(
   retrieveHiddenContent: boolean,
   translationsRefreshKey: string,
   voteRefreshKey: string,
-  useOfflineData: boolean,
+  _useOfflineData: boolean,
   sort: 'voteCount' | 'dateSubmitted',
   sortOrder: SortOrder = 'desc',
   contentTypeFilter: 'translation' | 'transcription' = 'translation'
@@ -258,7 +258,7 @@ export function useTargetAssetsWithVoteCountByAssetId(
     },
 
     // Enable cloud query for anonymous users or when not using offline data
-    enableCloudQuery: !useOfflineData
+    enableCloudQuery: true
   });
 
   // Aggregate the content for each asset

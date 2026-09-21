@@ -675,12 +675,18 @@ export default function NextGenProjectsView() {
     }
 
     // Add regular projects
+    const term = searchQuery.trim().toLowerCase();
     for (const proj of data) {
+      if (term) {
+        const name = (proj.name ?? '').toLowerCase();
+        const description = (proj.description ?? '').toLowerCase();
+        if (!name.includes(term) && !description.includes(term)) continue;
+      }
       items.push({ type: 'project', project: proj });
     }
 
     return items;
-  }, [filteredInvites, data, activeTab]);
+  }, [filteredInvites, data, activeTab, searchQuery]);
 
   const dimensions = useWindowDimensions();
   const { bottom } = useSafeAreaInsets();
@@ -788,6 +794,7 @@ export default function NextGenProjectsView() {
                       value={searchQuery}
                       onChangeText={setSearchQuery}
                       testID="projects-search"
+                      selectTextOnFocus
                       prefix={SearchIcon}
                       prefixStyling={false}
                       size="sm"
@@ -837,8 +844,8 @@ export default function NextGenProjectsView() {
                     ? `invite-${item.projectId}-${activeTab}`
                     : `project-${item.project.id}-${activeTab}`
                 }
+                extraData={searchQuery}
                 bottomExtra={32}
-                recycleItems
                 estimatedItemSize={175}
                 maintainVisibleContentPosition
                 renderItem={({ item }) => {

@@ -292,7 +292,15 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
       // Trigger refresh by updating the refresh key (changes query key, triggers refetch)
       setRefreshKey((prev) => prev + 1);
 
-      RNAlert.alert(t('success'), t('membershipRequestSent'));
+      RNAlert.alert(t('success'), t('membershipRequestSent'), [
+        {
+          text: t('ok'),
+          isPreferred: true,
+          onPress: () => {
+            onClose?.();
+          }
+        }
+      ]);
     } catch (error) {
       console.error('Error requesting membership:', error);
       RNAlert.alert(t('error'), t('failedToRequestMembership'));

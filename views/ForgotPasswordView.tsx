@@ -42,7 +42,11 @@ export default function ForgotPasswordView() {
     emailRequired: t('emailRequired')
   });
 
-  const { mutateAsync: resetPassword, isPending } = useMutation({
+  const {
+    mutateAsync: resetPassword,
+    isPending,
+    isSuccess
+  } = useMutation({
     mutationFn: async (data: ForgotPasswordFormValues) => {
       requireOnline(isOnline, t('internetConnectionRequired'));
       const { error } =
@@ -52,18 +56,6 @@ export default function ForgotPasswordView() {
     onSuccess: () => {
       if (__DEV__ && process.env.NODE_ENV === 'development')
         void Linking.openURL(process.env.EXPO_PUBLIC_RESEND_LOCAL_INBOX_URL!);
-      RNAlert.alert(t('success'), t('checkEmailForResetLink'), [
-        {
-          text: t('ok'),
-          isPreferred: true,
-          onPress: () => {
-            router.dismissTo({
-              pathname: '/(auth)/sign-in',
-              params: { email }
-            });
-          }
-        }
-      ]);
     },
     onError: (error) => {
       RNAlert.alert(
@@ -81,8 +73,32 @@ export default function ForgotPasswordView() {
   });
 
   const email = useWatch({ control: form.control, name: 'email' });
+  const submittedEmail = React.useRef(initialEmail || '');
 
-  const handleFormSubmit = form.handleSubmit((data) => resetPassword(data));
+  const goToSignIn = React.useCallback(() => {
+    const nextEmail = submittedEmail.current || email;
+    router.replace({
+      pathname: '/(auth)/sign-in',
+      params: { email: nextEmail }
+    });
+  }, [email, router]);
+
+  const handleFormSubmit = form.handleSubmit((data) => {
+    submittedEmail.current = data.email;
+    return resetPassword(data);
+  });
+
+  if (isSuccess) {
+    return (
+      <View className="m-safe flex flex-1 flex-col items-center justify-center gap-4 p-6">
+        <Text className="text-6xl font-semibold text-primary">LangQuest</Text>
+        <Text className="text-center">{t('checkEmailForResetLink')}</Text>
+        <Button testID="forgot-password-ok" onPress={goToSignIn}>
+          <Text>{t('ok')}</Text>
+        </Button>
+      </View>
+    );
+  }
 
   return (
     <Form {...form}>
@@ -134,12 +150,7 @@ export default function ForgotPasswordView() {
             </FormSubmit>
 
             <Button
-              onPress={() =>
-                router.dismissTo({
-                  pathname: '/(auth)/sign-in',
-                  params: { email }
-                })
-              }
+              onPress={goToSignIn}
               disabled={isPending}
               variant="plain"
             >

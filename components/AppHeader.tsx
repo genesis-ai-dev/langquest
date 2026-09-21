@@ -8,7 +8,7 @@ import { useSyncState } from '@/hooks/useSyncState';
 import { cn, useThemeToken } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { LinearGradient } from 'expo-linear-gradient';
-import { usePathname, useRouter } from 'expo-router';
+import { usePathname, useRouter, useSegments } from 'expo-router';
 import {
   AlertTriangle,
   ChevronLeftIcon,
@@ -41,6 +41,8 @@ export default function AppHeader({
 }) {
   const router = useRouter();
   const pathname = usePathname();
+  const segments = useSegments();
+  const authSheetOpen = segments.includes('(auth)');
   const breadcrumbs = useBreadcrumbs();
   const isProjectsView =
     breadcrumbs.length <= 1 && !pathname.includes('/project/');
@@ -287,6 +289,7 @@ export default function AppHeader({
 
         {/* Menu Button with Indicators */}
         <View className="relative">
+          {!authSheetOpen ? (
           <Button
             variant="ghost"
             size="icon"
@@ -325,6 +328,7 @@ export default function AppHeader({
               </View>
             )}
           </Button>
+          ) : null}
         </View>
       </View>
     </View>

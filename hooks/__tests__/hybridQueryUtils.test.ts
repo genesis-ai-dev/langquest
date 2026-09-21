@@ -1,12 +1,12 @@
 /// <reference types="jest" />
 
 import {
-  inferOfflineSource,
-  mergeLocalFirst,
-  splitHybridQueryKey,
-  tagCloud,
-  tagOffline,
-  toHybridPage
+    inferOfflineSource,
+    mergeLocalFirst,
+    splitHybridQueryKey,
+    tagCloud,
+    tagOffline,
+    toHybridPage
 } from '../hybridQueryUtils';
 
 describe('inferOfflineSource', () => {

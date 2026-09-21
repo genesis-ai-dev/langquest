@@ -168,10 +168,9 @@ export function SimpleOnboardingFlow({
       visible={visible}
       transparent={false}
       animationType="slide"
+      presentationStyle="overFullScreen"
       onRequestClose={handleClose}
     >
-      {!visible ? null : (
-      <>
       <View className="flex-1 bg-background" style={{ paddingTop: insets.top }}>
         {/* PortalHost for Select dropdowns inside Modal */}
         <PortalHost />
@@ -539,8 +538,6 @@ export function SimpleOnboardingFlow({
         )}
       </View>
       <KeyboardToolbar />
-      </>
-      )}
     </Modal>
   );
 }

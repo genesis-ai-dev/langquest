@@ -72,7 +72,7 @@ onFlowStart:
 - evalScript: ${output.api.waitForDeletionNotQueued(output.o2, 0)}
 # --- Delete the merged asset, undo, redo ---------------------------------
 - longPressOn:
-    id: asset-list-item
+    id: asset-list-item-.*
 - extendedWaitUntil:
     visible:
       id: assets-batch-delete

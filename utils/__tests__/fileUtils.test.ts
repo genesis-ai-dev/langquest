@@ -10,12 +10,12 @@ jest.mock('expo-file-system', () => ({
 }));
 
 import {
-  getDirectory,
-  getFileName,
-  getLocalFilePathSuffix,
-  getLocalUri,
-  normalizeFileUri,
-  stringToArrayBuffer
+    getDirectory,
+    getFileName,
+    getLocalFilePathSuffix,
+    getLocalUri,
+    normalizeFileUri,
+    stringToArrayBuffer
 } from '../fileUtils';
 
 describe('getFileName', () => {

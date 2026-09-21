@@ -2,22 +2,20 @@ appId: ${MAESTRO_APP_ID}
 onFlowStart:
   - runScript: ../api.js
 onFlowComplete:
-  - setAirplaneMode: disabled
+  - runFlow: _recover-after-airplane.yaml
 ---
-# Invite accept is blocked offline. Request access and project report still
-# write locally and land after radios return. Stay on the private-project
-# screen when cutting radios so the gate does not depend on a cloud refetch.
+# Invite accept is blocked offline. Request access writes locally and
+# lands after radios return. Stay on the private-project screen when
+# cutting radios so the gate does not depend on a cloud refetch.
+# Non-member public projects are not kept on device for offline browse.
 # Android only — iOS Simulator has no airplane mode.
 - evalScript: ${output.ownerEmail = output.api.uniqueEmail("offmemowner")}
 - evalScript: ${output.ownerPassword = output.api.uniquePassword("offmemowner")}
 - evalScript: ${output.privateName = "maestro-offpriv-" + Date.now()}
-- evalScript: ${output.publicName = "maestro-offpub-" + Date.now()}
 - evalScript: ${output.inviteProject = "maestro-offinv-" + Date.now()}
-- evalScript: ${output.reportDetails = "maestro-off-report-" + Date.now()}
 - evalScript: ${output.skipSignInCleanup = true}
 - evalScript: ${output.api.createConfirmedUser(output.ownerEmail, output.ownerPassword)}
 - evalScript: ${output.api.seedProject(output.privateName, output.ownerEmail, true)}
-- evalScript: ${output.api.seedProject(output.publicName, output.ownerEmail, false)}
 - evalScript: ${output.api.seedProject(output.inviteProject, output.ownerEmail, false)}
 - runFlow: _start-signed-in.yaml
 - evalScript: ${output.api.seedInvite(output.inviteProject, output.ownerEmail, output.signInEmail)}
@@ -35,34 +33,8 @@ onFlowComplete:
     waitToSettleTimeoutMs: 0
 - tapOn:
     id: projects-tab-all
-# Warm the public project in the hybrid cache while online. PowerSync
-# does not sync other people's public projects, and a later offline
-# search only finds what this session already fetched.
 - tapOn:
     id: projects-search
-- inputText: ${output.publicName}
-- runFlow: _hide-keyboard.yaml
-- extendedWaitUntil:
-    visible: ${output.publicName}
-    timeout: 45000
-- tapOn:
-    text: ${output.publicName}
-    below:
-      id: projects-search
-- extendedWaitUntil:
-    visible:
-      id: project-speed-dial
-    timeout: 30000
-- tapOn:
-    id: nav-back
-    waitToSettleTimeoutMs: 0
-- tapOn:
-    id: projects-search
-- eraseText: 200
-- runFlow: _hide-keyboard.yaml
-- tapOn:
-    id: projects-search
-- eraseText: 200
 - inputText: ${output.privateName}
 - runFlow: _hide-keyboard.yaml
 - extendedWaitUntil:
@@ -91,6 +63,10 @@ onFlowComplete:
           visible: Success
           timeout: 20000
       - tapOn: OK
+      # Success closes the private-access sheet. Go Back must not remain.
+      - extendedWaitUntil:
+          notVisible: Go Back
+          timeout: 10000
       - runFlow: _open-app-drawer.yaml
       - tapOn:
           id: drawer-notifications
@@ -106,67 +82,10 @@ onFlowComplete:
           visible: You must be online to accept an invitation
           timeout: 15000
       - tapOn: OK
-      - runFlow: _open-app-drawer.yaml
-      - tapOn:
-          id: drawer-projects
-          waitToSettleTimeoutMs: 0
-      - tapOn:
-          id: projects-tab-all
-      - tapOn:
-          id: projects-search
-      - eraseText: 200
-      - runFlow: _hide-keyboard.yaml
-      - tapOn:
-          id: projects-search
-      - eraseText: 200
-      - inputText: ${output.publicName}
-      - runFlow: _hide-keyboard.yaml
-      - extendedWaitUntil:
-          visible: ${output.publicName}
-          timeout: 20000
-      - tapOn:
-          text: ${output.publicName}
-          below:
-            id: projects-search
-      - extendedWaitUntil:
-          visible:
-            id: project-speed-dial
-          timeout: 20000
-      - tapOn:
-          id: project-speed-dial
-      - extendedWaitUntil:
-          visible:
-            id: project-report
-          timeout: 15000
-      - tapOn:
-          id: project-report
-      - extendedWaitUntil:
-          visible:
-            id: report-reason-spam
-          timeout: 15000
-      - tapOn:
-          id: report-reason-spam
-      - tapOn:
-          id: report-details
-      - inputText: ${output.reportDetails}
-      - tapOn:
-          id: report-reason-spam
-      - extendedWaitUntil:
-          visible:
-            id: report-submit
-          timeout: 15000
-      - tapOn:
-          id: report-submit
-      - extendedWaitUntil:
-          visible: Success
-          timeout: 30000
-      - tapOn: OK
       - setAirplaneMode: disabled
       - evalScript: ${output.api.waitForRequest(output.privateName, output.signInEmail, "pending", 45000)}
-      - evalScript: ${output.api.waitForReport(output.reportDetails, 45000)}
       - evalScript: ${output.api.waitForInvite(output.inviteProject, output.signInEmail, "pending", 15000)}
 - evalScript: ${output.api.deleteProject(output.privateName)}
-- evalScript: ${output.api.deleteProject(output.publicName)}
 - evalScript: ${output.api.deleteProject(output.inviteProject)}
 - evalScript: ${output.api.deleteUserIfExists(output.signInEmail)}
 - evalScript: ${output.api.deleteUserIfExists(output.ownerEmail)}

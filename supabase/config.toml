@@ -242,9 +242,13 @@ enabled = true
 uri = "https://unsxkmlcyxgtgmtzfonb.supabase.co/functions/v1/send-email"
 secrets = "env(SEND_EMAIL_HOOK_SECRET)"
 
+# Local GoTrue only allows HTTP hooks to localhost. The previous
+# orb.local HTTPS URL is an OrbStack name and times out on Docker Desktop
+# ("Failed to reach hook within maximum time of 5 seconds"). Disable the
+# hook locally so recovery/signup use Inbucket SMTP instead.
 [auth.hook.send_email]
-enabled = true
-uri = "https://supabase_kong_langquest.orb.local/functions/v1/send-email"
+enabled = false
+uri = "http://127.0.0.1:54321/functions/v1/send-email"
 secrets = "env(SEND_EMAIL_HOOK_SECRET)"
 
 # Configure one of the supported SMS providers: `twilio`, `twilio_verify`, `messagebird`, `textlocal`, `vonage`.

@@ -1,23 +1,10 @@
 appId: ${MAESTRO_APP_ID}
 ---
-# After the quest drawer closes, the quest search field can take focus.
-# The first tap on the list only dismisses the IME. Android hideKeyboard
-# is Back and pops the project once the keyboard is already down (we hid
-# it before quest-create-submit). iOS taps the header instead of Back.
-- runFlow:
-    when:
-      platform: iOS
-    commands:
-      - runFlow: _hide-keyboard.yaml
+# After creating a quest, the new row is tappable. Search must not steal
+# focus so the first tap opens the assets screen.
 - tapOn:
     id: quest-list-item
-- runFlow:
-    when:
-      visible:
-        id: quest-list-item
-    commands:
-      - tapOn:
-          id: quest-list-item
+    waitToSettleTimeoutMs: 0
 - extendedWaitUntil:
     visible:
       id: assets-refresh-button

@@ -2,19 +2,19 @@ import { system } from '@/db/powersync/system';
 import { resolveTable } from '@/utils/dbUtils';
 import { and, eq, inArray } from 'drizzle-orm';
 import uuid from 'react-native-uuid';
-import type { AssetOperationDataItem, AssetOperationTypes } from './types';
 import type { AssetGcOperation } from './assetGarbageCollectorService';
 import {
-  dequeue as dequeueAssetGc,
-  enqueue as enqueueAssetGc
+    dequeue as dequeueAssetGc,
+    enqueue as enqueueAssetGc
 } from './assetGarbageCollectorService';
-import { audioSegmentService } from './audioSegmentService';
 import {
-  batchUpdateAssetVerseDirect,
-  renameAssetDirect,
-  softDeleteAssetsFromQuestDirect
+    batchUpdateAssetVerseDirect,
+    renameAssetDirect,
+    softDeleteAssetsFromQuestDirect
 } from './assetService';
 import { enqueueAssetWrite } from './assetWriteQueue';
+import { audioSegmentService } from './audioSegmentService';
+import type { AssetOperationDataItem, AssetOperationTypes } from './types';
 
 function isCreatedItem(item: AssetOperationDataItem): boolean {
   return item.metadata?.provenance?.type === 'created';

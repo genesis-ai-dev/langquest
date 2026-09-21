@@ -79,7 +79,9 @@ export default function AppDrawer({
         ? 'profile'
         : pathname.includes('/notifications')
           ? 'notifications'
-          : pathname.includes('/settings')
+          : pathname.includes('/download-status')
+        ? 'download-status'
+        : pathname.includes('/settings')
             ? 'settings'
             : pathname.includes('/download-status')
               ? 'download-status'
@@ -356,16 +358,16 @@ export default function AppDrawer({
         name: t('signIn'),
         icon: UserIcon,
         onPress: handleSignIn
-      });
+      }      );
     }
 
-    // // Add download status menu item (always available)
-    // items.push({
-    //   name: 'Download Status',
-    //   view: 'download-status',
-    //   icon: CloudDownload,
-    //   onPress: handleGoToDownloadStatus
-    // });
+    items.push({
+      name: t('downloadStatus'),
+      view: 'download-status',
+      icon: CloudDownload,
+      onPress: handleGoToDownloadStatus,
+      testID: 'drawer-download-status'
+    });
 
     // Add logout for development
     if (__DEV__) {
@@ -385,6 +387,7 @@ export default function AppDrawer({
     handleGoToNotifications,
     handleGoToProfile,
     handleGoToSettings,
+    handleGoToDownloadStatus,
     handleSignIn,
     handleSignOut
   ]);

@@ -9,18 +9,18 @@
 
 import type { FiaPericopeStepsResponse } from '@/hooks/useFiaPericopeSteps';
 import type {
-  FiaAttachmentQueueItem,
-  FiaPericopeCacheKey
+    FiaAttachmentQueueItem,
+    FiaPericopeCacheKey
 } from '@/store/localStore';
 import { useLocalStore } from '@/store/localStore';
 import { getCachedAudioUri } from '@/utils/audioCache';
 import {
-  downloadFile,
-  ensureDir,
-  fileExists,
-  getDocumentDirectory,
-  readFileText,
-  writeFile
+    downloadFile,
+    ensureDir,
+    fileExists,
+    getDocumentDirectory,
+    readFileText,
+    writeFile
 } from '@/utils/fileUtils';
 import { useShallow } from 'zustand/react/shallow';
 

@@ -73,12 +73,7 @@ onFlowStart:
     timeout: 15000
 # The downloader fetches confirmed audio for synced rows. Download Status
 # counts local files against what should be on this device.
-- openLink: ${MAESTRO_APP_SCHEME}://download-status
-- runFlow: _ios-confirm-open-link.yaml
-- extendedWaitUntil:
-    visible:
-      id: download-status-screen
-    timeout: 20000
+- runFlow: _open-download-status.yaml
 - extendedWaitUntil:
     visible:
       id: download-status-files
@@ -103,18 +98,7 @@ onFlowStart:
     timeout: 45000
 - tapOn:
     id: quest-list-item
-# Local watch can still lag. Cancel Download Required and wait; do not
-# tap Download Now (that reopens discovery).
-- repeat:
-    times: 6
-    while:
-      visible: '(?i)Download Now'
-    commands:
-      - tapOn: '(?i)^Cancel$'
-      - waitForAnimationToEnd:
-          timeout: 10000
-      - tapOn:
-          id: quest-list-item
+    waitToSettleTimeoutMs: 0
 - extendedWaitUntil:
     visible:
       id: assets-refresh-button
