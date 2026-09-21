@@ -16,16 +16,17 @@ import {
   DrawerTitle
 } from '@/components/ui/drawer';
 import { Icon } from '@/components/ui/icon';
+import { LegendList } from '@/components/ui/legend-list';
 import { Text } from '@/components/ui/text';
 import { getBibleBook } from '@/constants/bibleStructure';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProjectById } from '@/hooks/db/useProjects';
 import { useBibleChapterCreation } from '@/hooks/useBibleChapterCreation';
-import {
-  useBibleChapters,
-  type BibleChapterGroup,
-  type BibleChapterQuest
+import type {
+  BibleChapterGroup,
+  BibleChapterQuest
 } from '@/hooks/useBibleChapters';
+import { useBibleChapters } from '@/hooks/useBibleChapters';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useQuestDownloadDiscovery } from '@/hooks/useQuestDownloadDiscovery';
@@ -609,15 +610,19 @@ export function BibleChapterList({
         <DrawerContent>
           <DrawerHeader>
             <DrawerTitle>
-              {book.name} {pickerChapterNum} versions
+              {book.name} {pickerChapterNum} {t('versions')}
             </DrawerTitle>
             <DrawerDescription>
-              {pickerGroup?.versions.length ?? 0} version
-              {(pickerGroup?.versions.length ?? 0) !== 1 ? 's' : ''} available
+              {/* {pickerGroup?.versions.length ?? 0} version
+              {(pickerGroup?.versions.length ?? 0) !== 1 ? 's' : ''} available */}
+              {pickerGroup?.versions.length ?? 0}{' '}
+              {pickerGroup?.versions.length === 1
+                ? t('version') + ' ' + t('available')
+                : t('versions') + ' ' + t('available_plural')}
             </DrawerDescription>
           </DrawerHeader>
 
-          <View className={cn('gap-3')}>
+          <View className={cn('gap-3 pb-8')}>
             {pickerGroup?.versions.map((version) => (
               <VersionCard
                 key={version.id}
@@ -644,10 +649,10 @@ export function BibleChapterList({
                 </View>
                 <View className="flex-1">
                   <Text className="font-semibold text-primary">
-                    Create new version
+                    {t('createNewVersion')}
                   </Text>
                   <Text className="text-sm text-muted-foreground">
-                    Start a new recording for this chapter
+                    {t('startNewRecording')}
                   </Text>
                 </View>
               </Pressable>

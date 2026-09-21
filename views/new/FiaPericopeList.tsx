@@ -17,16 +17,18 @@ import {
   DrawerTitle
 } from '@/components/ui/drawer';
 import { Icon } from '@/components/ui/icon';
+import { LegendList } from '@/components/ui/legend-list';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProjectById } from '@/hooks/db/useProjects';
 import type { FiaBook, FiaPericope } from '@/hooks/useFiaBooks';
 import { useFiaPericopeCreation } from '@/hooks/useFiaPericopeCreation';
-import {
-  useFiaPericopes,
-  type FiaPericopeGroup,
-  type FiaPericopeQuest
+import type {
+  FiaPericopeGroup,
+  FiaPericopeQuest
 } from '@/hooks/useFiaPericopes';
+import { useFiaPericopes } from '@/hooks/useFiaPericopes';
+import { useLocalization } from '@/hooks/useLocalization';
 import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useQuestDownloadDiscovery } from '@/hooks/useQuestDownloadDiscovery';
@@ -37,7 +39,6 @@ import { enqueue as enqueueFiaAttachment } from '@/services/FiaAttachmentQueue';
 import { BOOK_ICON_MAP } from '@/utils/BOOK_GRAPHICS';
 import { bulkDownloadQuest } from '@/utils/bulkDownload';
 import { cn, useThemeColor } from '@/utils/styleUtils';
-import { LegendList } from '@/components/ui/legend-list';
 import { invalidateCloud } from '@/hooks/hybridCache';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Image } from 'expo-image';
@@ -305,13 +306,13 @@ export function FiaPericopeList({
   onCloudLoadingChange
 }: FiaPericopeListProps) {
   const { currentUser } = useAuth();
+  const { t } = useLocalization();
   const { goToQuest } = useNavigationHelpers();
   const { createPericope, isCreating } = useFiaPericopeCreation();
   const queryClient = useQueryClient();
   const [creatingPericopeId, setCreatingPericopeId] = React.useState<
     string | null
   >(null);
-
   const { project } = useProjectById(projectId);
   const isPrivate = project?.private ?? false;
   const primaryColor = useThemeColor('primary');
@@ -586,7 +587,7 @@ export function FiaPericopeList({
                 {book.title}
               </Text>
               <Text className="w-full text-left text-sm text-muted-foreground">
-                {book.pericopes.length} pericopes
+                {book.pericopes.length} {t('pericopes')}
               </Text>
             </View>
           </View>
@@ -621,15 +622,19 @@ export function FiaPericopeList({
         <DrawerContent>
           <DrawerHeader>
             <DrawerTitle>
-              {pickerPericope?.verseRange ?? 'Pericope'} versions
+              {pickerPericope?.verseRange ?? t('pericope')} {t('versions')}
             </DrawerTitle>
             <DrawerDescription>
-              {pickerGroup?.versions.length ?? 0} version
-              {(pickerGroup?.versions.length ?? 0) !== 1 ? 's' : ''} available
+              {/* {pickerGroup?.versions.length ?? 0} version
+              {(pickerGroup?.versions.length ?? 0) !== 1 ? 's' : ''} available */}
+              {pickerGroup?.versions.length ?? 0}{' '}
+              {pickerGroup?.versions.length === 1
+                ? t('version') + ' ' + t('available')
+                : t('versions') + ' ' + t('available_plural')}
             </DrawerDescription>
           </DrawerHeader>
 
-          <View className={cn('gap-3')}>
+          <View className={cn('gap-3 pb-8')}>
             {pickerGroup?.versions.map((version) => (
               <VersionCard
                 key={version.id}
@@ -656,10 +661,10 @@ export function FiaPericopeList({
                 </View>
                 <View className="flex-1">
                   <Text className="font-semibold text-primary">
-                    Create new version
+                    {t('createNewVersion')}
                   </Text>
                   <Text className="text-sm text-muted-foreground">
-                    Start a new recording for this pericope
+                    {t('startNewRecording')}
                   </Text>
                 </View>
               </Pressable>

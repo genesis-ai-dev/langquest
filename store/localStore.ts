@@ -215,6 +215,12 @@ export interface LocalState {
   dismissUpdate: (version: string) => void;
   resetUpdateDismissal: () => void;
 
+  // Store update dismissal tracking (separate from OTA)
+  dismissedStoreUpdateTimestamp: number | null;
+  dismissedStoreUpdateVersion: string | null;
+  dismissStoreUpdate: (version: string) => void;
+  resetStoreUpdateDismissal: () => void;
+
   // Version tracking and migration state
   lastAppVersion: string | null;
   setLastAppVersion: (version: string | null) => void;
@@ -409,6 +415,20 @@ export const useLocalStore = create<LocalState>()(
         set({
           dismissedUpdateTimestamp: null,
           dismissedUpdateVersion: null
+        }),
+
+      // Store update dismissal tracking
+      dismissedStoreUpdateTimestamp: null,
+      dismissedStoreUpdateVersion: null,
+      dismissStoreUpdate: (version) =>
+        set({
+          dismissedStoreUpdateTimestamp: Date.now(),
+          dismissedStoreUpdateVersion: version
+        }),
+      resetStoreUpdateDismissal: () =>
+        set({
+          dismissedStoreUpdateTimestamp: null,
+          dismissedStoreUpdateVersion: null
         }),
 
       // Version tracking and migration state

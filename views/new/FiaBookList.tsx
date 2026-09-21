@@ -5,6 +5,7 @@
 
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
+import { LegendList } from '@/components/ui/legend-list';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { BIBLE_BOOKS } from '@/constants/bibleStructure';
@@ -12,11 +13,10 @@ import type { FiaBook } from '@/hooks/useFiaBooks';
 import { useLocalization } from '@/hooks/useLocalization';
 import { BOOK_ICON_MAP } from '@/utils/BOOK_GRAPHICS';
 import { cn, useThemeColor } from '@/utils/styleUtils';
-import { LegendList } from '@/components/ui/legend-list';
-import { BookOpenIcon, PlusCircleIcon } from 'lucide-react-native';
 import { Image } from 'expo-image';
+import { BookOpenIcon, PlusCircleIcon } from 'lucide-react-native';
 import React from 'react';
-import { ActivityIndicator, Dimensions, View } from 'react-native';
+import { Dimensions, View } from 'react-native';
 
 interface FiaBookListProps {
   books: FiaBook[];
@@ -76,7 +76,7 @@ export function FiaBookList({
 }: FiaBookListProps) {
   const { t } = useLocalization();
   const primaryColor = useThemeColor('primary');
-  const secondaryColor = useThemeColor('chart-2');
+  // const secondaryColor = useThemeColor('chart-2');
   const screenWidth = Dimensions.get('window').width;
   const buttonWidth = 110;
   const gap = 12;
@@ -86,6 +86,9 @@ export function FiaBookList({
     2,
     Math.floor((availableWidth + gap) / (buttonWidth + gap))
   );
+
+  // Sort books in biblical order
+  const sortedBooks = React.useMemo(() => sortBiblicalOrder(books), [books]);
 
   if (isLoading) {
     return <FiaBookListSkeleton />;
@@ -99,14 +102,11 @@ export function FiaBookList({
     );
   }
 
-  // Sort books in biblical order
-  const sortedBooks = React.useMemo(() => sortBiblicalOrder(books), [books]);
-
   if (sortedBooks.length === 0) {
     return (
       <View className="flex-1 items-center justify-center p-8">
         <Text className="text-muted-foreground">
-          No FIA content available for this language.
+          {t('noFIAContentAvailable')}
         </Text>
       </View>
     );

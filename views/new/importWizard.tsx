@@ -130,7 +130,7 @@ function parseJsonLike(value: unknown): unknown {
   if (!value) return null;
   if (typeof value !== 'string') return value;
   try {
-    return JSON.parse(value) as unknown;
+    return JSON.parse(value);
   } catch {
     return null;
   }
@@ -185,7 +185,7 @@ function getQuestContext(metadataValue: unknown): QuestContext {
 }
 
 function contextsMatch(left: QuestContext, right: QuestContext) {
-  if (!left || !right || left.type !== right.type) return false;
+  if (!left || left.type !== right?.type) return false;
 
   if (left.type === 'bible' && right.type === 'bible') {
     return left.book === right.book && left.chapter === right.chapter;
@@ -540,7 +540,7 @@ function QuestStep({
       <View className="flex-1 items-center justify-center gap-3 p-6">
         <ActivityIndicator />
         <Text className="text-muted-foreground">
-          Loading compatible quests...
+          {t('loadingCompatibleQuests')}
         </Text>
       </View>
     );
@@ -551,10 +551,10 @@ function QuestStep({
       <View className="flex-1 items-center justify-center gap-3 p-6">
         <Icon as={InfoIcon} size={40} className="text-muted-foreground" />
         <Text variant="h4" className="text-center">
-          No published versions found
+          {t('noPublishedVersionsFound')}
         </Text>
         <Text className="text-center text-muted-foreground">
-          There are no other published quests for this same chapter or pericope.
+          {t('noOtherQuestsPublished')}
         </Text>
       </View>
     );
@@ -706,7 +706,7 @@ function AssetsStep({
     return (
       <View className="flex-1 items-center justify-center gap-3 p-6">
         <ActivityIndicator />
-        <Text className="text-muted-foreground">Loading assets...</Text>
+        <Text className="text-muted-foreground">{t('loadingAssets')}</Text>
       </View>
     );
   }
@@ -716,7 +716,7 @@ function AssetsStep({
       <View className="flex-1 items-center justify-center gap-4 p-6">
         <Icon as={InfoIcon} size={40} className="text-muted-foreground" />
         <Text variant="h4" className="text-center">
-          No assets found
+          {t('noAssetsFound')}
         </Text>
         <Text className="text-center text-muted-foreground">
           Assets from a recently downloaded quest may still be syncing to this
@@ -1699,7 +1699,7 @@ export function ImportWizard({
                 className="text-destructive"
               />
               <Text className="text-sm text-destructive">
-                Resolve conflicts before proceeding.
+                {t('resolveConflictsBeforeProceeding')}
               </Text>
               {/* </View> */}
             </View>
@@ -1749,11 +1749,10 @@ export function ImportWizard({
                 <View className="flex-row items-start justify-between gap-4 px-2">
                   <View className="flex-1 gap-1">
                     <Text className="text-lg font-semibold">
-                      Assign verse label
+                      {t('assignVerseLabel')}
                     </Text>
                     <Text className="text-sm text-muted-foreground">
-                      This assignment will only be applied when the assets are
-                      imported.
+                      {t('assignVerseLabelDescription')}
                     </Text>
                   </View>
                   <Pressable
