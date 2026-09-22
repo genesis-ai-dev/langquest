@@ -297,8 +297,7 @@ export class AudioUploader {
 
     const now = Date.now();
     const ready = workList.filter(
-      (item) =>
-        (this.attempts.get(item.objectName)?.nextAttemptAt ?? 0) <= now
+      (item) => (this.attempts.get(item.objectName)?.nextAttemptAt ?? 0) <= now
     );
     if (ready.length === 0) {
       this.publishWorkStatus(workList, 0);

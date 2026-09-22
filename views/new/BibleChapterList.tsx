@@ -168,8 +168,9 @@ function ChapterButton({
             {hasLocalCopy && (
               <Icon as={HardDriveIcon} size={14} className="text-secondary" />
             )}
-            {exists && (hasSyncedCopy || isCloudQuest) && (
-              isOptimisticallyDownloading ? (
+            {exists &&
+              (hasSyncedCopy || isCloudQuest) &&
+              (isOptimisticallyDownloading ? (
                 <ActivityIndicator size="small" color={primaryColor} />
               ) : (
                 <Icon
@@ -181,8 +182,7 @@ function ChapterButton({
                       : 'text-foreground'
                   }
                 />
-              )
-            )}
+              ))}
             <Text className={cn('text-lg font-bold', getTextColor())}>
               {chapterNum}
             </Text>
@@ -403,8 +403,8 @@ export function BibleChapterList({
     const profiles = version.download_profiles;
     const profileDownloaded = Boolean(
       currentUser?.id &&
-        Array.isArray(profiles) &&
-        profiles.includes(currentUser.id)
+      Array.isArray(profiles) &&
+      profiles.includes(currentUser.id)
     );
     const needsDownload =
       Boolean(currentUser?.id) &&

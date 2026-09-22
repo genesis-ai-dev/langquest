@@ -8,7 +8,7 @@
  * Each auth-only screen handles its own redirect via useAuth().
  */
 
-import React, { Suspense, useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { BackHandler, View } from 'react-native';
 
 import { AccountDeletedOverlay } from '@/components/AccountDeletedOverlay';
@@ -19,15 +19,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { StatusProvider } from '@/contexts/StatusContext';
 import { useProfileByUserId } from '@/hooks/db/useProfiles';
 import { useLocalStore } from '@/store/localStore';
+import { SimpleOnboardingFlow } from '@/views/new/SimpleOnboardingFlow';
 import { Stack, usePathname } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { DEFAULT_STACK_OPTIONS, FORM_SHEET_OPTIONS } from '../_layout';
-
-const SimpleOnboardingFlow = React.lazy(() =>
-  import('@/views/new/SimpleOnboardingFlow').then((module) => ({
-    default: module.SimpleOnboardingFlow
-  }))
-);
 
 /**
  * Renders AppHeader, the Stack navigator with protected routes, and overlays.
@@ -115,17 +110,15 @@ function AppContent() {
         <Stack.Screen name="feedback" options={FORM_SHEET_OPTIONS} />
       </Stack>
 
-      <Suspense fallback={null}>
-        <AppDrawer
-          drawerIsVisible={drawerIsVisible}
-          setDrawerIsVisible={setDrawerIsVisible}
-        />
+      <AppDrawer
+        drawerIsVisible={drawerIsVisible}
+        setDrawerIsVisible={setDrawerIsVisible}
+      />
 
-        <SimpleOnboardingFlow
-          visible={onboardingIsOpen}
-          onClose={() => setOnboardingIsOpen(false)}
-        />
-      </Suspense>
+      <SimpleOnboardingFlow
+        visible={onboardingIsOpen}
+        onClose={() => setOnboardingIsOpen(false)}
+      />
 
       {accountDeleted ? (
         <View className="absolute inset-0 z-50">

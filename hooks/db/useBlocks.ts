@@ -25,7 +25,12 @@ export function useUserRestrictions(
     offlineError: blockedContentOfflineError
     // refetch: refetchBlockedContent
   } = useHybridQuery<{ content_id: string }>({
-    queryKey: ['blocked_content', 'blocked_content', contentType, currentUser?.id || ''],
+    queryKey: [
+      'blocked_content',
+      'blocked_content',
+      contentType,
+      currentUser?.id || ''
+    ],
 
     // PowerSync query for votes
     offlineQuery:

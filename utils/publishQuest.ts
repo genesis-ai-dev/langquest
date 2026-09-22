@@ -1,4 +1,10 @@
-import { asset, asset_content_link, project, quest, quest_asset_link } from '@/db/drizzleSchema';
+import {
+  asset,
+  asset_content_link,
+  project,
+  quest,
+  quest_asset_link
+} from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { getNetworkStatus } from '@/hooks/useNetworkStatus';
 import { normalizeStoredAudioArray } from '@/utils/attachmentPaths';
@@ -218,9 +224,7 @@ export async function publishQuest(
           status: 'error',
           message:
             'You must be a project owner or member to publish. The project may need to be published first.',
-          errors: [
-            'No active membership link found in cloud for this project'
-          ],
+          errors: ['No active membership link found in cloud for this project'],
           warnings: []
         };
       }
@@ -245,11 +249,11 @@ export async function publishQuest(
     nestedQuestsIds.unshift(questId);
   }
 
-  const allQuestIds = Array.from(new Set([...parentQuestIds, ...nestedQuestsIds]));
+  const allQuestIds = Array.from(
+    new Set([...parentQuestIds, ...nestedQuestsIds])
+  );
   const nestedAssetIds = Array.from(
-    new Set(
-      (await getNestedAssets(nestedQuestsIds)).map((row) => row.asset_id)
-    )
+    new Set((await getNestedAssets(nestedQuestsIds)).map((row) => row.asset_id))
   );
 
   try {
@@ -292,7 +296,9 @@ export async function publishQuest(
           const stripped = normalizeStoredAudioArray(link.audio);
           if (!stripped) continue;
           const current = link.audio ?? [];
-          const changed = stripped.some((value, index) => value !== current[index]);
+          const changed = stripped.some(
+            (value, index) => value !== current[index]
+          );
           if (changed) {
             await tx
               .update(asset_content_link)
@@ -306,7 +312,10 @@ export async function publishQuest(
         .update(quest)
         .set({ published_at: publishedAt })
         .where(
-          and(inArray(quest.id, unpublishedQuestIds), isNull(quest.published_at))
+          and(
+            inArray(quest.id, unpublishedQuestIds),
+            isNull(quest.published_at)
+          )
         );
     });
 

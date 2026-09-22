@@ -237,9 +237,7 @@ export async function updateMetadataVersion(
   db: DrizzleDB,
   version: string
 ): Promise<void> {
-  console.log(
-    `[Migration] Updating _metadata.schema_version to ${version}...`
-  );
+  console.log(`[Migration] Updating _metadata.schema_version to ${version}...`);
 
   // Update raw PowerSync JSON (`data`), not views, so getMinimumSchemaVersion
   // can read the stamp. Leftover *_local names are for 2.5 hops; unsuffixed

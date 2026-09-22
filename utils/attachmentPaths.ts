@@ -57,9 +57,7 @@ export function localAudioFileName(audioValue: string): string {
 }
 
 /** Strip `local/` from each audio[] value. Returns null when `audio` is not an array. */
-export function normalizeStoredAudioArray(
-  audio: unknown
-): string[] | null {
+export function normalizeStoredAudioArray(audio: unknown): string[] | null {
   if (!Array.isArray(audio)) return null;
   return audio.map((value) =>
     typeof value === 'string' ? storageAudioObjectName(value) : String(value)

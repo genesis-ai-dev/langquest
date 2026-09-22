@@ -4,13 +4,13 @@ import { and, eq, inArray } from 'drizzle-orm';
 import uuid from 'react-native-uuid';
 import type { AssetGcOperation } from './assetGarbageCollectorService';
 import {
-    dequeue as dequeueAssetGc,
-    enqueue as enqueueAssetGc
+  dequeue as dequeueAssetGc,
+  enqueue as enqueueAssetGc
 } from './assetGarbageCollectorService';
 import {
-    batchUpdateAssetVerseDirect,
-    renameAssetDirect,
-    softDeleteAssetsFromQuestDirect
+  batchUpdateAssetVerseDirect,
+  renameAssetDirect,
+  softDeleteAssetsFromQuestDirect
 } from './assetService';
 import { enqueueAssetWrite } from './assetWriteQueue';
 import { audioSegmentService } from './audioSegmentService';

@@ -365,10 +365,7 @@ export function useLocalAssetsByQuest(
           ? or(eq(asset.visible, true), eq(asset.creator_id, userId))
           : undefined,
         !showHiddenContent
-          ? or(
-              eq(quest_asset_link.visible, true),
-              eq(asset.creator_id, userId)
-            )
+          ? or(eq(quest_asset_link.visible, true), eq(asset.creator_id, userId))
           : undefined,
         notInArray(asset.id, blockedContentQuery(userId, 'asset')),
         notInArray(asset.creator_id, blockedUsersQuery(userId)),
@@ -416,7 +413,9 @@ export function useLocalAssetsByQuest(
   const normalized = React.useMemo(
     () =>
       (simpleQuery.data ?? []).map((row) =>
-        normalizeQuestAssetLinkAssetRow(row as unknown as QuestAssetLinkAssetRow)
+        normalizeQuestAssetLinkAssetRow(
+          row as unknown as QuestAssetLinkAssetRow
+        )
       ),
     [simpleQuery.data]
   );

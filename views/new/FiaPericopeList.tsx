@@ -184,15 +184,14 @@ function PericopeButton({
                         className="text-secondary"
                       />
                     )}
-                    {exists && (hasSyncedCopy || isCloudQuest) && (
-                      isOptimisticallyDownloading ? (
+                    {exists &&
+                      (hasSyncedCopy || isCloudQuest) &&
+                      (isOptimisticallyDownloading ? (
                         <ActivityIndicator size="small" color={primaryColor} />
                       ) : (
                         <Icon
                           as={
-                            isDownloaded
-                              ? CircleCheckIcon
-                              : CircleArrowDownIcon
+                            isDownloaded ? CircleCheckIcon : CircleArrowDownIcon
                           }
                           size={16}
                           className={
@@ -201,8 +200,7 @@ function PericopeButton({
                               : 'text-foreground'
                           }
                         />
-                      )
-                    )}
+                      ))}
                   </View>
                 </View>
                 <Text className={cn('text-base font-bold', getTextColor())}>
@@ -480,8 +478,8 @@ export function FiaPericopeList({
     const profiles = version.download_profiles;
     const profileDownloaded = Boolean(
       currentUser?.id &&
-        Array.isArray(profiles) &&
-        profiles.includes(currentUser.id)
+      Array.isArray(profiles) &&
+      profiles.includes(currentUser.id)
     );
     const needsDownload =
       Boolean(currentUser?.id) &&

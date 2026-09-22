@@ -26,9 +26,7 @@ export function useQuestDownloadStatusLive(questId: string | null): boolean {
       if (!shouldProceed()) return;
       const parsed =
         typeof profiles === 'string' ? JSON.parse(profiles) : profiles;
-      setIsDownloaded(
-        Array.isArray(parsed) && parsed.includes(currentUser.id)
-      );
+      setIsDownloaded(Array.isArray(parsed) && parsed.includes(currentUser.id));
     };
 
     const checkDownloadStatus = async () => {
@@ -72,10 +70,7 @@ export function useQuestDownloadStatusLive(questId: string | null): boolean {
             }
           } catch (error) {
             if (!shouldProceed()) return;
-            console.error(
-              'Error parsing download status from watch:',
-              error
-            );
+            console.error('Error parsing download status from watch:', error);
             setIsDownloaded(false);
           }
         },

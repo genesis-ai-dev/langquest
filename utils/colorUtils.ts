@@ -20,4 +20,3 @@ export function adjustColor(hex: string, percent: number): string {
   // Convert back to hex
   return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
 }
-

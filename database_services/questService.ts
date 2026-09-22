@@ -16,7 +16,11 @@ const MAX_RECORDING_SESSIONS = 10;
 export class QuestService {
   async getQuestById(quest_id: string) {
     return (
-      await system.db.select().from(quest).where(eq(quest.id, quest_id)).limit(1)
+      await system.db
+        .select()
+        .from(quest)
+        .where(eq(quest.id, quest_id))
+        .limit(1)
     )[0];
   }
 }

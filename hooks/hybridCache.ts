@@ -16,9 +16,7 @@ export function invalidateCloud(
     predicate: (query) => {
       const [dataType] = query.queryKey;
       if (typeof dataType !== 'string' || !types.has(dataType)) return false;
-      return (
-        query.queryKey[1] === 'cloud' || query.queryKey.at(-1) === 'cloud'
-      );
+      return query.queryKey[1] === 'cloud' || query.queryKey.at(-1) === 'cloud';
     }
   });
 }

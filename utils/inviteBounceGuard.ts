@@ -42,4 +42,3 @@ export function inviteMaySendAnotherOutboundEmail(
   if (inviteEmailGloballySuppressed(emailGloballySuppressed)) return false;
   return (count ?? 0) < maxSends;
 }
-

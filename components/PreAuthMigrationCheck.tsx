@@ -70,5 +70,9 @@ export function PreAuthMigrationCheck({
 
   // PowerSync is constructed after schema has been upgraded. Provide it here so RootLayout's first render
   // does not capture an undefined system.powersync / system.db.
-  return <PowerSyncContext.Provider value={system.powersync}>{children}</PowerSyncContext.Provider>;
+  return (
+    <PowerSyncContext.Provider value={system.powersync}>
+      {children}
+    </PowerSyncContext.Provider>
+  );
 }

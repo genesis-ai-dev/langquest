@@ -110,9 +110,7 @@ describe('useUndoHistory', () => {
 
     expect(result.current.list()).toHaveLength(MAX_UNDO_OPERATIONS);
     expect(result.current.list()[0]?.action).toBe('op-1');
-    expect(result.current.peekUndo()?.action).toBe(
-      `op-${MAX_UNDO_OPERATIONS}`
-    );
+    expect(result.current.peekUndo()?.action).toBe(`op-${MAX_UNDO_OPERATIONS}`);
   });
 
   it('undo and redo are no-ops on an empty stack', async () => {

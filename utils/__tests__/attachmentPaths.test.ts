@@ -98,7 +98,9 @@ describe('attachmentPaths', () => {
 
     it('returns null for missing files and invalid values', async () => {
       await expect(resolveExistingAudioUri('a.m4a')).resolves.toBeNull();
-      await expect(resolveExistingAudioUri('blob:http://x/y')).resolves.toBeNull();
+      await expect(
+        resolveExistingAudioUri('blob:http://x/y')
+      ).resolves.toBeNull();
       await expect(resolveExistingAudioUri('')).resolves.toBeNull();
     });
   });

@@ -300,4 +300,3 @@ export async function isDegradedMode(): Promise<boolean> {
   const state = await getDegradedModeState();
   return state.isDegraded;
 }
-

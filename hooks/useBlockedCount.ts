@@ -17,7 +17,9 @@ export function useBlockedTranslationsCount(assetId: string) {
   const { currentUser } = useAuth();
 
   const { data: counts } = useHybridQuery({
-    queryKey: ['blocked-translations-count', 'blocked-count',
+    queryKey: [
+      'blocked-translations-count',
+      'blocked-count',
       'translations',
       assetId,
       currentUser?.id ?? ''
@@ -64,7 +66,13 @@ export function useBlockedAssetsCount(questId: string) {
   const { currentUser } = useAuth();
 
   const { data: counts } = useHybridQuery({
-    queryKey: ['blocked-assets-count', 'blocked-count', 'assets', questId, currentUser?.id ?? ''],
+    queryKey: [
+      'blocked-assets-count',
+      'blocked-count',
+      'assets',
+      questId,
+      currentUser?.id ?? ''
+    ],
     offlineQuery: toCompilableQuery(
       system.db
         .select({

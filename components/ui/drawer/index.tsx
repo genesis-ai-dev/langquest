@@ -72,10 +72,7 @@ function Drawer({
   }, [onOpenChange]);
 
   const syncOpen = React.useCallback((nextOpen: boolean) => {
-    if (
-      nextOpen === false &&
-      Date.now() < suppressDismissUntilRef.current
-    ) {
+    if (nextOpen === false && Date.now() < suppressDismissUntilRef.current) {
       return;
     }
     if (isOpenRef.current === nextOpen) return;

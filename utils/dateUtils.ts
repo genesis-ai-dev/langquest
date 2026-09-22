@@ -1,7 +1,6 @@
 // Expiry constants
 const INVITATION_EXPIRY_DAYS = 7;
-const INVITATION_EXPIRY_MS =
-  INVITATION_EXPIRY_DAYS * 24 * 60 * 60 * 1000;
+const INVITATION_EXPIRY_MS = INVITATION_EXPIRY_DAYS * 24 * 60 * 60 * 1000;
 
 export function isExpiredByLastUpdated(lastUpdated: string): boolean {
   const updatedDate = new Date(lastUpdated);

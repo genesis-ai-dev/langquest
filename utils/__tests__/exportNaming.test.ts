@@ -1,18 +1,18 @@
 /// <reference types="jest" />
 
 import {
-    ensureUniqueFileNames,
-    formatCurrentDateTime,
-    getFIAVerseSuffix,
-    getMetadataVerseForCsv,
-    getMetadataVerseForFiaCsv,
-    getMimeTypeFromFileName,
-    getUniqueFileName,
-    getVerseSuffix,
-    isUserCancellationError,
-    parseMetadata,
-    parseVersePosition,
-    sanitizeNamePart
+  ensureUniqueFileNames,
+  formatCurrentDateTime,
+  getFIAVerseSuffix,
+  getMetadataVerseForCsv,
+  getMetadataVerseForFiaCsv,
+  getMimeTypeFromFileName,
+  getUniqueFileName,
+  getVerseSuffix,
+  isUserCancellationError,
+  parseMetadata,
+  parseVersePosition,
+  sanitizeNamePart
 } from '../exportNaming';
 
 describe('sanitizeNamePart', () => {

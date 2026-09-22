@@ -65,10 +65,4 @@ const CardContent = React.forwardRef<ViewRef, ViewProps>(
 );
 CardContent.displayName = 'CardContent';
 
-export {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle
-};
+export { Card, CardContent, CardDescription, CardHeader, CardTitle };

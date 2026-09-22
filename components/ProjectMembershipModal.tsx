@@ -390,22 +390,22 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
   }, [invites]);
 
   // Query for receiver profiles separately
-  const { data: receiverProfiles } = useHybridQuery<typeof profile.$inferSelect>(
-    {
-      queryKey: ['receiver-profiles', ...receiverProfileIds],
+  const { data: receiverProfiles } = useHybridQuery<
+    typeof profile.$inferSelect
+  >({
+    queryKey: ['receiver-profiles', ...receiverProfileIds],
 
-      // Only offline query - no cloud query needed
-      offlineQuery:
-        receiverProfileIds.length > 0
-          ? toCompilableQuery(
-              system.db.query.profile.findMany({
-                where: (profile, { inArray }) =>
-                  inArray(profile.id, receiverProfileIds)
-              })
-            )
-          : 'SELECT * FROM profile WHERE 1=0' // Empty query when no receiver IDs
-    }
-  );
+    // Only offline query - no cloud query needed
+    offlineQuery:
+      receiverProfileIds.length > 0
+        ? toCompilableQuery(
+            system.db.query.profile.findMany({
+              where: (profile, { inArray }) =>
+                inArray(profile.id, receiverProfileIds)
+            })
+          )
+        : 'SELECT * FROM profile WHERE 1=0' // Empty query when no receiver IDs
+  });
 
   const invitations: Invitation[] = React.useMemo(() => {
     return invites
@@ -1457,8 +1457,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
 
   const renderRequest = (req: typeof request.$inferSelect) => {
     const requester = requesterProfileMap[req.sender_profile_id];
-    const displayName =
-      requester?.username || requester?.email || t('unknown');
+    const displayName = requester?.username || requester?.email || t('unknown');
 
     return (
       <View
@@ -1489,11 +1488,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
               variant="outline"
               size="icon-sm"
               onPress={() =>
-                handleApproveRequest(
-                  req.id,
-                  req.sender_profile_id,
-                  displayName
-                )
+                handleApproveRequest(req.id, req.sender_profile_id, displayName)
               }
               testID={`membership-request-approve-${req.sender_profile_id}`}
               accessibilityLabel="membership-request-approve"

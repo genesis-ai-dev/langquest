@@ -134,7 +134,9 @@ export function useTargetAssetsWithVoteCountByAssetId(
     offlineError: translationsOfflineError
     // cloudError: translationsCloudError
   } = useHybridQuery({
-    queryKey: ['target_assets', asset_id,
+    queryKey: [
+      'target_assets',
+      asset_id,
       translationsRefreshKey || 0,
       voteRefreshKey,
       sort,

@@ -75,15 +75,15 @@ export const RecordSelectionControls = React.memo(
               </Button>
             )}
             {showMerge && (
-            <Button
-              variant="default"
-              size="default"
-              disabled={selectedCount < 2 || !canMerge}
-              onPress={onMerge}
-              className="p-1"
-              testID="assets-merge"
-              accessibilityLabel="assets-merge"
-            >
+              <Button
+                variant="default"
+                size="default"
+                disabled={selectedCount < 2 || !canMerge}
+                onPress={onMerge}
+                className="p-1"
+                testID="assets-merge"
+                accessibilityLabel="assets-merge"
+              >
                 <View className="flex-row items-center px-0">
                   <Icon as={Merge} />
                   <Text className="ml-2 text-xs">{t('merge')}</Text>

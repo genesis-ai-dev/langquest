@@ -20,49 +20,50 @@ export function useOrthographyExamples(
   const enabled =
     !!projectId && !!languageId && projectId !== '' && languageId !== '';
 
-  const { data, isLoading, isError, cloudError, offlineError } = useHybridQuery<{
-    id: string;
-    text: string | null;
-  }>({
-    queryKey: ['orthography-examples', projectId ?? '', languageId ?? ''],
-    enabled,
-    offlineQuery: toCompilableQuery(
-      system.db
-        .select({
-          id: asset_content_link.id,
-          text: asset_content_link.text
-        })
-        .from(asset_content_link)
-        .innerJoin(asset, eq(asset.id, asset_content_link.asset_id))
-        .where(
-          and(
-            eq(asset.project_id, projectId ?? ''),
-            eq(asset_content_link.languoid_id, languageId ?? ''),
-            eq(asset.active, true),
-            eq(asset_content_link.active, true),
-            isNotNull(asset_content_link.text)
+  const { data, isLoading, isError, cloudError, offlineError } =
+    useHybridQuery<{
+      id: string;
+      text: string | null;
+    }>({
+      queryKey: ['orthography-examples', projectId ?? '', languageId ?? ''],
+      enabled,
+      offlineQuery: toCompilableQuery(
+        system.db
+          .select({
+            id: asset_content_link.id,
+            text: asset_content_link.text
+          })
+          .from(asset_content_link)
+          .innerJoin(asset, eq(asset.id, asset_content_link.asset_id))
+          .where(
+            and(
+              eq(asset.project_id, projectId ?? ''),
+              eq(asset_content_link.languoid_id, languageId ?? ''),
+              eq(asset.active, true),
+              eq(asset_content_link.active, true),
+              isNotNull(asset_content_link.text)
+            )
           )
-        )
-        .limit(MAX_EXAMPLES)
-    ),
-    cloudQueryFn: async () => {
-      if (!projectId || !languageId) return [];
-      const { data, error } = await system.supabaseConnector.client
-        .from('asset_content_link')
-        .select('id, text, asset!inner(project_id, active)')
-        .eq('languoid_id', languageId)
-        .eq('active', true)
-        .not('text', 'is', null)
-        .eq('asset.project_id', projectId)
-        .eq('asset.active', true)
-        .limit(MAX_EXAMPLES);
-      if (error) throw error;
-      return (data ?? []).map((row) => ({
-        id: row.id,
-        text: row.text
-      }));
-    }
-  });
+          .limit(MAX_EXAMPLES)
+      ),
+      cloudQueryFn: async () => {
+        if (!projectId || !languageId) return [];
+        const { data, error } = await system.supabaseConnector.client
+          .from('asset_content_link')
+          .select('id, text, asset!inner(project_id, active)')
+          .eq('languoid_id', languageId)
+          .eq('active', true)
+          .not('text', 'is', null)
+          .eq('asset.project_id', projectId)
+          .eq('asset.active', true)
+          .limit(MAX_EXAMPLES);
+        if (error) throw error;
+        return (data ?? []).map((row) => ({
+          id: row.id,
+          text: row.text
+        }));
+      }
+    });
 
   const examples = React.useMemo(
     () =>

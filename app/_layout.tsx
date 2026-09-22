@@ -95,8 +95,13 @@ export const FORM_SHEET_OPTIONS = {
  */
 function RootNavigator() {
   useDeferredIconTheme();
-  const { isLoading, isAuthenticated, isSystemReady, migrationNeeded, appUpgradeNeeded } =
-    useAuth();
+  const {
+    isLoading,
+    isAuthenticated,
+    isSystemReady,
+    migrationNeeded,
+    appUpgradeNeeded
+  } = useAuth();
 
   const needsMigration = isAuthenticated && !!migrationNeeded;
   const needsUpgrade = isAuthenticated && !!appUpgradeNeeded;

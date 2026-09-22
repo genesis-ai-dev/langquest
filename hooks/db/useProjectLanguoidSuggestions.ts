@@ -139,7 +139,10 @@ export function useProjectLanguoidSuggestions() {
     id: string;
     name: string | null;
   }>({
-    queryKey: ['project-languoid-suggestion-project-details', detailIds.projectIds.join(',')],
+    queryKey: [
+      'project-languoid-suggestion-project-details',
+      detailIds.projectIds.join(',')
+    ],
     enabled: detailIds.projectIds.length > 0,
     offlineQuery: toCompilableQuery(
       db
@@ -163,7 +166,10 @@ export function useProjectLanguoidSuggestions() {
     id: string;
     name: string | null;
   }>({
-    queryKey: ['project-languoid-suggestion-languoid-details', detailIds.languoidIds.join(',')],
+    queryKey: [
+      'project-languoid-suggestion-languoid-details',
+      detailIds.languoidIds.join(',')
+    ],
     enabled: detailIds.languoidIds.length > 0,
     offlineQuery: toCompilableQuery(
       db

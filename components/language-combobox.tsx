@@ -464,7 +464,11 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
         >
           {selectedLabel}
         </Text>
-        <Icon as={ChevronDownIcon} className="text-muted-foreground" size={16} />
+        <Icon
+          as={ChevronDownIcon}
+          className="text-muted-foreground"
+          size={16}
+        />
       </ButtonPressable>
 
       <Drawer

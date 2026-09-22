@@ -300,30 +300,33 @@ export function useBibleChapters(projectId: string, bookId: string) {
 
   const watchLocal = !!projectId && !!bookId;
 
-  const { data: localQuests = [], isLoading: isLoadingLocal, error: localError } =
-    usePowerSyncQuery({
-      queryKey: ['bible-chapters', 'offline', projectId],
-      query: watchLocal
-        ? toCompilableQuery(
-            system.db.query.quest.findMany({
-              where: and(
-                eq(quest.project_id, projectId),
-                publishedOrOwnQuest(currentUser?.id)
-              ),
-              columns: {
-                id: true,
-                name: true,
-                published_at: true,
-                created_at: true,
-                download_profiles: true,
-                metadata: true,
-                creator_id: true,
-                visible: true
-              }
-            })
-          )
-        : DISABLED_WATCH
-    });
+  const {
+    data: localQuests = [],
+    isLoading: isLoadingLocal,
+    error: localError
+  } = usePowerSyncQuery({
+    queryKey: ['bible-chapters', 'offline', projectId],
+    query: watchLocal
+      ? toCompilableQuery(
+          system.db.query.quest.findMany({
+            where: and(
+              eq(quest.project_id, projectId),
+              publishedOrOwnQuest(currentUser?.id)
+            ),
+            columns: {
+              id: true,
+              name: true,
+              published_at: true,
+              created_at: true,
+              download_profiles: true,
+              metadata: true,
+              creator_id: true,
+              visible: true
+            }
+          })
+        )
+      : DISABLED_WATCH
+  });
 
   const localResults = React.useMemo(
     () => mapQuestRowsToChapters(localQuests, bookId),

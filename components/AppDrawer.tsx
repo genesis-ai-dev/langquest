@@ -80,12 +80,12 @@ export default function AppDrawer({
         : pathname.includes('/notifications')
           ? 'notifications'
           : pathname.includes('/download-status')
-        ? 'download-status'
-        : pathname.includes('/settings')
-            ? 'settings'
-            : pathname.includes('/download-status')
-              ? 'download-status'
-              : undefined;
+            ? 'download-status'
+            : pathname.includes('/settings')
+              ? 'settings'
+              : pathname.includes('/download-status')
+                ? 'download-status'
+                : undefined;
 
   // Always call hooks (Rules of Hooks), but only subscribe when drawer is visible
   // The hooks themselves handle memoization to prevent re-renders
@@ -358,7 +358,7 @@ export default function AppDrawer({
         name: t('signIn'),
         icon: UserIcon,
         onPress: handleSignIn
-      }      );
+      });
     }
 
     items.push({

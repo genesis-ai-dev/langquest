@@ -187,7 +187,10 @@ function main() {
     return text.replace(/\u001b\[[0-9;]*m/g, '');
   }
 
-  function namesFromOutput(output: string, label: 'Passed' | 'Failed'): Set<string> {
+  function namesFromOutput(
+    output: string,
+    label: 'Passed' | 'Failed'
+  ): Set<string> {
     const names = new Set<string>();
     const re = new RegExp(`\\[${label}\\]\\s+(\\S+)`, 'g');
     for (const match of stripAnsi(output).matchAll(re)) {

@@ -9,18 +9,18 @@
 
 import type { FiaPericopeStepsResponse } from '@/hooks/useFiaPericopeSteps';
 import type {
-    FiaAttachmentQueueItem,
-    FiaPericopeCacheKey
+  FiaAttachmentQueueItem,
+  FiaPericopeCacheKey
 } from '@/store/localStore';
 import { useLocalStore } from '@/store/localStore';
 import { getCachedAudioUri } from '@/utils/audioCache';
 import {
-    downloadFile,
-    ensureDir,
-    fileExists,
-    getDocumentDirectory,
-    readFileText,
-    writeFile
+  downloadFile,
+  ensureDir,
+  fileExists,
+  getDocumentDirectory,
+  readFileText,
+  writeFile
 } from '@/utils/fileUtils';
 import { useShallow } from 'zustand/react/shallow';
 
@@ -147,9 +147,8 @@ export function enqueue(pericopeId: string, projectId: string) {
 }
 
 async function enqueueInternal(pericopeId: string, projectId: string) {
-  const { lookupFiaLanguageCodeForProject } = await import(
-    '@/utils/languoidLookups'
-  );
+  const { lookupFiaLanguageCodeForProject } =
+    await import('@/utils/languoidLookups');
   const fiaLanguageCode = await lookupFiaLanguageCodeForProject(projectId);
   if (!fiaLanguageCode) {
     console.error(

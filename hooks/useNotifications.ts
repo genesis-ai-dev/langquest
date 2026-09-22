@@ -25,7 +25,11 @@ export const useNotifications = () => {
   const { data: inviteRequests = [] } = useHybridQuery<
     typeof invite.$inferSelect
   >({
-    queryKey: ['invite-notifications-count', currentUser?.id || '', currentUser?.email || 'anonymous'],
+    queryKey: [
+      'invite-notifications-count',
+      currentUser?.id || '',
+      currentUser?.email || 'anonymous'
+    ],
     enabled: !!(currentUser?.id || currentUser?.email) && isAuthenticated, // Only query if user has id or email and is authenticated
 
     // PowerSync query using Drizzle - filter expired invites (7 days expiry)
@@ -62,9 +66,8 @@ export const useNotifications = () => {
         .eq('status', 'pending')
         .eq('active', true);
       if (match) query = query.or(match);
-      const { data, error } = await query.overrideTypes<
-        (typeof invite.$inferSelect)[]
-      >();
+      const { data, error } =
+        await query.overrideTypes<(typeof invite.$inferSelect)[]>();
       if (error) throw error;
       return data;
     }

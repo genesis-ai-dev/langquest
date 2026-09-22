@@ -15,13 +15,9 @@ import {
   UserPlusIcon,
   XIcon
 } from 'lucide-react-native';
-import React, { useState } from 'react';
-import { Modal, Pressable, View } from 'react-native';
-import {
-  KeyboardAwareScrollView,
-  KeyboardToolbar
-} from 'react-native-keyboard-controller';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import React, { useCallback, useState } from 'react';
+import { BackHandler, Pressable, View } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { AnimatedOnboardingIcon } from './onboarding/AnimatedOnboardingIcon';
 import { AnimatedStepContent } from './onboarding/AnimatedStepContent';
 import { BibleBookListAnimation } from './onboarding/BibleBookListAnimation';
@@ -50,7 +46,6 @@ export function SimpleOnboardingFlow({
   onInviteCollaborators: _onInviteCollaborators
 }: SimpleOnboardingFlowProps) {
   const { t } = useLocalization();
-  const insets = useSafeAreaInsets();
   // Always start with vision step - language selection happens on terms page
   const [step, setStep] = useState<OnboardingStep>('vision');
   const [projectType, setProjectType] = useState<'bible' | 'other' | null>(
@@ -58,7 +53,23 @@ export function SimpleOnboardingFlow({
   );
   const [showBibleChapters, setShowBibleChapters] = useState(false);
 
-  // Reset step when modal opens - always start with vision
+  const setOnboardingCompleted = useLocalStore(
+    (state) => state.setOnboardingCompleted
+  );
+  const setOnboardingIsOpen = useLocalStore(
+    (state) => state.setOnboardingIsOpen
+  );
+
+  const handleClose = useCallback(() => {
+    setStep('vision');
+    setProjectType(null);
+    setShowBibleChapters(false);
+    setOnboardingCompleted(true);
+    setOnboardingIsOpen(false);
+    onClose();
+  }, [onClose, setOnboardingCompleted, setOnboardingIsOpen]);
+
+  // Reset step when the overlay opens - always start with vision
   React.useEffect(() => {
     if (visible) {
       setStep('vision');
@@ -116,13 +127,6 @@ export function SimpleOnboardingFlow({
     }
   };
 
-  const setOnboardingCompleted = useLocalStore(
-    (state) => state.setOnboardingCompleted
-  );
-  const setOnboardingIsOpen = useLocalStore(
-    (state) => state.setOnboardingIsOpen
-  );
-
   // Mark as open when this instance becomes visible
   // The parent component already prevents multiple instances by checking onboardingIsOpen
   // before setting showSimpleOnboarding to true
@@ -134,17 +138,14 @@ export function SimpleOnboardingFlow({
     }
   }, [visible, setOnboardingIsOpen]);
 
-  const handleClose = () => {
-    // Reset to initial step (vision)
-    setStep('vision');
-    setProjectType(null);
-    setShowBibleChapters(false);
-    // Mark onboarding as completed so it doesn't show again
-    setOnboardingCompleted(true);
-    // Mark as closed in store
-    setOnboardingIsOpen(false);
-    onClose();
-  };
+  React.useEffect(() => {
+    if (!visible) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      handleClose();
+      return true;
+    });
+    return () => sub.remove();
+  }, [visible, handleClose]);
 
   const handleAction = () => {
     // Just continue to next step - buttons are informational, not action buttons
@@ -161,18 +162,20 @@ export function SimpleOnboardingFlow({
     }
   };
 
-  // Keep Modal mounted with visible={false}. Returning null unmounts a
-  // still-visible Android Dialog and can leave a blank window over home.
+  if (!visible) {
+    return null;
+  }
+
+  // Same-window overlay. RN Modal is an Android Dialog that can leak a
+  // blank window if the tree unmounts during the slide-out animation.
   return (
-    <Modal
-      visible={visible}
-      transparent={false}
-      animationType="slide"
-      presentationStyle="overFullScreen"
-      onRequestClose={handleClose}
+    <View
+      accessibilityViewIsModal
+      className="absolute inset-0 z-50 bg-background"
+      style={{ elevation: 24 }}
     >
-      <View className="flex-1 bg-background" style={{ paddingTop: insets.top }}>
-        {/* PortalHost for Select dropdowns inside Modal */}
+      <View className="flex-1 bg-background">
+        {/* PortalHost for Select dropdowns inside the overlay */}
         <PortalHost />
 
         {/* Progress Indicator */}
@@ -537,7 +540,6 @@ export function SimpleOnboardingFlow({
           </View>
         )}
       </View>
-      <KeyboardToolbar />
-    </Modal>
+    </View>
   );
 }

@@ -13,10 +13,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 import { system } from '@/db/powersync/system';
-import {
-  createSignInSchema,
-  requireOnline
-} from '@/features/auth/validation';
+import { createSignInSchema, requireOnline } from '@/features/auth/validation';
 import type { SignInFormValues } from '@/features/auth/validation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';

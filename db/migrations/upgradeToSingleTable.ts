@@ -551,8 +551,7 @@ export async function reinsertUnpublishedDrafts(ctx: {
       continue;
     }
 
-    const ordered =
-      tableName === 'quest' ? sortQuestDrafts(rows) : rows;
+    const ordered = tableName === 'quest' ? sortQuestDrafts(rows) : rows;
 
     for (const row of ordered) {
       try {

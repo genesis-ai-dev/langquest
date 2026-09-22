@@ -299,7 +299,12 @@ export function useLanguoidSearch(
     isLoading,
     ...rest
   } = useHybridQuery<LanguoidSearchResult>({
-    queryKey: ['languoid-search', normalizedQuery, String(limit), String(uiReadyOnly)],
+    queryKey: [
+      'languoid-search',
+      normalizedQuery,
+      String(limit),
+      String(uiReadyOnly)
+    ],
 
     // Offline query using local LIKE
     offlineQuery: toCompilableQuery(
@@ -366,4 +371,3 @@ export function useLanguoidSearch(
     ...rest
   };
 }
-

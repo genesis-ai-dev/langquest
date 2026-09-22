@@ -149,11 +149,7 @@ export default function ForgotPasswordView() {
               <Text>{t('sendResetEmail')}</Text>
             </FormSubmit>
 
-            <Button
-              onPress={goToSignIn}
-              disabled={isPending}
-              variant="plain"
-            >
+            <Button onPress={goToSignIn} disabled={isPending} variant="plain">
               <Text>{t('backToLogin')}</Text>
             </Button>
           </View>

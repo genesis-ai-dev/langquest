@@ -36,7 +36,10 @@ import { Pressable, View } from 'react-native';
 // import { TagModal } from '../../components/TagModal';
 import { Text } from '@/components/ui/text';
 import type { HybridDataSource } from '@/hooks/useHybridQuery';
-import { useItemDownload, useItemDownloadStatus } from '@/hooks/useItemDownload';
+import {
+  useItemDownload,
+  useItemDownloadStatus
+} from '@/hooks/useItemDownload';
 
 // Define props locally to avoid require cycle.
 
@@ -327,9 +330,7 @@ const AssetCardItemComponent: React.FC<AssetCardItemProps> = ({
                   {!isPublished && isImported ? (
                     <Icon as={ImportIcon} size={14} />
                   ) : (
-                    !isPublished && (
-                      <Icon as={HardDriveIcon} size={14} />
-                    )
+                    !isPublished && <Icon as={HardDriveIcon} size={14} />
                   )}
                   {/* Play button - only show if onPlay is provided */}
                   {onPlay && (
