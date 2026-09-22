@@ -16,8 +16,10 @@ import {
   XIcon
 } from 'lucide-react-native';
 import React, { useCallback, useState } from 'react';
-import { BackHandler, Pressable, View } from 'react-native';
+import { Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
+import { FullWindowOverlay } from 'react-native-screens';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AnimatedOnboardingIcon } from './onboarding/AnimatedOnboardingIcon';
 import { AnimatedStepContent } from './onboarding/AnimatedStepContent';
 import { BibleBookListAnimation } from './onboarding/BibleBookListAnimation';
@@ -46,6 +48,7 @@ export function SimpleOnboardingFlow({
   onInviteCollaborators: _onInviteCollaborators
 }: SimpleOnboardingFlowProps) {
   const { t } = useLocalization();
+  const insets = useSafeAreaInsets();
   // Always start with vision step - language selection happens on terms page
   const [step, setStep] = useState<OnboardingStep>('vision');
   const [projectType, setProjectType] = useState<'bible' | 'other' | null>(
@@ -138,15 +141,6 @@ export function SimpleOnboardingFlow({
     }
   }, [visible, setOnboardingIsOpen]);
 
-  React.useEffect(() => {
-    if (!visible) return;
-    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      handleClose();
-      return true;
-    });
-    return () => sub.remove();
-  }, [visible, handleClose]);
-
   const handleAction = () => {
     // Just continue to next step - buttons are informational, not action buttons
     handleNext();
@@ -162,19 +156,9 @@ export function SimpleOnboardingFlow({
     }
   };
 
-  if (!visible) {
-    return null;
-  }
-
-  // Same-window overlay. RN Modal is an Android Dialog that can leak a
-  // blank window if the tree unmounts during the slide-out animation.
   return (
-    <View
-      accessibilityViewIsModal
-      className="absolute inset-0 z-50 bg-background"
-      style={{ elevation: 24 }}
-    >
-      <View className="flex-1 bg-background">
+    <OnboardingHost visible={visible} onRequestClose={handleClose}>
+      <View className="flex-1 bg-background" style={{ paddingTop: insets.top }}>
         {/* PortalHost for Select dropdowns inside the overlay */}
         <PortalHost />
 
@@ -540,6 +524,48 @@ export function SimpleOnboardingFlow({
           </View>
         )}
       </View>
-    </View>
+    </OnboardingHost>
+  );
+}
+
+/**
+ * Must sit above the native stack or Maestro/user taps hit the Screen
+ * underneath. iOS: FullWindowOverlay. Android: keep a Modal mounted and
+ * hide it with visible={false} and no animation so the Dialog cannot leak.
+ */
+function OnboardingHost({
+  visible,
+  onRequestClose,
+  children
+}: {
+  visible: boolean;
+  onRequestClose: () => void;
+  children: React.ReactNode;
+}) {
+  if (Platform.OS === 'ios') {
+    if (!visible) return null;
+    return (
+      <FullWindowOverlay>
+        <View
+          accessibilityViewIsModal
+          className="flex-1 bg-background"
+          style={StyleSheet.absoluteFill}
+        >
+          {children}
+        </View>
+      </FullWindowOverlay>
+    );
+  }
+
+  return (
+    <Modal
+      visible={visible}
+      animationType="none"
+      transparent={false}
+      presentationStyle="overFullScreen"
+      onRequestClose={onRequestClose}
+    >
+      {visible ? children : null}
+    </Modal>
   );
 }

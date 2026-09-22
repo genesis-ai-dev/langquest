@@ -125,9 +125,20 @@ onFlowComplete:
 - extendedWaitUntil:
     visible: '001'
     timeout: 45000
+# The publish control shows a percent while audio is still confirming.
+# That label disappearing resizes the button and drops a tap in flight,
+# so wait until it is gone before opening the drawer.
+- extendedWaitUntil:
+    notVisible:
+      id: quest-publish-percent
+    timeout: 60000
 - tapOn:
     id: quest-publish
     waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: quest-publish-confirm
+    timeout: 15000
 - tapOn:
     id: quest-publish-confirm
     waitToSettleTimeoutMs: 0

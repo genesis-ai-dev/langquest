@@ -1,6 +1,13 @@
 appId: ${MAESTRO_APP_ID}
 ---
 - tapOn:
+    id: projects-tab-my
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: home-sign-in
+    timeout: 30000
+- tapOn:
     id: home-sign-in
     waitToSettleTimeoutMs: 0
 - tapOn:

@@ -11,8 +11,10 @@ onFlowStart:
 - evalScript: ${output.projectName = "maestro-qreport-" + Date.now()}
 - evalScript: ${output.questName = "maestro-qreport-q-" + Date.now()}
 - evalScript: ${output.assetName = "maestro-qreport-a-" + Date.now()}
-- evalScript: ${output.questReportDetails = "maestro-quest-report-" + Date.now()}
-- evalScript: ${output.assetReportDetails = "maestro-asset-report-" + Date.now()}
+# Short tokens: Android inputText into the report drawer textarea has
+# dropped characters from longer maestro-*-report- + Date.now() strings.
+- evalScript: ${output.questReportDetails = "qr-" + Date.now()}
+- evalScript: ${output.assetReportDetails = "ar-" + Date.now()}
 - evalScript: ${output.skipSignInCleanup = true}
 - evalScript: ${output.api.createConfirmedUser(output.ownerEmail, output.ownerPassword)}
 - evalScript: ${output.api.seedProject(output.projectName, output.ownerEmail, false)}
@@ -109,6 +111,9 @@ onFlowStart:
 - tapOn:
     id: report-details
 - inputText: ${output.questReportDetails}
+- copyTextFrom:
+    id: report-details
+- evalScript: ${output.questReportDetails = String(maestro.copiedText || '').trim()}
 - runFlow: _hide-keyboard.yaml
 - extendedWaitUntil:
     visible:
@@ -140,6 +145,9 @@ onFlowStart:
 - tapOn:
     id: report-details
 - inputText: ${output.assetReportDetails}
+- copyTextFrom:
+    id: report-details
+- evalScript: ${output.assetReportDetails = String(maestro.copiedText || '').trim()}
 - runFlow: _hide-keyboard.yaml
 - extendedWaitUntil:
     visible:

@@ -34,7 +34,6 @@ import RNAlert from '@blazejkustra/react-native-alert';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useKeepAwake } from 'expo-keep-awake';
 import { Stack } from 'expo-router';
-import { useFocusEffect } from '@react-navigation/native';
 import {
   BookmarkPlusIcon,
   BookOpenIcon,
@@ -107,7 +106,7 @@ import {
   buildPericopeSequence,
   formatPericopeVerseLabel
 } from '@/constants/bibleStructure';
-import { run as runAssetGarbageCollector } from '@/database_services/assetGarbageCollectorService';
+import { useCollectAssetsOnBlur } from '@/hooks/useCollectAssetsOnBlur';
 import type { AssetUpdatePayload } from '@/database_services/assetService';
 import {
   batchUpdateAssetVerse,
@@ -596,17 +595,7 @@ export default function BibleAssetsView() {
     | undefined;
   const insets = useSafeAreaInsets();
 
-  useFocusEffect(
-    React.useCallback(() => {
-      void runAssetGarbageCollector();
-    }, [])
-  );
-
-  React.useEffect(() => {
-    return () => {
-      void runAssetGarbageCollector();
-    };
-  }, []);
+  useCollectAssetsOnBlur();
 
   // Selection mode for batch operations
   const {

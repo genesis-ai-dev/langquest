@@ -104,74 +104,39 @@ appId: ${MAESTRO_APP_ID}
       - tapOn:
           text: I agree
           waitToSettleTimeoutMs: 0
-      # Do not assert onboarding copy. It is gone if the modal already
-      # closed. Wait for the close control or home chrome.
-      - repeat:
-          times: 15
-          while:
-            notVisible:
-              id: app-drawer-menu-button
-          commands:
-            - runFlow:
-                when:
-                  visible:
-                    id: onboarding-close-button
-                commands:
-                  - tapOn:
-                      id: onboarding-close-button
-                      waitToSettleTimeoutMs: 0
-            - runFlow:
-                when:
-                  visible: Continue
-                  notVisible: I agree
-                commands:
-                  - tapOn: Continue
-            - runFlow:
-                when:
-                  visible: Toggle performance monitor
-                commands:
-                  - swipe:
-                      direction: DOWN
-            - waitForAnimationToEnd:
-                timeout: 1000
-# Home chrome is always `app-drawer-menu-button`. Create Account only
-# exists on the guest My tab, so wait for the drawer first, retry close
-# if the modal is still up, then pin My.
-- repeat:
-    times: 15
-    while:
-      notVisible:
-        id: app-drawer-menu-button
-    commands:
-      - runFlow:
-          when:
-            visible:
-              id: onboarding-close-button
-          commands:
-            - tapOn:
-                id: onboarding-close-button
-                waitToSettleTimeoutMs: 0
-      - runFlow:
-          when:
-            visible: Continue
-            notVisible: I agree
-          commands:
-            - tapOn: Continue
       - runFlow:
           when:
             visible: Toggle performance monitor
           commands:
             - swipe:
                 direction: DOWN
-# Closing onboarding must leave home chrome visible. Do not restart the
-# process to dismiss a leftover Android Dialog.
+      # `repeat: times` is success when it runs out. Do not wait 1s × 15
+      # after close — home looping animations make waitForAnimationToEnd
+      # always hit the timeout. Tap the X once, then require the hamburger.
+      - runFlow:
+          when:
+            notVisible:
+              id: app-drawer-menu-button
+          commands:
+            - runFlow:
+                when:
+                  notVisible:
+                    id: onboarding-close-button
+                commands:
+                  - extendedWaitUntil:
+                      visible:
+                        id: onboarding-close-button
+                      timeout: 15000
+            - tapOn:
+                id: onboarding-close-button
+                waitToSettleTimeoutMs: 0
+- runFlow:
+    when:
+      visible: Toggle performance monitor
+    commands:
+      - swipe:
+          direction: DOWN
 - extendedWaitUntil:
     visible:
       id: app-drawer-menu-button
-    timeout: 45000
-- tapOn:
-    id: projects-tab-my
-    waitToSettleTimeoutMs: 0
-- extendedWaitUntil:
-    visible: Create Account
-    timeout: 30000
+    timeout: 15000

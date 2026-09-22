@@ -69,10 +69,17 @@ onFlowStart:
           when:
             platform: iOS
           commands:
+            # iOS 18 and earlier show a system alert after the icon changes.
+            # iOS 26 does not.
             - extendedWaitUntil:
                 visible: OK
-                timeout: 10000
-            - tapOn: OK
+                timeout: 2000
+                optional: true
+            - runFlow:
+                when:
+                  visible: OK
+                commands:
+                  - tapOn: OK
       - extendedWaitUntil:
           visible:
             id: appearance-theme-first-selected
@@ -110,10 +117,17 @@ onFlowStart:
           when:
             platform: iOS
           commands:
+            # iOS 18 and earlier show a system alert after the icon changes.
+            # iOS 26 does not.
             - extendedWaitUntil:
                 visible: OK
-                timeout: 10000
-            - tapOn: OK
+                timeout: 2000
+                optional: true
+            - runFlow:
+                when:
+                  visible: OK
+                commands:
+                  - tapOn: OK
       - runFlow: _relaunch-keep-state.yaml
       - runFlow: _open-app-drawer.yaml
       - tapOn:

@@ -34,6 +34,16 @@ import { getDefaultOpMetadata } from '../powersync/opMetadata';
 import type { System } from '../powersync/system';
 import { AppConfig } from './AppConfig';
 
+function scheduleTombstonePrune(): void {
+  // Loaded on demand so the collector does not cycle through System, which
+  // constructs this connector.
+  void import('@/database_services/assetGarbageCollectorService')
+    .then((module) => module.pruneUploadedTombstones())
+    .catch((error) => {
+      console.error('[AssetGC] Failed to prune tombstones:', error);
+    });
+}
+
 /// Postgres Response codes that we cannot recover from by retrying.
 const FATAL_RESPONSE_CODES = [
   // Class 22 — Data Exception
@@ -613,6 +623,7 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
 
       if (response.status === '2xx') {
         await transaction.complete();
+        scheduleTombstonePrune();
         return;
       }
 
@@ -636,6 +647,7 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
         }
         // Clear the local queue for this transaction and proceed
         await transaction.complete();
+        scheduleTombstonePrune();
 
         return;
       }

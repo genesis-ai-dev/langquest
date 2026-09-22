@@ -6,6 +6,9 @@ jest.mock('@/db/powersync/system', () => ({
   system: {
     db: {
       select: jest.fn()
+    },
+    powersync: {
+      getAll: jest.fn(async () => [{ id: 1 }])
     }
   }
 }));
@@ -27,6 +30,7 @@ import {
   enqueue,
   getCachedQueuedAssetIds,
   getQueuedAssetIds,
+  pruneUploadedTombstones,
   run,
   subscribeAssetGcQueue
 } from '../assetGarbageCollectorService';
@@ -66,12 +70,31 @@ async function resetQueue() {
   await getQueuedAssetIds();
 }
 
+async function waitUntil(predicate: () => boolean) {
+  const start = Date.now();
+  while (!predicate()) {
+    if (Date.now() - start > 1000) {
+      throw new Error('timed out waiting for collector');
+    }
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+}
+
+async function storedQueue(): Promise<Record<string, string>> {
+  const raw = await AsyncStorage.getItem(ASSET_GC_QUEUE_KEY);
+  return raw ? (JSON.parse(raw) as Record<string, string>) : {};
+}
+
 describe('assetGarbageCollectorService', () => {
   beforeEach(async () => {
     jest.spyOn(console, 'log').mockImplementation(() => {});
+    jest.spyOn(console, 'error').mockImplementation(() => {});
     deleteAudioSegment.mockReset();
+    deleteAudioSegment.mockResolvedValue(undefined);
     (system.db.select as jest.Mock).mockReset();
     (system.db.select as jest.Mock).mockImplementation(() => thenableRows([]));
+    (system.powersync.getAll as jest.Mock).mockReset();
+    (system.powersync.getAll as jest.Mock).mockResolvedValue([{ id: 1 }]);
     await resetQueue();
   });
 
@@ -143,6 +166,52 @@ describe('assetGarbageCollectorService', () => {
     expect(await getQueuedAssetIds()).toEqual([]);
   });
 
+  it('keeps an id enqueued during an in-flight run and collects it', async () => {
+    await enqueue(['asset-1'], 'collect');
+
+    let release!: (value: unknown[]) => void;
+    const delayed = new Promise<unknown[]>((resolve) => {
+      release = resolve;
+    });
+    (system.db.select as jest.Mock).mockImplementation(() => ({
+      from() {
+        return this;
+      },
+      where() {
+        return this;
+      },
+      limit() {
+        return delayed;
+      },
+      then(
+        onFulfilled?: (value: unknown) => unknown,
+        onRejected?: (reason: unknown) => unknown
+      ) {
+        return delayed.then(onFulfilled, onRejected);
+      }
+    }));
+
+    const running = run();
+    const enqueued = enqueue(['asset-2'], 'collect');
+    await waitUntil(
+      () => (system.db.select as jest.Mock).mock.calls.length > 0
+    );
+    expect(await storedQueue()).not.toHaveProperty('asset-2');
+    (system.db.select as jest.Mock).mockImplementation(() =>
+      thenableRows([{ id: 'asset-2', name: 'Take' }])
+    );
+    release([{ id: 'asset-1', name: 'First' }]);
+    await enqueued;
+    await running;
+
+    expect(deleteAudioSegment).toHaveBeenCalledWith('asset-1', {
+      preserveAudioFiles: false
+    });
+    expect(deleteAudioSegment).toHaveBeenCalledWith('asset-2', {
+      preserveAudioFiles: false
+    });
+  });
+
   it('coalesces concurrent run calls', async () => {
     await enqueue(['asset-1'], 'collect');
 
@@ -181,6 +250,140 @@ describe('assetGarbageCollectorService', () => {
   it('is a no-op for empty enqueue and dequeue', async () => {
     await enqueue([], 'collect');
     await dequeue([]);
+    expect(await getQueuedAssetIds()).toEqual([]);
+  });
+
+  it('keeps both ids when enqueues overlap', async () => {
+    await Promise.all([
+      enqueue(['asset-1'], 'collect'),
+      enqueue(['asset-2'], 'collect-merge')
+    ]);
+
+    expect(await storedQueue()).toEqual({
+      'asset-1': 'collect',
+      'asset-2': 'collect-merge'
+    });
+  });
+
+  it('skips a delete when the id was dequeued before the pass', async () => {
+    await enqueue(['asset-1'], 'collect');
+    await dequeue(['asset-1']);
+    (system.db.select as jest.Mock).mockImplementation(() =>
+      thenableRows([{ id: 'asset-1', name: 'Take' }])
+    );
+
+    await run();
+
+    expect(deleteAudioSegment).not.toHaveBeenCalled();
+  });
+
+  it('holds the lock across a delete so dequeue cannot restore underneath it', async () => {
+    await enqueue(['asset-1'], 'collect');
+    (system.db.select as jest.Mock).mockImplementation(() =>
+      thenableRows([{ id: 'asset-1', name: 'Take' }])
+    );
+    let releaseDelete!: () => void;
+    deleteAudioSegment.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          releaseDelete = resolve;
+        })
+    );
+
+    const running = run();
+    await waitUntil(() => deleteAudioSegment.mock.calls.length > 0);
+
+    let dequeued = false;
+    const removed = dequeue(['asset-1']).then(() => {
+      dequeued = true;
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(dequeued).toBe(false);
+
+    releaseDelete();
+    await running;
+    await removed;
+
+    expect(deleteAudioSegment).toHaveBeenCalledTimes(1);
+    expect(await getQueuedAssetIds()).toEqual([]);
+  });
+
+  it('passes preserveAudioFiles for a merge collect', async () => {
+    await enqueue(['asset-1'], 'collect-merge');
+    (system.db.select as jest.Mock).mockImplementation(() =>
+      thenableRows([{ id: 'asset-1', name: 'Take' }])
+    );
+
+    await run();
+
+    expect(deleteAudioSegment).toHaveBeenCalledWith('asset-1', {
+      preserveAudioFiles: true
+    });
+  });
+
+  it('logs a failed collect and leaves the id queued', async () => {
+    await enqueue(['asset-1'], 'collect');
+    (system.db.select as jest.Mock).mockImplementation(() =>
+      thenableRows([{ id: 'asset-1', name: 'Take' }])
+    );
+    deleteAudioSegment.mockRejectedValue(new Error('disk'));
+
+    await run();
+
+    expect(console.error).toHaveBeenCalledWith(
+      '[AssetGC] Failed to collect asset-1:',
+      expect.any(Error)
+    );
+    expect(console.error).toHaveBeenCalledWith(
+      '[AssetGC] Collect passes exhausted; ids still queued:',
+      'asset-1'
+    );
+    expect(await storedQueue()).toEqual({ 'asset-1': 'collect' });
+  });
+
+  it('drops tombstones once the upload queue is empty', async () => {
+    await enqueue(['asset-1'], 'tombstone');
+    await enqueue(['asset-2'], 'collect');
+    (system.powersync.getAll as jest.Mock).mockResolvedValue([]);
+
+    await pruneUploadedTombstones();
+
+    expect(await storedQueue()).toEqual({ 'asset-2': 'collect' });
+  });
+
+  it('keeps tombstones while an upload is still pending', async () => {
+    await enqueue(['asset-1'], 'tombstone');
+    (system.powersync.getAll as jest.Mock).mockResolvedValue([{ id: 9 }]);
+
+    await pruneUploadedTombstones();
+
+    expect(await storedQueue()).toEqual({ 'asset-1': 'tombstone' });
+  });
+
+  it('keeps tombstones when the upload queue cannot be read', async () => {
+    await enqueue(['asset-1'], 'tombstone');
+    (system.powersync.getAll as jest.Mock).mockRejectedValue(
+      new Error('not ready')
+    );
+
+    await pruneUploadedTombstones();
+
+    expect(await storedQueue()).toEqual({ 'asset-1': 'tombstone' });
+    expect(console.error).toHaveBeenCalledWith(
+      '[AssetGC] Failed to read upload queue:',
+      expect.any(Error)
+    );
+  });
+
+  it('prunes tombstones at the end of a collect when uploads have landed', async () => {
+    await enqueue(['asset-1'], 'collect');
+    (system.db.select as jest.Mock).mockImplementation(() =>
+      thenableRows([{ id: 'asset-1', name: 'Take' }])
+    );
+    (system.powersync.getAll as jest.Mock).mockResolvedValue([]);
+
+    await run();
+
     expect(await getQueuedAssetIds()).toEqual([]);
   });
 });

@@ -104,35 +104,168 @@ async function writeQueue(queue: AssetGcQueue): Promise<void> {
   }
 }
 
+const MAX_COLLECT_PASSES = 5;
+
+// Serializes enqueue, dequeue, collect, and tombstone pruning. A collect
+// holds the lock across the delete so undo cannot restore rows underneath it.
+let tail: Promise<void> = Promise.resolve();
+
+function withLock<T>(work: () => Promise<T>): Promise<T> {
+  const result = tail.then(work, work);
+  tail = result.then(
+    () => undefined,
+    () => undefined
+  );
+  return result;
+}
+
+async function flushLock(): Promise<void> {
+  await tail;
+}
+
 export async function enqueue(
   ids: string[],
   operation: AssetGcOperation
 ): Promise<void> {
   if (ids.length === 0) return;
 
-  const queue = { ...(await readQueue()) };
-  for (const id of Array.from(new Set(ids))) {
-    const existing = queue[id];
-    if (existing === 'tombstone' && operation !== 'tombstone') {
-      continue;
+  await withLock(async () => {
+    const queue = { ...(await readQueue()) };
+    for (const id of Array.from(new Set(ids))) {
+      const existing = queue[id];
+      if (existing === 'tombstone' && operation !== 'tombstone') {
+        continue;
+      }
+      queue[id] = operation;
     }
-    queue[id] = operation;
-  }
-  await writeQueue(queue);
+    await writeQueue(queue);
+  });
 }
 
 export async function dequeue(ids: string[]): Promise<void> {
   if (ids.length === 0) return;
 
-  const queue = { ...(await readQueue()) };
-  for (const id of Array.from(new Set(ids))) {
-    delete queue[id];
-  }
-  await writeQueue(queue);
+  await withLock(async () => {
+    const queue = { ...(await readQueue()) };
+    for (const id of Array.from(new Set(ids))) {
+      delete queue[id];
+    }
+    await writeQueue(queue);
+  });
 }
 
 export async function getQueuedAssetIds(): Promise<string[]> {
   return Object.keys(await readQueue());
+}
+
+function hasPendingCollect(queue: AssetGcQueue): boolean {
+  return Object.values(queue).some((operation) => operation !== 'tombstone');
+}
+
+async function uploadQueueIsEmpty(): Promise<boolean> {
+  try {
+    const rows = await system.powersync.getAll<{ id: number }>(
+      'SELECT 1 AS id FROM ps_crud LIMIT 1'
+    );
+    return rows.length === 0;
+  } catch (error) {
+    console.error('[AssetGC] Failed to read upload queue:', error);
+    return false;
+  }
+}
+
+// Drop tombstones only after every local upload has landed. Until ps_crud
+// is empty, a checkpoint can still restore a quest link and verse-normalize
+// would PATCH it back.
+async function pruneUploadedTombstonesLocked(): Promise<void> {
+  const queue = await readQueue();
+  const tombstoneIds = Object.entries(queue)
+    .filter(([, operation]) => operation === 'tombstone')
+    .map(([id]) => id);
+  if (tombstoneIds.length === 0) return;
+  if (!(await uploadQueueIsEmpty())) return;
+
+  for (const id of tombstoneIds) {
+    delete queue[id];
+  }
+  await writeQueue(queue);
+  devLog('[AssetGC] Pruned uploaded tombstones:', tombstoneIds);
+}
+
+export async function pruneUploadedTombstones(): Promise<void> {
+  await withLock(pruneUploadedTombstonesLocked);
+}
+
+async function runOnce(): Promise<
+  { id: string; operation: AssetGcOperation }[]
+> {
+  const queue = await readQueue();
+  const entries = Object.entries(queue).map(([id, operation]) => ({
+    id,
+    operation
+  }));
+
+  const nameMap = await getAssetNameMap(entries.map((entry) => entry.id));
+  const entriesWithName = entries.map((entry) => ({
+    ...entry,
+    name: nameMap[entry.id] ?? null
+  }));
+
+  devLog('[AssetGC] Current queue entries:', entriesWithName);
+
+  if (entries.length === 0) {
+    return [];
+  }
+
+  const assetLocal = resolveTable('asset', { localOverride: true });
+  const processedIds = new Set<string>();
+
+  for (const entry of entries) {
+    if (entry.operation === 'tombstone') {
+      continue;
+    }
+
+    // Undo may have dequeued this id before the lock was taken.
+    const current = (await readQueue())[entry.id];
+    if (current !== entry.operation) {
+      continue;
+    }
+
+    try {
+      const [assetRecord] = await system.db
+        .select({ id: assetLocal.id })
+        .from(assetLocal)
+        .where(eq(assetLocal.id, entry.id))
+        .limit(1);
+
+      if (assetRecord) {
+        // Local audio files are never removed. collect-merge still asks to
+        // preserve them so a future file-deletion path can spare merge
+        // sources. Server objects survive a merge because the new rows
+        // still reference them.
+        await audioSegmentService.deleteAudioSegment(entry.id, {
+          preserveAudioFiles: entry.operation === 'collect-merge'
+        });
+        devLog(`[AssetGC] Collected asset: ${entry.id}`);
+      }
+
+      processedIds.add(entry.id);
+    } catch (error) {
+      console.error(`[AssetGC] Failed to collect ${entry.id}:`, error);
+    }
+  }
+
+  // Re-read so a storage write made during the delete is kept. An id
+  // removed before this lock was taken was already skipped above.
+  const latest = await readQueue();
+  const merged: AssetGcQueue = { ...latest };
+  for (const id of processedIds) {
+    if (id in merged) {
+      merged[id] = 'tombstone';
+    }
+  }
+  await writeQueue(merged);
+  return entries;
 }
 
 export async function run(): Promise<
@@ -141,54 +274,33 @@ export async function run(): Promise<
   if (runInFlight) return runInFlight;
 
   runInFlight = (async () => {
-    const queue = await readQueue();
-    const entries = Object.entries(queue).map(([id, operation]) => ({
-      id,
-      operation
-    }));
-
-    const nameMap = await getAssetNameMap(entries.map((entry) => entry.id));
-    const entriesWithName = entries.map((entry) => ({
-      ...entry,
-      name: nameMap[entry.id] ?? null
-    }));
-
-    devLog('[AssetGC] Current queue entries:', entriesWithName);
-
-    if (entries.length === 0) {
-      return [];
-    }
-
-    const assetLocal = resolveTable('asset', { localOverride: true });
-    const nextQueue: AssetGcQueue = { ...queue };
-
-    for (const entry of entries) {
-      if (entry.operation === 'tombstone') {
-        continue;
-      }
-
-      try {
-        const [assetRecord] = await system.db
-          .select({ id: assetLocal.id })
-          .from(assetLocal)
-          .where(eq(assetLocal.id, entry.id))
-          .limit(1);
-
-        if (assetRecord) {
-          await audioSegmentService.deleteAudioSegment(entry.id, {
-            preserveAudioFiles: entry.operation === 'collect-merge'
-          });
-          devLog(`[AssetGC] Collected asset: ${entry.id}`);
-        }
-
-        nextQueue[entry.id] = 'tombstone';
-      } catch (error) {
-        devLog(`[AssetGC] Failed to process ${entry.id}:`, error);
+    let lastEntries: { id: string; operation: AssetGcOperation }[] = [];
+    // A caller may enqueue while a pass holds the lock. Flush that waiter
+    // and collect it on the next pass of this same leave-screen run.
+    for (let pass = 0; pass < MAX_COLLECT_PASSES; pass++) {
+      lastEntries = await withLock(runOnce);
+      await flushLock();
+      const stillPending = await withLock(async () =>
+        hasPendingCollect(await readQueue())
+      );
+      if (!stillPending) {
+        await pruneUploadedTombstones();
+        return lastEntries;
       }
     }
 
-    await writeQueue(nextQueue);
-    return entries;
+    const remaining = await withLock(async () => {
+      const queue = await readQueue();
+      return Object.entries(queue)
+        .filter(([, operation]) => operation !== 'tombstone')
+        .map(([id]) => id);
+    });
+    console.error(
+      '[AssetGC] Collect passes exhausted; ids still queued:',
+      remaining.join(', ')
+    );
+    await pruneUploadedTombstones();
+    return lastEntries;
   })();
 
   try {

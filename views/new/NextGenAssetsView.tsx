@@ -80,7 +80,7 @@ import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { PublishQuestButton } from '@/components/PublishQuestButton';
 import { QuestSyncedBadge } from '@/components/QuestSyncedBadge';
 import { QuestOffloadVerificationDrawer } from '@/components/QuestOffloadVerificationDrawer';
-import { run as runAssetGarbageCollector } from '@/database_services/assetGarbageCollectorService';
+import { useCollectAssetsOnBlur } from '@/hooks/useCollectAssetsOnBlur';
 import {
   getMaxQuestOrderIndex,
   getQuestAssetOrderIndex,
@@ -1184,14 +1184,15 @@ export default function NextGenAssetsView() {
     stopPlayAll
   ]);
 
-  // Cleanup effect: Clear all refs and stop audio when component unmounts
-  // This prevents memory leaks when navigating away from the assets view
+  // Refetch on focus. Collection waits for blur so a refetch cannot
+  // delete rows while undo is still available on this screen.
   useFocusEffect(
     React.useCallback(() => {
       void refetch();
-      void runAssetGarbageCollector();
     }, [refetch])
   );
+
+  useCollectAssetsOnBlur();
 
   React.useEffect(() => {
     // Capture refs in variables to avoid stale closure warnings
@@ -1215,7 +1216,6 @@ export default function NextGenAssetsView() {
       // Reset state
       playbackCheckpoint.clearAllCheckpoints();
       setCurrentlyPlayingAssetId(null);
-      void runAssetGarbageCollector();
     };
   }, [isPlayAllRunningRef, playbackCheckpoint, stopPlayAll]);
 

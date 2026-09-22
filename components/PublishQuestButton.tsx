@@ -101,7 +101,7 @@ export function PublishQuestButton({
         testID="quest-publish"
       >
         {!isPublishing && (
-          <View className="flex-row items-center gap-0.5">
+          <View pointerEvents="none" className="flex-row items-center gap-0.5">
             <Icon as={CloudUpload} size={18} className={foregroundClass} />
             {showPercent && (
               <>

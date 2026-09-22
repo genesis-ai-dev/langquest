@@ -179,55 +179,14 @@ function main() {
     return args;
   }
 
-  function flowBaseName(flowFile: string): string {
-    return flowFile.replace(/^.*\//, '').replace(/\.ya?ml$/i, '');
-  }
-
-  function stripAnsi(text: string): string {
-    return text.replace(/\u001b\[[0-9;]*m/g, '');
-  }
-
-  function namesFromOutput(
-    output: string,
-    label: 'Passed' | 'Failed'
-  ): Set<string> {
-    const names = new Set<string>();
-    const re = new RegExp(`\\[${label}\\]\\s+(\\S+)`, 'g');
-    for (const match of stripAnsi(output).matchAll(re)) {
-      const name = match[1];
-      if (name) names.add(name);
-    }
-    return names;
-  }
-
-  function flowsForNames(flowFiles: string[], names: Set<string>): string[] {
-    return flowFiles.filter((flowFile) => names.has(flowBaseName(flowFile)));
-  }
-
-  function runMaestro(
-    flowFiles: string[],
-    options: { inherit: boolean }
-  ): Promise<{ code: number; output: string }> {
+  function runMaestro(flowFiles: string[]): Promise<number> {
     return new Promise((resolve) => {
       const child = spawn('maestro', maestroArgs(flowFiles), {
-        stdio: options.inherit ? 'inherit' : ['inherit', 'pipe', 'pipe'],
+        stdio: 'inherit',
         env: process.env
       });
-      let output = '';
-      if (!options.inherit) {
-        const onChunk = (chunk: Buffer) => {
-          const text = chunk.toString();
-          output += text;
-          process.stdout.write(chunk);
-        };
-        child.stdout?.on('data', onChunk);
-        child.stderr?.on('data', (chunk: Buffer) => {
-          output += chunk.toString();
-          process.stderr.write(chunk);
-        });
-      }
       child.on('exit', (code) => {
-        resolve({ code: code ?? 1, output });
+        resolve(code ?? 1);
       });
       child.on('error', (error) => {
         if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
@@ -237,7 +196,7 @@ function main() {
         } else {
           console.error(error);
         }
-        resolve({ code: 1, output });
+        resolve(1);
       });
     });
   }
@@ -256,32 +215,7 @@ function main() {
   console.log(`Flows: ${flows.join(' ')}`);
 
   void (async () => {
-    // One flow: Maestro's per-step checkboxes. A suite (two or more)
-    // uses the compact [Passed]/[Failed] reporter.
-    const detailed = flows.length === 1;
-    const first = await runMaestro(flows, { inherit: detailed });
-    if (first.code === 0) {
-      process.exit(0);
-    }
-
-    let retryFlows: string[];
-    if (detailed) {
-      retryFlows = flows;
-    } else {
-      const failedNames = namesFromOutput(first.output, 'Failed');
-      const passedNames = namesFromOutput(first.output, 'Passed');
-      retryFlows =
-        failedNames.size > 0
-          ? flowsForNames(flows, failedNames)
-          : flows.filter((flow) => !passedNames.has(flowBaseName(flow)));
-    }
-    if (retryFlows.length === 0) {
-      process.exit(first.code);
-    }
-
-    console.log(`[Retry] ${retryFlows.join(' ')}`);
-    const retry = await runMaestro(retryFlows, { inherit: detailed });
-    process.exit(retry.code);
+    process.exit(await runMaestro(flows));
   })();
 }
 

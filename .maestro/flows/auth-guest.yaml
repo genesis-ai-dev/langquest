@@ -13,6 +13,10 @@ onFlowComplete:
 - tapOn:
     id: projects-tab-my
     waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: home-sign-in
+    timeout: 15000
 - assertVisible:
     id: home-sign-in
 - tapOn:

@@ -15,8 +15,7 @@ import { getAppIconName, setAlternateAppIcon } from 'expo-alternate-app-icons';
  * foreground: disabling the launcher alias force-finishes the process.
  * Call this when the app is already backgrounding (see useDeferredIconTheme).
  *
- * On iOS the system shows an unavoidable confirmation alert; that is accepted
- * behaviour.
+ * On iOS 18 and earlier the system shows a confirmation alert. iOS 26 does not.
  */
 export async function applyTheme(themeId: string | null): Promise<void> {
   if (Platform.OS === 'web') return;

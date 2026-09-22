@@ -208,6 +208,23 @@ function updateUserPassword(email, newPassword) {
   return JSON.parse(updateResponse.body);
 }
 
+function getAppScheme() {
+  if (typeof MAESTRO_APP_SCHEME !== 'undefined' && MAESTRO_APP_SCHEME) {
+    return String(MAESTRO_APP_SCHEME);
+  }
+  const appId =
+    typeof MAESTRO_APP_ID !== 'undefined' && MAESTRO_APP_ID
+      ? String(MAESTRO_APP_ID)
+      : '';
+  if (appId.indexOf('.preview') !== -1) {
+    return 'langquest-preview';
+  }
+  if (appId.indexOf('.development') !== -1) {
+    return 'langquest-dev';
+  }
+  return 'langquest';
+}
+
 function generatePasswordResetLink(email) {
   // Validate email is defined and is a non-empty string
   if (!email || typeof email !== 'string' || email.trim() === '') {
@@ -218,9 +235,9 @@ function generatePasswordResetLink(email) {
 
   console.log('Generating password reset link for email:', email);
 
-  // Default to 'en' locale
-  const locale = 'en';
-  const finalRedirectTo = `${siteUrl}/${locale}/reset-password`;
+  // Native route is /reset-password. /en/reset-password is the website
+  // locale path and lands on Expo's unmatched "Page not found" screen.
+  const finalRedirectTo = getAppScheme() + '://reset-password';
 
   console.log('Using redirect URL:', finalRedirectTo);
 

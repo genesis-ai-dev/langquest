@@ -6,6 +6,12 @@ onFlowStart:
 - evalScript: ${output.email = faker.internet().emailAddress()}
 - evalScript: ${output.registerPassword = output.api.uniquePassword("register")}
 - runFlow: _launch-and-onboard.yaml
+- tapOn:
+    id: projects-tab-my
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible: Create Account
+    timeout: 30000
 - tapOn: Create Account
 - tapOn:
     id: register-username

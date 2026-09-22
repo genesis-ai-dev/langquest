@@ -12,12 +12,20 @@ export function useQueuedAssetIdSet(): Set<string> {
 
   React.useEffect(() => {
     let alive = true;
+    let sawSubscription = false;
     void getQueuedAssetIds().then((list) => {
-      if (alive) setIds(new Set(list));
+      if (!alive || sawSubscription) return;
+      setIds(new Set(list));
     });
-    return subscribeAssetGcQueue(() => {
+    const unsubscribe = subscribeAssetGcQueue(() => {
+      if (!alive) return;
+      sawSubscription = true;
       setIds(new Set(getCachedQueuedAssetIds()));
     });
+    return () => {
+      alive = false;
+      unsubscribe();
+    };
   }, []);
 
   return ids;

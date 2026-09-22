@@ -37,7 +37,7 @@
     "ios:release": "npx cross-env EXPO_PUBLIC_APP_VARIANT=production npx tsx ./scripts/run-native.ts ios --device --configuration Release",
     "web": "npm run powersync:copy-assets && expo start --web",
     "db:view": "npx drizzle-lab@latest visualizer --project-id LangQuest",
-    "test": "jest --watchAll",
+    "test": "jest --silent --matchman=false",
     "test:ci": "jest --ci --watchAll=false --watchman=false",
     "test:rls": "npm run sb -- test db",
     "maestro:local": "npx tsx ./testing/maestro-local.ts",

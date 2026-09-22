@@ -91,27 +91,27 @@ async function fetchServerSchemaInfo(
 ): Promise<ServerSchemaInfo> {
   console.log('[SchemaVersionService] Fetching server schema info...');
 
+  const netState = await NetInfo.fetch();
+  if (!netState.isConnected) {
+    console.log(
+      '[SchemaVersionService] Device is offline, skipping server check'
+    );
+    throw new Error('Device is offline');
+  }
+
+  const TIMEOUT_MS = 2000;
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const rpcPromise = supabaseClient.rpc('get_schema_info');
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new Error(`Schema info check timed out after ${TIMEOUT_MS}ms`));
+    }, TIMEOUT_MS);
+  });
+  // If the RPC wins, the timer still fires. Swallow that so LogBox
+  // does not treat the leftover reject as an app error.
+  void timeoutPromise.catch(() => undefined);
+
   try {
-    // Quick network check - skip RPC entirely if offline
-    // This avoids waiting for timeout when we know we can't reach the server
-    const netState = await NetInfo.fetch();
-    if (!netState.isConnected) {
-      console.log(
-        '[SchemaVersionService] Device is offline, skipping server check'
-      );
-      throw new Error('Device is offline');
-    }
-
-    // Add timeout to prevent hanging on slow networks
-    // Reduced from 5s to 2s for faster offline-first experience
-    const TIMEOUT_MS = 2000;
-    const rpcPromise = supabaseClient.rpc('get_schema_info');
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => {
-        reject(new Error(`Schema info check timed out after ${TIMEOUT_MS}ms`));
-      }, TIMEOUT_MS);
-    });
-
     const result = await Promise.race([rpcPromise, timeoutPromise]);
     const { data, error } = result as { data: unknown; error: unknown };
 
@@ -141,12 +141,8 @@ async function fetchServerSchemaInfo(
     console.log('[SchemaVersionService] Server schema info:', schemaInfo);
 
     return schemaInfo;
-  } catch (error) {
-    console.error(
-      '[SchemaVersionService] Error fetching server schema info:',
-      error
-    );
-    throw error;
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
   }
 }
 

@@ -100,13 +100,20 @@ function RootNavigator() {
     isAuthenticated,
     isSystemReady,
     migrationNeeded,
-    appUpgradeNeeded
+    appUpgradeNeeded,
+    sessionType
   } = useAuth();
 
   const needsMigration = isAuthenticated && !!migrationNeeded;
   const needsUpgrade = isAuthenticated && !!appUpgradeNeeded;
+  // Guest home already mounted (app). Recovery must not flip this or the
+  // nested (auth) stack dies (`state.stale` of undefined).
   const waitingForSystem =
-    isAuthenticated && !isSystemReady && !needsMigration && !needsUpgrade;
+    isAuthenticated &&
+    sessionType !== 'password-reset' &&
+    !isSystemReady &&
+    !needsMigration &&
+    !needsUpgrade;
 
   const appReady =
     !needsMigration && !needsUpgrade && !isLoading && !waitingForSystem;

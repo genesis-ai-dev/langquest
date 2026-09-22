@@ -6,8 +6,11 @@ onFlowStart:
 # period, and only when nothing references them any more. Two takes are
 # merged (the merged rows re-reference the same objects, the source rows
 # are garbage-collected): the queue must keep those objects. The merged
-# asset is then deleted for real: the queue must remove them. Undo in
-# between must not leave anything queued.
+# asset is then deleted for real: the queue must remove them.
+#
+# Local collection runs when the assets screen blurs (NextGen and Bible
+# share that). A soft delete on the focused screen must not queue. Undo
+# while still on the screen must restore the take. Leaving queues it.
 #
 # The sweep runs process_storage_object_deletions() through pg_net; the
 # local vault needs supabase_url and supabase_service_role_key.
@@ -84,7 +87,8 @@ onFlowStart:
 - extendedWaitUntil:
     notVisible: '001'
     timeout: 30000
-# Soft delete only drops the quest link; the content rows and objects stay.
+# Soft delete only drops the quest link. Collection waits until this
+# screen blurs, so the content rows stay and undo can restore them.
 - evalScript: ${output.api.waitForDeletionNotQueued(output.o1, 5000)}
 - extendedWaitUntil:
     visible:
@@ -106,8 +110,8 @@ onFlowStart:
 - extendedWaitUntil:
     notVisible: '001'
     timeout: 30000
-# Re-opening the quest runs the garbage collector: content rows go, names
-# are queued, objects survive the grace period.
+# Leaving this screen runs the collector: content rows go, names are
+# queued, objects survive the grace period.
 - tapOn:
     id: nav-back
     waitToSettleTimeoutMs: 0
