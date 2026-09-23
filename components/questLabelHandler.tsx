@@ -156,6 +156,8 @@ export function QuestLabelHandler({
                     onSubmitEditing={() => void handleSave()}
                     returnKeyType="done"
                     editable={!isSaving}
+                    testID="quest-version-label-input"
+                    accessibilityLabel="quest-version-label-input"
                   />
                 </View>
               </View>
@@ -174,6 +176,8 @@ export function QuestLabelHandler({
                 onPress={() => void handleSave()}
                 className="flex-1"
                 disabled={isSaving}
+                testID="quest-version-label-save"
+                accessibilityLabel="quest-version-label-save"
               >
                 <Text>{isSaving ? 'Saving...' : 'Save'}</Text>
               </Button>

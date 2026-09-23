@@ -382,7 +382,7 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
           if (typeof rawMetadata === 'string') {
             try {
               recordMetadata = JSON.parse(rawMetadata) as OpMetadata;
-            } catch (e) {
+            } catch {
               console.warn(
                 `[uploadData] ${op.table} op has invalid _metadata JSON:`,
                 rawMetadata
@@ -455,7 +455,6 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
           // List of known array fields in the schema
           const arrayFields = [
             'download_profiles',
-            'images',
             'audio',
             'asset_ids',
             'translation_ids',

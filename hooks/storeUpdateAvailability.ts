@@ -2,22 +2,22 @@ import { Platform } from 'react-native';
 
 export const STORE_UPDATE_DISMISSAL_MS = 24 * 60 * 60 * 1000;
 
-export type SystemInfoRow = {
+export interface SystemInfoRow {
   ios_latest_version: string;
   android_latest_version: string;
   ios_store_url: string | null;
   android_store_url: string | null;
   banner_enabled: boolean;
-};
+}
 
-export type StoreUpdateBannerInput = {
+export interface StoreUpdateBannerInput {
   bannerEnabled: boolean;
   isUpdateAvailable: boolean;
   latestVersion: string | null;
   dismissedTimestamp: number | null;
   dismissedVersion: string | null;
   now?: number;
-};
+}
 
 export function getLatestStoreVersion(info: SystemInfoRow): string | null {
   if (Platform.OS === 'ios') {

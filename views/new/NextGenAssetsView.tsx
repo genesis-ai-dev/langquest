@@ -75,11 +75,11 @@ import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { AssetListSkeleton } from '@/components/AssetListSkeleton';
 import { ExportButton } from '@/components/ExportButton';
 import { ModalDetails } from '@/components/ModalDetails';
+import { QuestDownloadButton } from '@/components/QuestDownloadButton';
 import { ReportModal } from '@/components/NewReportModal';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { PublishQuestButton } from '@/components/PublishQuestButton';
 import { QuestSyncedBadge } from '@/components/QuestSyncedBadge';
-import { QuestOffloadVerificationDrawer } from '@/components/QuestOffloadVerificationDrawer';
 import { useCollectAssetsOnBlur } from '@/hooks/useCollectAssetsOnBlur';
 import {
   getMaxQuestOrderIndex,
@@ -104,12 +104,12 @@ import type {
 // import { audioSegmentService } from '@/database_services/audioSegmentService';
 import { useAssetsByQuest } from '@/hooks/db/useAssets';
 import { useBlockedAssetsCount } from '@/hooks/useBlockedCount';
-import { useQuestOffloadVerification } from '@/hooks/useQuestOffloadVerification';
+import { useQuestDownloadFlow } from '@/hooks/useQuestDownloadFlow';
 import { useHasUserReported } from '@/hooks/useReports';
 import { useUndoHistory } from '@/hooks/useUndoHistory';
 import { getAssetAudioUris as getPlayableAssetAudioUris } from '@/utils/getAssetAudioUris';
 import { publishQuest as publishQuestUtils } from '@/utils/publishQuest';
-import { offloadQuest } from '@/utils/questOffloadUtils';
+import { resolveQuestDownloadAction } from '@/utils/questDownloadGate';
 import { getThemeColor } from '@/utils/styleUtils';
 import {
   invalidateCloud,
@@ -142,7 +142,7 @@ function KeepAwakeGuard() {
 }
 
 export default function NextGenAssetsView() {
-  const { questId, projectId, router, goToRecording } = useNavigationHelpers();
+  const { questId, projectId, goToRecording } = useNavigationHelpers();
   const { currentUser } = useAuth();
   const audioContext = useAudio();
   const queryClient = useQueryClient();
@@ -181,13 +181,11 @@ export default function NextGenAssetsView() {
   const [showDetailsModal, setShowDetailsModal] = React.useState(false);
   const [showSettingsModal, setShowSettingsModal] = React.useState(false);
   const [showReportModal, setShowReportModal] = React.useState(false);
-  const [showOffloadDrawer, setShowOffloadDrawer] = React.useState(false);
   const [showRenameDrawer, setShowRenameDrawer] = React.useState(false);
   const [renameAssetId, setRenameAssetId] = React.useState<string | null>(null);
   const [renameAssetName, setRenameAssetName] = React.useState('');
   const [showPrivateAccessModal, setShowPrivateAccessModal] =
     React.useState(false);
-  const [isOffloading, setIsOffloading] = React.useState(false);
   const [isRefreshing, setIsRefreshing] = React.useState(false);
   // Track which asset is currently playing during play-all
   const [currentlyPlayingAssetId, setCurrentlyPlayingAssetId] = React.useState<
@@ -407,11 +405,12 @@ export default function NextGenAssetsView() {
   // User can see published badge if they are creator, member, or owner
   const canSeePublishedBadge = isCreator || isMember;
 
-  // Initialize offload verification hook
-  const verificationState = useQuestOffloadVerification(questId || '');
+  const questDownloadFlow = useQuestDownloadFlow(projectId || '');
 
   // Query SQLite directly - single source of truth, no cache, no race conditions
-  const isQuestDownloaded = useQuestDownloadStatusLive(questId || null);
+  const isQuestDownloaded =
+    useQuestDownloadStatusLive(questId || null) ||
+    questDownloadFlow.downloadedQuestIds.has(questId || '');
 
   // Clean deeper layers
   const currentStatus = useStatusContext();
@@ -1083,54 +1082,22 @@ export default function NextGenAssetsView() {
     }
   });
 
-  // Handle offload button click - start verification
-  const handleOffloadClick = () => {
-    if (selectedQuest?.published_at == null) {
-      console.warn('🗑️ [Offload] Refusing to offload unpublished quest');
-      return;
-    }
-    console.log('🗑️ [Offload] Opening verification drawer');
-    setShowOffloadDrawer(true);
-    verificationState.startVerification();
+  const questDownloadAction = resolveQuestDownloadAction({
+    isSignedIn: Boolean(currentUser),
+    isLocal: selectedQuest?.source === 'local',
+    isDownloaded: isQuestDownloaded,
+    isPublished: selectedQuest?.published_at != null
+  });
+  const isQuestDownloading =
+    !isQuestDownloaded &&
+    !!questId &&
+    questDownloadFlow.downloadingQuestIds.has(questId);
+  const handleDownloadClick = () => {
+    if (questId) questDownloadFlow.download(questId);
   };
-
-  // Handle offload confirmation - execute offload
-  const handleOffloadConfirm = async () => {
-    console.log('🗑️ [Offload] User confirmed, executing offload');
-    setIsOffloading(true);
-    try {
-      const result = await offloadQuest({
-        questId: questId || '',
-        verifiedIds: verificationState.verifiedIds,
-        onProgress: (progress, message) => {
-          console.log(`🗑️ [Offload Progress] ${progress}%: ${message}`);
-        }
-      });
-
-      await invalidateCloud(
-        queryClient,
-        'download-status',
-        'quests',
-        'assets',
-        'current-quest',
-        'my-projects',
-        'all-projects',
-        'project'
-      );
-
-      RNAlert.alert(
-        t('success'),
-        result.localRowsRemoved ? t('offloadComplete') : t('offloadSyncPending')
-      );
-      setShowOffloadDrawer(false);
-
-      router.back();
-    } catch (error) {
-      console.error('Failed to offload quest:', error);
-      RNAlert.alert(t('error'), t('offloadError'));
-    } finally {
-      setIsOffloading(false);
-    }
+  // Offloaded quests are no longer on-device; leave the assets screen.
+  const handleOffloadClick = () => {
+    if (questId) questDownloadFlow.offload(questId, { leaveQuest: true });
   };
 
   // Handle going to recording - stops any playing audio first
@@ -1184,8 +1151,8 @@ export default function NextGenAssetsView() {
     stopPlayAll
   ]);
 
-  // Refetch on focus. Collection waits for blur so a refetch cannot
-  // delete rows while undo is still available on this screen.
+  // Refetch on focus. refetch must be a stable identity or this effect
+  // retriggers on every fetch and an empty list flashes placeholders.
   useFocusEffect(
     React.useCallback(() => {
       void refetch();
@@ -1240,6 +1207,12 @@ export default function NextGenAssetsView() {
         <View className="flex flex-row items-center justify-between">
           <Text className="text-base font-semibold">{t('assets')}</Text>
           <View className="flex flex-row items-center gap-2">
+            <QuestDownloadButton
+              action={questDownloadAction}
+              isDownloading={isQuestDownloading}
+              onDownload={handleDownloadClick}
+              onOffload={handleOffloadClick}
+            />
             {isPublished ? (
               // Only show cloud-check icon if user is creator, member, or owner
               canSeePublishedBadge ? (
@@ -1406,7 +1379,7 @@ export default function NextGenAssetsView() {
         <Text className="text-sm text-muted-foreground">{statusText}</Text>
       )}
 
-      {isLoading || (isFetching && assets.length === 0) ? (
+      {isLoading ? (
         searchQuery.trim().length > 0 ? (
           <View className="flex-1 items-center justify-center pt-8">
             <ActivityIndicator size="large" color={getThemeColor('primary')} />
@@ -1652,6 +1625,9 @@ export default function NextGenAssetsView() {
           questId={questId}
           projectId={projectId || ''}
           questSource={selectedQuest?.source}
+          onOffloadClick={
+            questDownloadAction === 'offload' ? handleOffloadClick : undefined
+          }
         />
       )}
       {selectedQuest && (
@@ -1661,7 +1637,6 @@ export default function NextGenAssetsView() {
           content={selectedQuest}
           onClose={() => setShowDetailsModal(false)}
           isDownloaded={isQuestDownloaded}
-          onOffloadClick={handleOffloadClick}
         />
       )}
       {showReportModal && (
@@ -1676,25 +1651,13 @@ export default function NextGenAssetsView() {
         />
       )}
 
-      {/* Offload Verification Drawer */}
-      <QuestOffloadVerificationDrawer
-        isOpen={showOffloadDrawer}
-        onOpenChange={(open) => {
-          if (!open && !isOffloading) {
-            setShowOffloadDrawer(false);
-            verificationState.cancel();
-          }
-        }}
-        onContinue={handleOffloadConfirm}
-        verificationState={verificationState}
-        isOffloading={isOffloading}
-      />
+      {questDownloadFlow.sheets}
 
       {/* Private Access Gate Modal for Membership Requests */}
       {isPrivateProject && (
         <PrivateAccessGate
           projectId={projectId || ''}
-          projectName={projectName as string}
+          projectName={projectName}
           isPrivate={isPrivateProject as boolean}
           action="contribute"
           modal={true}

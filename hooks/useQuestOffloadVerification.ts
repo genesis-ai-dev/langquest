@@ -797,7 +797,7 @@ export function useQuestOffloadVerification(
         };
 
         // Wave 3: Votes and tags
-        const [votesResult, tagsResult] = await Promise.all([
+        await Promise.all([
           // Verify votes
           (async () => {
             try {

@@ -4,8 +4,9 @@ onFlowStart:
 onFlowComplete:
   - runFlow: _recover-after-airplane.yaml
 ---
-# Download a published quest online, then open it with radios down (no
-# Download Required). A sibling cloud-only quest still shows Download Now.
+# Download a published quest online, then open it with radios down.
+# The device user is not a member, so tapping either quest opens the
+# cloud assets (no Download Now); the download goes through quest-download.
 # Published quests hide Record; this is the field-read path.
 # Android only — iOS Simulator has no airplane mode.
 - evalScript: ${output.ownerEmail = output.api.uniqueEmail("offdlowner")}
@@ -18,7 +19,6 @@ onFlowComplete:
 - evalScript: ${output.api.createConfirmedUser(output.ownerEmail, output.ownerPassword)}
 - evalScript: ${output.api.seedProject(output.projectName, output.ownerEmail, false)}
 - evalScript: ${output.api.seedQuest(output.projectName, output.questName, output.ownerEmail, true)}
-- evalScript: ${output.api.seedQuest(output.projectName, output.cloudQuestName, output.ownerEmail, true)}
 - evalScript: ${output.api.seedSourceAsset(output.projectName, output.questName, output.ownerEmail, output.assetName, "Offline source")}
 - runFlow: _start-signed-in.yaml
 - tapOn:
@@ -37,20 +37,15 @@ onFlowComplete:
 - extendedWaitUntil:
     visible: ${output.questName}
     timeout: 45000
-- tapOn:
-    text: ${output.questName}
-- runFlow:
-    when:
-      visible: ${output.questName}
-      notVisible: '(?i)Download Now'
-    commands:
-      - tapOn:
-          text: ${output.questName}
+# Seed the sibling only after this download. Two quest-download
+# buttons are both to the right of the first name, and iOS taps the
+# other row.
 - extendedWaitUntil:
-    visible: '(?i)Download Now'
+    visible:
+      id: quest-download
     timeout: 15000
 - tapOn:
-    text: '(?i)Download Now'
+    id: quest-download
 - extendedWaitUntil:
     visible: Continue to Download
     timeout: 45000
@@ -63,6 +58,7 @@ onFlowComplete:
 - tapOn:
     id: quest-download-confirm
 - evalScript: ${output.api.waitForQuestDownload(output.questName, output.signInEmail, true)}
+- evalScript: ${output.api.seedQuest(output.projectName, output.cloudQuestName, output.ownerEmail, true)}
 - extendedWaitUntil:
     notVisible:
       id: quest-download-confirm
@@ -109,9 +105,13 @@ onFlowComplete:
       - tapOn:
           text: ${output.cloudQuestName}
       - extendedWaitUntil:
-          visible: '(?i)Download Now'
-          timeout: 15000
-      - tapOn: '(?i)^Cancel$'
+          visible:
+            id: assets-refresh-button
+          timeout: 20000
+      - assertNotVisible: '(?i)Download Now'
+      - tapOn:
+          id: nav-back
+          waitToSettleTimeoutMs: 0
       - setAirplaneMode: disabled
 - evalScript: ${output.api.deleteProject(output.projectName)}
 - evalScript: ${output.api.deleteUserIfExists(output.signInEmail)}

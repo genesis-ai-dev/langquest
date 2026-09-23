@@ -43,7 +43,6 @@ import {
 } from '@/db/drizzleSchema';
 import type { FiaMetadata } from '@/db/drizzleSchemaColumns';
 import { system } from '@/db/powersync/system';
-import type { Project } from '@/hooks/db/useProjects';
 import { useAudioPlaybackCheckpoint } from '@/hooks/useAudioPlaybackCheckpoint';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNavigationHelpers } from '@/hooks/useNavigation';

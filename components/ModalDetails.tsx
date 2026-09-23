@@ -6,12 +6,11 @@ import {
 import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
 import type { WithSource } from '@/utils/dbUtils';
-import { FEATURE_FLAG_CAN_OFFLOAD_QUEST } from '@/utils/featureFlags';
 import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { and, eq } from 'drizzle-orm';
 import {
-  CloudOffIcon,
+  CloudIcon,
   HardDriveDownloadIcon,
   InfoIcon,
   LanguagesIcon,
@@ -19,7 +18,6 @@ import {
 } from 'lucide-react-native';
 import { default as React } from 'react';
 import { View } from 'react-native';
-import { Button } from './ui/button';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from './ui/drawer';
 import { Icon } from './ui/icon';
 import { Text } from './ui/text';
@@ -35,7 +33,6 @@ interface ModalDetailsProps {
   onClose: () => void;
   // Quest-specific props
   isDownloaded?: boolean;
-  onOffloadClick?: () => void;
 }
 
 export const ModalDetails: React.FC<ModalDetailsProps> = ({
@@ -43,8 +40,7 @@ export const ModalDetails: React.FC<ModalDetailsProps> = ({
   contentType,
   content,
   onClose,
-  isDownloaded = false,
-  onOffloadClick
+  isDownloaded = false
 }) => {
   const { t } = useLocalization();
 
@@ -129,29 +125,13 @@ export const ModalDetails: React.FC<ModalDetailsProps> = ({
       ? targetLangArr[0]
       : null;
 
-  // Debug logging
-  React.useEffect(() => {
-    if (isVisible && contentType === 'quest') {
-      console.log('📋 [ModalDetails] Quest modal opened', {
-        questId: content.id,
-        questName: content.name,
-        isDownloaded,
-        hasOffloadClick: !!onOffloadClick,
-        contentSource: content.source,
-        shouldShowOffload:
-          isDownloaded &&
-          !!onOffloadClick &&
-          content.source !== 'local' &&
-          (content as Quest).published_at != null
-      });
-    }
-  }, [isVisible, contentType, content, isDownloaded, onOffloadClick]);
-
   return (
     <Drawer
       open={isVisible}
-      onOpenChange={onClose}
-      snapPoints={FEATURE_FLAG_CAN_OFFLOAD_QUEST ? [430, 470] : [260]}
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+      snapPoints={[260]}
     >
       <DrawerContent className="bg-background">
         <DrawerHeader>
@@ -193,45 +173,16 @@ export const ModalDetails: React.FC<ModalDetailsProps> = ({
             </View>
           )}
 
-          {/* Quest-specific: Download status and storage */}
           {contentType === 'quest' && (
-            <>
-              <View className="flex-row items-center gap-3">
-                <Icon
-                  as={isDownloaded ? HardDriveDownloadIcon : CloudOffIcon}
-                  size={20}
-                />
-                <Text className="flex-1">
-                  {isDownloaded ? t('downloaded') : t('notDownloaded')}
-                </Text>
-              </View>
-
-              {/* Offload button - only show if quest is downloaded and published */}
-              {FEATURE_FLAG_CAN_OFFLOAD_QUEST &&
-                isDownloaded &&
-                onOffloadClick &&
-                content.source !== 'local' &&
-                (content as Quest).published_at != null && (
-                  <View className="mt-4 rounded-lg border border-destructive/20 bg-destructive/5 p-4">
-                    <Text className="mb-2 text-sm font-semibold text-destructive">
-                      {t('freeUpSpace')}
-                    </Text>
-                    <Text className="mb-3 text-sm text-muted-foreground">
-                      {t('offloadQuestDescription')}
-                    </Text>
-                    <Button
-                      variant="destructive"
-                      onPress={() => {
-                        onClose();
-                        onOffloadClick();
-                      }}
-                    >
-                      <Icon as={CloudOffIcon} className="text-white" />
-                      <Text className="text-white">{t('offloadQuest')}</Text>
-                    </Button>
-                  </View>
-                )}
-            </>
+            <View className="flex-row items-center gap-3">
+              <Icon
+                as={isDownloaded ? HardDriveDownloadIcon : CloudIcon}
+                size={20}
+              />
+              <Text className="flex-1">
+                {isDownloaded ? t('downloaded') : t('notDownloaded')}
+              </Text>
+            </View>
           )}
         </View>
       </DrawerContent>

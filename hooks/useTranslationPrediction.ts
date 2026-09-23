@@ -3,7 +3,7 @@ import { useMutation } from '@tanstack/react-query';
 
 export interface PredictionRequest {
   sourceText: string;
-  examples: Array<{ source: string; target: string }>;
+  examples: { source: string; target: string }[];
   sourceLanguageName: string;
   targetLanguageName: string;
   model?: string;

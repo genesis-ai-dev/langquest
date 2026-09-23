@@ -2739,6 +2739,68 @@ export const localizations = {
     thai: 'ทำซ้ำ',
     mandarin: '重做'
   },
+  verseDropAboveFirstSection: {
+    english: "Recordings can't go above the first section.",
+    french:
+      'Les enregistrements ne peuvent pas être placés au-dessus de la première section.',
+    spanish: 'Las grabaciones no pueden ir encima de la primera sección.',
+    brazilian_portuguese:
+      'As gravações não podem ficar acima da primeira seção.',
+    tok_pisin: 'Ol rekoding i no ken i stap antap long namba wan hap.',
+    indonesian: 'Rekaman tidak bisa ditempatkan di atas bagian pertama.',
+    nepali: 'रेकर्डिङहरू पहिलो खण्डभन्दा माथि राख्न सकिँदैन।',
+    hindi: 'रिकॉर्डिंग पहले खंड के ऊपर नहीं रखी जा सकती।',
+    burmese: 'အသံသွင်းချက်များကို ပထမအပိုင်းအပေါ်တွင် မထားနိုင်ပါ။',
+    thai: 'ไม่สามารถวางไฟล์บันทึกเสียงไว้เหนือส่วนแรกได้',
+    mandarin: '录音不能放在第一个分区上方。'
+  },
+  verseLabelsOutOfOrder: {
+    english: 'Verse labels have to stay in verse order.',
+    french:
+      "Les étiquettes de versets doivent rester dans l'ordre des versets.",
+    spanish: 'Las etiquetas de versículos deben mantenerse en orden.',
+    brazilian_portuguese: 'Os rótulos de versículos precisam ficar em ordem.',
+    tok_pisin: 'Ol nem bilong ves i mas stap long oda bilong ves.',
+    indonesian: 'Label ayat harus tetap berurutan.',
+    nepali: 'पद लेबलहरू पदको क्रममै रहनुपर्छ।',
+    hindi: 'पद लेबल पदों के क्रम में ही रहने चाहिए।',
+    burmese: 'ကျမ်းပိုဒ်တံဆိပ်များသည် ကျမ်းပိုဒ်အစဉ်အတိုင်း ရှိရမည်။',
+    thai: 'ป้ายข้อพระคัมภีร์ต้องเรียงตามลำดับข้อ',
+    mandarin: '经文标签必须按经文顺序排列。'
+  },
+  verseLabelNeedsRecording: {
+    english: 'That move would leave a verse label with no recordings.',
+    french:
+      'Ce déplacement laisserait une étiquette de verset sans enregistrement.',
+    spanish:
+      'Ese movimiento dejaría una etiqueta de versículo sin grabaciones.',
+    brazilian_portuguese:
+      'Esse movimento deixaria um rótulo de versículo sem gravações.',
+    tok_pisin:
+      'Dispela muv bai lusim wanpela nem bilong ves i no gat rekoding.',
+    indonesian: 'Pemindahan itu akan membuat label ayat tanpa rekaman.',
+    nepali: 'यो सार्दा एउटा पद लेबलमा कुनै रेकर्डिङ बाँकी रहँदैन।',
+    hindi: 'इस बदलाव से एक पद लेबल बिना रिकॉर्डिंग के रह जाएगा।',
+    burmese:
+      'ဤရွှေ့ခြင်းကြောင့် ကျမ်းပိုဒ်တံဆိပ်တစ်ခုတွင် အသံသွင်းချက် မကျန်တော့ပါ။',
+    thai: 'การย้ายนี้จะทำให้ป้ายข้อพระคัมภีร์ไม่มีไฟล์บันทึกเสียง',
+    mandarin: '此移动会使某个经文标签下没有录音。'
+  },
+  verseLabelsSaveFailed: {
+    english: "Some verse changes couldn't be saved.",
+    french:
+      "Certaines modifications de versets n'ont pas pu être enregistrées.",
+    spanish: 'No se pudieron guardar algunos cambios de versículos.',
+    brazilian_portuguese:
+      'Algumas alterações de versículos não puderam ser salvas.',
+    tok_pisin: 'Sampela senis bilong ves i no inap seiv.',
+    indonesian: 'Beberapa perubahan ayat tidak dapat disimpan.',
+    nepali: 'केही पद परिवर्तनहरू सुरक्षित गर्न सकिएन।',
+    hindi: 'कुछ पद बदलाव सहेजे नहीं जा सके।',
+    burmese: 'ကျမ်းပိုဒ်ပြောင်းလဲမှုအချို့ကို သိမ်းဆည်း၍ မရပါ။',
+    thai: 'ไม่สามารถบันทึกการเปลี่ยนแปลงข้อพระคัมภีร์บางรายการได้',
+    mandarin: '部分经文更改无法保存。'
+  },
   assetRedoCreateMessage: {
     english: 'Asset created',
     french: 'Élément créé',
@@ -8979,6 +9041,19 @@ export const localizations = {
     thai: 'ไม่มีเนื้อหา',
     mandarin: '无可用内容'
   },
+  inactive: {
+    english: 'Inactive',
+    french: 'Inactif',
+    spanish: 'Inactivo',
+    brazilian_portuguese: 'Inativo',
+    tok_pisin: 'I no wok',
+    indonesian: 'Tidak aktif',
+    nepali: 'निष्क्रिय',
+    hindi: 'निष्क्रिय',
+    burmese: 'အသုံးမပြုပါ',
+    thai: 'ไม่ใช้งาน',
+    mandarin: '未启用'
+  },
   audioReady: {
     english: 'Audio ready',
     french: 'Audio prêt',
@@ -9004,19 +9079,6 @@ export const localizations = {
     burmese: 'အသံ မရရှိနိုင်ပါ',
     thai: 'เสียงไม่พร้อมใช้งาน',
     mandarin: '音频不可用'
-  },
-  imagesAvailable: {
-    english: 'Images available',
-    french: 'Images disponibles',
-    spanish: 'Imágenes disponibles',
-    brazilian_portuguese: 'Imagens disponíveis',
-    tok_pisin: 'Ol piksa i stap',
-    indonesian: 'Gambar tersedia',
-    nepali: 'तस्बिरहरू उपलब्ध छन्',
-    hindi: 'छवियां उपलब्ध हैं',
-    burmese: 'ရုပ်ပုံများ ရရှိနိုင်ပါသည်',
-    thai: 'มีรูปภาพ',
-    mandarin: '图像可用'
   },
   language: {
     english: 'Language',
@@ -11836,128 +11898,6 @@ export const localizations = {
     thai: 'สถานะ PowerSync',
     mandarin: 'PowerSync 状态'
   },
-  networkStatus: {
-    english: 'Network Status',
-    french: 'État du réseau',
-    spanish: 'Estado de Red',
-    brazilian_portuguese: 'Status da Rede',
-    tok_pisin: 'Network Status',
-    indonesian: 'Status Jaringan',
-    nepali: 'नेटवर्क स्थिति',
-    hindi: 'नेटवर्क स्थिति',
-    burmese: 'အင်တာနက် အခြေအနေ',
-    thai: 'สถานะเครือข่าย',
-    mandarin: '网络状态'
-  },
-  attachmentDownloadProgress: {
-    english: 'Attachment Download Progress',
-    french: 'Progression du téléchargement des pièces jointes',
-    spanish: 'Progreso de Descarga de Archivos',
-    brazilian_portuguese: 'Progresso de Download de Anexos',
-    tok_pisin: 'Attachment Download Progress',
-    indonesian: 'Kemajuan Unduhan Lampiran',
-    nepali: 'संलग्नक डाउनलोड प्रगति',
-    hindi: 'संलग्नक डाउनलोड प्रगति',
-    burmese: 'ပူးတွဲဖိုင် ဒေါင်းလုဒ် တိုးတက်မှု',
-    thai: 'ความคืบหน้าการดาวน์โหลดไฟล์แนบ',
-    mandarin: '附件下载进度'
-  },
-  overallProgress: {
-    english: 'Overall Progress',
-    french: 'Progrès global',
-    spanish: 'Progreso General',
-    brazilian_portuguese: 'Progresso Geral',
-    tok_pisin: 'Overall Progress',
-    indonesian: 'Kemajuan Keseluruhan',
-    nepali: 'समग्र प्रगति',
-    hindi: 'कुल प्रगति',
-    burmese: 'စုစုပေါင်း တိုးတက်မှု',
-    thai: 'ความคืบหน้ารวม',
-    mandarin: '总体进度'
-  },
-  currentDownload: {
-    english: 'Current Download',
-    french: 'Téléchargement actuel',
-    spanish: 'Descarga Actual',
-    brazilian_portuguese: 'Download Atual',
-    tok_pisin: 'Current Download',
-    indonesian: 'Unduhan Saat Ini',
-    nepali: 'हालको डाउनलोड',
-    hindi: 'वर्तमान डाउनलोड',
-    burmese: 'လက်ရှိ ဒေါင်းလုဒ်',
-    thai: 'การดาวน์โหลดปัจจุบัน',
-    mandarin: '当前下载'
-  },
-  currentUpload: {
-    english: 'Current Upload',
-    french: 'Téléchargement actuel',
-    spanish: 'Carga Actual',
-    brazilian_portuguese: 'Upload Atual',
-    tok_pisin: 'Current Upload',
-    indonesian: 'Unggahan Saat Ini',
-    nepali: 'हालको अपलोड',
-    hindi: 'वर्तमान अपलोड',
-    burmese: 'လက်ရှိ အပ်လုဒ်',
-    thai: 'การอัปโหลดปัจจุบัน',
-    mandarin: '当前上传'
-  },
-  queueStatus: {
-    english: 'Queue Status',
-    french: "Statut de la file d'attente",
-    spanish: 'Estado de Cola',
-    brazilian_portuguese: 'Status da Fila',
-    tok_pisin: 'Queue Status',
-    indonesian: 'Status Antrian',
-    nepali: 'लाम स्थिति',
-    hindi: 'कतार स्थिति',
-    burmese: 'တန်းစီမှု အခြေအနေ',
-    thai: 'สถานะคิว',
-    mandarin: '队列状态'
-  },
-  allSynced: {
-    english: 'All files synced',
-    french: 'Tous les fichiers synchronisés',
-    spanish: 'Todos los archivos sincronizados',
-    brazilian_portuguese: 'Todos os arquivos sincronizados',
-    tok_pisin: 'Olgeta file i sync pinis',
-    indonesian: 'Semua file disinkronkan',
-    nepali: 'सबै फाइलहरू सिङ्क भयो',
-    hindi: 'सभी फाइलें सिंक हो गईं',
-    burmese: 'ဖိုင်အားလုံး ထပ်တူပြုပြီးပါပြီ',
-    thai: 'ไฟล์ทั้งหมดซิงค์แล้ว',
-    mandarin: '所有文件已同步'
-  },
-  signInToViewDownloadStatus: {
-    english: 'Please sign in to view download status and sync information.',
-    french:
-      "Veuillez vous connecter pour afficher l'état du téléchargement et les informations de synchronisation.",
-    spanish:
-      'Por favor inicia sesión para ver el estado de descarga e información de sincronización.',
-    brazilian_portuguese:
-      'Por favor, faça login para ver o status de download e informações de sincronização.',
-    tok_pisin: 'Plis sign in long lukim download status na sync info.',
-    indonesian:
-      'Silakan masuk untuk melihat status unduhan dan informasi sinkronisasi.',
-    nepali: 'कृपया डाउनलोड स्थिति र सिंक जानकारी हेर्न साइन इन गर्नुहोस्।',
-    hindi: 'कृपया डाउनलोड स्थिति और सिंक जानकारी देखने के लिए साइन इन करें।',
-    burmese:
-      'ဒေါင်းလုဒ် အခြေအနေနှင့် ထပ်တူပြုခြင်း အချက်အလက်များကို ကြည့်ရှုရန် ကျေးဇူးပြု၍ ဝင်ရောက်ပါ။',
-    thai: 'กรุณาเข้าสู่ระบบเพื่อดูสถานะการดาวน์โหลดและข้อมูลการซิงค์',
-    mandarin: '请登录以查看下载状态和同步信息。'
-  },
-  unsynced: {
-    english: 'Unsynced',
-    french: 'Non synchronisé',
-    spanish: 'No sincronizado',
-    brazilian_portuguese: 'Não sincronizado',
-    tok_pisin: 'i no sync yet',
-    indonesian: 'Tidak disinkronkan',
-    nepali: 'सिङ्क भएको छैन',
-    hindi: 'सिंक नहीं हुआ',
-    burmese: 'ထပ်တူမပြုရသေး',
-    thai: 'ยังไม่ได้ซิงค์',
-    mandarin: '未同步'
-  },
   onboardingCreateProjectTitle: {
     english: 'Record a Bible, or any other content',
     french: 'Enregistrez une Bible, ou tout autre contenu',
@@ -12573,6 +12513,19 @@ export const localizations = {
     burmese: 'ဒေါင်းလုဒ်လုပ်ပါ',
     thai: 'ดาวน์โหลด',
     mandarin: '下载'
+  },
+  offload: {
+    english: 'Offload',
+    french: 'Décharger',
+    spanish: 'Liberar',
+    brazilian_portuguese: 'Liberar',
+    tok_pisin: 'Rausim',
+    indonesian: 'Lepas',
+    nepali: 'हटाउनुहोस्',
+    hindi: 'अनलोड करें',
+    burmese: 'ဖယ်ရှားပါ',
+    thai: 'ถอด',
+    mandarin: '卸载'
   },
   share: {
     english: 'Share',
@@ -13517,6 +13470,41 @@ export const localizations = {
     thai: 'อนุญาตให้นำเข้าสินทรัพย์จากเควสที่เผยแพร่แล้วไปยังเควสฉบับร่างปัจจุบัน (เฉพาะเทมเพลตพระคัมภีร์และ FIA)',
     mandarin:
       '允许从其他已发布任务将资产导入到当前草稿任务（仅限圣经和 FIA 模板）。'
+  },
+  enableAssetDetails: {
+    english: 'Show Asset Details',
+    french: 'Afficher les détails des actifs',
+    spanish: 'Mostrar detalles de recursos',
+    brazilian_portuguese: 'Mostrar detalhes dos recursos',
+    tok_pisin: 'Soim ol detail bilong aset',
+    indonesian: 'Tampilkan detail aset',
+    nepali: 'सम्पत्ति विवरणहरू देखाउनुहोस्',
+    hindi: 'एसेट विवरण दिखाएं',
+    burmese: 'ပိုင်ဆိုင်မှု အသေးစိတ်ကို ပြပါ',
+    thai: 'แสดงรายละเอียดสินทรัพย์',
+    mandarin: '显示资产详情'
+  },
+  enableAssetDetailsDescription: {
+    english:
+      'Show a button on each asset in the asset list that opens its details screen.',
+    french:
+      "Afficher un bouton sur chaque actif de la liste qui ouvre l'écran de ses détails.",
+    spanish:
+      'Mostrar un botón en cada recurso de la lista que abre su pantalla de detalles.',
+    brazilian_portuguese:
+      'Mostrar um botão em cada recurso da lista que abre a tela de detalhes.',
+    tok_pisin:
+      'Soim wanpela baten long olgeta aset long lis bilong opim skrin bilong ol detail bilong en.',
+    indonesian:
+      'Tampilkan tombol pada setiap aset di daftar aset untuk membuka layar detailnya.',
+    nepali:
+      'सम्पत्ति सूचीमा प्रत्येक सम्पत्तिमा यसको विवरण स्क्रिन खोल्ने बटन देखाउनुहोस्।',
+    hindi:
+      'एसेट सूची में हर एसेट पर एक बटन दिखाएं जो उसकी विवरण स्क्रीन खोलता है।',
+    burmese:
+      'ပိုင်ဆိုင်မှုစာရင်းရှိ ပိုင်ဆိုင်မှုတိုင်းတွင် ၎င်း၏ အသေးစိတ်မျက်နှာပြင်ကို ဖွင့်သည့် ခလုတ်ကို ပြပါ။',
+    thai: 'แสดงปุ่มบนสินทรัพย์แต่ละรายการในรายการสินทรัพย์เพื่อเปิดหน้ารายละเอียด',
+    mandarin: '在资产列表中的每个资产上显示一个按钮，用于打开其详情页面。'
   },
   enableFia: {
     english: 'FIA Projects',

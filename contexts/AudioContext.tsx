@@ -1,9 +1,6 @@
 import { expireAudioCache, getCachedAudioUri } from '@/utils/audioCache';
-import {
-  createAudioPlayer,
-  setAudioModeAsync,
-  type AudioPlayer
-} from 'expo-audio';
+import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
+import type { AudioPlayer } from 'expo-audio';
 import React, { createContext, useContext, useRef, useState } from 'react';
 import type { SharedValue } from 'react-native-reanimated';
 import { useFrameCallback, useSharedValue } from 'react-native-reanimated';

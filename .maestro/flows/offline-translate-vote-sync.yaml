@@ -16,6 +16,7 @@ onFlowComplete:
 - evalScript: ${output.voterPassword = output.api.uniquePassword("offvoter")}
 - evalScript: ${output.skipSignInCleanup = true}
 - runFlow: _start-signed-in.yaml
+- runFlow: _enable-asset-details-setting.yaml
 - runFlow: _create-project-quest.yaml
 - evalScript: ${output.api.seedSourceAsset(output.projectName, output.questName, output.signInEmail, output.assetName, "Hello source")}
 - evalScript: ${output.api.createConfirmedUser(output.voterEmail, output.voterPassword)}

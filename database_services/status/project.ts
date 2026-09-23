@@ -1,6 +1,7 @@
 import { project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import { type HybridDataSource, useHybridQuery } from '@/hooks/useHybridQuery';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
+import type { HybridDataSource } from '@/hooks/useHybridQuery';
 import { localSourceOverrideOptions, resolveTable } from '@/utils/dbUtils';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { eq } from 'drizzle-orm';

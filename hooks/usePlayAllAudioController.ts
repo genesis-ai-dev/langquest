@@ -1,55 +1,52 @@
 import { getCachedAudioUri } from '@/utils/audioCache';
-import {
-  createAudioPlayer,
-  setAudioModeAsync,
-  type AudioPlayer
-} from 'expo-audio';
+import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
+import type { AudioPlayer } from 'expo-audio';
 import React from 'react';
 import type { PlayAllCheckpoint } from './useAudioPlaybackCheckpoint';
 
-type PlaybackStatus = {
+interface PlaybackStatus {
   playing: boolean;
   didJustFinish: boolean;
   currentTime: number;
   duration: number;
-};
+}
 
-type PlayAllCheckpointStore = {
+interface PlayAllCheckpointStore {
   savePlayAllCheckpoint: (
     checkpoint: PlayAllCheckpoint,
     options?: { force?: boolean; throttleMs?: number }
   ) => void;
   getPlayAllCheckpoint: () => PlayAllCheckpoint | null;
   clearPlayAllCheckpoint: () => void;
-};
+}
 
-export type PlayAllPlaylistItem = {
+export interface PlayAllPlaylistItem {
   assetId: string;
   uris: string[];
   metadata?: {
     label?: string;
     listIndex?: number;
   };
-};
+}
 
-type CurrentAssetPayload = {
+interface CurrentAssetPayload {
   assetId: string | null;
   itemIndex: number | null;
   metadata?: PlayAllPlaylistItem['metadata'];
-};
+}
 
-type StatusPayload = {
+interface StatusPayload {
   item: PlayAllPlaylistItem;
   itemIndex: number;
   uriIndex: number;
   playlistLength: number;
   assetPositionMs: number;
   assetDurationMs: number;
-};
+}
 
 type PlayAllSeekMode = 'boundary-jump' | 'carry-over';
 
-type UsePlayAllAudioControllerOptions = {
+interface UsePlayAllAudioControllerOptions {
   checkpointStore: PlayAllCheckpointStore;
   seekMode?: PlayAllSeekMode;
   onCurrentAssetChange?: (payload: CurrentAssetPayload) => void;
@@ -60,25 +57,25 @@ type UsePlayAllAudioControllerOptions = {
   onStopped?: () => void;
   onFinished?: () => void;
   onError?: (error: unknown) => void;
-};
+}
 
-type TogglePlayAllOptions = {
+interface TogglePlayAllOptions {
   playlist: PlayAllPlaylistItem[];
   startItemIndex?: number;
   playlistKey?: string;
-};
+}
 
 type StopReason = 'manual' | 'cancelled' | 'finished' | 'error';
-type StopOptions = {
+interface StopOptions {
   clearCheckpoint?: boolean;
   persistPosition?: boolean;
-};
+}
 
-type PlayAllJumpTarget = {
+interface PlayAllJumpTarget {
   itemIndex: number;
   uriIndex: number;
   positionMs: number;
-};
+}
 
 const DEFAULT_SEEK_STEP_MS = 5000;
 const SEEK_DEBOUNCE_MS = 500;
@@ -406,8 +403,7 @@ export function usePlayAllAudioController({
         !currentPlaylistKeyRef.current ||
         currentItemIndexRef.current === null ||
         currentUriIndexRef.current === null ||
-        !currentPlayerRef.current ||
-        !currentPlayerRef.current.isLoaded
+        !currentPlayerRef.current?.isLoaded
       ) {
         return;
       }

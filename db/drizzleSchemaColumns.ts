@@ -23,7 +23,9 @@ import {
 } from './constants';
 import type { OpMetadata } from './powersync/opMetadata';
 
-type TableRef = { id: AnySQLiteColumn };
+interface TableRef {
+  id: AnySQLiteColumn;
+}
 
 export const timestampDefault = sql`(CURRENT_TIMESTAMP)`;
 
@@ -103,7 +105,7 @@ export interface QuestMetadata {
 }
 
 export function createProjectTable({
-  language,
+  language: _language,
   profile
 }: {
   language: TableRef;
@@ -181,7 +183,7 @@ export function createTagTable() {
 }
 
 export function createAssetTable({
-  language,
+  language: _language,
   project,
   profile
 }: {
@@ -194,7 +196,6 @@ export function createAssetTable({
     {
       ...getTableColumns(),
       name: text(),
-      images: text({ mode: 'json' }).$type<string[]>(),
       visible: int({ mode: 'boolean' }).notNull().default(true),
       download_profiles: text({ mode: 'json' }).$type<string[]>(),
       source_language_id: text(), // FK to language dropped - migrating to languoid
@@ -390,7 +391,7 @@ export function createBlockedContentTable({ profile }: { profile: TableRef }) {
 
 export function createAssetContentLinkTable({
   asset,
-  language
+  language: _language
 }: {
   asset: TableRef;
   language: TableRef;
@@ -431,7 +432,7 @@ export function createAssetContentLinkTable({
 
 export function createProjectLanguageLinkTable({
   project,
-  language
+  language: _language
 }: {
   project: TableRef;
   language: TableRef;

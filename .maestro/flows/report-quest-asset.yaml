@@ -3,9 +3,9 @@ onFlowStart:
   - runScript: ../api.js
 ---
 # Non-owner reports a published quest, then one of its assets. Same modal
-# as report-project.yaml; hideKeyboard is Back and closes it. Signed-in
-# users hit Download Required on published cloud quests, so download first
-# (same as asset-file-download.yaml) before the assets screen.
+# as report-project.yaml; hideKeyboard is Back and closes it. Download
+# through quest-download first (same as asset-file-download.yaml) so the
+# assets screen reads the local copy.
 - evalScript: ${output.ownerEmail = output.api.uniqueEmail("qrowner")}
 - evalScript: ${output.ownerPassword = output.api.uniquePassword("qrowner")}
 - evalScript: ${output.projectName = "maestro-qreport-" + Date.now()}
@@ -21,6 +21,7 @@ onFlowStart:
 - evalScript: ${output.api.seedQuest(output.projectName, output.questName, output.ownerEmail, true)}
 - evalScript: ${output.api.seedSourceAsset(output.projectName, output.questName, output.ownerEmail, output.assetName, "Report source")}
 - runFlow: _start-signed-in.yaml
+- runFlow: _enable-asset-details-setting.yaml
 - tapOn:
     id: projects-tab-all
 - tapOn:
@@ -36,23 +37,10 @@ onFlowStart:
       id: projects-search
 - extendedWaitUntil:
     visible:
-      id: quest-list-item
+      id: quest-download
     timeout: 45000
 - tapOn:
-    id: quest-list-item
-- runFlow:
-    when:
-      visible:
-        id: quest-list-item
-      notVisible: '(?i)Download Now'
-    commands:
-      - tapOn:
-          id: quest-list-item
-- extendedWaitUntil:
-    visible: '(?i)Download Now'
-    timeout: 15000
-- tapOn:
-    text: '(?i)Download Now'
+    id: quest-download
 - extendedWaitUntil:
     visible: Continue to Download
     timeout: 45000

@@ -6,7 +6,7 @@ export function isImportedAsset(metadata: unknown): boolean {
   let parsed = metadata;
   if (typeof metadata === 'string') {
     try {
-      parsed = JSON.parse(metadata) as unknown;
+      parsed = JSON.parse(metadata);
     } catch {
       return false;
     }

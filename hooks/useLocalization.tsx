@@ -150,9 +150,7 @@ export function LocalizationProvider({
     }
   }
 
-  const userLanguage = mapLanguoidNameToSupportedLanguage(
-    resolvedLanguageName
-  ) as SupportedLanguage;
+  const userLanguage = mapLanguoidNameToSupportedLanguage(resolvedLanguageName);
 
   const t = useCallback(
     (key: LocalizationKey, options?: InterpolationValues | number): string => {
@@ -261,9 +259,7 @@ export function useLocalization(languageOverride?: string | null) {
 
   // If a language override is provided, build a local t() that uses it
   if (languageOverride) {
-    const overrideLang = mapLanguoidNameToSupportedLanguage(
-      languageOverride
-    ) as SupportedLanguage;
+    const overrideLang = mapLanguoidNameToSupportedLanguage(languageOverride);
 
     const t = (
       key: LocalizationKey,

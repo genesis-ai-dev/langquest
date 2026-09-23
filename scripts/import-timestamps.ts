@@ -12,7 +12,10 @@ import { createClient } from '@supabase/supabase-js';
 import * as fs from 'fs';
 import * as path from 'path';
 
-type RawVerse = { v: number; start: number };
+interface RawVerse {
+  v: number;
+  start: number;
+}
 type RawFile = Record<string, RawVerse[]>;
 
 function loadEnvLocal() {

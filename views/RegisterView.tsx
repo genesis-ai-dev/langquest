@@ -1,3 +1,4 @@
+import { AuthSheetCloseButton } from '@/components/AuthSheetCloseButton';
 import { LanguageCombobox } from '@/components/language-combobox';
 import { OfflineAlert } from '@/components/offline-alert';
 import { Button } from '@/components/ui/button';
@@ -123,6 +124,7 @@ export default function RegisterView() {
         extraKeyboardSpace={20}
         showsVerticalScrollIndicator={false}
       >
+        <AuthSheetCloseButton />
         <Form {...form}>
           <View className="flex flex-col items-center justify-center gap-4 text-center">
             <Text className="text-6xl font-semibold text-primary">
@@ -130,7 +132,12 @@ export default function RegisterView() {
             </Text>
             <Text>{t('newUserRegistration')}</Text>
           </View>
-          <LanguageCombobox uiReadyOnly toggleUILocalization />
+          <LanguageCombobox
+            uiReadyOnly
+            toggleUILocalization
+            testID="auth-language"
+            searchTestID="language-search"
+          />
           <FormField
             control={form.control}
             name="username"

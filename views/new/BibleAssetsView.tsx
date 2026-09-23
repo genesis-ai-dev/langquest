@@ -35,6 +35,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useKeepAwake } from 'expo-keep-awake';
 import { Stack } from 'expo-router';
 import {
+  ArrowBigDownDashIcon,
   BookmarkPlusIcon,
   BookOpenIcon,
   BrushCleaning,
@@ -67,7 +68,8 @@ import Animated, {
   withTiming
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ImportWizard, type ImportWizardVerseLabel } from './importWizard';
+import { ImportWizard } from './importWizard';
+import type { ImportWizardVerseLabel } from './importWizard';
 import type { HybridDataSource } from '@/hooks/useHybridQuery';
 import { useHybridQuery } from '@/hooks/useHybridQuery';
 
@@ -79,11 +81,11 @@ import {
   INITIAL_FIA_DRAWER_STATE
 } from '@/components/FiaStepDrawer';
 import { ModalDetails } from '@/components/ModalDetails';
+import { QuestDownloadButton } from '@/components/QuestDownloadButton';
 import { ReportModal } from '@/components/NewReportModal';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { PublishQuestButton } from '@/components/PublishQuestButton';
 import { QuestLabelHandler } from '@/components/questLabelHandler';
-import { QuestOffloadVerificationDrawer } from '@/components/QuestOffloadVerificationDrawer';
 import { QuestSyncedBadge } from '@/components/QuestSyncedBadge';
 import { RecordButton } from '@/components/RecordButton';
 import {
@@ -109,6 +111,7 @@ import {
 import { useCollectAssetsOnBlur } from '@/hooks/useCollectAssetsOnBlur';
 import type { AssetUpdatePayload } from '@/database_services/assetService';
 import {
+  AssetVerseUpdateError,
   batchUpdateAssetVerse,
   getMaxQuestOrderIndex,
   getQuestAssetOrderIndex,
@@ -135,13 +138,13 @@ import { useAssetsByQuest, useLocalAssetsByQuest } from '@/hooks/db/useAssets';
 import { useBlockedAssetsCount } from '@/hooks/useBlockedCount';
 import { useFiaPericopeSteps } from '@/hooks/useFiaPericopeSteps';
 import { useProjectFiaLanguageCode } from '@/hooks/useProjectFiaLanguageCode';
-import { useQuestOffloadVerification } from '@/hooks/useQuestOffloadVerification';
+import { useQuestDownloadFlow } from '@/hooks/useQuestDownloadFlow';
 import { useHasUserReported } from '@/hooks/useReports';
 import { useUndoHistory } from '@/hooks/useUndoHistory';
 import { isFiaPericopeCached } from '@/services/FiaAttachmentQueue';
 import { getAssetAudioUris as getPlayableAssetAudioUris } from '@/utils/getAssetAudioUris';
 import { publishQuest as publishQuestUtils } from '@/utils/publishQuest';
-import { offloadQuest } from '@/utils/questOffloadUtils';
+import { resolveQuestDownloadAction } from '@/utils/questDownloadGate';
 import { formatQuestDisplayLabel } from '@/utils/questVersionLabel';
 import { getThemeColor } from '@/utils/styleUtils';
 import {
@@ -154,7 +157,6 @@ import { eq } from 'drizzle-orm';
 import { ScrollView as GHScrollView } from 'react-native-gesture-handler';
 import type { ReorderableListReorderEvent } from 'react-native-reorderable-list';
 import ReorderableList, {
-  reorderItems,
   useReorderableDrag
 } from 'react-native-reorderable-list';
 import { toast } from 'sonner-native';
@@ -162,6 +164,29 @@ import { AssetCardItem } from './AssetCardItem';
 import { RecordSelectionControls } from './recording/components/RecordSelectionControls';
 import { RenameAssetDrawer } from './recording/components/RenameAssetDrawer';
 import { useSelectionMode } from './recording/hooks/useSelectionMode';
+import type {
+  ManualSeparator,
+  ReorderRejection,
+  VerseListItem,
+  VerseListSeparator,
+  VerseRange
+} from '@/utils/verseAssignment';
+import {
+  assignGroupFrom,
+  buildVerseList,
+  getVerseRange,
+  labelRanges,
+  lastSequenceInVerse,
+  lastUnassignedOrderIndex as findLastUnassignedOrderIndex,
+  maxToForNewLabel,
+  openRangeAt,
+  orderIndexFor,
+  parseAssetMetadata,
+  planReorder,
+  UNASSIGNED_VERSE_BASE,
+  unlabeledVerses,
+  verseStartOrderIndex
+} from '@/utils/verseAssignment';
 
 type Asset = typeof asset.$inferSelect;
 
@@ -181,30 +206,14 @@ type AssetQuestLink = Asset & {
   source?: HybridDataSource;
 };
 
-// List item types for rendering
-interface ListItemAsset {
-  type: 'asset';
-  content: AssetQuestLink;
-  key: string;
-}
-
-interface ListItemSeparator {
-  type: 'separator';
-  from?: number;
-  to?: number;
-  key: string;
-}
-
-type ListItem = ListItemAsset | ListItemSeparator;
+type ListItem = VerseListItem<AssetQuestLink>;
 const ENABLE_BIBLE_ASSET_LIST_TRANSITIONS = false;
 
-// Manual separator type used for verse grouping
-interface ManualSeparator {
-  from: number;
-  to: number;
-  key: string;
-  assetId?: string;
-}
+const REORDER_REJECTION_MESSAGE = {
+  'above-first-section': 'verseDropAboveFirstSection',
+  'out-of-order': 'verseLabelsOutOfOrder',
+  'empties-label': 'verseLabelNeedsRecording'
+} as const satisfies Record<ReorderRejection, string>;
 
 // ============================================================================
 // FIA METADATA HELPERS
@@ -270,10 +279,11 @@ function extractFiaMetadata(metadata: unknown): FiaMetadata | null {
 // ============================================================================
 
 interface DraggableSeparatorProps {
-  item: ListItemSeparator;
+  item: VerseListSeparator;
   isPublished: boolean;
   isSelectionMode: boolean;
   isSeparatorSelected: boolean;
+  canDrag: boolean;
   isDragFixed: boolean;
   bookChapterLabel: string;
   formatVerse?: (position: number) => string | null;
@@ -287,6 +297,7 @@ const DraggableSeparator = React.memo(function DraggableSeparator({
   isPublished,
   isSelectionMode,
   isSeparatorSelected,
+  canDrag,
   isDragFixed,
   bookChapterLabel,
   formatVerse,
@@ -307,7 +318,7 @@ const DraggableSeparator = React.memo(function DraggableSeparator({
         onPress={onPress}
         isSelectedForRecording={!isPublished && isSeparatorSelected}
         onSelectForRecording={onSelectForRecording}
-        onDrag={!isPublished ? drag : undefined}
+        onDrag={canDrag ? drag : undefined}
         isDragFixed={isDragFixed}
       />
       {!isPublished &&
@@ -333,7 +344,6 @@ interface DraggableAssetItemProps {
   isAssetSelectedForRecording: boolean;
   hasAvailableVerses: boolean;
   showDragHandle: boolean;
-  isDragFixed: boolean;
   isHighlighted: boolean;
   onPlay: (assetId: string) => void;
   onToggleSelect: (assetId: string) => void;
@@ -356,7 +366,6 @@ const DraggableAssetItem = React.memo(function DraggableAssetItem({
   isAssetSelectedForRecording,
   hasAvailableVerses,
   showDragHandle,
-  isDragFixed,
   isHighlighted,
   onPlay,
   onToggleSelect,
@@ -397,7 +406,6 @@ const DraggableAssetItem = React.memo(function DraggableAssetItem({
         playDisabled={playDisabled}
         onPlay={onPlay}
         showDragHandle={showDragHandle}
-        isDragFixed={isDragFixed}
         onDrag={drag}
         isSelectionMode={isSelectionMode}
         isSelected={isSelected}
@@ -419,149 +427,6 @@ const DraggableAssetItem = React.memo(function DraggableAssetItem({
     </View>
   );
 });
-
-// ============================================================================
-// HELPER FUNCTIONS (moved outside component for better performance)
-// ============================================================================
-
-/**
- * Builds the final list of items (assets + separators) for rendering.
- * This is extracted as a pure function to avoid recreation on each render.
- */
-function buildFinalList(
-  assetsWithMeta: AssetQuestLink[],
-  assetsWithoutMeta: AssetQuestLink[],
-  separatorsWithAssetId: ManualSeparator[],
-  sortedSeparatorsWithoutAssetId: ManualSeparator[],
-  allManualSeparators: ManualSeparator[]
-): ListItem[] {
-  // Build list with auto-generated separators + assets with metadata
-  const result: ListItem[] = [];
-  let currentFrom: number | undefined;
-  let currentTo: number | undefined;
-
-  for (const asset of assetsWithMeta) {
-    const from = asset.metadata?.verse?.from;
-    const to = asset.metadata?.verse?.to;
-
-    // Add separator when verse range changes
-    if (from !== currentFrom || to !== currentTo) {
-      result.push({
-        type: 'separator',
-        from,
-        to,
-        key: `sep-${from}-${to}`
-      });
-      currentFrom = from;
-      currentTo = to;
-    }
-
-    result.push({
-      type: 'asset',
-      content: asset,
-      key: asset.id
-    });
-  }
-
-  // Build unassigned block (assets without verse metadata)
-  const unassignedBlock: ListItem[] = [];
-  if (assetsWithoutMeta.length > 0) {
-    unassignedBlock.push({
-      type: 'separator',
-      key: 'sep-unassigned'
-    });
-
-    for (const asset of assetsWithoutMeta) {
-      unassignedBlock.push({
-        type: 'asset',
-        content: asset,
-        key: asset.id
-      });
-    }
-  }
-
-  // Insert separators that target a specific asset
-  for (const sep of separatorsWithAssetId) {
-    if (!sep.assetId) continue;
-
-    const assetIndex = result.findIndex(
-      (item) => item.type === 'asset' && item.content.id === sep.assetId
-    );
-
-    const sepItem: ListItemSeparator = {
-      type: 'separator',
-      from: sep.from,
-      to: sep.to,
-      key: sep.key
-    };
-
-    if (assetIndex !== -1) {
-      result.splice(assetIndex, 0, sepItem);
-    } else {
-      // Asset is in unassignedBlock, insert at end of result
-      result.push(sepItem);
-    }
-  }
-
-  // Insert separators without assetId by verse order
-  for (const sep of sortedSeparatorsWithoutAssetId) {
-    const sepItem: ListItemSeparator = {
-      type: 'separator',
-      from: sep.from,
-      to: sep.to,
-      key: sep.key
-    };
-
-    let insertIdx = result.findIndex(
-      (item) =>
-        item.type === 'separator' &&
-        item.from !== undefined &&
-        sep.from < item.from
-    );
-    if (insertIdx === -1) {
-      insertIdx = result.length;
-    }
-    result.splice(insertIdx, 0, sepItem);
-  }
-
-  // Combine: result + unassigned block
-  const combined: ListItem[] = [...result, ...unassignedBlock];
-
-  // Build set of manual separator ranges for deduplication
-  const manualSeparatorRanges = new Set<string>();
-  const manualSeparatorKeys = new Set<string>();
-  for (const sep of allManualSeparators) {
-    manualSeparatorRanges.add(`${sep.from ?? 'none'}-${sep.to ?? 'none'}`);
-    manualSeparatorKeys.add(sep.key);
-  }
-
-  // Deduplicate separators (prefer manual over auto-generated)
-  const seenSeparatorRanges = new Set<string>();
-  const deduped: ListItem[] = [];
-
-  for (const item of combined) {
-    if (item.type === 'separator') {
-      const sepRange = `${item.from ?? 'none'}-${item.to ?? 'none'}`;
-      const isManualSeparator = manualSeparatorKeys.has(item.key);
-      const hasManualSeparatorForRange = manualSeparatorRanges.has(sepRange);
-
-      // Skip if we've already seen this range
-      if (seenSeparatorRanges.has(sepRange)) {
-        continue;
-      }
-
-      // Skip auto-generated if manual exists for this range
-      if (!isManualSeparator && hasManualSeparatorForRange) {
-        continue;
-      }
-
-      seenSeparatorRanges.add(sepRange);
-    }
-    deduped.push(item);
-  }
-
-  return deduped;
-}
 
 // Track quests where the user has dismissed the FIA drawer (persists across mounts within session)
 const fiaDrawerDismissedQuests = new Set<string>();
@@ -613,7 +478,6 @@ export default function BibleAssetsView() {
   const [showDetailsModal, setShowDetailsModal] = React.useState(false);
   const [showSettingsModal, setShowSettingsModal] = React.useState(false);
   const [showReportModal, setShowReportModal] = React.useState(false);
-  const [showOffloadDrawer, setShowOffloadDrawer] = React.useState(false);
   const [showDeleteAllDrawer, setShowDeleteAllDrawer] = React.useState(false);
   const [showRenameQuestLabelDrawer, setShowRenameQuestLabelDrawer] =
     React.useState(false);
@@ -667,52 +531,14 @@ export default function BibleAssetsView() {
     ...INITIAL_FIA_DRAWER_STATE
   });
 
-  // Manual verse separators created by the user
+  // Labels created in the UI that no asset carries yet
   const [manualSeparators, setManualSeparators] = React.useState<
-    { from: number; to: number; key: string; assetId?: string }[]
+    ManualSeparator[]
   >([]);
-
-  // Track which separators have been processed for auto-assignment
-  const processedSeparatorsRef = React.useRef<Set<string>>(new Set());
-
-  // Function to add a new verse separator
-  // If assetId is provided, insert the separator right above that asset
-  const addVerseSeparator = React.useCallback(
-    (from: number, to: number, assetId?: string) => {
-      const newSeparator = {
-        from,
-        to,
-        key: `manual-sep-${from}-${to}-${Date.now()}`,
-        assetId // Store assetId to know where to insert it
-      };
-      setManualSeparators((prev) => [...prev, newSeparator]);
-    },
-    []
-  );
 
   const [showPrivateAccessModal, setShowPrivateAccessModal] =
     React.useState(false);
-  const [isOffloading, setIsOffloading] = React.useState(false);
   const [isRefreshing, setIsRefreshing] = React.useState(false);
-  const getAssetMetadata = React.useCallback(
-    (rawMetadata: unknown): AssetMetadata | null => {
-      if (!rawMetadata) return null;
-      if (typeof rawMetadata === 'string') {
-        try {
-          const parsed = JSON.parse(rawMetadata);
-          return parsed && typeof parsed === 'object'
-            ? (parsed as AssetMetadata)
-            : null;
-        } catch {
-          return null;
-        }
-      }
-      return typeof rawMetadata === 'object'
-        ? (rawMetadata as AssetMetadata)
-        : null;
-    },
-    []
-  );
   // Track which asset is currently playing during play-all
   const [currentlyPlayingAssetId, setCurrentlyPlayingAssetId] = React.useState<
     string | null
@@ -727,7 +553,6 @@ export default function BibleAssetsView() {
   // const assetOrderRef = React.useRef<string[]>([]); // Ordered list of asset IDs
   // const uriOrderRef = React.useRef<string[]>([]); // Ordered list of URIs matching assetOrderRef
   // const segmentDurationsRef = React.useRef<number[]>([]); // Duration of each URI segment in ms
-  const fixedItemsIndexesRef = React.useRef<number[]>([0]);
   // Ref to allow handlePlayAsset to be used in renderItem before it's defined
   const handlePlayAssetRef = React.useRef<
     (assetId: string) => void | Promise<void>
@@ -863,53 +688,6 @@ export default function BibleAssetsView() {
   const fiaPericopeId = enableFia
     ? (fiaMetaExtracted?.pericopeId ?? null)
     : null;
-
-  const { fiaLanguageCode } = useProjectFiaLanguageCode(
-    fiaPericopeId ? projectId : undefined
-  );
-
-  const needsFiaRecache = Boolean(
-    fiaPericopeId &&
-    fiaLanguageCode &&
-    !isFiaPericopeCached(fiaLanguageCode, fiaPericopeId)
-  );
-
-  // Fetch all FIA steps (only for FIA pericope quests)
-  const { data: fiaStepsData, isLoading: fiaStepsLoading } =
-    useFiaPericopeSteps(
-      fiaPericopeId ? projectId : undefined,
-      fiaPericopeId ?? undefined
-    );
-
-  // Auto-open FIA steps drawer once per quest per session.
-  // Open immediately when guide content must be downloaded (e.g. post LQ-17 recache).
-  // When cached, open after data is ready. If the user dismissed the drawer, don't reopen
-  // unless content is missing and needs a fresh download.
-  // Wait for the version-label prompt to finish so it isn't covered by FIA instructions.
-  React.useEffect(() => {
-    if (!fiaPericopeId || !questId) return;
-    if (awaitingVersionLabel || showRenameQuestLabelDrawer) return;
-
-    const dismissed = fiaDrawerDismissedQuests.has(questId);
-    if (dismissed && !needsFiaRecache) return;
-
-    if (needsFiaRecache) {
-      setShowFiaTextDrawer(true);
-      return;
-    }
-
-    if (fiaStepsData && !fiaStepsLoading) {
-      setShowFiaTextDrawer(true);
-    }
-  }, [
-    awaitingVersionLabel,
-    fiaPericopeId,
-    fiaStepsData,
-    fiaStepsLoading,
-    needsFiaRecache,
-    questId,
-    showRenameQuestLabelDrawer
-  ]);
 
   // Build the ordered verse sequence for FIA pericopes (null for standard chapters)
   const pericopeSequence = React.useMemo<ChapterVerse[] | null>(() => {
@@ -1117,11 +895,65 @@ export default function BibleAssetsView() {
   // User can see published badge if they are creator, member, or owner
   const canSeePublishedBadge = isCreator || isMember;
 
-  // Initialize offload verification hook
-  const verificationState = useQuestOffloadVerification(questId || '');
+  // FIA steps guide recording, so only members and owners see them, and only
+  // on unpublished quests. Wait for the quest to load so a published quest
+  // never flashes the steps open.
+  const fiaStepsPericopeId =
+    isMember && selectedQuest && !isPublished ? fiaPericopeId : null;
+
+  const { fiaLanguageCode } = useProjectFiaLanguageCode(
+    fiaStepsPericopeId ? projectId : undefined
+  );
+
+  const needsFiaRecache = Boolean(
+    fiaStepsPericopeId &&
+    fiaLanguageCode &&
+    !isFiaPericopeCached(fiaLanguageCode, fiaStepsPericopeId)
+  );
+
+  // Fetch all FIA steps (only for FIA pericope quests)
+  const { data: fiaStepsData, isLoading: fiaStepsLoading } =
+    useFiaPericopeSteps(
+      fiaStepsPericopeId ? projectId : undefined,
+      fiaStepsPericopeId ?? undefined
+    );
+
+  // Auto-open FIA steps drawer once per quest per session.
+  // Open immediately when guide content must be downloaded (e.g. post LQ-17 recache).
+  // When cached, open after data is ready. If the user dismissed the drawer, don't reopen
+  // unless content is missing and needs a fresh download.
+  // Wait for the version-label prompt to finish so it isn't covered by FIA instructions.
+  React.useEffect(() => {
+    if (!fiaStepsPericopeId || !questId) return;
+    if (awaitingVersionLabel || showRenameQuestLabelDrawer) return;
+
+    const dismissed = fiaDrawerDismissedQuests.has(questId);
+    if (dismissed && !needsFiaRecache) return;
+
+    if (needsFiaRecache) {
+      setShowFiaTextDrawer(true);
+      return;
+    }
+
+    if (fiaStepsData && !fiaStepsLoading) {
+      setShowFiaTextDrawer(true);
+    }
+  }, [
+    awaitingVersionLabel,
+    fiaStepsPericopeId,
+    fiaStepsData,
+    fiaStepsLoading,
+    needsFiaRecache,
+    questId,
+    showRenameQuestLabelDrawer
+  ]);
+
+  const questDownloadFlow = useQuestDownloadFlow(projectId || '');
 
   // Query SQLite directly - single source of truth, no cache, no race conditions
-  const isQuestDownloaded = useQuestDownloadStatusLive(questId || null);
+  const isQuestDownloaded =
+    useQuestDownloadStatusLive(questId || null) ||
+    questDownloadFlow.downloadedQuestIds.has(questId || '');
 
   // Clean deeper layers
   const currentStatus = useStatusContext();
@@ -1214,73 +1046,22 @@ export default function BibleAssetsView() {
     }
   });
 
-  // ============================================================================
-  // OPTIMIZED LIST BUILDING - Split into smaller memoized steps
-  // ============================================================================
+  // Used when opening BibleRecordingView without a selected verse, to continue
+  // after the last unassigned asset instead of starting from DEFAULT_ORDER_INDEX
+  const lastUnassignedOrderIndex = React.useMemo(
+    () => findLastUnassignedOrderIndex(assets),
+    [assets]
+  );
 
-  // Step 1: Separate and sort assets with metadata (only recomputes when assets change)
-  const assetsWithMeta = React.useMemo(() => {
-    const filtered = assets.filter((a) => a.metadata?.verse?.from != null);
-    // Sort by verse.from first, then by order_index within each verse group
-    // This preserves the user's ordering within each verse
-    return [...filtered].sort((a, b) => {
-      const aFrom = a.metadata?.verse?.from ?? 0;
-      const bFrom = b.metadata?.verse?.from ?? 0;
-      if (aFrom !== bFrom) {
-        return aFrom - bFrom;
-      }
-      // Same verse - sort by order_index to maintain user's ordering
-      return (a.order_index ?? 0) - (b.order_index ?? 0);
-    });
-  }, [assets]);
+  const listItems = React.useMemo(
+    () => buildVerseList(assets, manualSeparators),
+    [assets, manualSeparators]
+  );
 
-  // Step 2: Get assets without metadata (only recomputes when assets change)
-  // Sorted by order_index to maintain user's ordering
-  const assetsWithoutMeta = React.useMemo(() => {
-    return assets
-      .filter((a) => a.metadata?.verse?.from == null)
-      .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0));
-  }, [assets]);
-
-  // Calculate the last order_index for unassigned assets (verse 999)
-  // This is used when opening BibleRecordingView without a selected verse
-  // to continue from where we left off instead of starting from DEFAULT_ORDER_INDEX
-  const lastUnassignedOrderIndex = React.useMemo(() => {
-    if (assetsWithoutMeta.length === 0) {
-      return undefined; // No unassigned assets, use default
-    }
-    // Get the highest order_index from unassigned assets
-    const lastAsset = assetsWithoutMeta[assetsWithoutMeta.length - 1];
-    return lastAsset?.order_index;
-  }, [assetsWithoutMeta]);
-
-  // Step 3: Split manual separators by type (only recomputes when separators change)
-  const separatorsWithAssetId = React.useMemo(() => {
-    return manualSeparators.filter((sep) => sep.assetId);
-  }, [manualSeparators]);
-
-  const sortedSeparatorsWithoutAssetId = React.useMemo(() => {
-    return manualSeparators
-      .filter((sep) => !sep.assetId)
-      .sort((a, b) => a.from - b.from);
-  }, [manualSeparators]);
-
-  // Step 4: Build final list using pure function (recomputes only when dependencies change)
-  const listItems = React.useMemo((): ListItem[] => {
-    return buildFinalList(
-      assetsWithMeta,
-      assetsWithoutMeta,
-      separatorsWithAssetId,
-      sortedSeparatorsWithoutAssetId,
-      manualSeparators
-    );
-  }, [
-    assetsWithMeta,
-    assetsWithoutMeta,
-    separatorsWithAssetId,
-    sortedSeparatorsWithoutAssetId,
-    manualSeparators
-  ]);
+  // The list only contains matching assets while searching, so reordering it
+  // would renumber and relabel a partial view of the chapter.
+  const isSearchActive =
+    searchQuery.trim() !== '' || debouncedSearchQuery.trim() !== '';
 
   // Keep a ref to assets for stable callback (avoids recreating on every asset change)
   const assetsRef = React.useRef(assets);
@@ -1369,10 +1150,7 @@ export default function BibleAssetsView() {
         return;
       }
 
-      // Calculate order_index: verse * 1000 * 1000 to position BEFORE first asset
-      // For unassigned (sep-unassigned), use 999
-      const verse = from ?? 999;
-      const orderIndex = verse * 1000 * 1000;
+      const orderIndex = verseStartOrderIndex(from ?? UNASSIGNED_VERSE_BASE);
 
       // Build verse name
       let verseName = '';
@@ -1708,7 +1486,7 @@ export default function BibleAssetsView() {
         const current = assetsById.get(update.assetId);
         if (!current) continue;
 
-        const currentMetadata = getAssetMetadata(current.metadata) ?? null;
+        const currentMetadata = parseAssetMetadata(current.metadata);
         const nextMetadata =
           update.metadata !== undefined ? update.metadata : currentMetadata;
         const nextOrderIndex =
@@ -1730,500 +1508,126 @@ export default function BibleAssetsView() {
 
       return { previousData, newData };
     },
-    [assets, getAssetMetadata]
+    [assets]
   );
 
-  // Auto-assign labels to assets when a separator is created with assetId
-  React.useEffect(() => {
-    const processNewSeparators = async () => {
-      // Find separators with assetId that haven't been processed yet
-      const unprocessedSeparators = manualSeparators.filter(
-        (sep) => sep.assetId && !processedSeparatorsRef.current.has(sep.key)
+  // Writes verse/order changes and records undo for the ones that landed.
+  // Resolves false (after telling the user) if any placement failed.
+  const applyVerseUpdates = React.useCallback(
+    async (updates: AssetUpdatePayload[]): Promise<boolean> => {
+      if (updates.length === 0 || !questId) return true;
+
+      const history = buildMoveHistoryEntries(updates);
+      const recordUndo = (appliedAssetIds: string[]) => {
+        const applied = new Set(appliedAssetIds);
+        const previousData = history.previousData.filter((item) =>
+          applied.has(item.id)
+        );
+        if (previousData.length === 0) return;
+        pushUndoHistory({
+          domain: 'asset',
+          action: 'move',
+          previousData,
+          newData: history.newData.filter((item) => applied.has(item.id)),
+          canUndo: true
+        });
+      };
+
+      try {
+        recordUndo(await batchUpdateAssetVerse(questId, updates));
+        return true;
+      } catch (error) {
+        if (error instanceof AssetVerseUpdateError) {
+          recordUndo(error.appliedAssetIds);
+        }
+        console.error('Failed to update verse placement:', error);
+        toast.error(t('verseLabelsSaveFailed'));
+        return false;
+      }
+    },
+    [buildMoveHistoryEntries, pushUndoHistory, questId, t]
+  );
+
+  // Adds a label. With an assetId, the label goes above that asset and is
+  // written to it and the assets below it in the same group.
+  const addVerseSeparator = React.useCallback(
+    async (from: number, to: number, assetId?: string) => {
+      const key = `manual-sep-${from}-${to}-${Date.now()}`;
+      setManualSeparators((prev) => [...prev, { from, to, key, assetId }]);
+      if (!assetId) return;
+
+      const assetIndex = listItems.findIndex(
+        (item) => item.type === 'asset' && item.content.id === assetId
       );
+      if (assetIndex === -1) return;
 
-      if (unprocessedSeparators.length === 0) return;
-
-      // Process each unprocessed separator
-      for (const separator of unprocessedSeparators) {
-        if (!separator.assetId) continue;
-
-        // Mark as processed immediately to avoid duplicate processing
-        processedSeparatorsRef.current.add(separator.key);
-
-        // Find the target asset to determine its position
-        const targetAsset = assets.find((a) => a.id === separator.assetId);
-        if (!targetAsset) {
-          console.warn(
-            `⚠️ Asset ${separator.assetId} not found in assets list, skipping auto-assignment`
-          );
-          processedSeparatorsRef.current.delete(separator.key);
-          continue;
-        }
-
-        // Check if asset is in unassigned (no metadata)
-        const isUnassigned = !targetAsset.metadata?.verse?.from;
-
-        // Find all assets to update (with order_index calculation)
-        const assetsToUpdate: AssetUpdatePayload[] = [];
-        let sequentialInGroup = 1; // Start at 1 (e.g., verse 7 → 7001, 7002...)
-
-        if (isUnassigned) {
-          // Asset is in unassigned block - find it and all assets below it
-          // until we hit another separator or the end
-          const targetAssetIndex = listItems.findIndex(
-            (item) =>
-              item.type === 'asset' && item.content.id === separator.assetId
-          );
-
-          if (targetAssetIndex === -1) {
-            console.warn(
-              `⚠️ Asset ${separator.assetId} not found in listItems, skipping`
-            );
-            processedSeparatorsRef.current.delete(separator.key);
-            continue;
-          }
-
-          // Start from the target asset and go down
-          for (let i = targetAssetIndex; i < listItems.length; i++) {
-            const item = listItems[i];
-            if (!item) continue;
-
-            // Stop if we encounter a separator (not the "No Verse Assigned" separator)
-            if (
-              item.type === 'separator' &&
-              item.key !== 'sep-unassigned' &&
-              item.key !== separator.key
-            ) {
-              break;
-            }
-
-            // If it's an asset, add it to the update list with order_index
-            if (item.type === 'asset') {
-              const newOrderIndex =
-                (separator.from * 1000 + sequentialInGroup) * 1000;
-              sequentialInGroup++;
-
-              assetsToUpdate.push({
-                assetId: item.content.id,
-                metadata: {
-                  ...(getAssetMetadata(item.content.metadata) ?? {}),
-                  verse: {
-                    from: separator.from,
-                    to: separator.to ?? separator.from
-                  }
-                },
-                order_index: newOrderIndex
-              });
-            }
-          }
-        } else {
-          // Asset already has metadata - find separator and assets below it
-          const separatorIndex = listItems.findIndex(
-            (item) => item.type === 'separator' && item.key === separator.key
-          );
-
-          if (separatorIndex === -1) {
-            console.warn(
-              `⚠️ Separator ${separator.key} not found in listItems, skipping`
-            );
-            processedSeparatorsRef.current.delete(separator.key);
-            continue;
-          }
-
-          // Start from the position right after the separator
-          for (let i = separatorIndex + 1; i < listItems.length; i++) {
-            const item = listItems[i];
-            if (!item) continue;
-
-            // Stop if we encounter another separator
-            if (item.type === 'separator') {
-              break;
-            }
-
-            // If it's an asset, add it to the update list with order_index
-            if (item.type === 'asset') {
-              const newOrderIndex =
-                (separator.from * 1000 + sequentialInGroup) * 1000;
-              sequentialInGroup++;
-
-              assetsToUpdate.push({
-                assetId: item.content.id,
-                metadata: {
-                  ...(getAssetMetadata(item.content.metadata) ?? {}),
-                  verse: {
-                    from: separator.from,
-                    to: separator.to ?? separator.from
-                  }
-                },
-                order_index: newOrderIndex
-              });
-            }
-          }
-        }
-
-        // Batch update all affected assets
-        if (assetsToUpdate.length > 0) {
-          try {
-            const { previousData, newData } =
-              buildMoveHistoryEntries(assetsToUpdate);
-            await batchUpdateAssetVerse(questId!, assetsToUpdate);
-            if (previousData.length > 0) {
-              pushUndoHistory({
-                domain: 'asset',
-                action: 'move',
-                previousData,
-                newData,
-                canUndo: true
-              });
-            }
-          } catch (err: unknown) {
-            console.error('Failed to update asset metadata:', err);
-            // Remove from processed set so it can be retried
-            processedSeparatorsRef.current.delete(separator.key);
-          }
-        } else {
-          console.warn(
-            `⚠️ No assets found below separator ${separator.key} to update`
-          );
-        }
+      const saved = await applyVerseUpdates(
+        assignGroupFrom(listItems, assetIndex, { from, to })
+      );
+      if (!saved) {
+        setManualSeparators((prev) => prev.filter((sep) => sep.key !== key));
       }
-    };
+    },
+    [applyVerseUpdates, listItems]
+  );
 
-    void processNewSeparators();
-  }, [
-    manualSeparators,
-    listItems,
-    assets,
-    buildMoveHistoryEntries,
-    pushUndoHistory,
-    getAssetMetadata
-  ]);
-
-  // Clean up manual separators that have been persisted to asset metadata
-  // This ensures the UI correctly reflects which verses are available after metadata updates
+  // Drop manual labels once an asset carries the same range; the label derived
+  // from asset metadata takes over from there.
   React.useEffect(() => {
-    // Find manual separators that have been processed and can be removed
-    // A separator can be removed if:
-    // 1. It has been processed (metadata was updated for assets below it), OR
-    // 2. Its range is already covered by auto-generated separators from asset metadata
-    const separatorsToRemove: string[] = [];
-
-    for (const sep of manualSeparators) {
-      // If this separator was already processed, it can be removed
-      // The auto-generated separators from asset metadata will take over
-      if (processedSeparatorsRef.current.has(sep.key)) {
-        separatorsToRemove.push(sep.key);
-        continue;
-      }
-
-      // Also check if any asset already has metadata with this exact verse range
-      // This handles cases where metadata was updated outside of the normal flow
-      // (e.g., via _handleSorting)
-      const hasMatchingAsset = assets.some((asset) => {
-        const metadata = asset.metadata;
-        if (!metadata?.verse) return false;
-        return metadata.verse.from === sep.from && metadata.verse.to === sep.to;
-      });
-
-      if (hasMatchingAsset) {
-        separatorsToRemove.push(sep.key);
-      }
-    }
-
-    if (separatorsToRemove.length > 0) {
+    const persisted = new Set(
+      manualSeparators
+        .filter((sep) =>
+          assets.some((asset) => {
+            const verse = getVerseRange(asset);
+            return verse?.from === sep.from && verse.to === sep.to;
+          })
+        )
+        .map((sep) => sep.key)
+    );
+    if (persisted.size > 0) {
       setManualSeparators((prev) =>
-        prev.filter((sep) => !separatorsToRemove.includes(sep.key))
+        prev.filter((sep) => !persisted.has(sep.key))
       );
-      // Also clean up the processed refs
-      for (const key of separatorsToRemove) {
-        processedSeparatorsRef.current.delete(key);
-      }
     }
   }, [assets, manualSeparators]);
 
-  // Function to update an existing separator and all assets below it (until next separator)
+  // Relabels a separator and the assets below it, up to the next separator
   const updateVerseSeparator = React.useCallback(
-    async (
-      separatorKey: string,
-      oldFrom: number | undefined,
-      oldTo: number | undefined,
-      newFrom: number,
-      newTo: number
-    ) => {
-      // Update the separator in state
+    async (separatorKey: string, range: VerseRange) => {
       setManualSeparators((prev) =>
         prev.map((sep) =>
-          sep.key === separatorKey ? { ...sep, from: newFrom, to: newTo } : sep
+          sep.key === separatorKey ? { ...sep, ...range } : sep
         )
       );
 
-      // Find the separator in the listItems to get its position
       const separatorIndex = listItems.findIndex(
         (item) => item.type === 'separator' && item.key === separatorKey
       );
+      if (separatorIndex === -1) return;
 
-      if (separatorIndex === -1) {
-        console.warn(
-          `⚠️ Separator ${separatorKey} not found in listItems, skipping asset update`
-        );
-        return;
-      }
-
-      // Find all assets below this separator until we hit another separator
-      const assetsToUpdate: AssetUpdatePayload[] = [];
-      let sequentialInGroup = 1; // Start at 1 (e.g., verse 7 → 7001, 7002...)
-
-      for (let i = separatorIndex + 1; i < listItems.length; i++) {
-        const item = listItems[i];
-        if (!item) continue;
-
-        // Stop if we encounter another separator
-        if (item.type === 'separator') {
-          break;
-        }
-
-        // If it's an asset, add it to the update list with order_index
-        if (item.type === 'asset') {
-          const newOrderIndex = (newFrom * 1000 + sequentialInGroup) * 1000;
-          sequentialInGroup++;
-
-          assetsToUpdate.push({
-            assetId: item.content.id,
-            metadata: {
-              ...(getAssetMetadata(item.content.metadata) ?? {}),
-              verse: {
-                from: newFrom,
-                to: newTo
-              }
-            },
-            order_index: newOrderIndex
-          });
-        }
-      }
-
-      // Batch update all affected assets
-      if (assetsToUpdate.length > 0) {
-        try {
-          const { previousData, newData } =
-            buildMoveHistoryEntries(assetsToUpdate);
-          await batchUpdateAssetVerse(questId!, assetsToUpdate);
-          if (previousData.length > 0) {
-            pushUndoHistory({
-              domain: 'asset',
-              action: 'move',
-              previousData,
-              newData,
-              canUndo: true
-            });
-          }
-        } catch (err: unknown) {
-          console.error('Failed to update asset metadata:', err);
-        }
-      } else {
-        console.warn(
-          `⚠️ No assets found below separator ${separatorKey} to update`
-        );
-      }
-    },
-    [buildMoveHistoryEntries, getAssetMetadata, listItems, pushUndoHistory]
-  );
-
-  // Compute the allowed range for a new separator based on existing separators
-  // The AddVerseLabelButton is above the current separator, so:
-  // - rangeFrom = previous separator's "to" + 1 (or 1 if no previous)
-  // - rangeTo = CURRENT separator's "from" - 1 (or verseCount if current has no "from")
-  // Note: Currently unused but kept for potential future use
-  // const _computeAllowedRange = React.useCallback(
-  //   (separatorKey: string) => {
-  //     const currentIdx = listItems.findIndex((i) => i.key === separatorKey);
-  //     if (currentIdx === -1) {
-  //       return { from: 1, to: verseCount || 1 };
-  //     }
-
-  //     const currentSep = listItems[currentIdx];
-
-  //     // Get the CURRENT separator's "from" value (this is the ceiling for new range)
-  //     let currentFrom: number | undefined;
-  //     if (currentSep?.type === 'separator') {
-  //       currentFrom = currentSep.from;
-  //     }
-
-  //     // Look backward for the PREVIOUS separator to get its "to" value
-  //     let prevTo: number | undefined;
-  //     for (let i = currentIdx - 1; i >= 0; i--) {
-  //       const item = listItems[i];
-  //       if (item?.type === 'separator' && item.to !== undefined) {
-  //         prevTo = item.to;
-  //         break;
-  //       }
-  //     }
-
-  //     // Calculate range:
-  //     // - From: previous separator's "to" + 1, or 1 if no previous
-  //     // - To: CURRENT separator's "from" - 1, or verseCount if current has no "from"
-  //     const rangeFrom = prevTo !== undefined ? prevTo + 1 : 1;
-  //     const rangeTo =
-  //       currentFrom !== undefined ? currentFrom - 1 : verseCount || 1;
-
-  //     // Ensure valid range (from <= to)
-  //     const finalFrom = Math.max(1, rangeFrom);
-  //     const finalTo = Math.max(finalFrom, Math.min(rangeTo, verseCount || 1));
-
-  //     return { from: finalFrom, to: finalTo };
-  //   },
-  //   [listItems, verseCount]
-  // );
-
-  // Compute available ranges for a new label (not editing existing)
-  // Returns all gaps between existing separators
-  // Note: Currently unused but kept for potential future use
-  // const _computeAvailableRanges = React.useCallback(() => {
-  //   const ranges: { from: number; to: number }[] = [];
-
-  //   // Get all separators with valid from/to values, sorted by 'from'
-  //   const separators = listItems
-  //     .filter(
-  //       (item): item is ListItemSeparator =>
-  //         item.type === 'separator' &&
-  //         item.from !== undefined &&
-  //         item.to !== undefined
-  //     )
-  //     .sort((a, b) => (a.from ?? 0) - (b.from ?? 0));
-
-  //   // First gap: from 1 to first separator's from - 1
-  //   if (separators.length > 0) {
-  //     const first = separators[0];
-  //     if (first?.from !== undefined) {
-  //       const firstFrom = first.from;
-  //       if (firstFrom > 1) {
-  //         ranges.push({ from: 1, to: firstFrom - 1 });
-  //       }
-  //     }
-  //   } else {
-  //     // No separators, entire range is available
-  //     ranges.push({ from: 1, to: verseCount || 1 });
-  //   }
-
-  //   // Gaps between separators
-  //   for (let i = 0; i < separators.length - 1; i++) {
-  //     const current = separators[i];
-  //     const next = separators[i + 1];
-  //     if (
-  //       current &&
-  //       next &&
-  //       current.to !== undefined &&
-  //       next.from !== undefined &&
-  //       current.to < next.from - 1
-  //     ) {
-  //       ranges.push({ from: current.to + 1, to: next.from - 1 });
-  //     }
-  //   }
-
-  //   // Last gap: from last separator's to + 1 to verseCount
-  //   if (separators.length > 0) {
-  //     const last = separators[separators.length - 1];
-  //     if (last?.to !== undefined && last.to < (verseCount || 1)) {
-  //       ranges.push({ from: last.to + 1, to: verseCount || 1 });
-  //     }
-  //   }
-
-  //   return ranges;
-  // }, [listItems, verseCount]);
-
-  // Get all available verses (not occupied by separators)
-  const getAvailableVerses = React.useCallback(() => {
-    const occupiedVerses = new Set<number>();
-
-    // Get all separators with valid from/to values
-    const separators = listItems.filter(
-      (item): item is ListItemSeparator =>
-        item.type === 'separator' &&
-        item.from !== undefined &&
-        item.to !== undefined
-    );
-
-    // Mark all occupied verses
-    for (const sep of separators) {
-      if (sep.from !== undefined && sep.to !== undefined) {
-        for (let verse = sep.from; verse <= sep.to; verse++) {
-          occupiedVerses.add(verse);
-        }
-      }
-    }
-
-    // Return array of available verses (1 to verseCount, excluding occupied)
-    const available: number[] = [];
-    for (let verse = 1; verse <= (verseCount || 1); verse++) {
-      if (!occupiedVerses.has(verse)) {
-        available.push(verse);
-      }
-    }
-
-    return available;
-  }, [listItems, verseCount]);
-
-  // Given a selected 'from' value, find the maximum 'to' value allowed
-  // This prevents overlapping ranges by limiting to the next occupied verse
-  const getMaxToForFrom = React.useCallback(
-    (selectedFrom: number) => {
-      const availableVerses = getAvailableVerses();
-
-      // Find the index of selectedFrom in available verses
-      const fromIndex = availableVerses.indexOf(selectedFrom);
-      if (fromIndex === -1) {
-        // If selectedFrom is not available, return selectedFrom
-        return selectedFrom;
-      }
-
-      // Find the next occupied verse after the available range
-      // We need to find where the next separator starts
-      const separators = listItems
-        .filter(
-          (item): item is ListItemSeparator =>
-            item.type === 'separator' &&
-            item.from !== undefined &&
-            item.to !== undefined
-        )
-        .sort((a, b) => (a.from ?? 0) - (b.from ?? 0));
-
-      // Find the first separator that starts after selectedFrom
-      const nextSeparator = separators.find(
-        (sep) => sep.from !== undefined && sep.from > selectedFrom
+      await applyVerseUpdates(
+        assignGroupFrom(listItems, separatorIndex + 1, range)
       );
-
-      if (nextSeparator?.from !== undefined) {
-        // Return the verse just before the next separator
-        return nextSeparator.from - 1;
-      }
-
-      // No separator after selectedFrom, can go to the end
-      return verseCount || 1;
     },
-    [getAvailableVerses, listItems, verseCount]
+    [applyVerseUpdates, listItems]
   );
 
-  // Get existing labels from separators for quick selection in VerseAssigner
-  const existingLabels = React.useMemo(() => {
-    const labels: { from: number; to: number }[] = [];
-    const seen = new Set<string>();
+  const getAvailableVerses = React.useCallback(
+    () => unlabeledVerses(listItems, verseCount),
+    [listItems, verseCount]
+  );
 
-    for (const item of listItems) {
-      if (
-        item.type === 'separator' &&
-        item.from !== undefined &&
-        item.to !== undefined
-      ) {
-        const key = `${item.from}-${item.to}`;
-        if (!seen.has(key)) {
-          seen.add(key);
-          labels.push({ from: item.from, to: item.to });
-        }
-      }
-    }
+  const getMaxToForFrom = React.useCallback(
+    (selectedFrom: number) =>
+      maxToForNewLabel(listItems, selectedFrom, verseCount),
+    [listItems, verseCount]
+  );
 
-    // Sort by from value
-    return labels.sort((a, b) => a.from - b.from);
-  }, [listItems]);
+  // Existing labels for quick selection in VerseAssigner
+  const existingLabels = React.useMemo(
+    () => labelRanges(listItems),
+    [listItems]
+  );
 
   // Calculate nextVerse and limitVerse for automatic progression
   const { nextVerse, limitVerse } = React.useMemo(() => {
@@ -2295,25 +1699,13 @@ export default function BibleAssetsView() {
   }, [selectedForRecording, existingLabels, verseCount]);
 
   // Check if any selected assets already have labels
-  const selectedAssetsHaveLabels = React.useMemo(() => {
-    for (const assetId of selectedAssetIds) {
-      const asset = assets.find((a) => a.id === assetId);
-      if (asset?.metadata) {
-        try {
-          const meta =
-            typeof asset.metadata === 'string'
-              ? (JSON.parse(asset.metadata) as AssetMetadata | null)
-              : (asset.metadata as AssetMetadata | null);
-          if (meta?.verse?.from !== undefined) {
-            return true;
-          }
-        } catch {
-          // Ignore parse errors
-        }
-      }
-    }
-    return false;
-  }, [selectedAssetIds, assets]);
+  const selectedAssetsHaveLabels = React.useMemo(
+    () =>
+      assets.some(
+        (asset) => selectedAssetIds.has(asset.id) && !!getVerseRange(asset)
+      ),
+    [selectedAssetIds, assets]
+  );
 
   // Imported assets cannot be merged — keep Merge disabled if any are selected
   const canMergeSelection = React.useMemo(() => {
@@ -2334,72 +1726,26 @@ export default function BibleAssetsView() {
 
       if (selectedAssets.length === 0) return;
 
-      try {
-        const verseBase = from;
-        const minOrderIndex = verseBase * 1000 * 1000;
-        const maxOrderIndex = (verseBase + 1) * 1000 * 1000 - 1;
+      // Append after the assets already in this verse
+      const lastSequence = lastSequenceInVerse(assets, from, selectedAssetIds);
+      const updates: AssetUpdatePayload[] = selectedAssets.map(
+        (asset, index) => ({
+          assetId: asset.id,
+          metadata: {
+            ...(parseAssetMetadata(asset.metadata) ?? {}),
+            verse: { from, to }
+          },
+          order_index: orderIndexFor(from, lastSequence + index + 1)
+        })
+      );
 
-        // Find the highest order_index already assigned to this verse
-        // (excluding selected assets since they might be moving from another verse)
-        let lastSequential = 0;
-        for (const asset of assets) {
-          if (selectedAssetIds.has(asset.id)) continue; // Skip assets being reassigned
-          if (
-            asset.order_index >= minOrderIndex &&
-            asset.order_index <= maxOrderIndex
-          ) {
-            // Extract sequential part: order_index = (verseBase * 1000 + seq) * 1000
-            // seq = (order_index / 1000) - (verseBase * 1000)
-            const seq = Math.floor(asset.order_index / 1000) - verseBase * 1000;
-            if (seq > lastSequential) {
-              lastSequential = seq;
-            }
-          }
-        }
+      if (!(await applyVerseUpdates(updates))) return;
 
-        // Calculate order_index continuing from the last existing asset
-        const updates: AssetUpdatePayload[] = selectedAssets.map(
-          (asset, index) => ({
-            assetId: asset.id,
-            metadata: {
-              ...(getAssetMetadata(asset.metadata) ?? {}),
-              verse: { from, to }
-            },
-            order_index:
-              (verseBase * 1000 + (lastSequential + index + 1)) * 1000
-          })
-        );
-
-        const { previousData, newData } = buildMoveHistoryEntries(updates);
-        await batchUpdateAssetVerse(questId!, updates);
-        if (previousData.length > 0) {
-          pushUndoHistory({
-            domain: 'asset',
-            action: 'move',
-            previousData,
-            newData,
-            canUndo: true
-          });
-        }
-
-        // Close drawer and clear selection
-        setShowVerseAssignerDrawer(false);
-        cancelSelection();
-        setSelectedForRecording(null);
-      } catch (error) {
-        console.error('Failed to assign verse to assets:', error);
-        RNAlert.alert(t('error'), 'Failed to assign verse. Please try again.');
-      }
+      setShowVerseAssignerDrawer(false);
+      cancelSelection();
+      setSelectedForRecording(null);
     },
-    [
-      assets,
-      selectedAssetIds,
-      buildMoveHistoryEntries,
-      cancelSelection,
-      pushUndoHistory,
-      t,
-      getAssetMetadata
-    ]
+    [assets, selectedAssetIds, applyVerseUpdates, cancelSelection]
   );
 
   // Handle removing labels from selected assets
@@ -2410,399 +1756,73 @@ export default function BibleAssetsView() {
 
     if (selectedAssets.length === 0) return;
 
-    try {
-      const verseBase = UNASSIGNED_VERSE_BASE;
-      const minOrderIndex = verseBase * 1000 * 1000;
-      const maxOrderIndex = (verseBase + 1) * 1000 * 1000 - 1;
+    // Append to the end of the unassigned section
+    const lastSequence = lastSequenceInVerse(
+      assets,
+      UNASSIGNED_VERSE_BASE,
+      selectedAssetIds
+    );
+    const updates: AssetUpdatePayload[] = selectedAssets.map(
+      (asset, index) => ({
+        assetId: asset.id,
+        metadata: {
+          ...(parseAssetMetadata(asset.metadata) ?? {}),
+          verse: undefined
+        },
+        order_index: orderIndexFor(
+          UNASSIGNED_VERSE_BASE,
+          lastSequence + index + 1
+        )
+      })
+    );
 
-      // Find the highest order_index among unassigned assets
-      let lastSequential = 0;
-      for (const asset of assets) {
-        if (selectedAssetIds.has(asset.id)) continue; // Skip assets being moved
-        if (
-          asset.order_index >= minOrderIndex &&
-          asset.order_index <= maxOrderIndex
-        ) {
-          const seq = Math.floor(asset.order_index / 1000) - verseBase * 1000;
-          if (seq > lastSequential) {
-            lastSequential = seq;
-          }
-        }
-      }
+    if (!(await applyVerseUpdates(updates))) return;
 
-      // Set metadata to null and assign order_index at end of unassigned list
-      const updates: AssetUpdatePayload[] = selectedAssets.map(
-        (asset, index) => ({
-          assetId: asset.id,
-          metadata: {
-            ...(getAssetMetadata(asset.metadata) ?? {}),
-            verse: undefined
-          },
-          order_index: (verseBase * 1000 + (lastSequential + index + 1)) * 1000
-        })
-      );
-
-      const { previousData, newData } = buildMoveHistoryEntries(updates);
-      await batchUpdateAssetVerse(questId!, updates);
-      if (previousData.length > 0) {
-        pushUndoHistory({
-          domain: 'asset',
-          action: 'move',
-          previousData,
-          newData,
-          canUndo: true
-        });
-      }
-
-      // Close drawer and clear selection
-      setShowVerseAssignerDrawer(false);
-      cancelSelection();
-      setSelectedForRecording(null);
-    } catch (error) {
-      console.error('Failed to remove labels from assets:', error);
-      RNAlert.alert(t('error'), 'Failed to remove labels. Please try again.');
-    }
-  }, [
-    assets,
-    selectedAssetIds,
-    buildMoveHistoryEntries,
-    cancelSelection,
-    pushUndoHistory,
-    t,
-    getAssetMetadata
-  ]);
+    setShowVerseAssignerDrawer(false);
+    cancelSelection();
+    setSelectedForRecording(null);
+  }, [assets, selectedAssetIds, applyVerseUpdates, cancelSelection]);
 
   const _blockedCount = useBlockedAssetsCount(questId || '');
 
   const handleAssetUpdate = React.useCallback(async () => {}, []);
 
-  // ============================================================================
-  // ORDER_INDEX NORMALIZATION
-  // When returning from BibleRecordingView, normalize order_index for recorded verses
-  // Recording uses unit scale (7001001, 7001002) but Assets view uses thousand scale (7001000, 7002000)
-  // This function reads assets from DB and reassigns order_index with thousand scale
-  // NOTE: This function is now available in assetService.ts and is called by RecordingView
-  // ============================================================================
-  // const _normalizeOrderIndexForVerses = React.useCallback(
-  //   async (verses: number[]) => {
-  //     if (!questId || verses.length === 0) return;
-
-  //     const assetTable = resolveTable('asset', { localOverride: true });
-  //     const questAssetLinkTable = resolveTable('quest_asset_link', {
-  //       localOverride: true
-  //     });
-
-  //     for (const verse of verses) {
-  //       // Calculate order_index range for this verse
-  //       // Formula: verse * 1000 * 1000 to (verse + 1) * 1000 * 1000 - 1
-  //       // Example: verse 7 → 7000000 to 7999999
-  //       const minOrderIndex = verse * 1000 * 1000;
-  //       const maxOrderIndex = (verse + 1) * 1000 * 1000 - 1;
-
-  //       try {
-  //         // Query assets by order_index range using join with quest_asset_link
-  //         // This ensures we only get assets that belong to this quest
-  //         const assetsInVerse = await system.db
-  //           .select({
-  //             id: assetTable.id,
-  //             name: assetTable.name,
-  //             order_index: assetTable.order_index
-  //           })
-  //           .from(assetTable)
-  //           .innerJoin(
-  //             questAssetLinkTable,
-  //             eq(assetTable.id, questAssetLinkTable.asset_id)
-  //           )
-  //           .where(
-  //             and(
-  //               eq(questAssetLinkTable.quest_id, questId),
-  //               gte(assetTable.order_index, minOrderIndex),
-  //               lte(assetTable.order_index, maxOrderIndex)
-  //             )
-  //           )
-  //           .orderBy(asc(assetTable.order_index));
-
-  //         if (assetsInVerse.length === 0) {
-  //           continue;
-  //         }
-
-  //         // Recalculate order_index with thousand scale
-  //         // Formula: (verse * 1000 + sequential) * 1000
-  //         // sequential starts at 1: 7001000, 7002000, 7003000...
-  //         const updates: AssetUpdatePayload[] = [];
-  //         let hasChanges = false;
-
-  //         for (let i = 0; i < assetsInVerse.length; i++) {
-  //           const asset = assetsInVerse[i];
-  //           if (!asset) continue;
-
-  //           const sequential = i + 1; // 1-based
-  //           const newOrderIndex = (verse * 1000 + sequential) * 1000;
-
-  //           // Only update if order_index changed
-  //           if (asset.order_index !== newOrderIndex) {
-  //             hasChanges = true;
-  //             updates.push({
-  //               assetId: asset.id,
-  //               order_index: newOrderIndex
-  //             });
-  //           }
-  //         }
-
-  //         if (hasChanges && updates.length > 0) {
-  //           await batchUpdateAssetMetadata(updates);
-  //           console.log(
-  //             `  ✅ Verse ${verse}: normalized ${updates.length} of ${assetsInVerse.length} asset(s)`
-  //           );
-  //         }
-  //       } catch (error) {
-  //         console.error(`  ❌ Failed to normalize verse ${verse}:`, error);
-  //       }
-  //     }
-  //   },
-  //   [questId]
-  // );
-
-  // Calculate available range for adding verse label above a specific asset
-  // Returns only verses between the previous separator's "to" and next separator's "from"
+  // Verses free for a new label directly above an asset
   const getRangeForAsset = React.useCallback(
     (assetId: string) => {
       const assetIndex = listItems.findIndex(
         (item) => item.type === 'asset' && item.content.id === assetId
       );
-
       if (assetIndex === -1) {
         return { from: 1, to: verseCount || 1, availableVerses: [] };
       }
-
-      // Find previous separator (looking backward)
-      let prevTo: number | undefined;
-      for (let i = assetIndex - 1; i >= 0; i--) {
-        const item = listItems[i];
-        if (item?.type === 'separator' && item.to !== undefined) {
-          prevTo = item.to;
-          break;
-        }
-      }
-
-      // Find next separator (looking forward)
-      let nextFrom: number | undefined;
-      for (let i = assetIndex + 1; i < listItems.length; i++) {
-        const item = listItems[i];
-        if (item?.type === 'separator' && item.from !== undefined) {
-          nextFrom = item.from;
-          break;
-        }
-      }
-
-      // Calculate range - only between prevTo and nextFrom
-      const rangeFrom = prevTo !== undefined ? prevTo + 1 : 1;
-      const rangeTo = nextFrom !== undefined ? nextFrom - 1 : verseCount || 1;
-
-      // Ensure valid range and check if there's actually space available
-      const finalFrom = Math.max(1, rangeFrom);
-      const finalTo = Math.max(finalFrom, Math.min(rangeTo, verseCount || 1));
-
-      // Check if there's actually space between separators
-      // If prevTo + 1 > nextFrom - 1, there's no space
-      if (
-        prevTo !== undefined &&
-        nextFrom !== undefined &&
-        prevTo + 1 > nextFrom - 1
-      ) {
-        return {
-          from: finalFrom,
-          to: finalTo,
-          availableVerses: []
-        };
-      }
-
-      // Generate array of available verses only in this range
-      const availableVerses: number[] = [];
-      for (
-        let verse = finalFrom;
-        verse <= finalTo && verse <= (verseCount || 1);
-        verse++
-      ) {
-        availableVerses.push(verse);
-      }
-
-      return {
-        from: finalFrom,
-        to: finalTo,
-        availableVerses
-      };
+      return openRangeAt(listItems, assetIndex, verseCount);
     },
     [listItems, verseCount]
   );
 
-  const getNextAvailableVerse = React.useCallback(
-    (assetId: string): number | null => {
-      const assetIndex = listItems.findIndex(
-        (item) => item.type === 'asset' && item.content.id === assetId
-      );
-
-      if (assetIndex === -1) {
-        return null;
-      }
-
-      // Find previous separator (looking backward)
-      let prevTo: number | undefined;
-      for (let i = assetIndex - 1; i >= 0; i--) {
-        const item = listItems[i];
-        if (item?.type === 'separator' && item.to !== undefined) {
-          prevTo = item.to;
-          break;
-        }
-      }
-
-      // Find next separator (looking forward)
-      let nextFrom: number | undefined;
-      for (let i = assetIndex + 1; i < listItems.length; i++) {
-        const item = listItems[i];
-        if (item?.type === 'separator' && item.from !== undefined) {
-          nextFrom = item.from;
-          break;
-        }
-      }
-
-      // Calculate range - only between prevTo and nextFrom
-      const rangeFrom = prevTo !== undefined ? prevTo + 1 : 1;
-      const rangeTo = nextFrom !== undefined ? nextFrom - 1 : verseCount || 1;
-
-      // Ensure valid range and check if there's actually space available
-      const finalFrom = Math.max(1, rangeFrom);
-      const finalTo = Math.max(finalFrom, Math.min(rangeTo, verseCount || 1));
-
-      // Check if there's actually space between separators
-      // If prevTo + 1 > nextFrom - 1, there's no space
-      if (
-        prevTo !== undefined &&
-        nextFrom !== undefined &&
-        prevTo + 1 > nextFrom - 1
-      ) {
-        return null;
-      }
-
-      if (finalFrom > finalTo || finalFrom > (verseCount || 1)) {
-        return null;
-      }
-
-      return finalFrom;
-    },
-    [listItems, verseCount]
-  );
-
-  // Get available verses for editing a separator (between previous and next separators)
+  // Verses a separator can be edited to without overlapping its neighbors
   const getRangeForSeparator = React.useCallback(
     (separatorKey: string) => {
       const separatorIndex = listItems.findIndex(
         (item) => item.type === 'separator' && item.key === separatorKey
       );
-
       if (separatorIndex === -1) {
         return { from: 1, to: verseCount || 1, availableVerses: [] };
       }
-
-      // Find previous separator (looking backward)
-      let prevTo: number | undefined;
-      for (let i = separatorIndex - 1; i >= 0; i--) {
-        const item = listItems[i];
-        if (item?.type === 'separator' && item.to !== undefined) {
-          prevTo = item.to;
-          break;
-        }
-      }
-
-      // Find next separator (looking forward)
-      let nextFrom: number | undefined;
-      for (let i = separatorIndex + 1; i < listItems.length; i++) {
-        const item = listItems[i];
-        if (item?.type === 'separator' && item.from !== undefined) {
-          nextFrom = item.from;
-          break;
-        }
-      }
-
-      // Calculate range - only between prevTo and nextFrom
-      const rangeFrom = prevTo !== undefined ? prevTo + 1 : 1;
-      const rangeTo = nextFrom !== undefined ? nextFrom - 1 : verseCount || 1;
-
-      // Ensure valid range
-      const finalFrom = Math.max(1, rangeFrom);
-      const finalTo = Math.max(finalFrom, Math.min(rangeTo, verseCount || 1));
-
-      // Generate array of available verses only in this range
-      const availableVerses: number[] = [];
-      for (
-        let verse = finalFrom;
-        verse <= finalTo && verse <= (verseCount || 1);
-        verse++
-      ) {
-        availableVerses.push(verse);
-      }
-
-      return {
-        from: finalFrom,
-        to: finalTo,
-        availableVerses
-      };
+      return openRangeAt(listItems, separatorIndex, verseCount);
     },
     [listItems, verseCount]
   );
 
-  // Get max 'to' value for editing a separator (limited to available range)
   const getMaxToForFromSeparator = React.useCallback(
     (separatorKey: string, selectedFrom: number): number => {
       const range = getRangeForSeparator(separatorKey);
-      const availableVerses = range.availableVerses;
-
-      // Find the index of selectedFrom in available verses
-      const fromIndex = availableVerses.indexOf(selectedFrom);
-      if (fromIndex === -1) {
-        // If selectedFrom is not available, return selectedFrom
-        return selectedFrom;
-      }
-
-      // Find the next occupied verse after selectedFrom
-      // Look for the next separator's 'from' value
-      const separatorIndex = listItems.findIndex(
-        (item) => item.type === 'separator' && item.key === separatorKey
-      );
-
-      let nextFrom: number | undefined;
-      for (let i = separatorIndex + 1; i < listItems.length; i++) {
-        const item = listItems[i];
-        if (item?.type === 'separator' && item.from !== undefined) {
-          nextFrom = item.from;
-          break;
-        }
-      }
-
-      // The maximum 'to' is the verse before the next separator's 'from', or the last available verse
-      const maxTo = nextFrom !== undefined ? nextFrom - 1 : range.to;
-
-      // Find the index of maxTo in available verses, or use the last available verse
-      const maxToIndex = availableVerses.indexOf(maxTo);
-      if (maxToIndex !== -1 && maxToIndex >= fromIndex) {
-        const result = availableVerses[maxToIndex];
-        if (result !== undefined) {
-          return result;
-        }
-      }
-
-      // If maxTo is not in available verses, return the last available verse from selectedFrom onwards
-      const remainingVerses = availableVerses.slice(fromIndex);
-      if (remainingVerses.length > 0) {
-        const lastVerse = remainingVerses[remainingVerses.length - 1];
-        if (lastVerse !== undefined) {
-          return lastVerse;
-        }
-      }
-
-      return selectedFrom;
+      return range.availableVerses.includes(selectedFrom)
+        ? range.to
+        : selectedFrom;
     },
-    [listItems, getRangeForSeparator]
+    [getRangeForSeparator]
   );
 
   // Stable wrapper for onPlay callback (avoids creating new function in renderItem)
@@ -2832,11 +1852,11 @@ export default function BibleAssetsView() {
     ((assetId: string) => void) | undefined
   >(undefined);
   handleQuickAddVersePressRef.current = (assetId: string) => {
-    const nextVerse = getNextAvailableVerse(assetId);
-    if (nextVerse === null) {
+    const nextVerse = getRangeForAsset(assetId).availableVerses[0];
+    if (nextVerse === undefined) {
       return;
     }
-    addVerseSeparator(nextVerse, nextVerse, assetId);
+    void addVerseSeparator(nextVerse, nextVerse, assetId);
     // Clear recording selection when any label is added
     setSelectedForRecording(null);
   };
@@ -2860,6 +1880,8 @@ export default function BibleAssetsView() {
   const handleStartRecordingRef = React.useRef<(() => void) | undefined>(
     undefined
   );
+
+  const canDrag = !isPublished && !isSelectionMode && !isSearchActive;
 
   // Render function for ReorderableList - uses the new draggable wrapper components
   const renderItem = React.useCallback(
@@ -2893,7 +1915,8 @@ export default function BibleAssetsView() {
               isPublished={isPublished}
               isSelectionMode={isSelectionMode}
               isSeparatorSelected={isSeparatorSelected}
-              isDragFixed={fixedItemsIndexesRef.current.includes(index)}
+              canDrag={canDrag}
+              isDragFixed={index === 0}
               bookChapterLabel={bookChapterLabelRef.current}
               formatVerse={formatVersePositionRef.current}
               onPress={
@@ -2982,8 +2005,7 @@ export default function BibleAssetsView() {
             isSelectionMode={!isPublished && isSelectionMode}
             isAssetSelectedForRecording={isAssetSelectedForRecording}
             hasAvailableVerses={hasAvailableVerses}
-            showDragHandle={!isPublished && !isSelectionMode}
-            isDragFixed={fixedItemsIndexesRef.current.includes(index)}
+            showDragHandle={canDrag}
             onPlay={stableOnPlay}
             onToggleSelect={handleToggleSelect}
             onEnterSelection={!isPublished ? enterSelection : undefined}
@@ -3012,6 +2034,7 @@ export default function BibleAssetsView() {
     },
     [
       isPublished,
+      canDrag,
       questId,
       audioContext.isPlaying,
       audioContext.currentAudioId,
@@ -3428,150 +2451,38 @@ export default function BibleAssetsView() {
     }
   });
 
-  // Handle offload button click - start verification
+  const questDownloadAction = resolveQuestDownloadAction({
+    isSignedIn: Boolean(currentUser),
+    isLocal: selectedQuest?.source === 'local',
+    isDownloaded: isQuestDownloaded,
+    isPublished: selectedQuest?.published_at != null
+  });
+  const isQuestDownloading =
+    !isQuestDownloaded &&
+    !!questId &&
+    questDownloadFlow.downloadingQuestIds.has(questId);
+  const handleDownloadClick = () => {
+    if (questId) questDownloadFlow.download(questId);
+  };
+  // Offloaded quests are no longer on-device; leave the assets screen.
   const handleOffloadClick = () => {
-    if (selectedQuest?.published_at == null) {
-      console.warn('🗑️ [Offload] Refusing to offload unpublished quest');
-      return;
-    }
-    console.log('🗑️ [Offload] Opening verification drawer');
-    setShowOffloadDrawer(true);
-    verificationState.startVerification();
+    if (questId) questDownloadFlow.offload(questId, { leaveQuest: true });
   };
 
-  // Handle offload confirmation - execute offload
-  const handleOffloadConfirm = async () => {
-    console.log('🗑️ [Offload] User confirmed, executing offload');
-    setIsOffloading(true);
-    try {
-      const result = await offloadQuest({
-        questId: questId || '',
-        verifiedIds: verificationState.verifiedIds,
-        onProgress: (progress, message) => {
-          console.log(`🗑️ [Offload Progress] ${progress}%: ${message}`);
-        }
-      });
-
-      await invalidateCloud(
-        queryClient,
-        'download-status',
-        'quests',
-        'assets',
-        'current-quest',
-        'my-projects',
-        'all-projects',
-        'project'
-      );
-
-      RNAlert.alert(
-        t('success'),
-        result.localRowsRemoved ? t('offloadComplete') : t('offloadSyncPending')
-      );
-      setShowOffloadDrawer(false);
-
-      router.back();
-    } catch (error) {
-      console.error('Failed to offload quest:', error);
-      RNAlert.alert(t('error'), t('offloadError'));
-    } finally {
-      setIsOffloading(false);
-    }
-  };
-
-  // ============================================================================
-  // SORTING HANDLER (memoized for performance)
-  // ============================================================================
-  const UNASSIGNED_VERSE_BASE = 999; // High value so unassigned assets appear at the end
-
-  // Store listItems in a ref so handleReorder can access the current value
-  const listItemsRef = React.useRef(listItems);
-  listItemsRef.current = listItems;
-
+  // A refused drop leaves `listItems` unchanged, so the list snaps back.
   const handleReorder = React.useCallback(
     async ({ from, to }: ReorderableListReorderEvent) => {
-      // Use reorderItems to get the new order
-      const reorderedItems = reorderItems(listItemsRef.current, from, to);
-
-      // Iterate through the new order and update asset metadata + order_index
-      // based on the preceding separator
-      let currentSeparator: ListItemSeparator | null = null;
-      let sequentialInGroup = 1; // Tracks position within current verse group (starts at 1)
-      const updates: AssetUpdatePayload[] = [];
-
-      for (const item of reorderedItems) {
-        if (item.type === 'separator') {
-          currentSeparator = item;
-          sequentialInGroup = 1; // Reset counter for new group (starts at 1)
-        } else if (item.type === 'asset') {
-          // Calculate order_index: (from * 1000 + sequential) * 1000
-          const verseBase = currentSeparator?.from ?? UNASSIGNED_VERSE_BASE;
-          const newOrderIndex = (verseBase * 1000 + sequentialInGroup) * 1000;
-          sequentialInGroup++;
-
-          // Determine the metadata based on the current separator
-          const currentMetadata = getAssetMetadata(item.content.metadata);
-          const baseMetadata = currentMetadata ?? {};
-          const newMetadata: AssetMetadata | null = currentSeparator?.from
-            ? {
-                ...baseMetadata,
-                verse: {
-                  from: currentSeparator.from,
-                  to: currentSeparator.to ?? currentSeparator.from
-                }
-              }
-            : baseMetadata.recordingSessionId
-              ? {
-                  ...baseMetadata,
-                  verse: undefined
-                }
-              : null;
-
-          // Check if metadata or order_index has changed
-          const currentOrderIndex = item.content.order_index;
-
-          const metadataChanged =
-            JSON.stringify(newMetadata) !== JSON.stringify(currentMetadata);
-          const orderIndexChanged = newOrderIndex !== currentOrderIndex;
-
-          if (metadataChanged || orderIndexChanged) {
-            const update: AssetUpdatePayload = {
-              assetId: item.content.id
-            };
-
-            // Only include changed fields
-            if (metadataChanged) {
-              update.metadata = newMetadata;
-            }
-            if (orderIndexChanged) {
-              update.order_index = newOrderIndex;
-            }
-
-            updates.push(update);
-          }
-        }
+      const plan = planReorder(listItems, from, to);
+      if (!plan.ok) {
+        toast.warning(t(REORDER_REJECTION_MESSAGE[plan.reason]));
+        return;
       }
-
-      // Batch update all changed assets
-      if (updates.length > 0) {
-        try {
-          const { previousData, newData } = buildMoveHistoryEntries(updates);
-          await batchUpdateAssetVerse(questId!, updates);
-          if (previousData.length > 0) {
-            pushUndoHistory({
-              domain: 'asset',
-              action: 'move',
-              previousData,
-              newData,
-              canUndo: true
-            });
-          }
-        } catch (err: unknown) {
-          console.error('Failed to update assets:', err);
-        }
-      }
+      await applyVerseUpdates(plan.updates);
     },
-    [buildMoveHistoryEntries, getAssetMetadata, pushUndoHistory]
+    [applyVerseUpdates, listItems, t]
   );
+
+  const { project: projectForName } = useProjectById(projectId);
 
   if (!questId) {
     return (
@@ -3581,14 +2492,12 @@ export default function BibleAssetsView() {
     );
   }
 
-  // Check if quest is published (source is 'synced')
-  // const isPublished = selectedQuest?.source === 'synced';
-
-  const { project: projectForName } = useProjectById(projectId);
   const projectName = projectForName?.name || '';
   const hasFloatingPlayer = showPlayAllControls || showSingleControls;
   const hasFloatingSelectionControls =
     isSelectionMode && !isPublished && !!currentUser;
+  const canRecord =
+    !isPublished && !!currentUser && selectedQuest?.source !== 'cloud';
   const listBottomSpacerHeight = hasFloatingPlayer
     ? insets.bottom + 96
     : hasFloatingSelectionControls
@@ -3612,6 +2521,12 @@ export default function BibleAssetsView() {
         <Text className="text-base font-semibold">{t('assets')}</Text>
         <View className="flex flex-row items-center gap-2">
           <View className="flex flex-row items-center gap-2">
+            <QuestDownloadButton
+              action={questDownloadAction}
+              isDownloading={isQuestDownloading}
+              onDownload={handleDownloadClick}
+              onOffload={handleOffloadClick}
+            />
             {isPublished ? (
               // Show cloud badge and export button if user is creator, member, or owner
               canSeePublishedBadge ? (
@@ -3703,7 +2618,7 @@ export default function BibleAssetsView() {
       </View>
       <View className="flex w-full flex-row items-center">
         <View className="flex-1 flex-row items-center gap-1">
-          {fiaPericopeId && (
+          {fiaStepsPericopeId && (
             <Button
               variant="default"
               size="icon"
@@ -3835,7 +2750,7 @@ export default function BibleAssetsView() {
         <Text className="text-sm text-muted-foreground">{statusText}</Text>
       )}
 
-      {isLoading || (isFetching && assets.length === 0) ? (
+      {isLoading ? (
         searchQuery.trim().length > 0 ? (
           <View className="flex-1 items-center justify-center pt-8">
             <ActivityIndicator size="large" color={getThemeColor('primary')} />
@@ -3850,11 +2765,27 @@ export default function BibleAssetsView() {
           keyExtractor={(item) => item.key}
           renderItem={renderItem}
           onReorder={handleReorder}
-          dragEnabled={!isSelectionMode && !isPublished}
+          dragEnabled={canDrag}
           autoscrollThreshold={0.15}
           autoscrollSpeedScale={1.5}
           onScroll={scrollHandler}
           ItemSeparatorComponent={() => <View className="h-1" />}
+          ListEmptyComponent={
+            <View className="flex-1 items-center justify-center py-16">
+              <View className="flex-col items-center gap-2">
+                <Text className="text-muted-foreground">
+                  {canRecord ? t('nothingHereYet') : t('noAssetsFound')}
+                </Text>
+                {canRecord && (
+                  <Icon
+                    as={ArrowBigDownDashIcon}
+                    size={48}
+                    className="text-muted-foreground"
+                  />
+                )}
+              </View>
+            </View>
+          }
           ListFooterComponent={
             <>
               {/* Loading indicator for infinite scroll */}
@@ -3956,9 +2887,7 @@ export default function BibleAssetsView() {
       {/* Sticky Record Button Footer - only show for authenticated users */}
       {!showPlayAllControls &&
         !showSingleControls &&
-        !isPublished &&
-        currentUser &&
-        selectedQuest?.source !== 'cloud' &&
+        canRecord &&
         (isSelectionMode ? (
           <View
             style={{
@@ -4074,6 +3003,9 @@ export default function BibleAssetsView() {
           questId={questId}
           projectId={projectId || ''}
           questSource={selectedQuest?.source}
+          onOffloadClick={
+            questDownloadAction === 'offload' ? handleOffloadClick : undefined
+          }
         />
       )}
 
@@ -4118,7 +3050,6 @@ export default function BibleAssetsView() {
           content={selectedQuest}
           onClose={() => setShowDetailsModal(false)}
           isDownloaded={isQuestDownloaded}
-          onOffloadClick={handleOffloadClick}
         />
       )}
       {showReportModal && (
@@ -4133,21 +3064,7 @@ export default function BibleAssetsView() {
         />
       )}
 
-      {/* Offload Verification Drawer */}
-      {showOffloadDrawer && (
-        <QuestOffloadVerificationDrawer
-          isOpen={showOffloadDrawer}
-          onOpenChange={(open) => {
-            if (!open && !isOffloading) {
-              setShowOffloadDrawer(false);
-              verificationState.cancel();
-            }
-          }}
-          onContinue={handleOffloadConfirm}
-          verificationState={verificationState}
-          isOffloading={isOffloading}
-        />
-      )}
+      {questDownloadFlow.sheets}
 
       {/* Rename Asset Drawer */}
       {showRenameDrawer && (
@@ -4239,7 +3156,7 @@ export default function BibleAssetsView() {
                 formatLabel={formatVersePositionRef.current ?? undefined}
                 chapterSequence={pericopeSequence ?? undefined}
                 onApply={(from, to) => {
-                  addVerseSeparator(from, to);
+                  void addVerseSeparator(from, to);
                   // Clear recording selection when any label is added
                   setSelectedForRecording(null);
                   setVerseSelectorState({ isOpen: false, key: null });
@@ -4277,7 +3194,7 @@ export default function BibleAssetsView() {
                 formatLabel={formatVersePositionRef.current ?? undefined}
                 chapterSequence={pericopeSequence ?? undefined}
                 onApply={(from, to) => {
-                  addVerseSeparator(from, to);
+                  void addVerseSeparator(from, to);
                   // Clear recording selection when any label is added
                   setSelectedForRecording(null);
                   setNewLabelSelectorState({ isOpen: false });
@@ -4318,15 +3235,11 @@ export default function BibleAssetsView() {
                 formatLabel={formatVersePositionRef.current ?? undefined}
                 chapterSequence={pericopeSequence ?? undefined}
                 onApply={(from, to) => {
-                  if (assetVerseSelectorState.assetId) {
-                    addVerseSeparator(
-                      from,
-                      to,
-                      assetVerseSelectorState.assetId
-                    );
-                  } else {
-                    addVerseSeparator(from, to);
-                  }
+                  void addVerseSeparator(
+                    from,
+                    to,
+                    assetVerseSelectorState.assetId ?? undefined
+                  );
                   // Clear recording selection when any label is added
                   setSelectedForRecording(null);
                   setAssetVerseSelectorState({ isOpen: false, assetId: null });
@@ -4378,10 +3291,7 @@ export default function BibleAssetsView() {
                     if (editSeparatorState.separatorKey) {
                       await updateVerseSeparator(
                         editSeparatorState.separatorKey,
-                        editSeparatorState.from,
-                        editSeparatorState.to,
-                        from,
-                        to
+                        { from, to }
                       );
                     }
                     // Clear recording selection when any label is edited
@@ -4404,7 +3314,7 @@ export default function BibleAssetsView() {
 
       {/* FIA Pericope Steps Drawer */}
       <FiaStepDrawer
-        open={showFiaTextDrawer}
+        open={showFiaTextDrawer && !!fiaStepsPericopeId}
         onOpenChange={(open) => {
           setShowFiaTextDrawer(open);
           if (!open && questId) {
@@ -4412,7 +3322,7 @@ export default function BibleAssetsView() {
           }
         }}
         projectId={projectId}
-        pericopeId={fiaPericopeId ?? undefined}
+        pericopeId={fiaStepsPericopeId ?? undefined}
         questName={selectedQuest?.name}
         fiaBookId={fiaMetaExtracted?.bookId}
         verseRange={fiaMetaExtracted?.verseRange}

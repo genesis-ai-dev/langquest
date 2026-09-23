@@ -21,7 +21,7 @@ import {
   TooltipTrigger
 } from '@/components/ui/tooltip';
 import { useAuth } from '@/contexts/AuthContext';
-import { emailStatusOptions } from '@/db/constants';
+import type { emailStatusOptions } from '@/db/constants';
 import type { profile } from '@/db/drizzleSchema';
 import {
   invite,
@@ -36,10 +36,10 @@ import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useLocalStore } from '@/store/localStore';
 import {
   DEFAULT_INVITE_MAX_RESEND_ATTEMPTS,
-  type EmailSuppressionSnapshot,
   inviteMaySendAnotherOutboundEmail,
   isEmailSuppressionActive
 } from '@/utils/inviteBounceGuard';
+import type { EmailSuppressionSnapshot } from '@/utils/inviteBounceGuard';
 import {
   getInviteBounceReason,
   getInviteSendBlockedMessageKey,

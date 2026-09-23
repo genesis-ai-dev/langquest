@@ -26,9 +26,9 @@ export function BibleBookList({
   onBookSelect,
   existingBookIds,
   canCreateNew = false,
-  onCloudLoadingChange
+  onCloudLoadingChange: _onCloudLoadingChange
 }: BibleBookListProps) {
-  const { t } = useLocalization();
+  const { t: _t } = useLocalization();
   const getBookName = useBibleBookNameGetter();
   const primaryColor = useThemeColor('primary');
   const secondaryColor = useThemeColor('chart-2');

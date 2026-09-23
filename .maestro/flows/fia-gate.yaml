@@ -2,12 +2,41 @@ appId: ${MAESTRO_APP_ID}
 onFlowStart:
   - runScript: ../api.js
 ---
-# 6.5 seed an FIA project while enableFia is off (default after clearState).
-# Do not hit the live FIA pericope API.
+# Guests browse public FIA projects without Settings. Signed-in users still
+# hit the experimental gate while enableFia is off. Do not wait for the
+# live FIA pericope API.
+- evalScript: ${output.signInEmail = output.api.uniqueEmail("fiaowner")}
+- evalScript: ${output.signInPassword = output.api.uniquePassword("fiaowner")}
 - evalScript: ${output.projectName = "maestro-fia-" + Date.now()}
 - evalScript: ${output.skipSignInCleanup = true}
-- runFlow: _start-signed-in.yaml
+- evalScript: ${output.api.createConfirmedUser(output.signInEmail, output.signInPassword)}
 - evalScript: ${output.api.seedProject(output.projectName, output.signInEmail, false, "fia")}
+- runFlow: _launch-and-onboard.yaml
+- tapOn:
+    id: projects-tab-all
+    waitToSettleTimeoutMs: 0
+- tapOn:
+    id: projects-search
+- inputText: ${output.projectName}
+- runFlow: _hide-keyboard.yaml
+- extendedWaitUntil:
+    visible: ${output.projectName}
+    timeout: 45000
+- tapOn:
+    text: ${output.projectName}
+    below:
+      id: projects-search
+- extendedWaitUntil:
+    notVisible:
+      id: projects-create-button
+    timeout: 20000
+- assertNotVisible:
+    id: fia-open-settings
+- assertNotVisible: FIA Projects are Experimental
+- tapOn:
+    id: nav-back
+    waitToSettleTimeoutMs: 0
+- runFlow: _sign-in-form.yaml
 - runFlow: _open-named-project.yaml
 - extendedWaitUntil:
     visible: FIA Projects are Experimental

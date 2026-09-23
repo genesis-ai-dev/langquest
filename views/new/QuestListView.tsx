@@ -7,9 +7,9 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
 import {
   publishedOrOwnQuest,
-  publishedOrOwnQuestFilter,
-  type WithSource
+  publishedOrOwnQuestFilter
 } from '@/utils/dbUtils';
+import type { WithSource } from '@/utils/dbUtils';
 import { LegendList } from '@/components/ui/legend-list';
 import { and, eq, getTableName, like, or } from 'drizzle-orm';
 import React from 'react';
@@ -23,11 +23,13 @@ interface QuestListViewProps {
   projectSource: 'local' | 'synced' | 'cloud';
   isMember: boolean;
   onAddChild: (parentId: string | null) => void;
+  onOpenQuest: (quest: WithSource<Quest>) => void;
   onDownloadClick: (questId: string) => void;
   onCloudLoadingChange?: (isLoading: boolean) => void;
   onFetchingChange?: (isFetching: boolean) => void;
   downloadingQuestId?: string | null;
   downloadingQuestIds?: Set<string>;
+  downloadedQuestIds?: Set<string>;
 }
 
 type Quest = typeof quest.$inferSelect;
@@ -48,11 +50,13 @@ export function QuestListView({
   projectSource,
   isMember,
   onAddChild,
+  onOpenQuest,
   onDownloadClick,
   onCloudLoadingChange,
   onFetchingChange,
   downloadingQuestId,
-  downloadingQuestIds = new Set()
+  downloadingQuestIds = new Set(),
+  downloadedQuestIds = new Set()
 }: QuestListViewProps) {
   const { currentUser } = useAuth();
   const { t } = useLocalization();
@@ -205,9 +209,11 @@ export function QuestListView({
             canCreateNew={isMember}
             onToggleExpand={() => toggleExpanded(id)}
             onAddChild={(parentId) => onAddChild(parentId)}
+            onOpenQuest={onOpenQuest}
             onDownloadClick={onDownloadClick}
             downloadingQuestId={downloadingQuestId}
             downloadingQuestIds={downloadingQuestIds}
+            downloadedQuestIds={downloadedQuestIds}
           />
         );
         if (hasChildren && isOpen) {
@@ -225,10 +231,12 @@ export function QuestListView({
       expanded,
       toggleExpanded,
       onAddChild,
+      onOpenQuest,
       onDownloadClick,
       isMember,
       downloadingQuestId,
-      downloadingQuestIds
+      downloadingQuestIds,
+      downloadedQuestIds
     ]
   );
 
@@ -273,9 +281,11 @@ export function QuestListView({
               canCreateNew={isMember}
               onToggleExpand={() => toggleExpanded(id)}
               onAddChild={(parentId) => onAddChild(parentId)}
+              onOpenQuest={onOpenQuest}
               onDownloadClick={onDownloadClick}
               downloadingQuestId={downloadingQuestId}
               downloadingQuestIds={downloadingQuestIds}
+              downloadedQuestIds={downloadedQuestIds}
             />
             {hasChildren && isOpen && (
               <View>{renderTree(childrenOf.get(id) || [], 1)}</View>

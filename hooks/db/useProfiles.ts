@@ -7,11 +7,11 @@ import type { InferSelectModel } from 'drizzle-orm';
 import { and, eq, inArray } from 'drizzle-orm';
 import { useCallback, useMemo } from 'react';
 
-export type ProfileDisplayName = {
+export interface ProfileDisplayName {
   id: string;
   username: string | null;
   email: string | null;
-};
+}
 
 /**
  * Local co-member profiles (username or email) plus cloud usernames for

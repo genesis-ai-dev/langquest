@@ -27,7 +27,7 @@ interface VerseSeparatorProps {
 export function VerseSeparator({
   from,
   to,
-  label,
+  label: _label,
   formatVerse,
   className = '',
   editable = false,

@@ -3,7 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { storage } from '@/utils/storage';
 import { cn, useThemeColor } from '@/utils/styleUtils';
-import { CircleArrowDownIcon, CircleCheckIcon } from 'lucide-react-native';
+import { CircleArrowDownIcon, CloudUploadIcon } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { ActivityIndicator } from 'react-native';
 import { resolveDownloadPressAction } from './downloadPressAction';
@@ -103,7 +103,7 @@ export const DownloadIndicator: React.FC<DownloadIndicatorProps> = ({
   const getIconAndColor = () => {
     if (isFlaggedForDownload) {
       return {
-        Icon: CircleCheckIcon,
+        Icon: CloudUploadIcon,
         className: iconColor || 'text-primary'
       };
     }

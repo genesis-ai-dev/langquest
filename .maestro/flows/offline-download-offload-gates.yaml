@@ -33,35 +33,26 @@ onFlowComplete:
       id: projects-search
 - extendedWaitUntil:
     visible:
-      id: quest-list-item
+      id: quest-download
     timeout: 45000
 - runFlow:
     when:
       platform: Android
     commands:
       - setAirplaneMode: enabled
-      - tapOn:
-          id: quest-list-item
       - extendedWaitUntil:
-          visible: '(?i)Download Now'
+          visible:
+            id: quest-download
+            enabled: false
           timeout: 15000
-      - tapOn: '(?i)^Cancel$'
       - setAirplaneMode: disabled
+      - extendedWaitUntil:
+          visible:
+            id: quest-download
+            enabled: true
+          timeout: 30000
 - tapOn:
-    id: quest-list-item
-- runFlow:
-    when:
-      visible:
-        id: quest-list-item
-      notVisible: '(?i)Download Now'
-    commands:
-      - tapOn:
-          id: quest-list-item
-- extendedWaitUntil:
-    visible: '(?i)Download Now'
-    timeout: 15000
-- tapOn:
-    text: '(?i)Download Now'
+    id: quest-download
 - extendedWaitUntil:
     visible: Continue to Download
     timeout: 45000
@@ -84,14 +75,13 @@ onFlowComplete:
     timeout: 15000
 - tapOn:
     id: quest-list-item
-- repeat:
-    times: 6
-    while:
-      visible: '(?i)Download Now'
+- runFlow:
+    when:
+      visible:
+        id: quest-list-item
+      notVisible:
+        id: assets-refresh-button
     commands:
-      - tapOn: '(?i)^Cancel$'
-      - waitForAnimationToEnd:
-          timeout: 10000
       - tapOn:
           id: quest-list-item
 - extendedWaitUntil:

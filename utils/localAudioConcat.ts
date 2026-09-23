@@ -11,7 +11,6 @@ import { resolveExistingAudioUri } from '@/utils/attachmentPaths';
 import { fileExists, normalizeFileUri } from '@/utils/fileUtils';
 import { and, asc, eq, inArray, isNotNull } from 'drizzle-orm';
 import { File, Paths } from 'expo-file-system';
-import * as Sharing from 'expo-sharing';
 import { Platform } from 'react-native';
 
 // Conditionally import react-native-audio-concat only on native platforms

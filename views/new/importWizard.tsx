@@ -1,5 +1,6 @@
 import { DownloadConfirmationModal } from '@/components/DownloadConfirmationModal';
 import { DownloadIndicator } from '@/components/DownloadIndicator';
+import { DownloadStatusBadge } from '@/components/DownloadStatusBadge';
 import { QuestDownloadDiscoveryDrawer } from '@/components/QuestDownloadDiscoveryDrawer';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
@@ -45,7 +46,6 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   CircleAlertIcon,
-  CircleCheckIcon,
   Edit3Icon,
   InfoIcon,
   PauseIcon,
@@ -512,7 +512,7 @@ function QuestCard({
           size={18}
         />
       ) : (
-        <Icon as={CircleCheckIcon} size={20} className="text-primary" />
+        <DownloadStatusBadge status="downloaded" size={18} />
       )}
     </Pressable>
   );
@@ -856,7 +856,7 @@ function ValidationAssetCard({
 
 function ValidationStep({
   selectedAssets,
-  usedLabels,
+  usedLabels: _usedLabels,
   conflictingAssetIds,
   effectiveVerseRanges,
   playingAssetId,

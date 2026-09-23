@@ -1,3 +1,4 @@
+import { AuthSheetCloseButton } from '@/components/AuthSheetCloseButton';
 import { LanguageCombobox } from '@/components/language-combobox';
 import { OfflineAlert } from '@/components/offline-alert';
 import { Button } from '@/components/ui/button';
@@ -94,12 +95,18 @@ export default function SignInView() {
       bottomOffset={96}
       extraKeyboardSpace={20}
     >
+      <AuthSheetCloseButton />
       <Form {...form}>
         <View className="mb-8 flex flex-col items-center justify-center text-center">
           <Text className="text-6xl font-semibold text-primary">LangQuest</Text>
           <Text>{t('welcome')}</Text>
         </View>
-        <LanguageCombobox uiReadyOnly toggleUILocalization />
+        <LanguageCombobox
+          uiReadyOnly
+          toggleUILocalization
+          testID="auth-language"
+          searchTestID="language-search"
+        />
         <FormField
           control={form.control}
           name="email"

@@ -4,9 +4,9 @@ import {
   STORE_UPDATE_DISMISSAL_MS,
   getLatestStoreVersion,
   getStoreUrl,
-  shouldShowStoreUpdateBanner,
-  type SystemInfoRow
+  shouldShowStoreUpdateBanner
 } from '@/hooks/storeUpdateAvailability';
+import type { SystemInfoRow } from '@/hooks/storeUpdateAvailability';
 import { useLocalStore } from '@/store/localStore';
 import { getInstalledAppVersion } from '@/utils/appVersion';
 import { useQuery, useQueryClient } from '@tanstack/react-query';

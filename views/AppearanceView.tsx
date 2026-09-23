@@ -28,9 +28,9 @@ import { normalizeKeypadInput } from '@/features/appearance/matchSequence';
 import {
   getFamilyLabel,
   getThemeProfile,
-  getThemeProfiles,
-  type ThemeFamily
+  getThemeProfiles
 } from '@/features/appearance/profiles.data';
+import type { ThemeFamily } from '@/features/appearance/profiles.data';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
 import { cn } from '@/utils/styleUtils';

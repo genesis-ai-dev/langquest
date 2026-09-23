@@ -568,9 +568,10 @@ function seedProject(name, creatorEmail, isPrivate, template) {
   return { id: projectId, name: name, template: projectTemplate };
 }
 
-// Seeded quests are cloud-only on the device (opening one shows Download
-// Required) unless downloadForCreator is set, which puts the creator in
-// download_profiles so PowerSync replicates the quest as if downloaded.
+// Seeded quests are cloud-only on the device (members opening one see
+// Download Required; non-members open the cloud assets) unless
+// downloadForCreator is set, which puts the creator in download_profiles so
+// PowerSync replicates the quest as if downloaded.
 function seedQuest(
   projectName,
   questName,

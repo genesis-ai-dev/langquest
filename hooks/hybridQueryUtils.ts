@@ -1,4 +1,4 @@
-import { sourceOptions } from '@/db/constants';
+import type { sourceOptions } from '@/db/constants';
 import type { WithSource } from '@/utils/dbUtils';
 
 export type HybridDataSource = (typeof sourceOptions)[number];

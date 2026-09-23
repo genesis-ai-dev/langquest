@@ -1,8 +1,5 @@
-import {
-  LegendList as LegendListBase,
-  type LegendListProps,
-  type LegendListRef
-} from '@legendapp/list';
+import { LegendList as LegendListBase } from '@legendapp/list';
+import type { LegendListProps, LegendListRef } from '@legendapp/list';
 import React from 'react';
 import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

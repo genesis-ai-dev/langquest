@@ -22,11 +22,9 @@ import {
   splitHybridQueryKey,
   tagCloud,
   tagOffline,
-  toHybridPage,
-  type HybridPageData,
-  type ItemId,
-  type QueryKeyParam
+  toHybridPage
 } from './hybridQueryUtils';
+import type { HybridPageData, ItemId, QueryKeyParam } from './hybridQueryUtils';
 
 export type { HybridDataSource } from './hybridQueryUtils';
 
@@ -153,6 +151,12 @@ export function useHybridQuery<TOfflineData, TCloudData = TOfflineData>(
 
   const isOfflineLoading = watchOffline && offline.isLoading;
   const isCloudLoading = cloud.isLoading;
+  const refetchOffline = offline.refetch;
+  const refetchCloud = cloud.refetch;
+  const refetch = React.useCallback(() => {
+    if (watchOffline) void refetchOffline();
+    if (fetchCloud) void refetchCloud();
+  }, [watchOffline, fetchCloud, refetchOffline, refetchCloud]);
 
   return {
     data,
@@ -165,10 +169,7 @@ export function useHybridQuery<TOfflineData, TCloudData = TOfflineData>(
     offlineError: watchOffline ? (offline.error ?? null) : null,
     cloudError: cloud.error ?? null,
     isOnline,
-    refetch: () => {
-      if (watchOffline) void offline.refetch();
-      if (fetchCloud) void cloud.refetch();
-    }
+    refetch
   };
 }
 
@@ -365,20 +366,33 @@ export function useHybridInfiniteQuery<TOfflineData, TCloudData = TOfflineData>(
     ? offlineQuery.isLoading || cloudQuery.isLoading
     : cloudQuery.isLoading;
 
+  const refetchOffline = offlineQuery.refetch;
+  const refetchCloud = cloudQuery.refetch;
+  const fetchNextOffline = offlineQuery.fetchNextPage;
+  const fetchNextCloud = cloudQuery.fetchNextPage;
+  const fetchPrevOffline = offlineQuery.fetchPreviousPage;
+  const fetchPrevCloud = cloudQuery.fetchPreviousPage;
+
+  const refetch = React.useCallback(() => {
+    void refetchOffline();
+    if (fetchCloud) void refetchCloud();
+  }, [refetchOffline, refetchCloud, fetchCloud]);
+
+  const fetchNextPage = React.useCallback(() => {
+    void fetchNextOffline();
+    if (fetchCloud) void fetchNextCloud();
+  }, [fetchNextOffline, fetchNextCloud, fetchCloud]);
+
+  const fetchPreviousPage = React.useCallback(() => {
+    void fetchPrevOffline();
+    if (fetchCloud) void fetchPrevCloud();
+  }, [fetchPrevOffline, fetchPrevCloud, fetchCloud]);
+
   return {
     data: mergedData,
-    fetchNextPage: () => {
-      void offlineQuery.fetchNextPage();
-      if (fetchCloud) void cloudQuery.fetchNextPage();
-    },
-    fetchPreviousPage: () => {
-      void offlineQuery.fetchPreviousPage();
-      if (fetchCloud) void cloudQuery.fetchPreviousPage();
-    },
-    refetch: () => {
-      void offlineQuery.refetch();
-      if (fetchCloud) void cloudQuery.refetch();
-    },
+    fetchNextPage,
+    fetchPreviousPage,
+    refetch,
     hasNextPage: offlineQuery.hasNextPage || cloudQuery.hasNextPage,
     hasPreviousPage: offlineQuery.hasPreviousPage || cloudQuery.hasPreviousPage,
     isFetchingNextPage:

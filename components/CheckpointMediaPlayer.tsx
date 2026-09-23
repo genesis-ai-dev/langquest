@@ -312,9 +312,9 @@ export function CheckpointMediaPlayer({
   React.useEffect(() => {
     if (!isThisActive || !hasWindow) return;
     const { position } = audioContext;
-    if (position < windowStartMs! || position > windowEndMs!) {
+    if (position < windowStartMs || position > windowEndMs) {
       void seekCurrentAssetTo(
-        clampToWindow(position, windowStartMs!, windowEndMs!)
+        clampToWindow(position, windowStartMs, windowEndMs)
       );
     }
   }, [
@@ -333,7 +333,7 @@ export function CheckpointMediaPlayer({
       ? seekStepMs
       : 5000;
 
-  const windowDurationMs = hasWindow ? windowEndMs! - windowStartMs! : 0;
+  const windowDurationMs = hasWindow ? windowEndMs - windowStartMs : 0;
 
   const displayPositionMs = React.useMemo(() => {
     if (!hasWindow) {
@@ -342,7 +342,7 @@ export function CheckpointMediaPlayer({
     if (!isThisActive) return 0;
     return Math.max(
       0,
-      Math.min(audioContext.position - windowStartMs!, windowDurationMs)
+      Math.min(audioContext.position - windowStartMs, windowDurationMs)
     );
   }, [
     hasWindow,
@@ -364,9 +364,9 @@ export function CheckpointMediaPlayer({
         return;
       }
       const absoluteMs = clampToWindow(
-        displayMs + windowStartMs!,
-        windowStartMs!,
-        windowEndMs!
+        displayMs + windowStartMs,
+        windowStartMs,
+        windowEndMs
       );
       void seekCurrentAssetTo(absoluteMs);
     },
@@ -379,7 +379,7 @@ export function CheckpointMediaPlayer({
       return;
     }
     const target = Math.max(
-      windowStartMs!,
+      windowStartMs,
       audioContext.position - effectiveSeekStepMs
     );
     void seekCurrentAssetTo(target);
@@ -399,7 +399,7 @@ export function CheckpointMediaPlayer({
       return;
     }
     const target = Math.min(
-      windowEndMs!,
+      windowEndMs,
       audioContext.position + effectiveSeekStepMs
     );
     void seekCurrentAssetTo(target);

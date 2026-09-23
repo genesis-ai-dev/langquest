@@ -1,0 +1,34 @@
+appId: ${MAESTRO_APP_ID}
+---
+# Sign-in and register host LanguageCombobox inside the auth form sheet.
+# Opening it must reveal language-search. English is already the Maestro
+# UI language, so selecting it closes the picker without changing copy.
+# Search first: EAS Pixel 6 / iPhone 17 autofocus the IME over a longer
+# ui_ready list, so the English row is often off-screen. Local Docker's
+# short list still shows it. Do not hideKeyboard here: the language
+# drawer has no drawer-title, and iOS's 50%,12% fallback would dismiss
+# the parent auth sheet.
+- tapOn:
+    id: auth-language
+    waitToSettleTimeoutMs: 0
+- waitForAnimationToEnd:
+    timeout: 2000
+- runFlow: _tap-language-search.yaml
+- inputText: English
+- extendedWaitUntil:
+    visible:
+      id: English
+    timeout: 20000
+- tapOn:
+    id: English
+    waitToSettleTimeoutMs: 0
+# First tap after inputText often only dismisses the IME.
+- runFlow:
+    when:
+      visible:
+        id: language-search
+    commands:
+      - tapOn:
+          id: English
+          waitToSettleTimeoutMs: 0
+- runFlow: _wait-language-search-gone.yaml

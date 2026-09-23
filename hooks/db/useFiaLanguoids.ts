@@ -1,4 +1,4 @@
-import { languoid } from '@/db/drizzleSchema';
+import type { languoid } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useHybridQuery } from '@/hooks/useHybridQuery';
 import type { InferSelectModel } from 'drizzle-orm';

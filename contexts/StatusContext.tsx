@@ -78,7 +78,7 @@ export const StatusProvider: React.FC<{ children: React.ReactNode }> = ({
     combined: new Map()
   });
 
-  const layerStatus = (layerType: LayerType, id?: string) => {
+  const layerStatus = (layerType: LayerType, _id?: string) => {
     const status = defaultStatus;
     for (let i = 0; i <= Number(layerType); i++) {
       if (navLayersStatus.current[i] !== undefined) {

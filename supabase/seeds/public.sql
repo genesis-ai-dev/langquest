@@ -203,27 +203,27 @@ INSERT INTO "public"."languoid_region" ("id", "languoid_id", "region_id", "major
 -- Data for Name: asset; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-INSERT INTO "public"."asset" ("id", "created_at", "last_updated", "name", "source_language_id", "images", "active") VALUES
-	('b45f16fc-f7c9-403f-b559-1b4f6e66cafc', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:1 (Mixteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', NULL, true),
-	('b51d0e7b-afb9-4d56-a6e7-1dd769d5deee', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:5 (Zapoteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', NULL, true),
-	('b538be82-1ff6-4131-9d1e-fa71fb398134', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:4 (Mixteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', NULL, true),
-	('c29749a5-81af-4b64-b96d-4c89fe43ac3b', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 1:5 (Zapoteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', NULL, true),
-	('bdb5a215-6ecc-4492-b31e-eb6f7d756aa2', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:2 (Zapoteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', NULL, true),
-	('c3224b50-0deb-48e9-a1b2-4819eaf55789', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:3 (Zapoteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', NULL, true),
-	('eff8abcd-6179-4b14-aaaa-69ab054a99ae', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 1:3 (Mixteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', NULL, true),
-	('1035d01f-4d59-4805-9d5c-5f40595398ab', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:4 (Zapoteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', NULL, true),
-	('0ae4c34e-2a21-4b3f-ab30-d927cc58ce49', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:3 (Mixteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', NULL, true),
-	('17f6f122-e655-48fe-b02f-f09723a17d59', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 1:2 (Zapoteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', NULL, true),
-	('2d33323a-f98c-4642-ab8c-8225cd664ce1', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 1:1 (Zapoteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', NULL, true),
-	('2fae8ba4-2a76-468f-a03c-34bfbd408c16', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 1:5 (Mixteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', NULL, true),
-	('30be1d80-e1b5-4567-a063-093f30e1e8cb', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 1:4 (Zapoteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', NULL, true),
-	('3ca42ab6-7d76-4ccd-b7ed-ed17b39a4333', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:5 (Mixteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', NULL, true),
-	('3d7ebf63-ce54-4b8c-8c4b-a1d589ba02b3', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 1:4 (Mixteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', NULL, true),
-	('43500d02-78c7-47be-897a-21d4302c61ba', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:1 (Zapoteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', NULL, true),
-	('4554299a-c42c-439a-903f-67c106c3b46e', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 1:3 (Zapoteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', NULL, true),
-	('5cfffc2f-e1d1-4418-a5d0-20988b322d35', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:2 (Mixteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', NULL, true),
-	('a513e5d6-126b-4725-9029-ec08c7f55a0a', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 1:1 (Mixteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', NULL, true),
-	('13120777-7cef-4942-b2b8-37cd9f241c1b', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 1:2 (Mixteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', ARRAY['images/87aae958-21af-42c9-a42b-89ad96c9ab4b.jpg', 'images/b74d0e60-3fd7-4a17-ab14-5cdcbe79b789.jpg'], true);
+INSERT INTO "public"."asset" ("id", "created_at", "last_updated", "name", "source_language_id", "active") VALUES
+	('b45f16fc-f7c9-403f-b559-1b4f6e66cafc', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:1 (Mixteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', true),
+	('b51d0e7b-afb9-4d56-a6e7-1dd769d5deee', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:5 (Zapoteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', true),
+	('b538be82-1ff6-4131-9d1e-fa71fb398134', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:4 (Mixteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', true),
+	('c29749a5-81af-4b64-b96d-4c89fe43ac3b', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 1:5 (Zapoteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', true),
+	('bdb5a215-6ecc-4492-b31e-eb6f7d756aa2', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:2 (Zapoteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', true),
+	('c3224b50-0deb-48e9-a1b2-4819eaf55789', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:3 (Zapoteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', true),
+	('eff8abcd-6179-4b14-aaaa-69ab054a99ae', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 1:3 (Mixteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', true),
+	('1035d01f-4d59-4805-9d5c-5f40595398ab', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:4 (Zapoteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', true),
+	('0ae4c34e-2a21-4b3f-ab30-d927cc58ce49', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:3 (Mixteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', true),
+	('17f6f122-e655-48fe-b02f-f09723a17d59', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 1:2 (Zapoteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', true),
+	('2d33323a-f98c-4642-ab8c-8225cd664ce1', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 1:1 (Zapoteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', true),
+	('2fae8ba4-2a76-468f-a03c-34bfbd408c16', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 1:5 (Mixteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', true),
+	('30be1d80-e1b5-4567-a063-093f30e1e8cb', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 1:4 (Zapoteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', true),
+	('3ca42ab6-7d76-4ccd-b7ed-ed17b39a4333', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:5 (Mixteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', true),
+	('3d7ebf63-ce54-4b8c-8c4b-a1d589ba02b3', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 1:4 (Mixteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', true),
+	('43500d02-78c7-47be-897a-21d4302c61ba', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:1 (Zapoteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', true),
+	('4554299a-c42c-439a-903f-67c106c3b46e', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 1:3 (Zapoteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', true),
+	('5cfffc2f-e1d1-4418-a5d0-20988b322d35', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:2 (Mixteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', true),
+	('a513e5d6-126b-4725-9029-ec08c7f55a0a', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 1:1 (Mixteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', true),
+	('13120777-7cef-4942-b2b8-37cd9f241c1b', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 1:2 (Mixteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', true);
 
 
 --

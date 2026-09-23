@@ -4,9 +4,11 @@ onFlowStart:
 ---
 # Real bytes across the wire. The owner (API-only) has a published quest
 # whose asset points at a storage object the seed uploaded. The device user
-# downloads the quest, opens the asset, and plays it; Download Status must
-# report the one file synced. Offload afterwards returns the quest to
-# Download Required (local files are kept by design).
+# downloads the quest, opens the asset, and plays it; the drawer must
+# report the one file synced. The downloader is not a member, so the
+# download goes through quest-download and, after offload, tapping the
+# quest opens the cloud assets like a guest (local files are kept by
+# design).
 - evalScript: ${output.ownerEmail = output.api.uniqueEmail("audioowner")}
 - evalScript: ${output.ownerPassword = output.api.uniquePassword("audioowner")}
 - evalScript: ${output.projectName = "maestro-adl-" + Date.now()}
@@ -19,6 +21,7 @@ onFlowStart:
 - evalScript: ${output.api.waitForStorageObject(output.seeded.objectName, 15000)}
 - evalScript: ${output.skipSignInCleanup = true}
 - runFlow: _start-signed-in.yaml
+- runFlow: _enable-asset-details-setting.yaml
 - tapOn:
     id: projects-tab-all
 - tapOn:
@@ -34,23 +37,10 @@ onFlowStart:
       id: projects-search
 - extendedWaitUntil:
     visible:
-      id: quest-list-item
+      id: quest-download
     timeout: 45000
 - tapOn:
-    id: quest-list-item
-- runFlow:
-    when:
-      visible:
-        id: quest-list-item
-      notVisible: '(?i)Download Now'
-    commands:
-      - tapOn:
-          id: quest-list-item
-- extendedWaitUntil:
-    visible: '(?i)Download Now'
-    timeout: 15000
-- tapOn:
-    text: '(?i)Download Now'
+    id: quest-download
 - extendedWaitUntil:
     visible: Continue to Download
     timeout: 45000
@@ -71,15 +61,14 @@ onFlowStart:
     notVisible:
       id: quest-download-continue
     timeout: 15000
-# The downloader fetches confirmed audio for synced rows. Download Status
+# The downloader fetches confirmed audio for synced rows. The drawer
 # counts local files against what should be on this device.
-- runFlow: _open-download-status.yaml
+- runFlow: _open-app-drawer.yaml
 - extendedWaitUntil:
     visible:
       id: download-status-files
       text: '^1/1 .*'
     timeout: 90000
-- runFlow: _open-app-drawer.yaml
 - tapOn:
     id: drawer-projects
     waitToSettleTimeoutMs: 0
@@ -152,8 +141,10 @@ onFlowStart:
 - tapOn:
     id: quest-list-item
 - extendedWaitUntil:
-    visible: '(?i)Download Now'
-    timeout: 15000
+    visible:
+      id: assets-refresh-button
+    timeout: 45000
+- assertNotVisible: '(?i)Download Now'
 # Offload never touches the storage object.
 - evalScript: ${output.api.waitForStorageObject(output.seeded.objectName, 5000)}
 - evalScript: ${output.api.deleteProject(output.projectName)}

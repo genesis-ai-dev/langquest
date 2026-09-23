@@ -4,7 +4,9 @@ onFlowStart:
 ---
 # 5.1 download a published public quest as a second user, 5.2 Download
 # Status from the drawer, 5.5 offload. Owner is API-only; the device is
-# the downloader.
+# the downloader. The downloader is not a member, so tapping the quest
+# opens the cloud assets like a guest (no Download Required) before and
+# after the download; downloading goes through the row's quest-download.
 - evalScript: ${output.ownerEmail = output.api.uniqueEmail("dlowner")}
 - evalScript: ${output.ownerPassword = output.api.uniquePassword("dlowner")}
 - evalScript: ${output.projectName = "maestro-dl-" + Date.now()}
@@ -39,15 +41,29 @@ onFlowStart:
     when:
       visible:
         id: quest-list-item
-      notVisible: '(?i)Download Now'
+      notVisible:
+        id: assets-refresh-button
     commands:
       - tapOn:
           id: quest-list-item
 - extendedWaitUntil:
-    visible: '(?i)Download Now'
-    timeout: 15000
+    visible:
+      id: assets-refresh-button
+    timeout: 45000
+- assertNotVisible: '(?i)Download Now'
 - tapOn:
-    text: '(?i)Download Now'
+    id: assets-refresh-button
+- extendedWaitUntil:
+    visible: ${output.assetName}
+    timeout: 45000
+- tapOn:
+    id: nav-back
+- extendedWaitUntil:
+    visible:
+      id: quest-download
+    timeout: 45000
+- tapOn:
+    id: quest-download
 - extendedWaitUntil:
     visible: Continue to Download
     timeout: 45000
@@ -96,8 +112,7 @@ onFlowStart:
 - tapOn:
     id: quest-list-item
     waitToSettleTimeoutMs: 0
-# After a confirmed download, the quest opens. Download Required must not
-# still be on screen.
+# After a confirmed download, the quest opens from the local copy.
 - extendedWaitUntil:
     visible:
       id: assets-refresh-button
@@ -132,8 +147,10 @@ onFlowStart:
 - tapOn:
     id: quest-list-item
 - extendedWaitUntil:
-    visible: '(?i)Download Now'
-    timeout: 15000
+    visible:
+      id: assets-refresh-button
+    timeout: 45000
+- assertNotVisible: '(?i)Download Now'
 - evalScript: ${output.api.deleteProject(output.projectName)}
 - evalScript: ${output.api.deleteUserIfExists(output.signInEmail)}
 - evalScript: ${output.api.deleteUserIfExists(output.ownerEmail)}

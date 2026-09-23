@@ -2,6 +2,31 @@ import { useAuth } from '@/contexts/AuthContext';
 import { system } from '@/db/powersync/system';
 import React from 'react';
 
+export function profilesIncludeUser(
+  profiles: unknown,
+  userId: string
+): boolean {
+  try {
+    const parsed =
+      typeof profiles === 'string' ? JSON.parse(profiles) : profiles;
+    return Array.isArray(parsed) && parsed.includes(userId);
+  } catch {
+    return false;
+  }
+}
+
+/** SQLite is the source of truth; chapter-list caches can lag after offload. */
+export async function readQuestIsDownloaded(
+  questId: string,
+  userId: string
+): Promise<boolean> {
+  const quest = await system.db.query.quest.findFirst({
+    where: (fields, { eq }) => eq(fields.id, questId),
+    columns: { download_profiles: true }
+  });
+  return profilesIncludeUser(quest?.download_profiles, userId);
+}
+
 /**
  * Watch SQLite directly for quest download_profiles changes.
  *
@@ -24,25 +49,18 @@ export function useQuestDownloadStatusLive(questId: string | null): boolean {
 
     const applyDownloaded = (profiles: unknown) => {
       if (!shouldProceed()) return;
-      const parsed =
-        typeof profiles === 'string' ? JSON.parse(profiles) : profiles;
-      setIsDownloaded(Array.isArray(parsed) && parsed.includes(currentUser.id));
+      setIsDownloaded(profilesIncludeUser(profiles, currentUser.id));
     };
 
     const checkDownloadStatus = async () => {
       try {
-        const quest = await system.db.query.quest.findFirst({
-          where: (fields, { eq }) => eq(fields.id, questId),
-          columns: { download_profiles: true }
-        });
+        const isDownloadedNow = await readQuestIsDownloaded(
+          questId,
+          currentUser.id
+        );
 
         if (!shouldProceed()) return;
-
-        if (quest?.download_profiles) {
-          applyDownloaded(quest.download_profiles);
-        } else {
-          setIsDownloaded(false);
-        }
+        setIsDownloaded(isDownloadedNow);
       } catch (error) {
         if (!shouldProceed()) return;
         console.error('Error checking download status:', error);
@@ -60,7 +78,7 @@ export function useQuestDownloadStatusLive(questId: string | null): boolean {
           if (!shouldProceed()) return;
 
           try {
-            const firstRow = result.rows?._array?.[0] as
+            const firstRow = result.rows?._array[0] as
               | { download_profiles?: string | string[] }
               | undefined;
             if (firstRow?.download_profiles) {

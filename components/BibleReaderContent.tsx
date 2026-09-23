@@ -4,21 +4,17 @@ import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 import { useAudio } from '@/contexts/AudioContext';
-import {
-  useBibleBrainBibles,
-  type BibleBrainBible
-} from '@/hooks/useBibleBrainBibles';
-import {
-  useBibleBrainContent,
-  type BibleBrainAudioChapter,
-  type BibleBrainCopyright,
-  type BibleBrainVerse
+import { useBibleBrainBibles } from '@/hooks/useBibleBrainBibles';
+import type { BibleBrainBible } from '@/hooks/useBibleBrainBibles';
+import { useBibleBrainContent } from '@/hooks/useBibleBrainContent';
+import type {
+  BibleBrainAudioChapter,
+  BibleBrainCopyright,
+  BibleBrainVerse
 } from '@/hooks/useBibleBrainContent';
 import { useBibleBookNameGetter } from '@/hooks/useBibleBookName';
-import {
-  useLocalStore,
-  type BibleDownloadTranslation
-} from '@/store/localStore';
+import { useLocalStore } from '@/store/localStore';
+import type { BibleDownloadTranslation } from '@/store/localStore';
 import { getBibleBookIdFromFia, parseFiaVerseRange } from '@/utils/fiaUtils';
 import { cn, getThemeColor, useThemeColor } from '@/utils/styleUtils';
 import {
@@ -606,9 +602,7 @@ export function BibleReaderContent({
     if (!audio?.length || !verseRange) return null;
     if (audio.some((ch) => !ch.timestamps?.length)) return null;
 
-    const match = verseRange.match(
-      /^(\d+):(\d+)[a-z]?-(?:(\d+):)?(\d+)[a-z]?$/
-    );
+    const match = /^(\d+):(\d+)[a-z]?-(?:(\d+):)?(\d+)[a-z]?$/.exec(verseRange);
     if (!match) return null;
 
     const startChapter = parseInt(match[1]!, 10);
