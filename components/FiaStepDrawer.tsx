@@ -308,7 +308,7 @@ function preprocessMarkSpans(items: ContentItem[]): ContentItem[] {
 function FiaBlockRenderer({
   block,
   mediaCtx,
-  index
+  index: _index
 }: {
   block: FiaBlock;
   mediaCtx: MediaContext;

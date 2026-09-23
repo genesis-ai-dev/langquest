@@ -5,7 +5,7 @@
 
 import { system } from '@/db/powersync/system';
 import { resolveTable } from '@/utils/dbUtils';
-import { and, eq } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import uuid from 'react-native-uuid';
 
 /**
@@ -81,7 +81,7 @@ export async function createLanguoidOffline(
   }
 
   // Generate a new ID for the languoid
-  const languoidId = uuid.v4() as string;
+  const languoidId = uuid.v4();
 
   // Create the languoid in synced storage
   await system.db.transaction(async (tx) => {
@@ -102,7 +102,7 @@ export async function createLanguoidOffline(
         localOverride: false
       });
 
-      const sourceId = uuid.v4() as string;
+      const sourceId = uuid.v4();
       await tx.insert(languoidSourceSynced).values({
         id: sourceId,
         name: 'iso639-3',

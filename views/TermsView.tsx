@@ -127,7 +127,7 @@ function TermsViewInner({
           {(() => {
             const rawText = t('termsContributionInfo');
             const placeholderRegex = /\{ *iAgree *\}/;
-            const match = rawText.match(placeholderRegex);
+            const match = placeholderRegex.exec(rawText);
             if (match) {
               const parts = rawText.split(placeholderRegex);
               const iAgreeText = t('iAgree');

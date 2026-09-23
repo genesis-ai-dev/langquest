@@ -23,8 +23,7 @@ export function useBibleChapterCreation() {
 
   const { mutateAsync: createChapter, isPending } = useMutation({
     mutationFn: async (params: CreateChapterParams) => {
-      const { projectId, bookId, chapter, targetLanguageId, parentQuestId } =
-        params;
+      const { projectId, bookId, chapter, parentQuestId } = params;
 
       if (!currentUser?.id) {
         throw new Error('User not authenticated');

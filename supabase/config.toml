@@ -111,7 +111,7 @@ file_size_limit = "50MiB"
 allowed_mime_types = ["image/png", "image/jpeg", "audio/mpeg", "audio/mp4", "audio/wav", "audio/webm", "video/mp4", "video/webm", "application/octet-stream"]
 # Uploads supabase/assets/** into the bucket on start/db reset, preserving the
 # subpaths (content/..., translations/...) that seeded asset_content_link.audio
-# and asset.images reference.
+# references.
 objects_path = "./assets"
 
 [remotes.dev.auth]

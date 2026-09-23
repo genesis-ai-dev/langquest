@@ -77,7 +77,7 @@ export default function FeedbackView({ onClose }: FeedbackViewProps) {
     mode: 'onBlur'
   });
 
-  const { mutateAsync: submitFeedback, isPending } = useMutation({
+  const { mutateAsync: submitFeedback } = useMutation({
     mutationFn: async (data: FormData) =>
       await system.db.insert(feedback).values({
         profile_id: currentUser!.id,

@@ -24,7 +24,7 @@ import {
 } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Keyboard, View } from 'react-native';
-import { Drawer, DrawerContent } from './ui/drawer';
+import { Drawer, DrawerContent, DrawerScrollView } from './ui/drawer';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -477,104 +477,118 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
           if (!open) closePicker();
         }}
         snapPoints={['75%']}
+        enableDynamicSizing={false}
         stackBehavior="push"
         android_keyboardInputMode="adjustResize"
       >
-        <DrawerContent className="pb-safe">
-          <View accessible={false}>
-            <Input
-              drawerInput
-              value={immediateSearchQuery}
-              onChangeText={setSearchQuery}
-              testID={searchTestID}
-              placeholder={t('searchLanguages')}
-              prefix={SearchIcon}
-              size="sm"
-              className="border-0 border-b border-border"
-              autoCapitalize="none"
-              autoCorrect={false}
-              autoFocus
-              suffix={
-                (isSearchLoading || isCreating) && immediateSearchQuery ? (
-                  <ActivityIndicator size="small" color={primaryColor} />
-                ) : undefined
-              }
-            />
-          </View>
-          {sortedData.length === 0 ? (
-            <View className="px-3 py-4">
-              <Text className="text-center text-sm text-muted-foreground">
-                {isSearchLoading
-                  ? t('searching')
-                  : debouncedSearchQuery.length >= 2
-                    ? t('noLanguagesFound')
-                    : t('typeToSearch', { min: 2 })}
-              </Text>
+        {/* Search sits outside the scroll view: autoFocus fires while the
+            sheet is still sliding in, and a keyboard-aware scroll parent
+            scrolls the field off the top once the sheet settles. Dynamic
+            sizing stays off because only the list reports content height,
+            so a one-row result would shrink the sheet under the search. */}
+        <DrawerContent className="pb-safe" asChild>
+          <View className="flex-1">
+            <View accessible={false}>
+              <Input
+                drawerInput
+                value={immediateSearchQuery}
+                onChangeText={setSearchQuery}
+                testID={searchTestID}
+                placeholder={t('searchLanguages')}
+                prefix={SearchIcon}
+                size="sm"
+                className="border-0 border-b border-border"
+                autoCapitalize="none"
+                autoCorrect={false}
+                autoFocus
+                suffix={
+                  (isSearchLoading || isCreating) && immediateSearchQuery ? (
+                    <ActivityIndicator size="small" color={primaryColor} />
+                  ) : undefined
+                }
+              />
             </View>
-          ) : (
-            sortedData.map((item) => {
-              if (item.isCreateOption) {
-                return (
-                  <ButtonPressable
-                    key={item.value}
-                    testID="language-create-new"
-                    accessibilityLabel="language-create-new"
-                    className="flex flex-row items-center bg-primary/10 p-3"
-                    onPress={() => handleValueChange(item)}
-                  >
-                    <Icon
-                      as={PlusCircleIcon}
-                      className="mr-2 text-primary"
-                      size={20}
-                    />
-                    <View className="flex-1">
-                      <Text className="text-sm font-medium text-primary">
-                        {t('createLanguage', { name: item.displayLabel })}
-                      </Text>
-                      <Text className="text-xs text-muted-foreground">
-                        Add this as a new language
-                      </Text>
-                    </View>
-                  </ButtonPressable>
-                );
-              }
+            <DrawerScrollView
+              style={{ flex: 1 }}
+              contentContainerStyle={{ paddingBottom: 16 }}
+              keyboardShouldPersistTaps="handled"
+            >
+              {sortedData.length === 0 ? (
+                <View className="px-3 py-4">
+                  <Text className="text-center text-sm text-muted-foreground">
+                    {isSearchLoading
+                      ? t('searching')
+                      : debouncedSearchQuery.length >= 2
+                        ? t('noLanguagesFound')
+                        : t('typeToSearch', { min: 2 })}
+                  </Text>
+                </View>
+              ) : (
+                sortedData.map((item) => {
+                  if (item.isCreateOption) {
+                    return (
+                      <ButtonPressable
+                        key={item.value}
+                        testID="language-create-new"
+                        accessibilityLabel="language-create-new"
+                        className="flex flex-row items-center bg-primary/10 p-3"
+                        onPress={() => handleValueChange(item)}
+                      >
+                        <Icon
+                          as={PlusCircleIcon}
+                          className="mr-2 text-primary"
+                          size={20}
+                        />
+                        <View className="flex-1">
+                          <Text className="text-sm font-medium text-primary">
+                            {t('createLanguage', { name: item.displayLabel })}
+                          </Text>
+                          <Text className="text-xs text-muted-foreground">
+                            Add this as a new language
+                          </Text>
+                        </View>
+                      </ButtonPressable>
+                    );
+                  }
 
-              const selected = item.value === effectiveValue;
-              const rowLabel = item.displayLabel || item.label;
-              return (
-                <ButtonPressable
-                  key={item.value}
-                  testID={rowLabel}
-                  accessibilityLabel={rowLabel}
-                  className={cn(
-                    'flex flex-row items-center px-3 py-3',
-                    selected && 'bg-accent'
-                  )}
-                  onPress={() => handleValueChange(item)}
-                >
-                  <View className="flex-1" accessible={false}>
-                    <Text
+                  const selected = item.value === effectiveValue;
+                  const rowLabel = item.displayLabel || item.label;
+                  return (
+                    <ButtonPressable
+                      key={item.value}
+                      testID={rowLabel}
+                      accessibilityLabel={rowLabel}
                       className={cn(
-                        'flex-1 text-sm',
-                        selected
-                          ? 'font-medium text-accent-foreground'
-                          : 'text-foreground'
+                        'flex flex-row items-center px-3 py-3',
+                        selected && 'bg-accent'
                       )}
-                      numberOfLines={1}
+                      onPress={() => handleValueChange(item)}
                     >
-                      {rowLabel}
-                    </Text>
-                    {(item.isoCode || item.matchedAlias) && (
-                      <Text className="text-xs text-muted-foreground">
-                        {item.matchedAlias && `[${item.matchedAlias}] `}
-                        {item.isoCode && `iso:${item.isoCode}`}
-                      </Text>
-                    )}
-                  </View>
-                </ButtonPressable>
-              );
-            })
-          )}
+                      <View className="flex-1" accessible={false}>
+                        <Text
+                          className={cn(
+                            'flex-1 text-sm',
+                            selected
+                              ? 'font-medium text-accent-foreground'
+                              : 'text-foreground'
+                          )}
+                          numberOfLines={1}
+                        >
+                          {rowLabel}
+                        </Text>
+                        {(item.isoCode || item.matchedAlias) && (
+                          <Text className="text-xs text-muted-foreground">
+                            {item.matchedAlias && `[${item.matchedAlias}] `}
+                            {item.isoCode && `iso:${item.isoCode}`}
+                          </Text>
+                        )}
+                      </View>
+                    </ButtonPressable>
+                  );
+                })
+              )}
+            </DrawerScrollView>
+          </View>
         </DrawerContent>
       </Drawer>
     </View>

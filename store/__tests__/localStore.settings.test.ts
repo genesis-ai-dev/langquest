@@ -20,9 +20,9 @@ const SETTINGS_DEFAULTS = {
   enableTranscription: false,
   enableMerge: false,
   enableAssetImport: false,
+  enableAssetDetails: false,
   enableProjectLanguageSuggestions: false,
   autoBackup: false,
-  offlineUndownloadWarningEnabled: true,
   debugMode: false
 };
 
@@ -63,9 +63,9 @@ describe('localStore settings', () => {
     store.setEnableTranscription(true);
     store.setEnableMerge(true);
     store.setEnableAssetImport(true);
+    store.setEnableAssetDetails(true);
     store.setEnableProjectLanguageSuggestions(true);
     store.setAutoBackup(true);
-    store.setOfflineUndownloadWarningEnabled(false);
     store.setDebugMode(true);
 
     expect(useLocalStore.getState().notificationsEnabled).toBe(false);
@@ -78,9 +78,9 @@ describe('localStore settings', () => {
     expect(persisted.enableTranscription).toBe(true);
     expect(persisted.enableMerge).toBe(true);
     expect(persisted.enableAssetImport).toBe(true);
+    expect(persisted.enableAssetDetails).toBe(true);
     expect(persisted.enableProjectLanguageSuggestions).toBe(true);
     expect(persisted.autoBackup).toBe(true);
-    expect(persisted.offlineUndownloadWarningEnabled).toBe(false);
     expect(persisted.debugMode).toBe(true);
   });
 
@@ -97,9 +97,9 @@ describe('localStore settings', () => {
           enableTranscription: true,
           enableMerge: true,
           enableAssetImport: true,
+          enableAssetDetails: true,
           enableProjectLanguageSuggestions: true,
           autoBackup: true,
-          offlineUndownloadWarningEnabled: false,
           debugMode: true
         },
         version: 1
@@ -116,9 +116,9 @@ describe('localStore settings', () => {
     expect(restored.enableTranscription).toBe(true);
     expect(restored.enableMerge).toBe(true);
     expect(restored.enableAssetImport).toBe(true);
+    expect(restored.enableAssetDetails).toBe(true);
     expect(restored.enableProjectLanguageSuggestions).toBe(true);
     expect(restored.autoBackup).toBe(true);
-    expect(restored.offlineUndownloadWarningEnabled).toBe(false);
     expect(restored.debugMode).toBe(true);
   });
 });

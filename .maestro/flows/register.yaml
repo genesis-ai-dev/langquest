@@ -13,6 +13,7 @@ onFlowStart:
     visible: Create Account
     timeout: 30000
 - tapOn: Create Account
+- runFlow: _open-auth-language.yaml
 - tapOn:
     id: register-username
 - inputText: ${output.username}-testing

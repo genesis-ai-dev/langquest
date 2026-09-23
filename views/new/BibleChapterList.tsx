@@ -1,13 +1,16 @@
 /**
  * Displays Bible chapters for a selected book within a project.
  * Shows download/state indicators, creates chapter quests on-demand,
- * and navigates to the recording view. When multiple versions exist
- * for a chapter, shows a picker drawer.
+ * and navigates to the recording view. Members and owners always get the
+ * version picker (including Create new version). Guests skip it when only
+ * one version exists.
  */
 
-import { DownloadConfirmationModal } from '@/components/DownloadConfirmationModal';
-import { QuestDownloadDiscoveryDrawer } from '@/components/QuestDownloadDiscoveryDrawer';
-import { QuestVersionPickerCard } from '@/components/QuestVersionPickerCard';
+import { DownloadStatusBadge } from '@/components/DownloadStatusBadge';
+import {
+  QuestCreateNewVersionRow,
+  QuestVersionPickerCard
+} from '@/components/QuestVersionPickerCard';
 import {
   Drawer,
   DrawerContent,
@@ -16,7 +19,6 @@ import {
   DrawerTitle
 } from '@/components/ui/drawer';
 import { Icon } from '@/components/ui/icon';
-import { LegendList } from '@/components/ui/legend-list';
 import { Text } from '@/components/ui/text';
 import { getBibleBook } from '@/constants/bibleStructure';
 import { useAuth } from '@/contexts/AuthContext';
@@ -29,25 +31,15 @@ import type {
 import { useBibleChapters } from '@/hooks/useBibleChapters';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNavigationHelpers } from '@/hooks/useNavigation';
-import { useQuestDownloadDiscovery } from '@/hooks/useQuestDownloadDiscovery';
-import { useSheetHandoff } from '@/hooks/useSheetHandoff';
+import { useQuestDownloadFlow } from '@/hooks/useQuestDownloadFlow';
 import { useQuestDownloadStatusLive } from '@/hooks/useQuestDownloadStatusLive';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { BOOK_ICON_MAP } from '@/utils/BOOK_GRAPHICS';
-import { bulkDownloadQuest } from '@/utils/bulkDownload';
+import { shouldOpenQuestVersionPicker } from '@/utils/questVersionPicker';
 import { cn, useThemeColor } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
-import { invalidateCloud } from '@/hooks/hybridCache';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Image } from 'expo-image';
-import {
-  BookOpenIcon,
-  CircleArrowDownIcon,
-  CircleCheckIcon,
-  CopyIcon,
-  HardDriveIcon,
-  PlusCircleIcon
-} from 'lucide-react-native';
+import { BookOpenIcon, CopyIcon, HardDriveIcon } from 'lucide-react-native';
 import React from 'react';
 import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -58,14 +50,12 @@ function VersionCard({
   version,
   isCurrentUser,
   onPress,
-  onDownloadClick,
   isDownloading,
   downloadedQuestIds
 }: {
   version: BibleChapterQuest;
   isCurrentUser: boolean;
   onPress: () => void;
-  onDownloadClick: (questId: string) => void;
   isDownloading: boolean;
   downloadedQuestIds: Set<string>;
 }) {
@@ -88,7 +78,6 @@ function VersionCard({
       isDownloading={isDownloading}
       visible={version.visible}
       onPress={onPress}
-      onDownloadClick={() => onDownloadClick(version.id)}
     />
   );
 }
@@ -121,6 +110,8 @@ function ChapterButton({
   const isCloudQuest = existingQuest?.source === 'cloud';
   const versionCount = group?.versions.length ?? 0;
   const primaryColor = useThemeColor('primary');
+  const { currentUser } = useAuth();
+  const isSignedIn = Boolean(currentUser);
   const isDisabled = disabled || (!existingQuest && !canCreateNew);
 
   const liveDownloaded = useQuestDownloadStatusLive(existingQuest?.id || null);
@@ -165,24 +156,25 @@ function ChapterButton({
       ) : (
         <View className="flex-col items-center gap-1">
           <View className="flex-row items-center gap-1">
-            {hasLocalCopy && (
+            {isSignedIn && hasLocalCopy && (
               <Icon as={HardDriveIcon} size={14} className="text-secondary" />
             )}
-            {exists &&
-              (hasSyncedCopy || isCloudQuest) &&
-              (isOptimisticallyDownloading ? (
-                <ActivityIndicator size="small" color={primaryColor} />
-              ) : (
-                <Icon
-                  as={isDownloaded ? CircleCheckIcon : CircleArrowDownIcon}
-                  size={16}
-                  className={
-                    hasSyncedCopy || hasLocalCopy
-                      ? 'text-secondary'
-                      : 'text-foreground'
-                  }
-                />
-              ))}
+            {isSignedIn && exists && (hasSyncedCopy || isCloudQuest) && (
+              <DownloadStatusBadge
+                status={
+                  isOptimisticallyDownloading
+                    ? 'downloading'
+                    : isDownloaded
+                      ? 'downloaded'
+                      : 'cloud'
+                }
+                className={
+                  hasSyncedCopy || hasLocalCopy
+                    ? 'text-secondary'
+                    : 'text-foreground'
+                }
+              />
+            )}
             <Text className={cn('text-lg font-bold', getTextColor())}>
               {chapterNum}
             </Text>
@@ -235,7 +227,6 @@ export function BibleChapterList({
   const { project } = useProjectById(projectId);
   const { createChapter, isCreating } = useBibleChapterCreation();
   const { currentUser } = useAuth();
-  const queryClient = useQueryClient();
   const book = getBibleBook(bookId);
   const bookIconSource = BOOK_ICON_MAP[bookId];
   const primaryColor = useThemeColor('primary');
@@ -243,7 +234,8 @@ export function BibleChapterList({
   const insets = useSafeAreaInsets();
 
   const { membership } = useUserPermissions(projectId, 'open_project');
-  const canCreateNew = membership === 'member' || membership === 'owner';
+  const isMember = membership === 'member' || membership === 'owner';
+  const canCreateNew = isMember;
 
   const {
     chapters: chapterGroups,
@@ -267,163 +259,12 @@ export function BibleChapterList({
     (g) => g.chapterNumber === pickerChapterNum
   );
 
-  // Download state
-  const [questIdToDownload, setQuestIdToDownload] = React.useState<
-    string | null
-  >(null);
-  const [showDiscoveryDrawer, setShowDiscoveryDrawer] = React.useState(false);
-  const [showConfirmationModal, setShowConfirmationModal] =
-    React.useState(false);
-  const { handoff, isHandingOff, endHandoff, completeHandoff } =
-    useSheetHandoff();
-  const [downloadingQuestIds, setDownloadingQuestIds] = React.useState<
-    Set<string>
-  >(new Set());
-  const [downloadedQuestIds, setDownloadedQuestIds] = React.useState<
-    Set<string>
-  >(new Set());
-
-  const discoveryState = useQuestDownloadDiscovery(questIdToDownload || '');
-  const startedDiscoveryRef = React.useRef<string | null>(null);
-
-  React.useEffect(() => {
-    if (
-      showDiscoveryDrawer &&
-      questIdToDownload &&
-      !discoveryState.isDiscovering &&
-      startedDiscoveryRef.current !== questIdToDownload
-    ) {
-      startedDiscoveryRef.current = questIdToDownload;
-      discoveryState.startDiscovery();
-    }
-    if (!showDiscoveryDrawer) {
-      startedDiscoveryRef.current = null;
-    }
-  }, [
-    showDiscoveryDrawer,
-    questIdToDownload,
-    discoveryState.isDiscovering,
-    discoveryState
-  ]);
-
-  const bulkDownloadMutation = useMutation({
-    mutationFn: async () => {
-      if (
-        !currentUser?.id ||
-        discoveryState.discoveredIds.questIds.length === 0
-      ) {
-        throw new Error('Missing user or discovered IDs');
-      }
-      return bulkDownloadQuest(discoveryState.discoveredIds, currentUser.id);
-    },
-    onSuccess: async () => {
-      const questIds = discoveryState.discoveredIds.questIds;
-      setDownloadedQuestIds((prev) => new Set([...prev, ...questIds]));
-      setDownloadingQuestIds((prev) => {
-        const next = new Set(prev);
-        questIds.forEach((id) => next.delete(id));
-        return next;
-      });
-      await invalidateCloud(queryClient, 'bible-chapters', 'assets');
-    }
-  });
-
-  const handleDownloadClick = (questId: string) => {
-    setPickerChapterNum(null);
-    setQuestIdToDownload(questId);
-    setShowDiscoveryDrawer(true);
-  };
-
-  const handleDiscoveryContinue = () => {
-    handoff(
-      () => setShowDiscoveryDrawer(false),
-      () => setShowConfirmationModal(true)
-    );
-  };
-
-  const handleConfirmDownload = async () => {
-    endHandoff();
-    setShowConfirmationModal(false);
-    const questIdsToTrack = new Set(discoveryState.discoveredIds.questIds);
-    const targetQuestId = questIdToDownload;
-    const targetName = chapterGroups
-      .flatMap((group) => group.versions)
-      .find((version) => version.id === targetQuestId)?.name;
-    setDownloadingQuestIds((prev) => new Set([...prev, ...questIdsToTrack]));
-    setPickerChapterNum(null);
-
-    try {
-      await bulkDownloadMutation.mutateAsync();
-      if (targetQuestId) {
-        goToQuest({
-          id: targetQuestId,
-          project_id: projectId,
-          name: targetName
-        });
-      }
-      setQuestIdToDownload(null);
-    } catch {
-      setDownloadingQuestIds((prev) => {
-        const next = new Set(prev);
-        questIdsToTrack.forEach((id) => next.delete(id));
-        return next;
-      });
-      setQuestIdToDownload(null);
-    }
-  };
-
-  const handleCancelDiscovery = () => {
-    discoveryState.cancel();
-    if (questIdToDownload) {
-      setDownloadingQuestIds((prev) => {
-        const next = new Set(prev);
-        next.delete(questIdToDownload);
-        return next;
-      });
-    }
-    setShowDiscoveryDrawer(false);
-    setQuestIdToDownload(null);
-  };
-
-  const handleCancelConfirmation = () => {
-    endHandoff();
-    if (questIdToDownload) {
-      const questIdsToClear = discoveryState.discoveredIds.questIds;
-      setDownloadingQuestIds((prev) => {
-        const next = new Set(prev);
-        questIdsToClear.forEach((id) => next.delete(id));
-        return next;
-      });
-    }
-    setShowConfirmationModal(false);
-    setQuestIdToDownload(null);
-  };
+  const questDownloadFlow = useQuestDownloadFlow(projectId);
+  const { downloadingQuestIds, downloadedQuestIds } = questDownloadFlow;
 
   const navigateToVersion = (version: BibleChapterQuest) => {
-    const profiles = version.download_profiles;
-    const profileDownloaded = Boolean(
-      currentUser?.id &&
-      Array.isArray(profiles) &&
-      profiles.includes(currentUser.id)
-    );
-    const needsDownload =
-      Boolean(currentUser?.id) &&
-      version.source === 'cloud' &&
-      !downloadedQuestIds.has(version.id) &&
-      !profileDownloaded;
-
-    if (needsDownload) {
-      setPickerChapterNum(null);
-      handleDownloadClick(version.id);
-      return;
-    }
-
-    goToQuest({
-      id: version.id,
-      project_id: projectId,
-      name: version.name
-    });
     setPickerChapterNum(null);
+    void questDownloadFlow.openQuest(version, isMember);
   };
 
   const createNewVersion = async (chapterNum: number) => {
@@ -482,12 +323,12 @@ export function BibleChapterList({
       return;
     }
 
-    if (group.versions.length === 1) {
-      navigateToVersion(group.versions[0]!);
+    if (shouldOpenQuestVersionPicker(canCreateNew, group.versions.length)) {
+      setPickerChapterNum(chapterNum);
       return;
     }
 
-    setPickerChapterNum(chapterNum);
+    navigateToVersion(group.versions[0]!);
   };
 
   const chapterItems = Array.from({ length: book.chapters }, (_, i) => {
@@ -629,71 +470,21 @@ export function BibleChapterList({
                 version={version}
                 isCurrentUser={version.creator_id === currentUser?.id}
                 onPress={() => navigateToVersion(version)}
-                onDownloadClick={handleDownloadClick}
                 isDownloading={downloadingQuestIds.has(version.id)}
                 downloadedQuestIds={downloadedQuestIds}
               />
             ))}
 
             {canCreateNew && pickerChapterNum && (
-              <Pressable
+              <QuestCreateNewVersionRow
                 onPress={() => createNewVersion(pickerChapterNum)}
-                className="flex-row items-center gap-3 rounded-lg border border-dashed border-border p-4 active:opacity-70"
-              >
-                <View className="h-10 w-10 items-center justify-center rounded-full bg-muted">
-                  <Icon
-                    as={PlusCircleIcon}
-                    size={20}
-                    className="text-primary"
-                  />
-                </View>
-                <View className="flex-1">
-                  <Text className="font-semibold text-primary">
-                    {t('createNewVersion')}
-                  </Text>
-                  <Text className="text-sm text-muted-foreground">
-                    {t('startNewRecording')}
-                  </Text>
-                </View>
-              </Pressable>
+              />
             )}
           </View>
         </DrawerContent>
       </Drawer>
 
-      <QuestDownloadDiscoveryDrawer
-        isOpen={showDiscoveryDrawer}
-        onOpenChange={(open) => {
-          if (open) return;
-          if (isHandingOff()) completeHandoff();
-          else handleCancelDiscovery();
-        }}
-        onContinue={handleDiscoveryContinue}
-        discoveryState={discoveryState}
-      />
-
-      <DownloadConfirmationModal
-        visible={showConfirmationModal}
-        onConfirm={handleConfirmDownload}
-        onCancel={handleCancelConfirmation}
-        downloadType="quest"
-        discoveredCounts={{
-          Quests: discoveryState.progressSharedValues.quest.value.count,
-          Projects: discoveryState.progressSharedValues.project.value.count,
-          'Quest-Asset Links':
-            discoveryState.progressSharedValues.questAssetLinks.value.count,
-          Assets: discoveryState.progressSharedValues.assets.value.count,
-          'Asset Content Links':
-            discoveryState.progressSharedValues.assetContentLinks.value.count,
-          Votes: discoveryState.progressSharedValues.votes.value.count,
-          'Quest Tags':
-            discoveryState.progressSharedValues.questTagLinks.value.count,
-          'Asset Tags':
-            discoveryState.progressSharedValues.assetTagLinks.value.count,
-          Tags: discoveryState.progressSharedValues.tags.value.count,
-          Languages: discoveryState.progressSharedValues.languages.value.count
-        }}
-      />
+      {questDownloadFlow.sheets}
     </View>
   );
 }

@@ -1,0 +1,42 @@
+appId: ${MAESTRO_APP_ID}
+---
+# The asset list's details button (asset-open-details) is behind Settings →
+# "Show Asset Details" (enableAssetDetails, off after clearState). Turn it on
+# and return to Projects. Idempotent: only taps the switch while it is
+# unchecked.
+- runFlow: _open-app-drawer.yaml
+- tapOn:
+    id: drawer-settings
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: settings-screen
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: settings-assetDetails
+    direction: DOWN
+    centerElement: true
+    timeout: 20000
+- runFlow:
+    when:
+      visible:
+        id: settings-assetDetails
+        checked: false
+    commands:
+      - tapOn:
+          id: settings-assetDetails
+          waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: settings-assetDetails
+      checked: true
+    timeout: 10000
+- runFlow: _open-app-drawer.yaml
+- tapOn:
+    id: drawer-projects
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: projects-create-button
+    timeout: 15000

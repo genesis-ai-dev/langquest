@@ -58,6 +58,7 @@ export default function SettingsView() {
   );
   const enableMerge = useLocalStore((state) => state.enableMerge);
   const enableAssetImport = useLocalStore((state) => state.enableAssetImport);
+  const enableAssetDetails = useLocalStore((state) => state.enableAssetDetails);
   const enableFia = useLocalStore((state) => state.enableFia);
 
   const setShowHiddenContent = useLocalStore(
@@ -87,6 +88,9 @@ export default function SettingsView() {
   const setEnableMerge = useLocalStore((state) => state.setEnableMerge);
   const setEnableAssetImport = useLocalStore(
     (state) => state.setEnableAssetImport
+  );
+  const setEnableAssetDetails = useLocalStore(
+    (state) => state.setEnableAssetDetails
   );
   const setEnableFia = useLocalStore((state) => state.setEnableFia);
 
@@ -146,6 +150,10 @@ export default function SettingsView() {
 
   const handleAssetImportToggle = (value: boolean) => {
     setEnableAssetImport(value);
+  };
+
+  const handleAssetDetailsToggle = (value: boolean) => {
+    setEnableAssetDetails(value);
   };
 
   const handleFiaToggle = (value: boolean) => {
@@ -354,6 +362,14 @@ export default function SettingsView() {
           type: 'toggle',
           value: enableAssetImport,
           onPress: () => handleAssetImportToggle(!enableAssetImport)
+        },
+        {
+          id: 'assetDetails',
+          title: t('enableAssetDetails'),
+          description: t('enableAssetDetailsDescription'),
+          type: 'toggle',
+          value: enableAssetDetails,
+          onPress: () => handleAssetDetailsToggle(!enableAssetDetails)
         }
       ]
     },

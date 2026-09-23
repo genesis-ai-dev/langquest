@@ -1,6 +1,7 @@
-import AudioRecorder, {
-  type AudioRecorderRef,
-  type RecordingState
+import AudioRecorder from '@/components/AudioRecorder';
+import type {
+  AudioRecorderRef,
+  RecordingState
 } from '@/components/AudioRecorder';
 import {
   Drawer,
@@ -871,8 +872,7 @@ export default function NextGenNewTranslationModal({
                         </View>
                       </View>
                     ) : enableAiSuggestions &&
-                      predictionDetails &&
-                      predictionDetails.hasApiKey === false ? (
+                      predictionDetails?.hasApiKey === false ? (
                       // Show examples button when API key is missing
                       <View className="rounded-lg border-2 border-warning/30 bg-warning/5 p-4">
                         <View className="mb-2 flex-row items-center justify-between">
@@ -1139,21 +1139,20 @@ export default function NextGenNewTranslationModal({
 
                   <ScrollView className="max-h-[80%]">
                     {/* API Key Warning */}
-                    {predictionDetails &&
-                      predictionDetails.hasApiKey === false && (
-                        <View className="mb-6 rounded-lg border-2 border-warning bg-warning/10 p-4">
-                          <Text className="mb-2 text-base font-semibold text-warning-foreground">
-                            API Key Not Configured
-                          </Text>
-                          <Text className="text-sm text-warning-foreground">
-                            Translation prediction requires an OpenRouter API
-                            key to be configured. The examples below show
-                            contextually relevant translation examples that
-                            would be used for prediction, but no AI translation
-                            can be generated without an API key.
-                          </Text>
-                        </View>
-                      )}
+                    {predictionDetails?.hasApiKey === false && (
+                      <View className="mb-6 rounded-lg border-2 border-warning bg-warning/10 p-4">
+                        <Text className="mb-2 text-base font-semibold text-warning-foreground">
+                          API Key Not Configured
+                        </Text>
+                        <Text className="text-sm text-warning-foreground">
+                          Translation prediction requires an OpenRouter API key
+                          to be configured. The examples below show contextually
+                          relevant translation examples that would be used for
+                          prediction, but no AI translation can be generated
+                          without an API key.
+                        </Text>
+                      </View>
+                    )}
 
                     {/* Examples Section */}
                     {predictionDetails && (

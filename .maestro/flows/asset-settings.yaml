@@ -13,6 +13,7 @@ onFlowStart:
 - evalScript: ${output.otherQuestName = "maestro-settingsq2-" + Date.now()}
 - evalScript: ${output.skipSignInCleanup = true}
 - runFlow: _start-signed-in.yaml
+- runFlow: _enable-asset-details-setting.yaml
 - runFlow: _create-project-quest.yaml
 - extendedWaitUntil:
     visible:
@@ -54,6 +55,17 @@ onFlowStart:
     waitToSettleTimeoutMs: 0
 - evalScript: ${output.api.waitForQuestAssetLinkState(output.questName, output.assetName, "visible", true, 45000)}
 # --- Quest-scoped active ---------------------------------------------------
+# iOS XCUITest reports the last switch as 100% visible while the 80%
+# sheet clips it, so scrollUntilVisible is a no-op and tapOn hits empty
+# space. A short swipe up inside the sheet reveals it.
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - swipe:
+          start: 50%, 70%
+          end: 50%, 60%
+          duration: 400
 - tapOn:
     id: asset-settings-active-quest
     waitToSettleTimeoutMs: 0

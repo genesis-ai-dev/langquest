@@ -568,9 +568,10 @@ function seedProject(name, creatorEmail, isPrivate, template) {
   return { id: projectId, name: name, template: projectTemplate };
 }
 
-// Seeded quests are cloud-only on the device (opening one shows Download
-// Required) unless downloadForCreator is set, which puts the creator in
-// download_profiles so PowerSync replicates the quest as if downloaded.
+// Seeded quests are cloud-only on the device (members opening one see
+// Download Required; non-members open the cloud assets) unless
+// downloadForCreator is set, which puts the creator in download_profiles so
+// PowerSync replicates the quest as if downloaded.
 function seedQuest(
   projectName,
   questName,
@@ -854,8 +855,7 @@ function waitForAsset(assetName, timeoutMs) {
   );
 }
 
-// Content rows for an asset. Offload of a published quest that shares the
-// asset with a draft must leave these rows (and their audio[]) on the server.
+// Content rows for an asset, including audio[].
 function waitForAssetContent(assetName, timeoutMs) {
   if (!assetName || typeof assetName !== 'string' || assetName.trim() === '') {
     throw new Error(
@@ -1952,7 +1952,7 @@ function waitForQuestDownload(questName, email, downloaded, timeoutMs) {
           console.log(
             'Quest',
             questName,
-            wantDownloaded ? 'downloaded by' : 'offloaded by',
+            wantDownloaded ? 'downloaded by' : 'not downloaded by',
             email
           );
           return rows[0];

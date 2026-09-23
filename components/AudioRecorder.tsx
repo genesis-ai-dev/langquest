@@ -12,10 +12,9 @@ import {
   requestRecordingPermissionsAsync,
   setAudioModeAsync,
   useAudioRecorder,
-  useAudioRecorderState,
-  type AudioPlayer,
-  type RecordingOptions
+  useAudioRecorderState
 } from 'expo-audio';
+import type { AudioPlayer, RecordingOptions } from 'expo-audio';
 import type { LucideIcon } from 'lucide-react-native';
 import { Check, Mic, Pause, Play } from 'lucide-react-native';
 import React, {
@@ -95,7 +94,7 @@ const AudioRecorder = React.forwardRef<AudioRecorderRef, AudioRecorderProps>(
     );
 
     // Calculate max duration and warning threshold based on quality
-    const maxDuration = calculateMaxDuration(RecordingPresets[quality]!);
+    const maxDuration = calculateMaxDuration(RecordingPresets[quality]);
     const warningThreshold = maxDuration * 0.85; // Warning at 85% of max duration
 
     // Check permissions on mount

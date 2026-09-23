@@ -7,7 +7,7 @@ jest.mock('@/database_services/assetGarbageCollectorService', () => ({
 }));
 
 jest.mock('@react-navigation/native', () => {
-  const effects: Array<() => void | (() => void)> = [];
+  const effects: (() => void | (() => void))[] = [];
   return {
     useFocusEffect: (effect: () => void | (() => void)) => {
       effects.push(effect);
@@ -22,7 +22,7 @@ import { useCollectAssetsOnBlur } from '../useCollectAssetsOnBlur';
 
 const runCollector = run as jest.MockedFunction<typeof run>;
 const focusEffects = (
-  Navigation as unknown as { __effects: Array<() => void | (() => void)> }
+  Navigation as unknown as { __effects: (() => void | (() => void))[] }
 ).__effects;
 
 describe('useCollectAssetsOnBlur', () => {

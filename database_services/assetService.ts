@@ -171,7 +171,7 @@ function parseMetadataRecord(metadata: unknown): MetadataRecord {
   if (!metadata) return {};
   if (typeof metadata === 'string') {
     try {
-      const parsed = JSON.parse(metadata) as unknown;
+      const parsed = JSON.parse(metadata);
       return parsed && typeof parsed === 'object'
         ? (parsed as MetadataRecord)
         : {};
@@ -332,19 +332,32 @@ export interface SoftMergeResult {
   newData: AssetOperationDataItem[];
 }
 
+/** Thrown when some placements in a batch failed; the rest were written. */
+export class AssetVerseUpdateError extends Error {
+  readonly appliedAssetIds: string[];
+
+  constructor(message: string, appliedAssetIds: string[]) {
+    super(message);
+    this.name = 'AssetVerseUpdateError';
+    this.appliedAssetIds = appliedAssetIds;
+  }
+}
+
 /**
  * Batch update asset verse and/or quest-specific order_index for multiple assets.
  * Only metadata.verse is patched; every other metadata property is preserved.
+ * Resolves with the ids that were written; queued and unlinked assets are skipped.
  */
 export async function batchUpdateAssetVerseDirect(
   questId: string,
   updates: AssetUpdatePayload[]
-): Promise<void> {
-  if (updates.length === 0) return;
+): Promise<string[]> {
+  if (updates.length === 0) return [];
 
   // Each placement is independent. An immutable (published) link must not stop
   // the remaining updates, otherwise order_index is left half normalized and
   // later insertions land between assets instead of at the end.
+  const appliedAssetIds: string[] = [];
   const failedAssetIds: string[] = [];
   const queuedIds = new Set(await getQueuedAssetIds());
 
@@ -357,6 +370,7 @@ export async function batchUpdateAssetVerseDirect(
         update.metadata,
         update.order_index
       );
+      appliedAssetIds.push(update.assetId);
     } catch (error) {
       if (
         error instanceof Error &&
@@ -373,16 +387,18 @@ export async function batchUpdateAssetVerseDirect(
       `Failed to update ${failedAssetIds.length} of ${updates.length} asset verse placement(s):`,
       failedAssetIds
     );
-    throw new Error(
-      `Failed to update ${failedAssetIds.length} of ${updates.length} asset verse placement(s)`
+    throw new AssetVerseUpdateError(
+      `Failed to update ${failedAssetIds.length} of ${updates.length} asset verse placement(s)`,
+      appliedAssetIds
     );
   }
+  return appliedAssetIds;
 }
 
 export async function batchUpdateAssetVerse(
   questId: string,
   updates: AssetUpdatePayload[]
-): Promise<void> {
+): Promise<string[]> {
   return enqueueAssetWrite(questId, () =>
     batchUpdateAssetVerseDirect(questId, updates)
   );
@@ -604,7 +620,6 @@ export async function softMergeAssetsInQuestDirect(params: {
       await tx.insert(assetLocal).values({
         id: newAssetId,
         name: mergedName,
-        images: first.images,
         visible: first.visible,
         download_profiles:
           first.download_profiles ?? (creatorId ? [creatorId] : []),

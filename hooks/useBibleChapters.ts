@@ -114,7 +114,7 @@ function mapQuestRowsToChapters(
       let createdAt: string;
       const ca = q.created_at;
       if (ca && typeof ca === 'object' && 'toISOString' in ca) {
-        createdAt = (ca as Date).toISOString();
+        createdAt = ca.toISOString();
       } else if (typeof ca === 'string') {
         createdAt = ca;
       } else {
@@ -130,7 +130,7 @@ function mapQuestRowsToChapters(
         quest_download_profiles: parsedProfiles,
         quest_creator_id: q.creator_id ?? null,
         quest_visible: q.visible ?? true,
-        chapter_number: meta.bible.chapter!
+        chapter_number: meta.bible.chapter
       } satisfies QuestWithMetadata;
     })
     .filter((x): x is QuestWithMetadata => x !== null);
@@ -172,7 +172,7 @@ async function fetchCloudChapters(
         quest_download_profiles: row.download_profiles as string[] | null,
         quest_creator_id: (row.creator_id as string) ?? null,
         quest_visible: (row.visible as boolean) ?? true,
-        chapter_number: meta.bible.chapter!
+        chapter_number: meta.bible.chapter
       });
     }
     return results;
@@ -257,23 +257,25 @@ function processChapterResults(
           (v) =>
             showHiddenContent || v.visible || v.creator_id === currentUserId
         )
-        .map((v) => ({
-          id: v.id,
-          name: v.name,
-          versionLabel: v.versionLabel,
-          chapterNumber: v.chapterNumber,
-          source: (v.sources.has('synced')
-            ? 'synced'
-            : v.sources.has('local')
-              ? 'local'
-              : 'cloud') as HybridDataSource,
-          hasLocalCopy: v.sources.has('local'),
-          hasSyncedCopy: v.sources.has('synced'),
-          download_profiles: v.download_profiles,
-          creator_id: v.creator_id,
-          created_at: v.created_at,
-          visible: v.visible
-        }))
+        .map(
+          (v): BibleChapterQuest => ({
+            id: v.id,
+            name: v.name,
+            versionLabel: v.versionLabel,
+            chapterNumber: v.chapterNumber,
+            source: v.sources.has('synced')
+              ? 'synced'
+              : v.sources.has('local')
+                ? 'local'
+                : 'cloud',
+            hasLocalCopy: v.sources.has('local'),
+            hasSyncedCopy: v.sources.has('synced'),
+            download_profiles: v.download_profiles,
+            creator_id: v.creator_id,
+            created_at: v.created_at,
+            visible: v.visible
+          })
+        )
         .sort((a, b) => {
           const aPriority = getSourcePriority(a.source);
           const bPriority = getSourcePriority(b.source);

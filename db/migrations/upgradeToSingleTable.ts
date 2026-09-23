@@ -65,20 +65,23 @@ export const SINGLE_TABLE_NAMES = [
 
 export type SingleTableName = (typeof SINGLE_TABLE_NAMES)[number];
 
-export type UpgradeDraftRow = { id: string; data: string };
+export interface UpgradeDraftRow {
+  id: string;
+  data: string;
+}
 
-export type UpgradeDraftsFile = {
+export interface UpgradeDraftsFile {
   version: 1;
   tables: Partial<Record<SingleTableName, UpgradeDraftRow[]>>;
-};
+}
 
 const UPGRADE_FILENAME = 'ps_upgrade_2_6_drafts.json';
 const LOG = '[SingleTableUpgrade]';
 
-export type PreSingleTableObject = {
+export interface PreSingleTableObject {
   type: string;
   name: string;
-};
+}
 
 function numericCount(value: unknown): number {
   if (typeof value === 'bigint') return Number(value);

@@ -124,9 +124,9 @@ export function useBreadcrumbs(): Breadcrumb[] {
   const router = useRouter();
   const { t } = useLocalization();
 
-  const projectId = (params.projectId as string) || undefined;
-  const questId = (params.questId as string) || undefined;
-  const assetId = (params.assetId as string) || undefined;
+  const projectId = params.projectId! || undefined;
+  const questId = params.questId! || undefined;
+  const assetId = params.assetId! || undefined;
   const rawProjectName = params.projectName;
   const projectNameParam = Array.isArray(rawProjectName)
     ? rawProjectName[0]

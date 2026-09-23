@@ -85,8 +85,7 @@ function useNextGenTranslation(assetId: string) {
   }, [assetId, isAuthenticated]);
 
   return useHybridQuery<
-    Omit<typeof asset.$inferSelect, 'images'> & {
-      images: string[];
+    typeof asset.$inferSelect & {
       content: (typeof asset_content_link.$inferSelect)[];
       votes: {
         id: string;
@@ -120,8 +119,7 @@ function useNextGenTranslation(assetId: string) {
         .eq('id', assetId)
         .limit(1)
         .overrideTypes<
-          (Omit<typeof asset.$inferSelect, 'images'> & {
-            images: string;
+          (typeof asset.$inferSelect & {
             content?: (typeof asset_content_link.$inferSelect)[];
             votes?: {
               id: string;
@@ -136,19 +134,11 @@ function useNextGenTranslation(assetId: string) {
 
       if (error) throw error;
 
-      // Parse images JSON
-      return data.map((item) => {
-        const parsedImages = item.images
-          ? (JSON.parse(item.images) as string[])
-          : [];
-
-        return {
-          ...item,
-          images: parsedImages,
-          content: item.content || [],
-          votes: item.votes || []
-        };
-      });
+      return data.map((item) => ({
+        ...item,
+        content: item.content || [],
+        votes: item.votes || []
+      }));
     },
     enabled: !!assetId,
     enableCloudQuery: !!assetId,

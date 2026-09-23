@@ -114,7 +114,7 @@ function mapQuestRowsToPericopes(
       let createdAt: string;
       const ca = q.created_at;
       if (ca && typeof ca === 'object' && 'toISOString' in ca) {
-        createdAt = (ca as Date).toISOString();
+        createdAt = ca.toISOString();
       } else if (typeof ca === 'string') {
         createdAt = ca;
       } else {
@@ -254,23 +254,25 @@ function processPericopeResults(
           (v) =>
             showHiddenContent || v.visible || v.creator_id === currentUserId
         )
-        .map((v) => ({
-          id: v.id,
-          name: v.name,
-          versionLabel: v.versionLabel,
-          pericopeId: v.pericopeId,
-          source: (v.sources.has('synced')
-            ? 'synced'
-            : v.sources.has('local')
-              ? 'local'
-              : 'cloud') as HybridDataSource,
-          hasLocalCopy: v.sources.has('local'),
-          hasSyncedCopy: v.sources.has('synced'),
-          download_profiles: v.download_profiles,
-          creator_id: v.creator_id,
-          created_at: v.created_at,
-          visible: v.visible
-        }))
+        .map(
+          (v): FiaPericopeQuest => ({
+            id: v.id,
+            name: v.name,
+            versionLabel: v.versionLabel,
+            pericopeId: v.pericopeId,
+            source: v.sources.has('synced')
+              ? 'synced'
+              : v.sources.has('local')
+                ? 'local'
+                : 'cloud',
+            hasLocalCopy: v.sources.has('local'),
+            hasSyncedCopy: v.sources.has('synced'),
+            download_profiles: v.download_profiles,
+            creator_id: v.creator_id,
+            created_at: v.created_at,
+            visible: v.visible
+          })
+        )
         .sort((a, b) => {
           const aPriority = getSourcePriority(a.source);
           const bPriority = getSourcePriority(b.source);

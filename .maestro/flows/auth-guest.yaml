@@ -4,8 +4,8 @@ onFlowStart:
 onFlowComplete:
   - runFlow: _recover-after-airplane.yaml
 ---
-# Guest landing: My Projects Sign In CTA, offline sign-in gate,
-# forgot-password confirmation, wrong password error.
+# Guest landing: My Projects Sign In CTA, dismiss back to guest home,
+# offline sign-in gate, forgot-password confirmation, wrong password error.
 - evalScript: ${output.signInEmail = output.api.uniqueEmail("guestauth")}
 - evalScript: ${output.signInPassword = output.api.uniquePassword("guestauth")}
 - evalScript: ${output.api.createConfirmedUser(output.signInEmail, output.signInPassword)}
@@ -29,6 +29,21 @@ onFlowComplete:
 # Auth is a form sheet. The hamburger behind it must not be in the tree.
 - assertNotVisible:
     id: app-drawer-menu-button
+- runFlow: _open-auth-language.yaml
+- tapOn:
+    id: auth-sheet-close
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: home-sign-in
+    timeout: 15000
+- tapOn:
+    id: home-sign-in
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: sign-in-email
+    timeout: 15000
 - runFlow:
     when:
       platform: Android

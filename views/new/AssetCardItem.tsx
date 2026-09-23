@@ -1,4 +1,3 @@
-import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { NewHighlightBadge } from '@/components/NewHighlightBadge';
 // import { Badge } from '@/components/ui/badge';
 import {
@@ -8,12 +7,12 @@ import {
   CardTitle
 } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
-import { useAuth } from '@/contexts/AuthContext';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 // import type { Tag } from '@/database_services/tagCache';
 // import { tagService } from '@/database_services/tagService';
 import type { asset as asset_type } from '@/db/drizzleSchema';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useLocalStore } from '@/store/localStore';
 import { useNavigationHelpers } from '@/hooks/useNavigation';
 // import { useTagStore } from '@/hooks/useTagStore';
 import { isImportedAsset } from '@/utils/assetProvenance';
@@ -34,12 +33,7 @@ import {
 import React from 'react';
 import { Pressable, View } from 'react-native';
 // import { TagModal } from '../../components/TagModal';
-import { Text } from '@/components/ui/text';
 import type { HybridDataSource } from '@/hooks/useHybridQuery';
-import {
-  useItemDownload,
-  useItemDownloadStatus
-} from '@/hooks/useItemDownload';
 
 // Define props locally to avoid require cycle.
 
@@ -98,13 +92,11 @@ const AssetCardItemComponent: React.FC<AssetCardItemProps> = ({
   isHighlighted = false
 }) => {
   const { goToAsset } = useNavigationHelpers();
-  const { currentUser } = useAuth();
   const { t } = useLocalization();
-  // Check if asset is downloaded
-  const isDownloaded = useItemDownloadStatus(asset, currentUser?.id);
   const isImported = isImportedAsset(asset.metadata);
   const canRenameAsset = !isPublished || isImported;
   const canOpenAssetDetails = isPublished || !isImported;
+  const enableAssetDetails = useLocalStore((s) => s.enableAssetDetails);
 
   // Tags functionality commented out
   // const fetchManyTags = useTagStore((s) => s.fetchManyTags);
@@ -121,12 +113,6 @@ const AssetCardItemComponent: React.FC<AssetCardItemProps> = ({
   //   };
   //   void loadTags();
   // }, [asset.tag_ids, fetchManyTags]);
-
-  // Download mutation
-  const { mutate: downloadAsset, isPending: isDownloading } = useItemDownload(
-    'asset',
-    asset.id
-  );
 
   // Tag modal state - commented out
   // const [isTagModalVisible, setIsTagModalVisible] = React.useState(false);
@@ -235,13 +221,6 @@ const AssetCardItemComponent: React.FC<AssetCardItemProps> = ({
     if (!isSelectionMode && onEnterSelection) {
       onEnterSelection(asset.id);
     }
-  };
-
-  const handleDownloadToggle = () => {
-    if (!currentUser?.id) return;
-
-    // Toggle download status
-    downloadAsset({ userId: currentUser.id, download: !isDownloaded });
   };
 
   // Tags display - commented out
@@ -396,36 +375,28 @@ const AssetCardItemComponent: React.FC<AssetCardItemProps> = ({
                 {isHighlighted && <NewHighlightBadge />}
 
                 {!isSelectionMode &&
-                !isPublished &&
-                onRename &&
-                canRenameAsset ? (
-                  <Pressable
-                    onPress={(e) => {
-                      e.stopPropagation();
-                      onRename(asset.id, asset.name);
-                    }}
-                    className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/20 active:bg-primary/40"
-                    hitSlop={8}
-                    testID="asset-rename"
-                    accessibilityLabel="asset-rename"
-                  >
-                    <Icon
-                      as={PencilLineIcon}
-                      size={12}
-                      className="text-primary"
-                    />
-                  </Pressable>
-                ) : (
-                  <DownloadIndicator
-                    isFlaggedForDownload={isDownloaded}
-                    isLoading={isDownloading}
-                    onPress={handleDownloadToggle}
-                    size={16}
-                    iconColor="text-primary/50"
-                  />
-                )}
+                  !isPublished &&
+                  onRename &&
+                  canRenameAsset && (
+                    <Pressable
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        onRename(asset.id, asset.name);
+                      }}
+                      className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/20 active:bg-primary/40"
+                      hitSlop={8}
+                      testID="asset-rename"
+                      accessibilityLabel="asset-rename"
+                    >
+                      <Icon
+                        as={PencilLineIcon}
+                        size={12}
+                        className="text-primary"
+                      />
+                    </Pressable>
+                  )}
 
-                {!isSelectionMode && (
+                {enableAssetDetails && !isSelectionMode && (
                   <Pressable
                     disabled={!canOpenAssetDetails}
                     onPress={(e) => {

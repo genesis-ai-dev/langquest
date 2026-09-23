@@ -9,10 +9,10 @@ import {
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
-import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useAttachmentProgress } from '@/hooks/useAttachmentProgress';
 import { getUpdateVersion } from '@/hooks/useExpoUpdates';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useNotifications } from '@/hooks/useNotifications';
 import { usePowerSyncStatus } from '@/hooks/usePowerSyncStatus';
 import { isDegradedMode } from '@/services/degradedModeService';
@@ -79,13 +79,9 @@ export default function AppDrawer({
         ? 'profile'
         : pathname.includes('/notifications')
           ? 'notifications'
-          : pathname.includes('/download-status')
-            ? 'download-status'
-            : pathname.includes('/settings')
-              ? 'settings'
-              : pathname.includes('/download-status')
-                ? 'download-status'
-                : undefined;
+          : pathname.includes('/settings')
+            ? 'settings'
+            : undefined;
 
   // Always call hooks (Rules of Hooks), but only subscribe when drawer is visible
   // The hooks themselves handle memoization to prevent re-renders
@@ -182,35 +178,6 @@ export default function AppDrawer({
     width: `${animatedUploadProgress.value}%`
   }));
 
-  // Memoize progress values to prevent re-renders when object reference changes
-  // but values are the same - extract individual values for dependency tracking
-  // TEMPORARILY DISABLED: Commenting out to debug infinite loop
-  // const stableProgress = useMemo(() => {
-  //   return {
-  //     total: 0,
-  //     synced: 0,
-  //     downloading: 0,
-  //     queued: 0,
-  //     unsynced: 0,
-  //     hasActivity: false
-  //   };
-  // }, []);
-
-  // // TEMPORARILY DISABLED: Commenting out to debug infinite loop
-  // const powerSyncStatus = useMemo(
-  //   () => ({
-  //     connected: false,
-  //     connecting: false,
-  //     downloading: false,
-  //     uploading: false,
-  //     hasSynced: undefined,
-  //     lastSyncedAt: undefined,
-  //     downloadError: undefined,
-  //     uploadError: undefined
-  //   }),
-  //   []
-  // );
-
   // Track if drawer has ever been opened to ensure proper initialization
   const [hasOpened, setHasOpened] = React.useState(false);
   const [isDegraded, setIsDegraded] = React.useState(false);
@@ -256,10 +223,6 @@ export default function AppDrawer({
   );
   const handleGoToSettings = useCallback(
     () => closeDrawerAndExecute(() => router.push('/(app)/settings')),
-    [closeDrawerAndExecute, router]
-  );
-  const handleGoToDownloadStatus = useCallback(
-    () => closeDrawerAndExecute(() => router.push('/(app)/download-status')),
     [closeDrawerAndExecute, router]
   );
   const handleSignIn = useCallback(() => {
@@ -361,14 +324,6 @@ export default function AppDrawer({
       });
     }
 
-    items.push({
-      name: t('downloadStatus'),
-      view: 'download-status',
-      icon: CloudDownload,
-      onPress: handleGoToDownloadStatus,
-      testID: 'drawer-download-status'
-    });
-
     // Add logout for development
     if (__DEV__) {
       items.push({
@@ -387,7 +342,6 @@ export default function AppDrawer({
     handleGoToNotifications,
     handleGoToProfile,
     handleGoToSettings,
-    handleGoToDownloadStatus,
     handleSignIn,
     handleSignOut
   ]);
@@ -507,7 +461,10 @@ export default function AppDrawer({
                   </View>
                   <View className="flex-1">
                     <View className="flex-row items-center gap-1.5">
-                      <Text className="text-xs text-foreground">
+                      <Text
+                        className="text-xs text-foreground"
+                        testID="download-status-files"
+                      >
                         {stableProgress.synced}/{stableProgress.total}{' '}
                         {t('files')}
                       </Text>

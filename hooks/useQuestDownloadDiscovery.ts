@@ -672,7 +672,7 @@ export function useQuestDownloadDiscovery(questId: string): DiscoveryState {
         }
 
         // Wave 3: Vote and tag queries
-        const [votesResult, tagsResult] = await Promise.all([
+        await Promise.all([
           // Query votes
           (async () => {
             try {

@@ -492,186 +492,6 @@ export const localizations = {
     thai: 'กำลังค้นหาข้อมูลเควสต์',
     mandarin: '正在发现任务数据'
   },
-  offloadQuest: {
-    english: 'Offload Quest',
-    french: 'Quête de déchargement',
-    spanish: 'Descargar Quest',
-    brazilian_portuguese: 'Descarregar Quest',
-    tok_pisin: 'Rausim Quest',
-    indonesian: 'Lepas Quest',
-    nepali: 'क्वेस्ट हटाउनुहोस्',
-    hindi: 'क्वेस्ट अनलोड करें',
-    burmese: 'Quest ကို ဖယ်ရှားပါ',
-    thai: 'ถอดเควสต์',
-    mandarin: '卸载任务'
-  },
-  offloadQuestDescription: {
-    english: 'Remove local data to free up storage',
-    french:
-      "Supprimez les données locales pour libérer de l'espace de stockage",
-    spanish: 'Eliminar datos locales para liberar almacenamiento',
-    brazilian_portuguese: 'Remover dados locais para liberar armazenamento',
-    tok_pisin: 'Rausim data long freeup storage',
-    indonesian: 'Hapus data lokal untuk membebaskan penyimpanan',
-    nepali: 'भण्डारण खाली गर्न स्थानीय डाटा हटाउनुहोस्',
-    hindi: 'भंडारण खाली करने के लिए स्थानीय डेटा हटाएं',
-    burmese: 'သိုလှောင်မှုကို လွတ်လပ်စေရန် ဒေသတွင်းဒေတာကို ဖယ်ရှားပါ',
-    thai: 'ลบข้อมูลท้องถิ่นเพื่อเพิ่มพื้นที่เก็บข้อมูล',
-    mandarin: '删除本地数据以释放存储空间'
-  },
-  verifyingCloudData: {
-    english: 'Verifying data in cloud...',
-    french: 'Vérification des données dans le cloud...',
-    spanish: 'Verificando datos en la nube...',
-    brazilian_portuguese: 'Verificando dados na nuvem...',
-    tok_pisin: 'Checkim data long klaud...',
-    indonesian: 'Memverifikasi data di cloud...',
-    nepali: 'क्लाउडमा डाटा प्रमाणित गर्दै...',
-    hindi: 'क्लाउड में डेटा सत्यापित कर रहे हैं...',
-    burmese: 'cloud တွင် ဒေတာကို အတည်ပြုနေသည်...',
-    thai: 'กำลังตรวจสอบข้อมูลในคลาวด์...',
-    mandarin: '正在验证云端数据...'
-  },
-  pendingUploadsDetected: {
-    english: 'Pending uploads detected',
-    french: 'Téléchargements en attente détectés',
-    spanish: 'Se detectaron cargas pendientes',
-    brazilian_portuguese: 'Uploads pendentes detectados',
-    tok_pisin: 'Painimaut sampela hap i no go yet',
-    indonesian: 'Mendeteksi upload tertunda',
-    nepali: 'बाँकी अपलोडहरू पत्ता लाग्यो',
-    hindi: 'लंबित अपलोड का पता चला',
-    burmese: 'ဆိုင်းငံ့ထားသော အပ်လုဒ်များကို ရှာဖွေတွေ့ရှိသည်',
-    thai: 'ตรวจพบการอัปโหลดที่รอดำเนินการ',
-    mandarin: '检测到待上传'
-  },
-  cannotOffloadDraft: {
-    english: 'This quest is a draft',
-    french: 'Cette quête est un brouillon',
-    spanish: 'Esta quest es un borrador',
-    brazilian_portuguese: 'Esta quest é um rascunho',
-    tok_pisin: 'Dispela quest i draf yet',
-    indonesian: 'Quest ini masih draf',
-    nepali: 'यो क्वेस्ट ड्राफ्ट हो',
-    hindi: 'यह क्वेस्ट ड्राफ्ट है',
-    burmese: 'ဤ quest သည် မူကြမ်းဖြစ်သည်',
-    thai: 'เควสต์นี้ยังเป็นฉบับร่าง',
-    mandarin: '此任务仍为草稿'
-  },
-  cannotOffloadDraftMessage: {
-    english:
-      'Drafts stay on this device. Publish the quest before you offload it.',
-    french:
-      'Les brouillons restent sur cet appareil. Publiez la quête avant de la décharger.',
-    spanish:
-      'Los borradores permanecen en este dispositivo. Publica la quest antes de descargarla.',
-    brazilian_portuguese:
-      'Rascunhos ficam neste dispositivo. Publique a quest antes de descarregá-la.',
-    tok_pisin:
-      'Draf i stap long dispela mashin. Publishim quest pastaim long rausim.',
-    indonesian:
-      'Draf tetap di perangkat ini. Publikasikan quest sebelum melepasnya.',
-    nepali:
-      'ड्राफ्टहरू यो उपकरणमा रहन्छन्। हटाउनु अघि क्वेस्ट प्रकाशित गर्नुहोस्।',
-    hindi:
-      'ड्राफ्ट इस डिवाइस पर रहते हैं। अनलोड करने से पहले क्वेस्ट प्रकाशित करें।',
-    burmese:
-      'မူကြမ်းများသည် ဤစက်တွင် ရှိနေပါသည်။ ဖယ်ရှားရန် မလုပ်မီ quest ကို ထုတ်ဝေပါ။',
-    thai: 'ฉบับร่างยังอยู่บนอุปกรณ์นี้ เผยแพร่เควสต์ก่อนถอดออก',
-    mandarin: '草稿会留在此设备上。请先发布任务，然后再卸载。'
-  },
-  offloadSyncPending: {
-    english:
-      'The quest is offloaded on the server. Local copies will disappear after the next sync.',
-    french:
-      'La quête est déchargée sur le serveur. Les copies locales disparaîtront après la prochaine synchronisation.',
-    spanish:
-      'La quest está descargada en el servidor. Las copias locales desaparecerán tras la próxima sincronización.',
-    brazilian_portuguese:
-      'A quest foi descarregada no servidor. As cópias locais sumirão após a próxima sincronização.',
-    tok_pisin:
-      'Quest i rausim pinis long seva. Kopi long mashin bai go pinis bihain long next sync.',
-    indonesian:
-      'Quest sudah dilepas di server. Salinan lokal akan hilang setelah sinkronisasi berikutnya.',
-    nepali:
-      'क्वेस्ट सर्भरबाट हटाइएको छ। अर्को सिङ्कपछि स्थानीय प्रतिलिपिहरू हराउनेछन्।',
-    hindi:
-      'क्वेस्ट सर्वर से अनलोड हो गया है। अगले सिंक के बाद स्थानीय प्रतियां हट जाएंगी।',
-    burmese:
-      'Quest ကို ဆာဗာမှ ဖယ်ရှားပြီးပါပြီ။ နောက် sync တွင် ဒေသတွင်းမိတ္တူများ ပျောက်သွားပါမည်။',
-    thai: 'เควสต์ถูกถอดออกบนเซิร์ฟเวอร์แล้ว สำเนาท้องถิ่นจะหายไปหลังการซิงค์ครั้งถัดไป',
-    mandarin: '任务已在服务器上卸载。下次同步后，本地副本将消失。'
-  },
-  pendingUploadsMessage: {
-    english:
-      'This quest still has changes uploading. Stay online and wait for sync to finish before you offload it.',
-    french:
-      'Veuillez attendre que toutes les modifications soient téléchargées sur le cloud avant de les décharger. Connectez-vous à Internet et attendez la fin de la synchronisation.',
-    spanish:
-      'Espere a que todos los cambios se carguen en la nube antes de descargar. Conéctese a Internet y espere a que se complete la sincronización.',
-    brazilian_portuguese:
-      'Aguarde todos os uploads para a nuvem antes de descarregar. Conecte-se à internet e aguarde a sincronização completar.',
-    tok_pisin:
-      'Wetim olgeta senis i go long klaud pastaim long rausim. Joinim internet na wetim sync i pinis.',
-    indonesian:
-      'Harap tunggu semua perubahan terupload ke cloud sebelum melepas. Sambungkan ke internet dan tunggu sinkronisasi selesai.',
-    nepali:
-      'कृपया हटाउनु अघि सबै परिवर्तनहरू क्लाउडमा अपलोड हुनको लागि पर्खनुहोस्। इन्टरनेटमा जडान गर्नुहोस् र सिङ्क पूरा हुनको लागि पर्खनुहोस्।',
-    hindi:
-      'कृपया अनलोड करने से पहले सभी परिवर्तनों के क्लाउड में अपलोड होने की प्रतीक्षा करें। इंटरनेट से कनेक्ट करें और सिंक पूरा होने की प्रतीक्षा करें।',
-    burmese:
-      'ဖယ်ရှားမီ cloud သို့ အပြောင်းအလဲအားလုံး အပ်လုဒ်လုပ်ရန် စောင့်ပါ။ အင်တာနက်သို့ ချိတ်ဆက်ပြီး sync ပြီးမြောက်သည်အထိ စောင့်ပါ။',
-    thai: 'กรุณารอให้การเปลี่ยนแปลงทั้งหมดอัปโหลดไปยังคลาวด์ก่อนถอดออก เชื่อมต่ออินเทอร์เน็ตและรอให้การซิงค์เสร็จสมบูรณ์',
-    mandarin: '请在卸载前等待所有更改上传到云端。连接到互联网并等待同步完成。'
-  },
-  readyToOffload: {
-    english: 'Ready to offload',
-    french: 'Prêt à décharger',
-    spanish: 'Listo para descargar',
-    brazilian_portuguese: 'Pronto para descarregar',
-    tok_pisin: 'Redi long rausim',
-    indonesian: 'Siap untuk melepas',
-    nepali: 'हटाउन तयार',
-    hindi: 'अनलोड करने के लिए तैयार',
-    burmese: 'ဖယ်ရှားရန် အဆင်သင့်',
-    thai: 'พร้อมถอดออก',
-    mandarin: '准备卸载'
-  },
-  offloadWarning: {
-    english:
-      'This will delete local copies. Data will remain safely in the cloud and can be re-downloaded later.',
-    french:
-      'Cela supprimera les copies locales. Les données resteront en sécurité dans le cloud et pourront être retéléchargées ultérieurement.',
-    spanish:
-      'Esto eliminará las copias locales. Los datos permanecerán seguros en la nube y se pueden volver a descargar más tarde.',
-    brazilian_portuguese:
-      'Isto removerá cópias locais. Os dados permanecerão seguros na nuvem e podem ser baixados novamente depois.',
-    tok_pisin:
-      'Dispela bai rausim kopi long dispela mashin tasol. Data bai stap save long klaud na yu ken daunim gen bihain.',
-    indonesian:
-      'Ini akan menghapus salinan lokal. Data akan tetap aman di cloud dan dapat diunduh kembali nanti.',
-    nepali:
-      'यसले स्थानीय प्रतिलिपिहरू मेट्नेछ। डाटा क्लाउडमा सुरक्षित रहनेछ र पछि पुन: डाउनलोड गर्न सकिन्छ।',
-    hindi:
-      'यह स्थानीय प्रतियां हटा देगा। डेटा क्लाउड में सुरक्षित रहेगा और बाद में फिर से डाउनलोड किया जा सकता है।',
-    burmese:
-      '၎င်းသည် ဒေသတွင်းမိတ္တူများကို ဖျက်ပါမည်။ ဒေတာသည် cloud တွင် ဘေးကင်းစွာ ရှိနေပြီး နောက်ပိုင်းတွင် ပြန်လည်ဒေါင်းလုဒ်လုပ်နိုင်သည်။',
-    thai: 'การดำเนินการนี้จะลบสำเนาท้องถิ่น ข้อมูลจะยังคงปลอดภัยในคลาวด์และสามารถดาวน์โหลดใหม่ได้ในภายหลัง',
-    mandarin: '这将删除本地副本。数据将安全地保留在云端，稍后可以重新下载。'
-  },
-  storageToFree: {
-    english: 'Storage to Free',
-    french: 'Stockage gratuit',
-    spanish: 'Almacenamiento para Liberar',
-    brazilian_portuguese: 'Armazenamento a Liberar',
-    tok_pisin: 'Storage Long Freeup',
-    indonesian: 'Penyimpanan yang Dibebaskan',
-    nepali: 'खाली गर्ने भण्डारण',
-    hindi: 'मुक्त करने के लिए भंडारण',
-    burmese: 'လွတ်လပ်စေရန် သိုလှောင်မှု',
-    thai: 'พื้นที่เก็บข้อมูลที่จะปล่อย',
-    mandarin: '要释放的存储空间'
-  },
   continue: {
     english: 'Continue',
     french: 'Continuer',
@@ -684,149 +504,6 @@ export const localizations = {
     burmese: 'ဆက်လုပ်ပါ',
     thai: 'ดำเนินการต่อ',
     mandarin: '继续'
-  },
-  continueToOffload: {
-    english: 'Offload from Device',
-    french: "Décharger depuis l'appareil",
-    spanish: 'Descargar del Dispositivo',
-    brazilian_portuguese: 'Descarregar do Dispositivo',
-    tok_pisin: 'Rausim long Mashin',
-    indonesian: 'Lepas dari Perangkat',
-    nepali: 'उपकरणबाट हटाउनुहोस्',
-    hindi: 'डिवाइस से अनलोड करें',
-    burmese: 'စက်ပစ္စည်းမှ ဖယ်ရှားပါ',
-    thai: 'ถอดออกจากอุปกรณ์',
-    mandarin: '从设备卸载'
-  },
-  offloadingQuest: {
-    english: 'Offloading quest...',
-    french: 'Quête de déchargement...',
-    spanish: 'Descargando quest...',
-    brazilian_portuguese: 'Descarregando quest...',
-    tok_pisin: 'Rausim quest...',
-    indonesian: 'Melepas quest...',
-    nepali: 'क्वेस्ट हटाउँदै...',
-    hindi: 'क्वेस्ट अनलोड कर रहे हैं...',
-    burmese: 'Quest ကို ဖယ်ရှားနေသည်...',
-    thai: 'กำลังถอดเควสต์...',
-    mandarin: '正在卸载任务...'
-  },
-  offloadComplete: {
-    english: 'Quest offloaded successfully',
-    french: 'Quête déchargée avec succès',
-    spanish: 'Quest descargada con éxito',
-    brazilian_portuguese: 'Quest descarregada com sucesso',
-    tok_pisin: 'Quest i rausim orait',
-    indonesian: 'Quest berhasil dilepas',
-    nepali: 'क्वेस्ट सफलतापूर्वक हटाइयो',
-    hindi: 'क्वेस्ट सफलतापूर्वक अनलोड हो गया',
-    burmese: 'Quest ကို အောင်မြင်စွာ ဖယ်ရှားပြီးပါပြီ',
-    thai: 'ถอดเควสต์สำเร็จ',
-    mandarin: '任务卸载成功'
-  },
-  offloadError: {
-    english: 'Failed to offload quest',
-    french: 'Échec du déchargement de la quête',
-    spanish: 'Error al descargar quest',
-    brazilian_portuguese: 'Falha ao descarregar quest',
-    tok_pisin: 'Pasin long rausim quest i no inap',
-    indonesian: 'Gagal melepas quest',
-    nepali: 'क्वेस्ट हटाउन असफल',
-    hindi: 'क्वेस्ट अनलोड करने में विफल',
-    burmese: 'Quest ကို ဖယ်ရှားရန် မအောင်မြင်ပါ',
-    thai: 'ถอดเควสต์ไม่สำเร็จ',
-    mandarin: '卸载任务失败'
-  },
-  cannotOffloadErrors: {
-    english: 'Cannot offload - errors detected',
-    french: 'Impossible de décharger – erreurs détectées',
-    spanish: 'No se puede descargar - errores detectados',
-    brazilian_portuguese: 'Não é possível descarregar - erros detectados',
-    tok_pisin: 'No inap rausim - painimaut sampela rong',
-    indonesian: 'Tidak dapat melepas - kesalahan terdeteksi',
-    nepali: 'हटाउन सकिँदैन - त्रुटिहरू पत्ता लाग्यो',
-    hindi: 'अनलोड नहीं कर सकते - त्रुटियां पाई गईं',
-    burmese: 'ဖယ်ရှား၍မရပါ - အမှားများကို ရှာဖွေတွေ့ရှိသည်',
-    thai: 'ไม่สามารถถอดออกได้ - ตรวจพบข้อผิดพลาด',
-    mandarin: '无法卸载 - 检测到错误'
-  },
-  allDataVerifiedInCloud: {
-    english: 'All data verified in cloud',
-    french: 'Toutes les données vérifiées dans le cloud',
-    spanish: 'Todos los datos verificados en la nube',
-    brazilian_portuguese: 'Todos os dados verificados na nuvem',
-    tok_pisin: 'Olgeta data i stret long klaud',
-    indonesian: 'Semua data terverifikasi di cloud',
-    nepali: 'सबै डाटा क्लाउडमा प्रमाणित',
-    hindi: 'सभी डेटा क्लाउड में सत्यापित',
-    burmese: 'cloud တွင် ဒေတာအားလုံး အတည်ပြုပြီးပါပြီ',
-    thai: 'ข้อมูลทั้งหมดได้รับการยืนยันในคลาวด์',
-    mandarin: '所有数据已在云端验证'
-  },
-  checkingPendingChanges: {
-    english: 'Checking for pending changes...',
-    french: 'Vérification des modifications en attente...',
-    spanish: 'Verificando cambios pendientes...',
-    brazilian_portuguese: 'Verificando alterações pendentes...',
-    tok_pisin: 'Checkim sampela senis i no go yet...',
-    indonesian: 'Memeriksa perubahan tertunda...',
-    nepali: 'बाँकी परिवर्तनहरू जाँच गर्दै...',
-    hindi: 'लंबित परिवर्तनों की जांच कर रहे हैं...',
-    burmese: 'ဆိုင်းငံ့ထားသော အပြောင်းအလဲများကို စစ်ဆေးနေသည်...',
-    thai: 'กำลังตรวจสอบการเปลี่ยนแปลงที่รอดำเนินการ...',
-    mandarin: '正在检查待处理的更改...'
-  },
-  verifyingDatabaseRecords: {
-    english: 'Verifying database records',
-    french: 'Vérification des enregistrements de la base de données',
-    spanish: 'Verificando registros de base de datos',
-    brazilian_portuguese: 'Verificando registros do banco de dados',
-    tok_pisin: 'Checkim ol rekod long database',
-    indonesian: 'Memverifikasi catatan database',
-    nepali: 'डाटाबेस रेकर्डहरू प्रमाणित गर्दै',
-    hindi: 'डेटाबेस रिकॉर्ड सत्यापित कर रहे हैं',
-    burmese: 'ဒေတာဘေ့စ်မှတ်တမ်းများကို အတည်ပြုနေသည်',
-    thai: 'กำลังตรวจสอบบันทึกฐานข้อมูล',
-    mandarin: '正在验证数据库记录'
-  },
-  verifyingAttachments: {
-    english: 'Verifying attachments',
-    french: 'Vérification des pièces jointes',
-    spanish: 'Verificando archivos adjuntos',
-    brazilian_portuguese: 'Verificando anexos',
-    tok_pisin: 'Checkim ol fail i pas long',
-    indonesian: 'Memverifikasi lampiran',
-    nepali: 'संलग्नकहरू प्रमाणित गर्दै',
-    hindi: 'संलग्नक सत्यापित कर रहे हैं',
-    burmese: 'ပူးတွဲဖိုင်များကို အတည်ပြုနေသည်',
-    thai: 'กำลังตรวจสอบไฟล์แนบ',
-    mandarin: '正在验证附件'
-  },
-  waitingForUploads: {
-    english: 'Waiting for Uploads',
-    french: 'En attente de téléchargements',
-    spanish: 'Esperando Cargas',
-    brazilian_portuguese: 'Aguardando Uploads',
-    tok_pisin: 'Wetim Upload',
-    indonesian: 'Menunggu Upload',
-    nepali: 'अपलोडहरूको लागि पर्खँदै',
-    hindi: 'अपलोड की प्रतीक्षा कर रहे हैं',
-    burmese: 'အပ်လုဒ်များအတွက် စောင့်ဆိုင်းနေသည်',
-    thai: 'กำลังรอการอัปโหลด',
-    mandarin: '等待上传'
-  },
-  cannotOffload: {
-    english: 'Cannot Offload',
-    french: 'Impossible de décharger',
-    spanish: 'No se puede Descargar',
-    brazilian_portuguese: 'Não é possível Descarregar',
-    tok_pisin: 'No Inap Rausim',
-    indonesian: 'Tidak dapat Melepas',
-    nepali: 'हटाउन सकिँदैन',
-    hindi: 'अनलोड नहीं कर सकते',
-    burmese: 'ဖယ်ရှား၍မရပါ',
-    thai: 'ไม่สามารถถอดออกได้',
-    mandarin: '无法卸载'
   },
   analyzingRelatedRecords: {
     english: 'Analyzing related records...',
@@ -2739,6 +2416,68 @@ export const localizations = {
     thai: 'ทำซ้ำ',
     mandarin: '重做'
   },
+  verseDropAboveFirstSection: {
+    english: "Recordings can't go above the first section.",
+    french:
+      'Les enregistrements ne peuvent pas être placés au-dessus de la première section.',
+    spanish: 'Las grabaciones no pueden ir encima de la primera sección.',
+    brazilian_portuguese:
+      'As gravações não podem ficar acima da primeira seção.',
+    tok_pisin: 'Ol rekoding i no ken i stap antap long namba wan hap.',
+    indonesian: 'Rekaman tidak bisa ditempatkan di atas bagian pertama.',
+    nepali: 'रेकर्डिङहरू पहिलो खण्डभन्दा माथि राख्न सकिँदैन।',
+    hindi: 'रिकॉर्डिंग पहले खंड के ऊपर नहीं रखी जा सकती।',
+    burmese: 'အသံသွင်းချက်များကို ပထမအပိုင်းအပေါ်တွင် မထားနိုင်ပါ။',
+    thai: 'ไม่สามารถวางไฟล์บันทึกเสียงไว้เหนือส่วนแรกได้',
+    mandarin: '录音不能放在第一个分区上方。'
+  },
+  verseLabelsOutOfOrder: {
+    english: 'Verse labels have to stay in verse order.',
+    french:
+      "Les étiquettes de versets doivent rester dans l'ordre des versets.",
+    spanish: 'Las etiquetas de versículos deben mantenerse en orden.',
+    brazilian_portuguese: 'Os rótulos de versículos precisam ficar em ordem.',
+    tok_pisin: 'Ol nem bilong ves i mas stap long oda bilong ves.',
+    indonesian: 'Label ayat harus tetap berurutan.',
+    nepali: 'पद लेबलहरू पदको क्रममै रहनुपर्छ।',
+    hindi: 'पद लेबल पदों के क्रम में ही रहने चाहिए।',
+    burmese: 'ကျမ်းပိုဒ်တံဆိပ်များသည် ကျမ်းပိုဒ်အစဉ်အတိုင်း ရှိရမည်။',
+    thai: 'ป้ายข้อพระคัมภีร์ต้องเรียงตามลำดับข้อ',
+    mandarin: '经文标签必须按经文顺序排列。'
+  },
+  verseLabelNeedsRecording: {
+    english: 'That move would leave a verse label with no recordings.',
+    french:
+      'Ce déplacement laisserait une étiquette de verset sans enregistrement.',
+    spanish:
+      'Ese movimiento dejaría una etiqueta de versículo sin grabaciones.',
+    brazilian_portuguese:
+      'Esse movimento deixaria um rótulo de versículo sem gravações.',
+    tok_pisin:
+      'Dispela muv bai lusim wanpela nem bilong ves i no gat rekoding.',
+    indonesian: 'Pemindahan itu akan membuat label ayat tanpa rekaman.',
+    nepali: 'यो सार्दा एउटा पद लेबलमा कुनै रेकर्डिङ बाँकी रहँदैन।',
+    hindi: 'इस बदलाव से एक पद लेबल बिना रिकॉर्डिंग के रह जाएगा।',
+    burmese:
+      'ဤရွှေ့ခြင်းကြောင့် ကျမ်းပိုဒ်တံဆိပ်တစ်ခုတွင် အသံသွင်းချက် မကျန်တော့ပါ။',
+    thai: 'การย้ายนี้จะทำให้ป้ายข้อพระคัมภีร์ไม่มีไฟล์บันทึกเสียง',
+    mandarin: '此移动会使某个经文标签下没有录音。'
+  },
+  verseLabelsSaveFailed: {
+    english: "Some verse changes couldn't be saved.",
+    french:
+      "Certaines modifications de versets n'ont pas pu être enregistrées.",
+    spanish: 'No se pudieron guardar algunos cambios de versículos.',
+    brazilian_portuguese:
+      'Algumas alterações de versículos não puderam ser salvas.',
+    tok_pisin: 'Sampela senis bilong ves i no inap seiv.',
+    indonesian: 'Beberapa perubahan ayat tidak dapat disimpan.',
+    nepali: 'केही पद परिवर्तनहरू सुरक्षित गर्न सकिएन।',
+    hindi: 'कुछ पद बदलाव सहेजे नहीं जा सके।',
+    burmese: 'ကျမ်းပိုဒ်ပြောင်းလဲမှုအချို့ကို သိမ်းဆည်း၍ မရပါ။',
+    thai: 'ไม่สามารถบันทึกการเปลี่ยนแปลงข้อพระคัมภีร์บางรายการได้',
+    mandarin: '部分经文更改无法保存。'
+  },
   assetRedoCreateMessage: {
     english: 'Asset created',
     french: 'Élément créé',
@@ -3649,55 +3388,6 @@ export const localizations = {
     thai: 'คุณกำลังพยายามดาวน์โหลดไฟล์แนบ {newDownloads} รายการ รวมทั้งหมด {totalDownloads} แต่ขีดจำกัดคือ {limit} กรุณายกเลิกการเลือกดาวน์โหลดบางรายการและลองอีกครั้ง',
     mandarin:
       '您正在尝试下载 {newDownloads} 个附件，总计 {totalDownloads}，但限制是 {limit}。请取消选择一些下载并重试。'
-  },
-  offlineUndownloadWarning: {
-    english: 'Offline Undownload Warning',
-    french: 'Avertissement de téléchargement hors ligne',
-    spanish: 'Advertencia de eliminación sin conexión',
-    brazilian_portuguese: 'Aviso de remoção de download offline',
-    tok_pisin: 'Offline Undownload Warning',
-    indonesian: 'Peringatan Batalkan Unduhan Offline',
-    nepali: 'अफलाइन अनडाउनलोड चेतावनी',
-    hindi: 'ऑफलाइन अनडाउनलोड चेतावनी',
-    burmese: 'အင်တာနက်မရှိသော ဒေါင်းလုဒ်ဖျက်ခြင်း သတိပေးချက်',
-    thai: 'คำเตือนการยกเลิกดาวน์โหลดแบบออฟไลน์',
-    mandarin: '离线取消下载警告'
-  },
-  offlineUndownloadMessage: {
-    english:
-      "You are currently offline. If you remove this download, you won't be able to redownload it until you're back online. Your unsynced contributions will not be affected.",
-    french:
-      'Vous êtes actuellement hors ligne. Si vous supprimez ce téléchargement, vous ne pourrez pas le télécharger à nouveau tant que vous ne serez pas de nouveau en ligne. Vos contributions non synchronisées ne seront pas affectées.',
-    spanish:
-      'Actualmente estás sin conexión. Si eliminas esta descarga, no podrás volver a descargarla hasta que vuelvas a estar en línea. Tus contribuciones no sincronizadas no se verán afectadas.',
-    brazilian_portuguese:
-      'Você está offline no momento. Se você remover este download, não poderá baixá-lo novamente até voltar a ficar online. Suas contribuições não sincronizadas não serão afetadas.',
-    tok_pisin:
-      'Yu no gat internet nau. Sapos yu rausim dispela download, yu no inap download gen inap yu gat internet gen. Ol contribution bilong yu i no sync yet bai no kena.',
-    indonesian:
-      'Anda sedang offline. Jika Anda menghapus unduhan ini, Anda tidak akan dapat mengunduhnya lagi sampai Anda kembali online. Kontribusi yang belum disinkronkan tidak akan terpengaruh.',
-    nepali:
-      'तपाईं अहिले अफलाइन हुनुहुन्छ। यदि तपाईंले यो डाउनलोड हटाउनुभयो भने, तपाईं अनलाइन नभएसम्म पुन: डाउनलोड गर्न सक्षम हुनुहुने छैन। तपाईंको सिङ्क नभएका योगदानहरू प्रभावित हुने छैनन्।',
-    hindi:
-      'आप वर्तमान में ऑफलाइन हैं। यदि आप इस डाउनलोड को हटाते हैं, तो आप ऑनलाइन वापस आने तक इसे पुनः डाउनलोड नहीं कर सकेंगे। आपके असंगत योगदान प्रभावित नहीं होंगे।',
-    burmese:
-      'သင်သည် လက်ရှိတွင် အင်တာနက်မရှိပါ။ သင်သည် ဤဒေါင်းလုဒ်ကို ဖျက်ပါက၊ သင်သည် အင်တာနက်ပြန်ရသည့်အထိ ထပ်မံဒေါင်းလုဒ်လုပ်၍မရပါ။ သင်၏ စင့်ချန်မထားသော ပံ့ပိုးမှုများကို ထိခိုက်မည်မဟုတ်ပါ။',
-    thai: 'คุณกำลังออฟไลน์อยู่ หากคุณลบการดาวน์โหลดนี้ คุณจะไม่สามารถดาวน์โหลดอีกครั้งได้จนกว่าคุณจะกลับมาออนไลน์ การมีส่วนร่วมที่ยังไม่ได้ซิงค์ของคุณจะไม่ได้รับผลกระทบ',
-    mandarin:
-      '您目前处于离线状态。如果您删除此下载，在您重新上线之前将无法重新下载。您未同步的贡献不会受到影响。'
-  },
-  dontShowAgain: {
-    english: "Don't show this message again",
-    french: 'Ne plus afficher ce message',
-    spanish: 'No mostrar este mensaje nuevamente',
-    brazilian_portuguese: 'Não mostrar esta mensagem novamente',
-    tok_pisin: 'No soim dispela message gen',
-    indonesian: 'Jangan tampilkan pesan ini lagi',
-    nepali: 'यो सन्देश फेरि नदेखाउनुहोस्',
-    hindi: 'इस संदेश को फिर से न दिखाएं',
-    burmese: 'ဤစာတိုကို ထပ်မံမပြပါနှင့်',
-    thai: 'ไม่แสดงข้อความนี้อีก',
-    mandarin: '不再显示此消息'
   },
   cancel: {
     english: 'Cancel',
@@ -6493,32 +6183,6 @@ export const localizations = {
     thai: 'กำลังซิงค์ฐานข้อมูล',
     mandarin: '正在同步数据库'
   },
-  lastSync: {
-    english: 'last sync',
-    french: 'dernière synchronisation',
-    spanish: 'última sincronización',
-    brazilian_portuguese: 'última sincronização',
-    tok_pisin: 'las sync',
-    indonesian: 'sinkron terakhir',
-    nepali: 'अन्तिम सिङ्क',
-    hindi: 'अंतिम सिंक',
-    burmese: 'နောက်ဆုံး အင်ချုန်းလုပ်ခြင်း',
-    thai: 'ซิงค์ล่าสุด',
-    mandarin: '上次同步'
-  },
-  never: {
-    english: 'Never',
-    french: 'Jamais',
-    spanish: 'Nunca',
-    brazilian_portuguese: 'Nunca',
-    tok_pisin: 'Nogat',
-    indonesian: 'Tidak pernah',
-    nepali: 'कहिल्यै होइन',
-    hindi: 'कभी नहीं',
-    burmese: 'မည်သည့်အခါမျှ',
-    thai: 'ไม่เคย',
-    mandarin: '从不'
-  },
   unknown: {
     english: 'unknown',
     french: 'inconnu',
@@ -6531,19 +6195,6 @@ export const localizations = {
     burmese: 'မသိသော',
     thai: 'ไม่ทราบ',
     mandarin: '未知'
-  },
-  notSynced: {
-    english: 'not synced',
-    french: 'non synchronisé',
-    spanish: 'no sincronizado',
-    brazilian_portuguese: 'não sincronizado',
-    tok_pisin: 'i no sync yet',
-    indonesian: 'tidak disinkronkan',
-    nepali: 'सिङ्क भएको छैन',
-    hindi: 'सिंक नहीं हुआ',
-    burmese: 'အင်ချုန်းလုပ်မထားသေးပါ',
-    thai: 'ยังไม่ได้ซิงค์',
-    mandarin: '未同步'
   },
   connecting: {
     english: 'connecting',
@@ -6622,32 +6273,6 @@ export const localizations = {
     burmese: 'ပူးတွဲဖိုင်များ အင်ချုန်းလုပ်ခြင်း အမှား',
     thai: 'ข้อผิดพลาดในการซิงค์ไฟล์แนบ',
     mandarin: '附件同步错误'
-  },
-  uploadingData: {
-    english: 'uploading data',
-    french: 'téléchargement de données',
-    spanish: 'subiendo datos',
-    brazilian_portuguese: 'enviando dados',
-    tok_pisin: 'i upload data',
-    indonesian: 'mengunggah data',
-    nepali: 'डाटा अपलोड गर्दै',
-    hindi: 'डेटा अपलोड हो रहा है',
-    burmese: 'ဒေတာ အပ်လုဒ်လုပ်နေသည်',
-    thai: 'กำลังอัปโหลดข้อมูล',
-    mandarin: '正在上传数据'
-  },
-  downloadingData: {
-    english: 'downloading data',
-    french: 'téléchargement de données',
-    spanish: 'descargando datos',
-    brazilian_portuguese: 'baixando dados',
-    tok_pisin: 'i download data',
-    indonesian: 'mengunduh data',
-    nepali: 'डाटा डाउनलोड गर्दै',
-    hindi: 'डेटा डाउनलोड हो रहा है',
-    burmese: 'ဒေတာ ဒေါင်းလုဒ်လုပ်နေသည်',
-    thai: 'กำลังดาวน์โหลดข้อมูล',
-    mandarin: '正在下载数据'
   },
   syncError: {
     english: 'sync error',
@@ -8979,6 +8604,19 @@ export const localizations = {
     thai: 'ไม่มีเนื้อหา',
     mandarin: '无可用内容'
   },
+  inactive: {
+    english: 'Inactive',
+    french: 'Inactif',
+    spanish: 'Inactivo',
+    brazilian_portuguese: 'Inativo',
+    tok_pisin: 'I no wok',
+    indonesian: 'Tidak aktif',
+    nepali: 'निष्क्रिय',
+    hindi: 'निष्क्रिय',
+    burmese: 'အသုံးမပြုပါ',
+    thai: 'ไม่ใช้งาน',
+    mandarin: '未启用'
+  },
   audioReady: {
     english: 'Audio ready',
     french: 'Audio prêt',
@@ -9004,19 +8642,6 @@ export const localizations = {
     burmese: 'အသံ မရရှိနိုင်ပါ',
     thai: 'เสียงไม่พร้อมใช้งาน',
     mandarin: '音频不可用'
-  },
-  imagesAvailable: {
-    english: 'Images available',
-    french: 'Images disponibles',
-    spanish: 'Imágenes disponibles',
-    brazilian_portuguese: 'Imagens disponíveis',
-    tok_pisin: 'Ol piksa i stap',
-    indonesian: 'Gambar tersedia',
-    nepali: 'तस्बिरहरू उपलब्ध छन्',
-    hindi: 'छवियां उपलब्ध हैं',
-    burmese: 'ရုပ်ပုံများ ရရှိနိုင်ပါသည်',
-    thai: 'มีรูปภาพ',
-    mandarin: '图像可用'
   },
   language: {
     english: 'Language',
@@ -11810,154 +11435,6 @@ export const localizations = {
     thai: 'เชื่อมต่อแล้ว',
     mandarin: '已连接'
   },
-  downloadStatus: {
-    english: 'Download Status',
-    french: 'Statut du téléchargement',
-    spanish: 'Estado de Descarga',
-    brazilian_portuguese: 'Status de Download',
-    tok_pisin: 'Download Status',
-    indonesian: 'Status Unduhan',
-    nepali: 'डाउनलोड स्थिति',
-    hindi: 'डाउनलोड स्थिति',
-    burmese: 'ဒေါင်းလုဒ် အခြေအနေ',
-    thai: 'สถานะการดาวน์โหลด',
-    mandarin: '下载状态'
-  },
-  powersyncStatus: {
-    english: 'PowerSync Status',
-    french: 'Statut PowerSync',
-    spanish: 'Estado de PowerSync',
-    brazilian_portuguese: 'Status do PowerSync',
-    tok_pisin: 'PowerSync Status',
-    indonesian: 'Status PowerSync',
-    nepali: 'PowerSync स्थिति',
-    hindi: 'PowerSync स्थिति',
-    burmese: 'PowerSync အခြေအနေ',
-    thai: 'สถานะ PowerSync',
-    mandarin: 'PowerSync 状态'
-  },
-  networkStatus: {
-    english: 'Network Status',
-    french: 'État du réseau',
-    spanish: 'Estado de Red',
-    brazilian_portuguese: 'Status da Rede',
-    tok_pisin: 'Network Status',
-    indonesian: 'Status Jaringan',
-    nepali: 'नेटवर्क स्थिति',
-    hindi: 'नेटवर्क स्थिति',
-    burmese: 'အင်တာနက် အခြေအနေ',
-    thai: 'สถานะเครือข่าย',
-    mandarin: '网络状态'
-  },
-  attachmentDownloadProgress: {
-    english: 'Attachment Download Progress',
-    french: 'Progression du téléchargement des pièces jointes',
-    spanish: 'Progreso de Descarga de Archivos',
-    brazilian_portuguese: 'Progresso de Download de Anexos',
-    tok_pisin: 'Attachment Download Progress',
-    indonesian: 'Kemajuan Unduhan Lampiran',
-    nepali: 'संलग्नक डाउनलोड प्रगति',
-    hindi: 'संलग्नक डाउनलोड प्रगति',
-    burmese: 'ပူးတွဲဖိုင် ဒေါင်းလုဒ် တိုးတက်မှု',
-    thai: 'ความคืบหน้าการดาวน์โหลดไฟล์แนบ',
-    mandarin: '附件下载进度'
-  },
-  overallProgress: {
-    english: 'Overall Progress',
-    french: 'Progrès global',
-    spanish: 'Progreso General',
-    brazilian_portuguese: 'Progresso Geral',
-    tok_pisin: 'Overall Progress',
-    indonesian: 'Kemajuan Keseluruhan',
-    nepali: 'समग्र प्रगति',
-    hindi: 'कुल प्रगति',
-    burmese: 'စုစုပေါင်း တိုးတက်မှု',
-    thai: 'ความคืบหน้ารวม',
-    mandarin: '总体进度'
-  },
-  currentDownload: {
-    english: 'Current Download',
-    french: 'Téléchargement actuel',
-    spanish: 'Descarga Actual',
-    brazilian_portuguese: 'Download Atual',
-    tok_pisin: 'Current Download',
-    indonesian: 'Unduhan Saat Ini',
-    nepali: 'हालको डाउनलोड',
-    hindi: 'वर्तमान डाउनलोड',
-    burmese: 'လက်ရှိ ဒေါင်းလုဒ်',
-    thai: 'การดาวน์โหลดปัจจุบัน',
-    mandarin: '当前下载'
-  },
-  currentUpload: {
-    english: 'Current Upload',
-    french: 'Téléchargement actuel',
-    spanish: 'Carga Actual',
-    brazilian_portuguese: 'Upload Atual',
-    tok_pisin: 'Current Upload',
-    indonesian: 'Unggahan Saat Ini',
-    nepali: 'हालको अपलोड',
-    hindi: 'वर्तमान अपलोड',
-    burmese: 'လက်ရှိ အပ်လုဒ်',
-    thai: 'การอัปโหลดปัจจุบัน',
-    mandarin: '当前上传'
-  },
-  queueStatus: {
-    english: 'Queue Status',
-    french: "Statut de la file d'attente",
-    spanish: 'Estado de Cola',
-    brazilian_portuguese: 'Status da Fila',
-    tok_pisin: 'Queue Status',
-    indonesian: 'Status Antrian',
-    nepali: 'लाम स्थिति',
-    hindi: 'कतार स्थिति',
-    burmese: 'တန်းစီမှု အခြေအနေ',
-    thai: 'สถานะคิว',
-    mandarin: '队列状态'
-  },
-  allSynced: {
-    english: 'All files synced',
-    french: 'Tous les fichiers synchronisés',
-    spanish: 'Todos los archivos sincronizados',
-    brazilian_portuguese: 'Todos os arquivos sincronizados',
-    tok_pisin: 'Olgeta file i sync pinis',
-    indonesian: 'Semua file disinkronkan',
-    nepali: 'सबै फाइलहरू सिङ्क भयो',
-    hindi: 'सभी फाइलें सिंक हो गईं',
-    burmese: 'ဖိုင်အားလုံး ထပ်တူပြုပြီးပါပြီ',
-    thai: 'ไฟล์ทั้งหมดซิงค์แล้ว',
-    mandarin: '所有文件已同步'
-  },
-  signInToViewDownloadStatus: {
-    english: 'Please sign in to view download status and sync information.',
-    french:
-      "Veuillez vous connecter pour afficher l'état du téléchargement et les informations de synchronisation.",
-    spanish:
-      'Por favor inicia sesión para ver el estado de descarga e información de sincronización.',
-    brazilian_portuguese:
-      'Por favor, faça login para ver o status de download e informações de sincronização.',
-    tok_pisin: 'Plis sign in long lukim download status na sync info.',
-    indonesian:
-      'Silakan masuk untuk melihat status unduhan dan informasi sinkronisasi.',
-    nepali: 'कृपया डाउनलोड स्थिति र सिंक जानकारी हेर्न साइन इन गर्नुहोस्।',
-    hindi: 'कृपया डाउनलोड स्थिति और सिंक जानकारी देखने के लिए साइन इन करें।',
-    burmese:
-      'ဒေါင်းလုဒ် အခြေအနေနှင့် ထပ်တူပြုခြင်း အချက်အလက်များကို ကြည့်ရှုရန် ကျေးဇူးပြု၍ ဝင်ရောက်ပါ။',
-    thai: 'กรุณาเข้าสู่ระบบเพื่อดูสถานะการดาวน์โหลดและข้อมูลการซิงค์',
-    mandarin: '请登录以查看下载状态和同步信息。'
-  },
-  unsynced: {
-    english: 'Unsynced',
-    french: 'Non synchronisé',
-    spanish: 'No sincronizado',
-    brazilian_portuguese: 'Não sincronizado',
-    tok_pisin: 'i no sync yet',
-    indonesian: 'Tidak disinkronkan',
-    nepali: 'सिङ्क भएको छैन',
-    hindi: 'सिंक नहीं हुआ',
-    burmese: 'ထပ်တူမပြုရသေး',
-    thai: 'ยังไม่ได้ซิงค์',
-    mandarin: '未同步'
-  },
   onboardingCreateProjectTitle: {
     english: 'Record a Bible, or any other content',
     french: 'Enregistrez une Bible, ou tout autre contenu',
@@ -13517,6 +12994,41 @@ export const localizations = {
     thai: 'อนุญาตให้นำเข้าสินทรัพย์จากเควสที่เผยแพร่แล้วไปยังเควสฉบับร่างปัจจุบัน (เฉพาะเทมเพลตพระคัมภีร์และ FIA)',
     mandarin:
       '允许从其他已发布任务将资产导入到当前草稿任务（仅限圣经和 FIA 模板）。'
+  },
+  enableAssetDetails: {
+    english: 'Show Asset Details',
+    french: 'Afficher les détails des actifs',
+    spanish: 'Mostrar detalles de recursos',
+    brazilian_portuguese: 'Mostrar detalhes dos recursos',
+    tok_pisin: 'Soim ol detail bilong aset',
+    indonesian: 'Tampilkan detail aset',
+    nepali: 'सम्पत्ति विवरणहरू देखाउनुहोस्',
+    hindi: 'एसेट विवरण दिखाएं',
+    burmese: 'ပိုင်ဆိုင်မှု အသေးစိတ်ကို ပြပါ',
+    thai: 'แสดงรายละเอียดสินทรัพย์',
+    mandarin: '显示资产详情'
+  },
+  enableAssetDetailsDescription: {
+    english:
+      'Show a button on each asset in the asset list that opens its details screen.',
+    french:
+      "Afficher un bouton sur chaque actif de la liste qui ouvre l'écran de ses détails.",
+    spanish:
+      'Mostrar un botón en cada recurso de la lista que abre su pantalla de detalles.',
+    brazilian_portuguese:
+      'Mostrar um botão em cada recurso da lista que abre a tela de detalhes.',
+    tok_pisin:
+      'Soim wanpela baten long olgeta aset long lis bilong opim skrin bilong ol detail bilong en.',
+    indonesian:
+      'Tampilkan tombol pada setiap aset di daftar aset untuk membuka layar detailnya.',
+    nepali:
+      'सम्पत्ति सूचीमा प्रत्येक सम्पत्तिमा यसको विवरण स्क्रिन खोल्ने बटन देखाउनुहोस्।',
+    hindi:
+      'एसेट सूची में हर एसेट पर एक बटन दिखाएं जो उसकी विवरण स्क्रीन खोलता है।',
+    burmese:
+      'ပိုင်ဆိုင်မှုစာရင်းရှိ ပိုင်ဆိုင်မှုတိုင်းတွင် ၎င်း၏ အသေးစိတ်မျက်နှာပြင်ကို ဖွင့်သည့် ခလုတ်ကို ပြပါ။',
+    thai: 'แสดงปุ่มบนสินทรัพย์แต่ละรายการในรายการสินทรัพย์เพื่อเปิดหน้ารายละเอียด',
+    mandarin: '在资产列表中的每个资产上显示一个按钮，用于打开其详情页面。'
   },
   enableFia: {
     english: 'FIA Projects',

@@ -4,7 +4,7 @@ type SyncCallback = () => void | Promise<void>;
 
 /**
  * Service to register callbacks that fire after PowerSync sync completion.
- * Used to invalidate queries and clear loading states after downloads/offloads complete.
+ * Used to invalidate queries and clear loading states after downloads complete.
  */
 class SyncCallbackService {
   private callbacks = new Map<string, SyncCallback>();

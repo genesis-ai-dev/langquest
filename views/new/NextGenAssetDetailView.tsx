@@ -2,18 +2,16 @@
 import { AssetSettingsModal } from '@/components/AssetSettingsModal';
 import { NewHighlightBadge } from '@/components/NewHighlightBadge';
 import { AssetSkeleton } from '@/components/AssetSkeleton';
-import ImageCarousel from '@/components/ImageCarousel';
+import { Badge } from '@/components/ui/badge';
 import { ReportModal } from '@/components/NewReportModal';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { SourceContent } from '@/components/SourceContent';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Text as RNPText } from '@/components/ui/text';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { useAuth } from '@/contexts/AuthContext';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
-import { updateContentLinkOrder } from '@/database_services/assetService';
 import { getEffectiveLastRecordingSessionId } from '@/database_services/questService';
 import {
   asset,
@@ -33,7 +31,7 @@ import { useTranscriptionLocalization } from '@/hooks/useTranscriptionLocalizati
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useLocalStore } from '@/store/localStore';
 import { resolvePlayableAudioUri } from '@/utils/resolvePlayableAudio';
-import { fileExists, getLocalAttachmentUri } from '@/utils/fileUtils';
+import { fileExists } from '@/utils/fileUtils';
 import { cn } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { useFocusEffect } from '@react-navigation/native';
@@ -41,34 +39,22 @@ import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { and, asc, eq, inArray } from 'drizzle-orm';
 import { Stack } from 'expo-router';
 import {
-  ChevronLeftIcon,
-  ChevronRightIcon,
   CrownIcon,
-  FileTextIcon,
   FlagIcon,
-  ImageIcon,
   LockIcon,
   PlusIcon,
   SettingsIcon,
   UserIcon
 } from 'lucide-react-native';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import type { FlatList as FlatListType, ViewToken } from 'react-native';
-import { Dimensions, FlatList, Text, TextInput, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Dimensions, Text, View } from 'react-native';
 import { scheduleOnRN } from 'react-native-worklets';
 import NextGenNewTranslationModal from './NextGenNewTranslationModal';
 import NextGenTranslationsList from './NextGenTranslationsList';
 import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { defaultGetItemId, mergeLocalFirst } from '@/hooks/hybridQueryUtils';
 
-// Static viewability config for FlatList - defined outside component to avoid recreation
-const VIEWABILITY_CONFIG = {
-  itemVisiblePercentThreshold: 50
-};
-
-const ASSET_VIEWER_PROPORTION = 0.35;
-
-type TabType = 'text' | 'image';
+const SOURCE_TEXT_MAX_PROPORTION = 0.25;
 
 function useNextGenOfflineAsset(assetId: string) {
   const { isAuthenticated } = useAuth();
@@ -119,7 +105,9 @@ function useNextGenOfflineAsset(assetId: string) {
   );
 
   return useHybridQuery({
-    queryKey: ['asset', assetId],
+    // Not ['asset', id]: useAssetById (breadcrumbs) uses that key without
+    // content, and a shared cache entry would drop the content on refetch.
+    queryKey: ['asset-with-content', assetId],
     offlineQuery,
     cloudQueryFn: async () => {
       if (!assetId) return [];
@@ -146,26 +134,17 @@ function useNextGenOfflineAsset(assetId: string) {
         })
         .limit(1)
         .overrideTypes<
-          (Omit<typeof asset.$inferSelect, 'images'> & {
-            images: string;
+          (typeof asset.$inferSelect & {
             content?: (typeof asset_content_link.$inferSelect)[];
           })[]
         >();
 
       if (error) throw error;
 
-      // Parse images JSON and map to asset format
-      return data.map((item) => {
-        const parsedImages = item.images
-          ? (JSON.parse(item.images) as string[])
-          : [];
-
-        return {
-          ...item,
-          images: parsedImages,
-          content: item.content || []
-        };
-      });
+      return data.map((item) => ({
+        ...item,
+        content: item.content || []
+      }));
     },
     enableCloudQuery: !!assetId,
     enableOfflineQuery: !!assetId,
@@ -209,8 +188,6 @@ export default function NextGenAssetDetailView() {
   const [showAssetSettingsModal, setShowAssetSettingsModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [currentContentIndex, setCurrentContentIndex] = useState(0);
-  const [showReorderInput, setShowReorderInput] = useState(false);
-  const [reorderValue, setReorderValue] = useState('');
 
   // Transcription feature
   const enableTranscription = useLocalStore(
@@ -224,10 +201,6 @@ export default function NextGenAssetDetailView() {
   const [contentTypeFilter, setContentTypeFilter] = useState<
     'translation' | 'transcription'
   >('translation');
-
-  // Use state for activeTab since user can change it
-  const [activeTab, setActiveTab] = useState<TabType>('text');
-
   const {
     data: queriedAsset,
     isLoading: isAssetLoading,
@@ -250,7 +223,7 @@ export default function NextGenAssetDetailView() {
     typeof project.$inferSelect
   >({
     queryKey: ['project-detail', projectId || ''],
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     offlineQuery: toCompilableQuery(
       system.db.query.project.findFirst({
         where: eq(project.id, projectId!)
@@ -281,7 +254,7 @@ export default function NextGenAssetDetailView() {
     typeof questTable.$inferSelect
   >({
     queryKey: ['quest-detail', questId || ''],
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     offlineQuery: toCompilableQuery(
       system.db.query.quest.findFirst({
         where: eq(questTable.id, questId!)
@@ -390,7 +363,6 @@ export default function NextGenAssetDetailView() {
   const activeAsset = offlineAsset?.[0] as
     | (typeof asset.$inferSelect & {
         content?: (typeof asset_content_link.$inferSelect)[];
-        images?: string[];
       })
     | undefined;
 
@@ -420,25 +392,6 @@ export default function NextGenAssetDetailView() {
     isLocalContent &&
     !!assetMeta?.recordingSessionId &&
     assetMeta.recordingSessionId === lastRecordingSessionId;
-
-  // Track previous asset ID to detect when asset changes
-  const prevAssetIdRef = React.useRef<string | null>(null);
-
-  React.useEffect(() => {
-    if (!activeAsset) return;
-
-    if (prevAssetIdRef.current !== activeAsset.id) {
-      prevAssetIdRef.current = activeAsset.id;
-
-      const hasTextContent =
-        activeAsset.content && activeAsset.content.length > 0;
-      const hasImages = activeAsset.images && activeAsset.images.length > 0;
-      const newTab = hasTextContent ? 'text' : hasImages ? 'image' : 'text';
-
-      setActiveTab(newTab);
-      setCurrentContentIndex(0);
-    }
-  }, [activeAsset]);
 
   useEffect(() => {
     if (__DEV__ && projectData && !projectData.target_language_id) {
@@ -517,16 +470,11 @@ export default function NextGenAssetDetailView() {
     projectId,
     currentContentLanguageId
   );
-
-  // Active tab is now derived from asset content via useMemo above
-
-  // Reset content index and scroll position when asset changes
+  // Reset to the first content version when the asset changes
   // Use queueMicrotask to defer state update and avoid cascading renders
   useEffect(() => {
     scheduleOnRN(() => {
       setCurrentContentIndex(0);
-      // Also scroll the FlatList to the first item
-      contentFlatListRef.current?.scrollToIndex({ index: 0, animated: false });
     });
   }, [assetId]);
 
@@ -575,42 +523,8 @@ export default function NextGenAssetDetailView() {
     'assets'
   );
 
-  // FlatList ref for programmatic scrolling - must be before any early returns
-  const contentFlatListRef =
-    useRef<FlatListType<typeof asset_content_link.$inferSelect>>(null);
-
-  // Handle viewable items change (when user swipes) - must be before any early returns
-  // Using useCallback instead of useRef().current for React Compiler optimization
-  const onViewableItemsChanged = useCallback(
-    ({ viewableItems }: { viewableItems: ViewToken[] }) => {
-      const firstItem = viewableItems[0];
-      if (firstItem?.index != null) {
-        setCurrentContentIndex(firstItem.index);
-      }
-    },
-    [] // setCurrentContentIndex is stable from useState
-  );
-
-  // Screen dimensions for layout calculations
-  const screenHeight = Dimensions.get('window').height;
-  const screenWidth = Dimensions.get('window').width;
-  const assetViewerHeight = screenHeight * ASSET_VIEWER_PROPORTION;
-  // Content width for FlatList paging (full width minus padding)
-  const contentWidth = screenWidth - 32; // 16px padding on each side
-
-  // Scroll to a specific content index
-  const scrollToContentIndex = (index: number) => {
-    if (contentFlatListRef.current && activeAsset?.content) {
-      const clampedIndex = Math.max(
-        0,
-        Math.min(index, activeAsset.content.length - 1)
-      );
-      contentFlatListRef.current.scrollToIndex({
-        index: clampedIndex,
-        animated: true
-      });
-    }
-  };
+  const sourceTextMaxHeight =
+    Dimensions.get('window').height * SOURCE_TEXT_MAX_PROPORTION;
 
   if (!assetId) {
     return (
@@ -777,6 +691,23 @@ export default function NextGenAssetDetailView() {
     setShowNewTranslationModal(true);
   };
 
+  const contentItems = activeAsset.content ?? [];
+  const currentContent = contentItems[currentContentIndex] ?? contentItems[0];
+  // Recordings store the asset name as their text; don't repeat it.
+  const hasDistinctText = (content: typeof asset_content_link.$inferSelect) => {
+    const text = content.text?.trim() ?? '';
+    return (
+      text !== '' &&
+      text !== activeAsset.name?.trim() &&
+      text !== assetNameParam?.trim()
+    );
+  };
+  const showSourceSection = contentItems.some(
+    (content) => hasDistinctText(content) || (content.audio?.length ?? 0) > 0
+  );
+  const showCurrentText = !!currentContent && hasDistinctText(currentContent);
+  const showCurrentContent = showCurrentText || resolvedAudioUris.length > 0;
+
   return (
     <View className="mb-safe flex-1 px-4">
       {assetDisplayName ? (
@@ -791,6 +722,11 @@ export default function NextGenAssetDetailView() {
             </Text>
             {/* New badge for recently recorded assets */}
             {isHighlighted && <NewHighlightBadge />}
+            {!allowEditing && (
+              <Badge variant="outline">
+                <RNPText variant="small">{t('inactive')}</RNPText>
+              </Badge>
+            )}
           </View>
           {Boolean(projectData?.private) && (
             <View className="flex-row items-center gap-1">
@@ -841,263 +777,70 @@ export default function NextGenAssetDetailView() {
           ))}
       </View>
 
-      {/* Tab Bar */}
-      <Tabs
-        value={activeTab}
-        onValueChange={(value) => setActiveTab(value as TabType)}
-      >
-        <TabsList className="w-full flex-row">
-          <TabsTrigger
-            value="text"
-            className="flex-1 items-center py-2"
-            disabled={!activeAsset.content || activeAsset.content.length === 0}
-          >
-            <Icon as={FileTextIcon} size={24} />
-          </TabsTrigger>
-          <TabsTrigger
-            value="image"
-            className="flex-1 items-center py-2"
-            disabled={!activeAsset.images || activeAsset.images.length === 0}
-          >
-            <Icon as={ImageIcon} size={24} />
-          </TabsTrigger>
-        </TabsList>
+      {/* Source content */}
+      {showSourceSection && (
+        <View className={cn(!allowEditing && 'opacity-50', 'gap-2 py-2')}>
+          {contentItems.length > 1 && (
+            <View className="flex-row flex-wrap items-center gap-2">
+              {contentItems.map((content, index) => (
+                <Button
+                  key={content.id}
+                  variant={
+                    index === currentContentIndex ? 'default' : 'outline'
+                  }
+                  size="sm"
+                  className="h-8 min-w-8 px-3"
+                  onPress={() => setCurrentContentIndex(index)}
+                  testID={`asset-content-version-${index + 1}`}
+                  accessibilityLabel={`asset-content-version-${index + 1}`}
+                >
+                  <RNPText>{index + 1}</RNPText>
+                </Button>
+              ))}
+            </View>
+          )}
 
-        {/* Asset Content Viewer */}
-        <View
-          className={cn(!allowEditing && 'opacity-50', 'flex overflow-hidden')}
-          style={{ height: assetViewerHeight }}
-        >
-          <TabsContent value="text" className="flex-1 py-2">
-            {activeAsset.content && activeAsset.content.length > 0 ? (
-              <View style={{ flex: 1 }}>
-                {/* Swipeable content carousel */}
-                <FlatList
-                  ref={contentFlatListRef}
-                  data={activeAsset.content}
-                  horizontal
-                  pagingEnabled
-                  showsHorizontalScrollIndicator={false}
-                  keyExtractor={(item) => item.id}
-                  onViewableItemsChanged={onViewableItemsChanged}
-                  viewabilityConfig={VIEWABILITY_CONFIG}
-                  snapToInterval={contentWidth}
-                  decelerationRate="fast"
-                  getItemLayout={(_, index) => ({
-                    length: contentWidth,
-                    offset: contentWidth * index,
-                    index
-                  })}
-                  style={{ height: 200 }}
-                  renderItem={({ item: content, index }) => {
-                    const languoidId =
-                      content.languoid_id || content.source_language_id;
-                    const languoid = languoidId
-                      ? (languoidById.get(languoidId) ?? null)
-                      : null;
-                    const isCurrentItem = index === currentContentIndex;
-
-                    return (
-                      <View
-                        style={{ width: contentWidth, paddingHorizontal: 8 }}
-                      >
-                        <SourceContent
-                          content={content}
-                          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                          sourceLanguage={languoid as any}
-                          audioSegments={
-                            isCurrentItem ? resolvedAudioUris : undefined
-                          }
-                          onTranscribe={
-                            isCurrentItem &&
-                            enableTranscription &&
-                            isAuthenticated
-                              ? handleTranscribe
-                              : undefined
-                          }
-                          isTranscribing={
-                            isCurrentItem && (isTranscribing || isLocalizing)
-                          }
-                        />
-                      </View>
-                    );
-                  }}
-                />
-
-                {/* Navigation controls and pagination - only show if multiple items */}
-                {activeAsset.content.length > 1 && (
-                  <View className="flex-row items-center justify-center gap-2 pt-2">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      disabled={currentContentIndex === 0}
-                      onPress={() =>
-                        scrollToContentIndex(currentContentIndex - 1)
-                      }
-                    >
-                      <Icon
-                        as={ChevronLeftIcon}
-                        size={20}
-                        className={
-                          currentContentIndex === 0
-                            ? 'text-muted-foreground'
-                            : 'text-foreground'
-                        }
-                      />
-                    </Button>
-
-                    {/* Position indicator */}
-                    {showReorderInput && allowEditing ? (
-                      <View className="flex-row items-center gap-2">
-                        <TextInput
-                          style={{
-                            height: 40,
-                            minWidth: 40,
-                            paddingHorizontal: 8,
-                            fontSize: 14,
-                            textAlign: 'center'
-                          }}
-                          className="rounded border border-primary bg-background text-foreground"
-                          keyboardType="number-pad"
-                          value={reorderValue}
-                          onChangeText={setReorderValue}
-                          autoFocus
-                          selectTextOnFocus
-                          returnKeyType="done"
-                          onSubmitEditing={async () => {
-                            const newPos = parseInt(reorderValue, 10);
-                            const content = activeAsset.content;
-                            if (
-                              !content ||
-                              isNaN(newPos) ||
-                              newPos < 1 ||
-                              newPos > content.length
-                            ) {
-                              setShowReorderInput(false);
-                              return;
-                            }
-                            const targetIndex = newPos - 1;
-                            if (targetIndex !== currentContentIndex) {
-                              // Build new order: move current item to target position
-                              const ids = content.map((c) => c.id);
-                              const movedId = ids.splice(
-                                currentContentIndex,
-                                1
-                              )[0]!;
-                              ids.splice(targetIndex, 0, movedId);
-                              await updateContentLinkOrder(
-                                activeAsset.id,
-                                ids,
-                                {
-                                  localOverride: isLocalContent
-                                }
-                              );
-                              setCurrentContentIndex(targetIndex);
-                            }
-                            setShowReorderInput(false);
-                          }}
-                          onBlur={() => setShowReorderInput(false)}
-                        />
-                        <Text className="text-sm text-muted-foreground">
-                          of {activeAsset.content.length}
-                        </Text>
-                      </View>
-                    ) : allowEditing ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-8 px-3"
-                        onPress={() => {
-                          setReorderValue(String(currentContentIndex + 1));
-                          setShowReorderInput(true);
-                        }}
-                      >
-                        <Text className="text-xs text-foreground">
-                          {currentContentIndex + 1} of{' '}
-                          {activeAsset.content.length}
-                        </Text>
-                      </Button>
-                    ) : (
-                      <Text className="text-sm text-muted-foreground">
-                        {currentContentIndex + 1} of{' '}
-                        {activeAsset.content.length}
-                      </Text>
-                    )}
-
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      disabled={
-                        currentContentIndex === activeAsset.content.length - 1
-                      }
-                      onPress={() =>
-                        scrollToContentIndex(currentContentIndex + 1)
-                      }
-                    >
-                      <Icon
-                        as={ChevronRightIcon}
-                        size={20}
-                        className={
-                          currentContentIndex === activeAsset.content.length - 1
-                            ? 'text-muted-foreground'
-                            : 'text-foreground'
-                        }
-                      />
-                    </Button>
-                  </View>
-                )}
-              </View>
-            ) : (
-              <Text className="p-8 text-center text-base italic text-muted-foreground">
-                {t('noContentAvailable')}
-              </Text>
-            )}
-          </TabsContent>
-
-          <TabsContent value="image">
-            {activeAsset.images && activeAsset.images.length > 0 ? (
-              <View className="h-48 overflow-hidden rounded-lg">
-                <ImageCarousel
-                  uris={activeAsset.images.map((imageId) =>
-                    getLocalAttachmentUri(imageId)
-                  )}
-                />
-              </View>
-            ) : (
-              <Text className="p-8 text-center text-base italic text-muted-foreground">
-                {t('noContentAvailable')}
-              </Text>
-            )}
-          </TabsContent>
+          {currentContent && showCurrentContent && (
+            <SourceContent
+              content={currentContent}
+              audioSegments={resolvedAudioUris}
+              onTranscribe={
+                enableTranscription && isAuthenticated
+                  ? handleTranscribe
+                  : undefined
+              }
+              isTranscribing={isTranscribing || isLocalizing}
+              showText={showCurrentText}
+              maxTextHeight={sourceTextMaxHeight}
+            />
+          )}
         </View>
-      </Tabs>
+      )}
 
       {/* Translations/Transcriptions List - Pass project data to avoid re-querying */}
       <View className="flex-1">
-        {/* Content Type Toggle - only show transcription option if source has audio */}
+        {/* Transcriptions need source audio; with only translations there is nothing to toggle */}
         <View className="h-px bg-border" />
-        <View className="pt-2">
-          <ToggleGroup
-            type="single"
-            value={contentTypeFilter}
-            onValueChange={(value) => {
-              if (value)
-                setContentTypeFilter(value as typeof contentTypeFilter);
-            }}
-            className="w-full"
-          >
-            <ToggleGroupItem value="translation" className="flex-1">
-              <RNPText>{t('translations')}</RNPText>
-            </ToggleGroupItem>
-            {sourceHasAudio && (
+        {sourceHasAudio && (
+          <View className="pt-2">
+            <ToggleGroup
+              type="single"
+              value={contentTypeFilter}
+              onValueChange={(value) => {
+                if (value)
+                  setContentTypeFilter(value as typeof contentTypeFilter);
+              }}
+              className="w-full"
+            >
+              <ToggleGroupItem value="translation" className="flex-1">
+                <RNPText>{t('translations')}</RNPText>
+              </ToggleGroupItem>
               <ToggleGroupItem value="transcription" className="flex-1">
                 <RNPText>{t('transcriptions')}</RNPText>
               </ToggleGroupItem>
-            )}
-          </ToggleGroup>
-        </View>
+            </ToggleGroup>
+          </View>
+        )}
 
         <NextGenTranslationsList
           assetId={assetId}

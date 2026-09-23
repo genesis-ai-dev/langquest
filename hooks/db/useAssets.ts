@@ -9,11 +9,8 @@ import {
 import { system } from '@/db/powersync/system';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { blockedContentQuery, blockedUsersQuery } from '@/utils/dbUtils';
-import {
-  type HybridDataSource,
-  useHybridInfiniteQuery,
-  useHybridQuery
-} from '@/hooks/useHybridQuery';
+import { useHybridInfiniteQuery, useHybridQuery } from '@/hooks/useHybridQuery';
+import type { HybridDataSource } from '@/hooks/useHybridQuery';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useQuery as usePowerSyncQuery } from '@powersync/tanstack-react-query';
 import type { InferSelectModel } from 'drizzle-orm';
@@ -158,6 +155,7 @@ export function useAssetsByQuest(
   showHiddenContent: boolean
 ) {
   const { currentUser } = useAuth();
+  const userId = currentUser?.id;
 
   const {
     data,
@@ -174,7 +172,8 @@ export function useAssetsByQuest(
       'by-quest',
       quest_id || '',
       searchQuery,
-      showHiddenContent
+      showHiddenContent,
+      userId ?? 'anonymous'
     ],
     offlineQueryFn: async ({ pageParam, pageSize }) => {
       if (!quest_id) return [];
@@ -184,24 +183,32 @@ export function useAssetsByQuest(
         const searchTerm = searchQuery.trim();
         const displayName = sql<string>`coalesce(${quest_asset_link.name}, ${asset.name})`;
 
+        // Guests have no currentUser. Visible-only, no block list. Do not wrap
+        // creator_id in or() with an undefined operand: drizzle drops it and
+        // the clause can collapse to "creator_id = me".
+        const assetVisibility =
+          showHiddenContent && userId
+            ? undefined
+            : userId
+              ? or(eq(asset.visible, true), eq(asset.creator_id, userId))
+              : eq(asset.visible, true);
+        const linkVisibility =
+          showHiddenContent && userId
+            ? undefined
+            : userId
+              ? or(
+                  eq(quest_asset_link.visible, true),
+                  eq(asset.creator_id, userId)
+                )
+              : eq(quest_asset_link.visible, true);
+
         const conditions = [
           eq(quest_asset_link.quest_id, quest_id),
           isNull(asset.source_asset_id),
-          // The ternary has to wrap the whole or(): with it inside, drizzle
-          // drops the undefined operand when showing hidden content and the
-          // clause collapses to "creator_id = me", hiding other people's
-          // assets entirely.
-          !showHiddenContent
-            ? or(eq(asset.visible, true), eq(asset.creator_id, currentUser!.id))
-            : undefined,
-          !showHiddenContent
-            ? or(
-                eq(quest_asset_link.visible, true),
-                eq(asset.creator_id, currentUser!.id)
-              )
-            : undefined,
-          notInArray(asset.id, blockedContentQuery(currentUser!.id, 'asset')),
-          notInArray(asset.creator_id, blockedUsersQuery(currentUser!.id)),
+          assetVisibility,
+          linkVisibility,
+          userId && notInArray(asset.id, blockedContentQuery(userId, 'asset')),
+          userId && notInArray(asset.creator_id, blockedUsersQuery(userId)),
           searchTerm && like(displayName, `%${searchTerm}%`)
         ];
 
@@ -248,6 +255,10 @@ export function useAssetsByQuest(
       const to = offset + pageSize - 1;
       const searchTerm = searchQuery.trim();
 
+      // !inner so filters on asset drop the link row. Without it PostgREST
+      // keeps the row with asset: null (e.g. translation assets linked to the
+      // quest). PostgREST also rejects top-level or() filters that reference
+      // asset columns, so those filters stay on one table at a time.
       let query = system.supabaseConnector.client
         .from('quest_asset_link')
         .select(
@@ -257,7 +268,7 @@ export function useAssetsByQuest(
           metadata,
           visible,
           active,
-          asset:asset_id (
+          asset:asset_id!inner (
             *,
             asset_tag_link(tag_id)
           )
@@ -266,23 +277,19 @@ export function useAssetsByQuest(
         .eq('quest_id', quest_id)
         .is('asset.source_asset_id', null);
 
-      if (!showHiddenContent) {
-        query = query.eq('visible', true).filter('asset.visible', 'eq', true);
-      } else if (currentUser?.id) {
-        query = query.or(
-          `visible.eq.true,asset.creator_id.eq.${currentUser.id}`
-        );
-      } else {
-        query = query.eq('visible', true).filter('asset.visible', 'eq', true);
+      if (!showHiddenContent || !userId) {
+        query = query.eq('visible', true).eq('asset.visible', true);
       }
 
       if (searchTerm) {
-        query = query.or(
-          `name.ilike.%${searchTerm}%,asset.name.ilike.%${searchTerm}%`
-        );
+        query = query.ilike('asset.name', `%${searchTerm}%`);
       }
 
-      query = query.order('order_index', { ascending: true });
+      // Same tie-breakers as the offline query, so ties don't reorder.
+      query = query
+        .order('order_index', { ascending: true })
+        .order('asset(created_at)', { ascending: true })
+        .order('asset(name)', { ascending: true });
 
       const { data, error } = await query.range(from, to).overrideTypes<
         {

@@ -115,10 +115,7 @@ The migration file (`supabase/migrations/20251113120000_add_languoid_references.
   - ✅ Discovers related records (aliases, sources, properties, regions)
   - ✅ Still tracks `languageIds` for backward compatibility
 
-- ✅ `hooks/useQuestOffloadVerification.ts`:
-  - ⚠️ **Still only verifies language IDs, not languoid IDs**
-  - This hook verifies records exist in cloud before offloading, but it doesn't verify languoids
-  - **Recommendation**: Add languoid verification to ensure languoids are synced before offloading
+Quest offload (and `useQuestOffloadVerification`) has been removed, so there is no offload path that needs languoid verification.
 
 ---
 
@@ -290,18 +287,7 @@ The plan mentioned checking constants and utilities, but no specific changes wer
 
 ---
 
-### 🟡 Issue 2: useQuestOffloadVerification Doesn't Verify Languoids
-
-**Severity**: Low  
-**Impact**: Offload verification might not catch missing languoid records
-
-**Location**: `hooks/useQuestOffloadVerification.ts`
-
-**Fix**: Add languoid verification similar to language verification (lines 724-763)
-
----
-
-### 🟡 Issue 3: Missing Documentation
+### 🟡 Issue 2: Missing Documentation
 
 **Severity**: Low  
 **Impact**: Future developers might not understand the migration or how to use languoids
@@ -315,18 +301,17 @@ The plan mentioned checking constants and utilities, but no specific changes wer
 ### High Priority
 
 1. **Add Profile Languoid Sync Rule**: Ensure users' UI languoids sync properly
-2. **Add Languoid Verification**: Update `useQuestOffloadVerification` to verify languoids
 
 ### Medium Priority
 
-3. **Documentation**: Create migration guide and usage documentation
-4. **Testing**: Add tests for offline languoid creation flow
-5. **Deprecation Warnings**: Add console warnings when deprecated language table is used
+2. **Documentation**: Create migration guide and usage documentation
+3. **Testing**: Add tests for offline languoid creation flow
+4. **Deprecation Warnings**: Add console warnings when deprecated language table is used
 
 ### Low Priority
 
-6. **Cleanup**: Consider removing language table sync once migration is complete
-7. **Performance**: Review sync rules for optimization opportunities
+5. **Cleanup**: Consider removing language table sync once migration is complete
+6. **Performance**: Review sync rules for optimization opportunities
 
 ---
 
@@ -354,7 +339,6 @@ The plan mentioned checking constants and utilities, but no specific changes wer
 
 **Weaknesses**:
 - Missing profile languoid sync rule
-- Incomplete verification in offload hook
 - Lack of comprehensive documentation
 
 **Conclusion**: The migration is production-ready with minor fixes needed. The core functionality is solid, and the backward compatibility approach is excellent. Address the critical issues before full deployment.

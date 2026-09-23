@@ -1,23 +1,9 @@
-export type DownloadPressAction =
-  | 'undownload-warning'
-  | 'download-confirm'
-  | 'direct';
+export type DownloadPressAction = 'download-confirm' | 'direct';
 
 export function resolveDownloadPressAction(options: {
-  isConnected: boolean;
-  isFlaggedForDownload: boolean;
-  showUndownloadWarning: boolean;
   hasDownloadConfirmation: boolean;
 }): DownloadPressAction {
-  if (
-    !options.isConnected &&
-    options.isFlaggedForDownload &&
-    options.showUndownloadWarning
-  ) {
-    return 'undownload-warning';
-  }
-
-  if (options.hasDownloadConfirmation && !options.isFlaggedForDownload) {
+  if (options.hasDownloadConfirmation) {
     return 'download-confirm';
   }
 

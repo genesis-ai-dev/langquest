@@ -22,8 +22,6 @@ export type Languoid = InferSelectModel<typeof languoid>;
  * showing languages from newer DB versions that the app can't render.
  */
 export function useUIReadyLanguoids() {
-  const { db, supabaseConnector } = system;
-
   const {
     data: rawLanguoids,
     isLoading: isLanguoidsLoading,
@@ -144,7 +142,7 @@ export function useLanguoidNames(languoidIds: string[] | string) {
  * Fetches a single languoid by ID from Supabase (online) or local Drizzle DB (offline)
  */
 export function useLanguoidById(languoid_id?: string) {
-  const { db, supabaseConnector } = system;
+  const { db } = system;
 
   const {
     data: languoidArray,

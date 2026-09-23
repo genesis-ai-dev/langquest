@@ -17,6 +17,7 @@ onFlowStart:
 - evalScript: ${output.questName = "maestro-assets-q-" + Date.now()}
 - evalScript: ${output.skipSignInCleanup = true}
 - runFlow: _start-signed-in.yaml
+- runFlow: _enable-asset-details-setting.yaml
 - runFlow: _create-project-quest.yaml
 - extendedWaitUntil:
     visible:

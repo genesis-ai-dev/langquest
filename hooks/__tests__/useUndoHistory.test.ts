@@ -1,11 +1,8 @@
 /// <reference types="jest" />
 
 import { act, renderHook } from '@testing-library/react-native';
-import {
-  MAX_UNDO_OPERATIONS,
-  useUndoHistory,
-  type UndoHistoryAction
-} from '../useUndoHistory';
+import { MAX_UNDO_OPERATIONS, useUndoHistory } from '../useUndoHistory';
+import type { UndoHistoryAction } from '../useUndoHistory';
 
 function entry(action: string): UndoHistoryAction<string, string> {
   return {

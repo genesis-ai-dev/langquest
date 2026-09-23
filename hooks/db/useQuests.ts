@@ -1,4 +1,4 @@
-import { quest as questTable } from '@/db/drizzleSchema';
+import type { quest as questTable } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { toCompilableQuery } from '@powersync/drizzle-driver';

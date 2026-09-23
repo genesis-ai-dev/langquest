@@ -1,4 +1,4 @@
-import { DownloadIndicator } from '@/components/DownloadIndicator';
+import { DownloadStatusBadge } from '@/components/DownloadStatusBadge';
 import { FiaIcon } from '@/components/icons/FiaIcon';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { Button } from '@/components/ui/button';
@@ -269,16 +269,7 @@ export function ProjectListItem({
                 </View>
               )}
               {isDownloaded && (
-                <DownloadIndicator
-                  isFlaggedForDownload={true}
-                  isLoading={false}
-                  onPress={() => undefined} // Non-interactive
-                  downloadType="project"
-                  stats={{
-                    totalAssets: 0,
-                    totalQuests: 0
-                  }}
-                />
+                <DownloadStatusBadge status="downloaded" size={18} />
               )}
             </View>
           </CardHeader>

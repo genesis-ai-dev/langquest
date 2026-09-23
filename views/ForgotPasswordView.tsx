@@ -1,3 +1,4 @@
+import { AuthSheetCloseButton } from '@/components/AuthSheetCloseButton';
 import { OfflineAlert } from '@/components/offline-alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -90,12 +91,15 @@ export default function ForgotPasswordView() {
 
   if (isSuccess) {
     return (
-      <View className="m-safe flex flex-1 flex-col items-center justify-center gap-4 p-6">
-        <Text className="text-6xl font-semibold text-primary">LangQuest</Text>
-        <Text className="text-center">{t('checkEmailForResetLink')}</Text>
-        <Button testID="forgot-password-ok" onPress={goToSignIn}>
-          <Text>{t('ok')}</Text>
-        </Button>
+      <View className="m-safe flex flex-1 flex-col gap-4 p-6">
+        <AuthSheetCloseButton />
+        <View className="flex flex-1 flex-col items-center justify-center gap-4">
+          <Text className="text-6xl font-semibold text-primary">LangQuest</Text>
+          <Text className="text-center">{t('checkEmailForResetLink')}</Text>
+          <Button testID="forgot-password-ok" onPress={goToSignIn}>
+            <Text>{t('ok')}</Text>
+          </Button>
+        </View>
       </View>
     );
   }
@@ -108,6 +112,7 @@ export default function ForgotPasswordView() {
         bottomOffset={96}
         extraKeyboardSpace={20}
       >
+        <AuthSheetCloseButton />
         <View className="flex flex-col items-center justify-center gap-4 text-center">
           <Text className="text-6xl font-semibold text-primary">LangQuest</Text>
           <Text>{t('resetPassword')}</Text>

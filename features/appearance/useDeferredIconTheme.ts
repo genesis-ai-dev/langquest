@@ -1,7 +1,8 @@
 import { applyTheme } from '@/features/appearance/iconTheme';
 import { useLocalStore } from '@/store/localStore';
 import { useEffect, useRef } from 'react';
-import { AppState, type AppStateStatus, Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
+import type { AppStateStatus } from 'react-native';
 
 /**
  * Swap the launcher icon only after the app leaves the foreground. Applying

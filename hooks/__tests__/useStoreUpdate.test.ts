@@ -6,9 +6,9 @@ import {
   STORE_UPDATE_DISMISSAL_MS,
   getLatestStoreVersion,
   getStoreUrl,
-  shouldShowStoreUpdateBanner,
-  type SystemInfoRow
+  shouldShowStoreUpdateBanner
 } from '../storeUpdateAvailability';
+import type { SystemInfoRow } from '../storeUpdateAvailability';
 
 const info: SystemInfoRow = {
   ios_latest_version: '2.3.0',
