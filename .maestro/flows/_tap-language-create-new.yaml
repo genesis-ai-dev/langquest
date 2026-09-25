@@ -1,0 +1,9 @@
+appId: ${MAESTRO_APP_ID}
+---
+- extendedWaitUntil:
+    visible:
+      id: language-create-new
+    timeout: 20000
+- tapOn:
+    id: language-create-new
+    waitToSettleTimeoutMs: 0

@@ -62,7 +62,7 @@ function parseLegacyBounceReason(
   const r = bounceReason?.trim();
   if (!r) return 'unknown';
 
-  const encoded = r.match(/^(?:permanent|transient):(\w+)$/i);
+  const encoded = /^(?:permanent|transient):(\w+)$/i.exec(r);
   if (encoded?.[1]) {
     const raw = encoded[1].toLowerCase();
     const known: InviteBounceReason[] = [
@@ -109,17 +109,11 @@ export function getInviteBounceReason(
   return parseLegacyBounceReason(bounceReason);
 }
 
-export function isInviteBounceUserNotFound(
-  bounceReason: string | null | undefined
-): boolean {
-  return getInviteBounceReason(bounceReason) === 'user_not_found';
-}
-
 /** Permanent bounces should not be retried from the client (transient may retry). */
 export function inviteBounceBlocksRetry(
   emailStatus: string | null | undefined,
   bounceType: string | null | undefined,
-  bounceReason?: string | null | undefined
+  _bounceReason?: string | null
 ): boolean {
   if (emailStatus !== 'bounced') return false;
   return bounceType?.trim().toLowerCase() !== 'transient';

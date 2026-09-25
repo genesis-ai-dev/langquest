@@ -1,16 +1,13 @@
-import type { invite } from '@/db/drizzleSchema';
 import { project as projectTable } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import type { Project } from '@/hooks/db/useProjects';
 import { useThemeColor } from '@/utils/styleUtils';
-import { useHybridData } from '@/views/new/useHybridData';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { eq } from 'drizzle-orm';
 import React from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { ProjectListItem } from './ProjectListItem';
-
-type Invite = typeof invite.$inferSelect;
 
 export function InvitedProjectListItem({
   projectId,
@@ -22,9 +19,8 @@ export function InvitedProjectListItem({
   searchQuery?: string;
 }) {
   // Fetch project data via cloud query only
-  const { data: projectData, isLoading } = useHybridData({
-    dataType: 'invited-project-data',
-    queryKeyParams: [projectId],
+  const { data: projectData, isLoading } = useHybridQuery({
+    queryKey: ['invited-project-data', projectId],
     offlineQuery: toCompilableQuery(
       system.db.query.project.findFirst({
         where: eq(projectTable.id, projectId)

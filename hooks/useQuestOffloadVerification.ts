@@ -1,6 +1,5 @@
 import { system } from '@/db/powersync/system';
-import { AppConfig } from '@/db/supabase/AppConfig';
-import { getDirectory } from '@/utils/fileUtils';
+import { countQuestPendingChanges } from '@/utils/questPendingChanges';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSharedValue } from 'react-native-reanimated';
 
@@ -36,6 +35,12 @@ export interface VerifiedIds {
 
 export interface VerificationState {
   isVerifying: boolean;
+  /**
+   * The quest has no `published_at`. Drafts are never offloadable: their
+   * rows are creator-deletable on the server, so an offload would be a hard
+   * delete instead of a local cleanup.
+   */
+  isDraft: boolean;
   hasPendingUploads: boolean;
   pendingUploadCount: number;
   progressSharedValues: {
@@ -62,7 +67,6 @@ export interface VerificationState {
   totalRecordsShared: ReturnType<typeof useSharedValue<number>>;
   verifiedIds: VerifiedIds;
   hasError: boolean;
-  estimatedStorageBytes: number;
   cancel: () => void;
   startVerification: () => void;
 }
@@ -77,6 +81,14 @@ const initialStatus: CategoryVerificationStatus = {
 /**
  * Hook to verify all related records for a quest exist in the cloud before offloading.
  *
+ * Phases:
+ *   0. Refuse drafts (`published_at` null).
+ *   1. Quest-scoped pending check: ps_crud ops for this quest's rows and
+ *      unconfirmed audio files on this device for this quest.
+ *   2. Cloud row counts for every category, compared with local counts.
+ *   3. Audio: every `audio[]` value must sit on an acl row the server has
+ *      stamped `audio_uploaded_at`. No per-file Storage listing.
+ *
  * Ryder: Future incremental offload - Could add a `categories` parameter to only verify
  * specific record types (e.g., just audio files, keep translations). Would need category-specific
  * verification and deletion logic.
@@ -85,10 +97,10 @@ export function useQuestOffloadVerification(
   questId: string
 ): VerificationState {
   const [isVerifying, setIsVerifying] = useState(false);
+  const [isDraft, setIsDraft] = useState(false);
   const [hasPendingUploads, setHasPendingUploads] = useState(false);
   const [pendingUploadCount, setPendingUploadCount] = useState(0);
   const [hasError, setHasError] = useState(false);
-  const [estimatedStorageBytes, setEstimatedStorageBytes] = useState(0);
   const [verifiedIds, setVerifiedIds] = useState<VerifiedIds>({
     questIds: [],
     projectIds: [],
@@ -175,6 +187,7 @@ export function useQuestOffloadVerification(
       `🔍 [Offload Verification] Starting verification for quest: ${questId}`
     );
     setIsVerifying(true);
+    setIsDraft(false);
     setHasError(false);
     setHasPendingUploads(false);
     setPendingUploadCount(0);
@@ -223,29 +236,39 @@ export function useQuestOffloadVerification(
 
     try {
       // ============================================================================
-      // PHASE 1: Check for pending uploads
+      // PHASE 0: Drafts are never offloadable
+      // ============================================================================
+      const localQuestData = await system.db.query.quest.findFirst({
+        where: (quest, { eq }) => eq(quest.id, questId),
+        columns: { id: true, published_at: true }
+      });
+
+      if (!localQuestData) {
+        throw new Error(`Quest ${questId} not found locally`);
+      }
+
+      if (localQuestData.published_at == null) {
+        console.warn(
+          `🔍 [Offload Verification] Quest ${questId} is a draft; refusing to offload`
+        );
+        setIsDraft(true);
+        setIsVerifying(false);
+        return;
+      }
+
+      // ============================================================================
+      // PHASE 1: Check for pending uploads (scoped to this quest)
       // ============================================================================
       console.log(
         '🔍 [Offload Verification] Phase 1: Checking for pending uploads'
       );
 
-      // Check PowerSync upload queue (ps_crud table tracks pending operations)
-      // Any rows in ps_crud means there are pending changes to upload
-      const pendingRecordsResult = await system.powersync.getAll<{
-        count: number;
-      }>(`SELECT COUNT(*) as count FROM ps_crud`);
-      const pendingDbRecords = pendingRecordsResult[0]?.count || 0;
-
-      // Check pending audio uploads (files on device whose acl rows lack
-      // server-confirmed audio_uploaded_at)
-      const pendingAttachmentRecords =
-        system.audioUploader?.getStatus().pending ?? 0;
-
-      const totalPending = pendingDbRecords + pendingAttachmentRecords;
+      const pending = await countQuestPendingChanges(questId);
+      const totalPending = pending.records + pending.audioFiles;
 
       if (totalPending > 0) {
         console.warn(
-          `🔍 [Offload Verification] Found ${totalPending} pending uploads (${pendingDbRecords} DB records, ${pendingAttachmentRecords} attachments)`
+          `🔍 [Offload Verification] Found ${totalPending} pending uploads for this quest (${pending.records} DB records, ${pending.audioFiles} audio files)`
         );
         setHasPendingUploads(true);
         setPendingUploadCount(totalPending);
@@ -261,15 +284,6 @@ export function useQuestOffloadVerification(
       console.log(
         '🔍 [Offload Verification] Phase 2: Verifying database records'
       );
-
-      // First, get local quest data to know what to verify
-      const localQuestData = await system.db.query.quest.findFirst({
-        where: (quest, { eq }) => eq(quest.id, questId)
-      });
-
-      if (!localQuestData) {
-        throw new Error(`Quest ${questId} not found locally`);
-      }
 
       // Wave 1: Quest, project, quest-asset links, quest-tag links
       const [questResult, questAssetLinksResult, questTagLinksResult] =
@@ -290,7 +304,6 @@ export function useQuestOffloadVerification(
                 .from('quest')
                 .select('id, project_id')
                 .eq('id', questId)
-                .eq('active', true)
                 .single();
 
               if (error || !data) {
@@ -382,8 +395,7 @@ export function useQuestOffloadVerification(
               const { data, error } = await system.supabaseConnector.client
                 .from('quest_asset_link')
                 .select('quest_id, asset_id')
-                .eq('quest_id', questId)
-                .eq('active', true);
+                .eq('quest_id', questId);
 
               if (error) throw error;
               if (signal.aborted) return null;
@@ -456,8 +468,7 @@ export function useQuestOffloadVerification(
               const { data, error } = await system.supabaseConnector.client
                 .from('quest_tag_link')
                 .select('quest_id, tag_id')
-                .eq('quest_id', questId)
-                .eq('active', true);
+                .eq('quest_id', questId);
 
               if (error) throw error;
               if (signal.aborted) return null;
@@ -537,7 +548,6 @@ export function useQuestOffloadVerification(
                   .from('asset')
                   .select('id, source_language_id')
                   .in('id', assetIds)
-                  .eq('active', true)
                   .overrideTypes<
                     { id: string; source_language_id: string }[]
                   >();
@@ -615,14 +625,14 @@ export function useQuestOffloadVerification(
 
                 const { data, error } = await system.supabaseConnector.client
                   .from('asset_content_link')
-                  .select('id, source_language_id, audio')
+                  .select('id, source_language_id, audio, audio_uploaded_at')
                   .in('asset_id', assetIds)
-                  .eq('active', true)
                   .overrideTypes<
                     {
                       id: string;
                       source_language_id: string;
                       audio: string[] | null;
+                      audio_uploaded_at: string | null;
                     }[]
                   >();
 
@@ -696,8 +706,7 @@ export function useQuestOffloadVerification(
                 const { data, error } = await system.supabaseConnector.client
                   .from('asset_tag_link')
                   .select('asset_id, tag_id')
-                  .in('asset_id', assetIds)
-                  .eq('active', true);
+                  .in('asset_id', assetIds);
 
                 if (error) throw error;
 
@@ -788,7 +797,7 @@ export function useQuestOffloadVerification(
         };
 
         // Wave 3: Votes and tags
-        const [votesResult, tagsResult] = await Promise.all([
+        await Promise.all([
           // Verify votes
           (async () => {
             try {
@@ -819,8 +828,7 @@ export function useQuestOffloadVerification(
               const { data, error } = await system.supabaseConnector.client
                 .from('vote')
                 .select('id')
-                .in('asset_id', assetIds)
-                .eq('active', true);
+                .in('asset_id', assetIds);
 
               if (error) throw error;
               if (signal.aborted) return null;
@@ -893,8 +901,7 @@ export function useQuestOffloadVerification(
               const { data, error } = await system.supabaseConnector.client
                 .from('tag')
                 .select('id')
-                .in('id', uniqueTagIds)
-                .eq('active', true);
+                .in('id', uniqueTagIds);
 
               if (error) throw error;
               if (signal.aborted) return null;
@@ -937,107 +944,47 @@ export function useQuestOffloadVerification(
         ]);
 
         // ============================================================================
-        // PHASE 3: Verify attachments in cloud storage
+        // PHASE 3: Verify audio via the server's own confirmation
         // ============================================================================
+        // `audio_uploaded_at` is stamped by a server trigger when the storage
+        // object exists for the acl row, for both flat and legacy `local/`
+        // object names. That is the source of truth; listing Storage per
+        // file was one round trip per take and mishandled legacy names.
         console.log('🔍 [Offload Verification] Phase 3: Verifying attachments');
 
-        // Extract all audio file IDs from asset_content_link records
-        const audioFileIds =
-          assetContentLinksResult
-            ?.flatMap((link) => link.audio)
-            .filter(Boolean) || [];
+        const audioValues =
+          assetContentLinksResult?.flatMap((link) =>
+            (link.audio ?? [])
+              .filter((value): value is string => !!value)
+              .map((value) => ({
+                value,
+                confirmed: link.audio_uploaded_at != null
+              }))
+          ) ?? [];
 
-        const attachmentCount = audioFileIds.length;
+        const attachmentCount = audioValues.length;
+        const confirmedValues = audioValues.filter((item) => item.confirmed);
+        const verifiedCount = confirmedValues.length;
+        ids.attachmentIds = confirmedValues.map((item) => item.value);
+
         attachmentsProgress.value = {
           count: attachmentCount,
-          verified: 0,
-          isVerifying: true,
-          hasError: false
+          verified: verifiedCount,
+          isVerifying: false,
+          hasError: verifiedCount !== attachmentCount
         };
 
-        if (attachmentCount > 0) {
-          try {
-            let totalSize = 0;
-            let verifiedCount = 0;
-
-            // Verify each attachment exists in cloud storage
-            for (const audioId of audioFileIds) {
-              if (signal.aborted) break;
-
-              try {
-                const folder = getDirectory(audioId);
-                // Check if file exists in Supabase Storage
-                const { data, error } =
-                  await system.supabaseConnector.client.storage
-                    .from(AppConfig.supabaseBucket)
-                    .list(folder ?? '', {
-                      limit: 1,
-                      search: audioId
-                    });
-
-                if (!error && data && data.length > 0) {
-                  verifiedCount++;
-                  ids.attachmentIds.push(audioId);
-                  // Add file size to estimate
-                  const fileSize = data[0]?.metadata?.size || 0;
-                  totalSize += fileSize;
-                }
-
-                // Update progress
-                attachmentsProgress.value = {
-                  count: attachmentCount,
-                  verified: verifiedCount,
-                  isVerifying: true,
-                  hasError: false
-                };
-              } catch (error) {
-                console.error(
-                  `🔍 [Offload Verification] Error checking attachment ${audioId}:`,
-                  error
-                );
-              }
-            }
-
-            attachmentsProgress.value = {
-              count: attachmentCount,
-              verified: verifiedCount,
-              isVerifying: false,
-              hasError: verifiedCount !== attachmentCount
-            };
-
-            if (verifiedCount !== attachmentCount) {
-              setHasError(true);
-              console.warn(
-                `🔍 [Offload Verification] Attachment mismatch: local=${attachmentCount}, cloud=${verifiedCount}`
-              );
-            }
-
-            setEstimatedStorageBytes(totalSize);
-            updateTotal();
-            console.log(
-              `✅ [Offload Verification] Attachments verified: ${verifiedCount}/${attachmentCount} (~${(totalSize / 1024 / 1024).toFixed(2)} MB)`
-            );
-          } catch (error) {
-            console.error(
-              '🔍 [Offload Verification] Error verifying attachments:',
-              error
-            );
-            attachmentsProgress.value = {
-              count: attachmentCount,
-              verified: 0,
-              isVerifying: false,
-              hasError: true
-            };
-            setHasError(true);
-          }
-        } else {
-          attachmentsProgress.value = {
-            count: 0,
-            verified: 0,
-            isVerifying: false,
-            hasError: false
-          };
+        if (verifiedCount !== attachmentCount) {
+          setHasError(true);
+          console.warn(
+            `🔍 [Offload Verification] Attachment mismatch: referenced=${attachmentCount}, confirmed=${verifiedCount}`
+          );
         }
+
+        updateTotal();
+        console.log(
+          `✅ [Offload Verification] Attachments verified: ${verifiedCount}/${attachmentCount}`
+        );
       } else {
         // No assets, set everything to 0
         assetsProgress.value = {
@@ -1134,6 +1081,7 @@ export function useQuestOffloadVerification(
 
   return {
     isVerifying,
+    isDraft,
     hasPendingUploads,
     pendingUploadCount,
     progressSharedValues: {
@@ -1152,7 +1100,6 @@ export function useQuestOffloadVerification(
     totalRecordsShared,
     verifiedIds,
     hasError,
-    estimatedStorageBytes,
     cancel,
     startVerification
   };

@@ -37,9 +37,9 @@ export function ExportButton({
   disabled,
   menuDirection = 'down',
   membership: passedMembership,
-  passedQuestPublished = false
+  passedQuestPublished: _passedQuestPublished = false
 }: ExportButtonProps) {
-  const { t } = useLocalization();
+  const { t: _t } = useLocalization();
   // Use passed membership if available, otherwise fetch it
   const { membership: fetchedMembership, isMembershipLoading } =
     useUserPermissions(projectId, 'open_project');

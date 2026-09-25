@@ -1,24 +1,28 @@
 /**
  * In-memory inventory of the audio files on this device.
  *
- * Holds the relative names of every file under shared_attachments/
- * ('{uuid}.{ext}' for published audio, 'local/{uuid}.{ext}' for pre-publish
- * recordings). Built from one directory listing at startup and kept current
- * by everything that writes a file (saveAudioLocally, promoteLocalAudio, the
- * downloader). Exists so the upload/download work lists can be derived
- * without stat-ing tens of thousands of files per scan.
+ * Holds the bare filename ('{uuid}.{ext}') of every file directly under
+ * shared_attachments/ — the same string as the Supabase Storage object name,
+ * modulo the legacy `local/` object-name prefix (see attachmentPaths). Built
+ * from one directory listing at startup and kept current by everything that
+ * writes a file (storeRecordedAudio, the downloader). Exists so the
+ * upload/download work lists can be derived without stat-ing tens of
+ * thousands of files per scan.
+ *
+ * Startup first folds any pre-2.7 `shared_attachments/local/` staging files
+ * into the root (migrateLegacyLocalAudioDirectory), so the scan is flat.
  *
  * Nothing ever removes entries: no code path in the app deletes local audio
  * files (there is no release mechanism yet — see the never-delete rule in
  * the attachment plan).
  */
 
-import { LOCAL_AUDIO_PREFIX } from '@/utils/attachmentPaths';
 import {
   SHARED_ATTACHMENTS_DIRECTORY,
   getLocalUri,
   listDirectoryFilenames
 } from '@/utils/fileUtils';
+import { migrateLegacyLocalAudioDirectory } from './migrateLegacyLocalAudio';
 
 type Listener = () => void;
 
@@ -33,21 +37,18 @@ export class LocalFileIndex {
     return this.initPromise;
   }
 
-  /** Re-list the directories (e.g. after a restore). Additive only. */
-  async refresh(): Promise<void> {
-    await this.init();
-    await this.scan();
-  }
-
   private async scan(): Promise<void> {
+    try {
+      await migrateLegacyLocalAudioDirectory();
+    } catch (error) {
+      console.warn(
+        '[LocalFileIndex] Legacy local/ migration failed; continuing',
+        error
+      );
+    }
+
     const rootDir = getLocalUri(SHARED_ATTACHMENTS_DIRECTORY);
-    const localDir = getLocalUri(
-      `${SHARED_ATTACHMENTS_DIRECTORY}/${LOCAL_AUDIO_PREFIX}`
-    );
-    const [rootFiles, localFiles] = await Promise.all([
-      listDirectoryFilenames(rootDir),
-      listDirectoryFilenames(localDir)
-    ]);
+    const rootFiles = await listDirectoryFilenames(rootDir);
 
     let changed = false;
     for (const name of rootFiles) {
@@ -56,22 +57,12 @@ export class LocalFileIndex {
         changed = true;
       }
     }
-    for (const name of localFiles) {
-      const key = `${LOCAL_AUDIO_PREFIX}${name}`;
-      if (!this.files.has(key)) {
-        this.files.add(key);
-        changed = true;
-      }
-    }
 
-    console.log(
-      `[LocalFileIndex] ${this.files.size} audio files on device ` +
-        `(${rootFiles.length} published, ${localFiles.length} pre-publish)`
-    );
+    console.log(`[LocalFileIndex] ${this.files.size} audio files on device`);
     if (changed) this.emit();
   }
 
-  /** @param name relative name: '{uuid}.{ext}' or 'local/{uuid}.{ext}' */
+  /** @param name bare filename: '{uuid}.{ext}' */
   has(name: string): boolean {
     return this.files.has(name);
   }

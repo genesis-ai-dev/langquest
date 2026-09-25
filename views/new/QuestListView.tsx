@@ -5,13 +5,17 @@ import { quest } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
+import {
+  publishedOrOwnQuest,
+  publishedOrOwnQuestFilter
+} from '@/utils/dbUtils';
 import type { WithSource } from '@/utils/dbUtils';
 import { LegendList } from '@/components/ui/legend-list';
-import { and, eq, like, or } from 'drizzle-orm';
+import { and, eq, getTableName, like, or } from 'drizzle-orm';
 import React from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { QuestTreeRow } from './QuestTreeRow';
-import { useHybridInfiniteData } from './useHybridData';
+import { useHybridInfiniteQuery } from '@/hooks/useHybridQuery';
 
 interface QuestListViewProps {
   projectId: string;
@@ -19,11 +23,13 @@ interface QuestListViewProps {
   projectSource: 'local' | 'synced' | 'cloud';
   isMember: boolean;
   onAddChild: (parentId: string | null) => void;
+  onOpenQuest: (quest: WithSource<Quest>) => void;
   onDownloadClick: (questId: string) => void;
   onCloudLoadingChange?: (isLoading: boolean) => void;
   onFetchingChange?: (isFetching: boolean) => void;
   downloadingQuestId?: string | null;
   downloadingQuestIds?: Set<string>;
+  downloadedQuestIds?: Set<string>;
 }
 
 type Quest = typeof quest.$inferSelect;
@@ -44,11 +50,13 @@ export function QuestListView({
   projectSource,
   isMember,
   onAddChild,
+  onOpenQuest,
   onDownloadClick,
   onCloudLoadingChange,
   onFetchingChange,
   downloadingQuestId,
-  downloadingQuestIds = new Set()
+  downloadingQuestIds = new Set(),
+  downloadedQuestIds = new Set()
 }: QuestListViewProps) {
   const { currentUser } = useAuth();
   const { t } = useLocalization();
@@ -57,15 +65,15 @@ export function QuestListView({
   const PAGE_SIZE = 50;
   const trimmedSearch = searchQuery.trim();
 
-  const questsInfiniteQuery = useHybridInfiniteData({
-    dataType: 'quests',
-    queryKeyParams: ['for-project', projectId, searchQuery],
+  const questsInfiniteQuery = useHybridInfiniteQuery({
+    queryKey: ['quests', 'for-project', projectId, searchQuery],
     pageSize: PAGE_SIZE,
     offlineQueryFn: async ({ pageParam, pageSize }) => {
       const offset = pageParam * pageSize;
 
       const conditions = [
         eq(quest.project_id, projectId),
+        publishedOrOwnQuest(currentUser?.id),
         or(
           !showHiddenContent ? eq(quest.visible, true) : undefined,
           currentUser ? eq(quest.creator_id, currentUser.id) : undefined
@@ -83,7 +91,7 @@ export function QuestListView({
           name: true,
           description: true,
           parent_id: true,
-          source: true,
+          published_at: true,
           visible: true,
           download_profiles: true
         },
@@ -98,13 +106,13 @@ export function QuestListView({
 
       let query = system.supabaseConnector.client
         .from('quest')
-        .select('id, name, description, parent_id, visible, download_profiles')
-        .eq('project_id', projectId);
+        .select(
+          'id, name, description, parent_id, visible, download_profiles, published_at, creator_id'
+        )
+        .eq('project_id', projectId)
+        .or(publishedOrOwnQuestFilter(currentUser?.id));
 
       // Match offline query filtering: show visible quests OR quests created by current user
-      // When showHiddenContent is false, filter to visible quests OR user's quests
-      // Note: Supabase doesn't easily support complex OR conditions, so we filter by visible
-      // which matches most other hooks. User's own hidden quests will still appear when showHiddenContent=true
       if (!showHiddenContent) {
         query = query.or(
           currentUser?.id
@@ -132,6 +140,7 @@ export function QuestListView({
       return data;
     },
     enableCloudQuery: projectSource !== 'local',
+    watchTables: [getTableName(quest)],
     offlineQueryOptions: {
       enabled: !!projectId
     }
@@ -200,9 +209,11 @@ export function QuestListView({
             canCreateNew={isMember}
             onToggleExpand={() => toggleExpanded(id)}
             onAddChild={(parentId) => onAddChild(parentId)}
+            onOpenQuest={onOpenQuest}
             onDownloadClick={onDownloadClick}
             downloadingQuestId={downloadingQuestId}
             downloadingQuestIds={downloadingQuestIds}
+            downloadedQuestIds={downloadedQuestIds}
           />
         );
         if (hasChildren && isOpen) {
@@ -220,10 +231,12 @@ export function QuestListView({
       expanded,
       toggleExpanded,
       onAddChild,
+      onOpenQuest,
       onDownloadClick,
       isMember,
       downloadingQuestId,
-      downloadingQuestIds
+      downloadingQuestIds,
+      downloadedQuestIds
     ]
   );
 
@@ -268,9 +281,11 @@ export function QuestListView({
               canCreateNew={isMember}
               onToggleExpand={() => toggleExpanded(id)}
               onAddChild={(parentId) => onAddChild(parentId)}
+              onOpenQuest={onOpenQuest}
               onDownloadClick={onDownloadClick}
               downloadingQuestId={downloadingQuestId}
               downloadingQuestIds={downloadingQuestIds}
+              downloadedQuestIds={downloadedQuestIds}
             />
             {hasChildren && isOpen && (
               <View>{renderTree(childrenOf.get(id) || [], 1)}</View>

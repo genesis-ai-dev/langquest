@@ -13,6 +13,7 @@ interface SwitchBoxProps {
   onChange: () => void;
   disabled?: boolean;
   icon?: LucideIcon;
+  testID?: string;
 }
 
 export function SwitchBox({
@@ -21,7 +22,8 @@ export function SwitchBox({
   value,
   onChange,
   disabled = false,
-  icon: IconComponent
+  icon: IconComponent,
+  testID
 }: SwitchBoxProps) {
   return (
     <View className="py-3">
@@ -53,6 +55,8 @@ export function SwitchBox({
           checked={value}
           onCheckedChange={onChange}
           disabled={disabled}
+          testID={testID}
+          accessibilityLabel={testID}
         />
       </View>
     </View>

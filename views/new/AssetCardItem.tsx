@@ -1,4 +1,3 @@
-import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { NewHighlightBadge } from '@/components/NewHighlightBadge';
 // import { Badge } from '@/components/ui/badge';
 import {
@@ -8,12 +7,12 @@ import {
   CardTitle
 } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
-import { useAuth } from '@/contexts/AuthContext';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 // import type { Tag } from '@/database_services/tagCache';
 // import { tagService } from '@/database_services/tagService';
 import type { asset as asset_type } from '@/db/drizzleSchema';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useLocalStore } from '@/store/localStore';
 import { useNavigationHelpers } from '@/hooks/useNavigation';
 // import { useTagStore } from '@/hooks/useTagStore';
 import { isImportedAsset } from '@/utils/assetProvenance';
@@ -34,8 +33,7 @@ import {
 import React from 'react';
 import { Pressable, View } from 'react-native';
 // import { TagModal } from '../../components/TagModal';
-import { Text } from '@/components/ui/text';
-import { useItemDownload, useItemDownloadStatus } from './useHybridData';
+import type { HybridDataSource } from '@/hooks/useHybridQuery';
 
 // Define props locally to avoid require cycle.
 
@@ -45,6 +43,7 @@ type AssetQuestLink = Asset & {
   quest_active: boolean;
   quest_visible: boolean;
   tag_ids?: string[] | undefined;
+  source?: HybridDataSource;
 };
 
 export interface AssetCardItemProps {
@@ -93,13 +92,11 @@ const AssetCardItemComponent: React.FC<AssetCardItemProps> = ({
   isHighlighted = false
 }) => {
   const { goToAsset } = useNavigationHelpers();
-  const { currentUser } = useAuth();
   const { t } = useLocalization();
-  // Check if asset is downloaded
-  const isDownloaded = useItemDownloadStatus(asset, currentUser?.id);
   const isImported = isImportedAsset(asset.metadata);
-  const canRenameAsset = asset.source === 'local' || isImported;
+  const canRenameAsset = !isPublished || isImported;
   const canOpenAssetDetails = isPublished || !isImported;
+  const enableAssetDetails = useLocalStore((s) => s.enableAssetDetails);
 
   // Tags functionality commented out
   // const fetchManyTags = useTagStore((s) => s.fetchManyTags);
@@ -116,12 +113,6 @@ const AssetCardItemComponent: React.FC<AssetCardItemProps> = ({
   //   };
   //   void loadTags();
   // }, [asset.tag_ids, fetchManyTags]);
-
-  // Download mutation
-  const { mutate: downloadAsset, isPending: isDownloading } = useItemDownload(
-    'asset',
-    asset.id
-  );
 
   // Tag modal state - commented out
   // const [isTagModalVisible, setIsTagModalVisible] = React.useState(false);
@@ -159,7 +150,7 @@ const AssetCardItemComponent: React.FC<AssetCardItemProps> = ({
     {
       visible: asset.visible && asset.quest_visible,
       active: asset.active && asset.quest_active,
-      source: asset.source
+      source: asset.source ?? 'synced'
     },
     questId
   );
@@ -172,7 +163,7 @@ const AssetCardItemComponent: React.FC<AssetCardItemProps> = ({
         active: asset.active,
         quest_active: asset.quest_active,
         quest_visible: asset.quest_visible,
-        source: asset.source
+        source: asset.source ?? 'synced'
       },
       asset.id,
       questId
@@ -232,13 +223,6 @@ const AssetCardItemComponent: React.FC<AssetCardItemProps> = ({
     }
   };
 
-  const handleDownloadToggle = () => {
-    if (!currentUser?.id) return;
-
-    // Toggle download status
-    downloadAsset({ userId: currentUser.id, download: !isDownloaded });
-  };
-
   // Tags display - commented out
   // const tag = tags.length > 0 ? tags[0] : null;
 
@@ -269,6 +253,8 @@ const AssetCardItemComponent: React.FC<AssetCardItemProps> = ({
       onPress={() => onToggleSelect?.(asset.id)}
       className="mr-1 flex h-7 w-7 items-center justify-center"
       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      testID="asset-select-toggle"
+      accessibilityLabel="asset-select-toggle"
     >
       <Icon
         as={isSelected ? CheckSquareIcon : SquareIcon}
@@ -281,7 +267,12 @@ const AssetCardItemComponent: React.FC<AssetCardItemProps> = ({
   );
 
   return (
-    <Pressable onPress={handlePress} onLongPress={handleLongPress}>
+    <Pressable
+      onPress={handlePress}
+      onLongPress={handleLongPress}
+      testID={`asset-list-item-${asset.name ?? asset.id}`}
+      accessible={false}
+    >
       <Card
         className={`${
           !allowEditing ? 'opacity-50' : ''
@@ -318,9 +309,7 @@ const AssetCardItemComponent: React.FC<AssetCardItemProps> = ({
                   {!isPublished && isImported ? (
                     <Icon as={ImportIcon} size={14} />
                   ) : (
-                    asset.source === 'local' && (
-                      <Icon as={HardDriveIcon} size={14} />
-                    )
+                    !isPublished && <Icon as={HardDriveIcon} size={14} />
                   )}
                   {/* Play button - only show if onPlay is provided */}
                   {onPlay && (
@@ -347,6 +336,7 @@ const AssetCardItemComponent: React.FC<AssetCardItemProps> = ({
                   <CardTitle
                     numberOfLines={2}
                     className="text-sm leading-tight"
+                    accessibilityLabel={asset.name || t('unnamedAsset')}
                   >
                     {asset.name || t('unnamedAsset')}
                   </CardTitle>
@@ -385,34 +375,28 @@ const AssetCardItemComponent: React.FC<AssetCardItemProps> = ({
                 {isHighlighted && <NewHighlightBadge />}
 
                 {!isSelectionMode &&
-                !isPublished &&
-                onRename &&
-                canRenameAsset ? (
-                  <Pressable
-                    onPress={(e) => {
-                      e.stopPropagation();
-                      onRename(asset.id, asset.name);
-                    }}
-                    className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/20 active:bg-primary/40"
-                    hitSlop={8}
-                  >
-                    <Icon
-                      as={PencilLineIcon}
-                      size={12}
-                      className="text-primary"
-                    />
-                  </Pressable>
-                ) : (
-                  <DownloadIndicator
-                    isFlaggedForDownload={isDownloaded}
-                    isLoading={isDownloading}
-                    onPress={handleDownloadToggle}
-                    size={16}
-                    iconColor="text-primary/50"
-                  />
-                )}
+                  !isPublished &&
+                  onRename &&
+                  canRenameAsset && (
+                    <Pressable
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        onRename(asset.id, asset.name);
+                      }}
+                      className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/20 active:bg-primary/40"
+                      hitSlop={8}
+                      testID="asset-rename"
+                      accessibilityLabel="asset-rename"
+                    >
+                      <Icon
+                        as={PencilLineIcon}
+                        size={12}
+                        className="text-primary"
+                      />
+                    </Pressable>
+                  )}
 
-                {!isSelectionMode && (
+                {enableAssetDetails && !isSelectionMode && (
                   <Pressable
                     disabled={!canOpenAssetDetails}
                     onPress={(e) => {
@@ -423,6 +407,7 @@ const AssetCardItemComponent: React.FC<AssetCardItemProps> = ({
                     className="mr-2 disabled:opacity-40"
                     hitSlop={8}
                     accessibilityState={{ disabled: !canOpenAssetDetails }}
+                    testID="asset-open-details"
                     accessibilityLabel={
                       canOpenAssetDetails
                         ? 'Open asset details'

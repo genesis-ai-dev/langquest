@@ -4,25 +4,69 @@ onFlowStart:
 ---
 - evalScript: ${output.username = faker.internet().username()}
 - evalScript: ${output.email = faker.internet().emailAddress()}
-# - runFlow:
-#     when:
-#       platform: iOS
-#     file: _ios-toggle-autofill-passwords.yaml
+- evalScript: ${output.registerPassword = output.api.uniquePassword("register")}
 - runFlow: _launch-and-onboard.yaml
-- tapOn: Create Account
-- tapOn: Username
-- inputText: ${output.username}-testing
-- tapOn: Enter your email
-- inputText: ${output.email}
-- tapOn: Password
-- inputText: password
-- tapOn: Confirm Password
-- inputText: password
-- tapOn: Register
-- tapOn: Register
-- assertVisible: Projects
 - tapOn:
-    id: app-drawer-menu-button
-- tapOn: Profile
+    id: projects-tab-my
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible: Create Account
+    timeout: 30000
+- tapOn: Create Account
+- runFlow: _open-auth-language.yaml
+- tapOn:
+    id: register-username
+- inputText: ${output.username}-testing
+- runFlow: _hide-keyboard.yaml
+- tapOn:
+    id: register-email
+- inputText: ${output.email}
+- runFlow: _hide-keyboard.yaml
+- tapOn:
+    id: register-password
+- runFlow: _ios-dismiss-strong-password.yaml
+- eraseText
+- inputText: ${output.registerPassword}
+- runFlow: _hide-keyboard.yaml
+- tapOn:
+    id: register-confirm-password
+- runFlow: _ios-dismiss-strong-password.yaml
+- eraseText
+- inputText: ${output.registerPassword}
+- runFlow: _hide-keyboard.yaml
+- tapOn:
+    id: register-submit
+- runFlow: _ios-dismiss-save-password.yaml
+# Local Docker has confirmations off, so signUp creates a session and the
+# auth layout redirects home. Preview/production may land on Sign In first.
+- runFlow:
+    when:
+      visible:
+        id: sign-in-password
+    commands:
+      - tapOn:
+          id: sign-in-email
+      - eraseText
+      - inputText: ${output.email}
+      - runFlow: _hide-keyboard.yaml
+      - tapOn:
+          id: sign-in-password
+      - eraseText
+      - inputText: ${output.registerPassword}
+      - runFlow: _hide-keyboard.yaml
+      - tapOn:
+          text: Sign In
+          below: I forgot my password
+- extendedWaitUntil:
+    visible:
+      id: projects-create-button
+    timeout: 30000
+- runFlow: _open-app-drawer.yaml
+- extendedWaitUntil:
+    visible:
+      id: drawer-profile
+    timeout: 30000
+- tapOn:
+    id: drawer-profile
 - assertVisible: Profile
 - evalScript: ${output.api.deleteUser(output.email)}

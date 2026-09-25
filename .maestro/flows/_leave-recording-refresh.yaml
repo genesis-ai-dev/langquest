@@ -1,0 +1,11 @@
+appId: ${MAESTRO_APP_ID}
+---
+# Leave the recording session. The assets list must show new takes without
+# a manual refresh. iOS Back does not exist; nav-back is the session close.
+- tapOn:
+    id: nav-back
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: assets-refresh-button
+    timeout: 20000

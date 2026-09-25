@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unnecessary-condition */
 import { Card, CardHeader } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
@@ -61,6 +60,8 @@ export const TranslationCard = ({
       size="auto"
       onPress={handleCardPress}
       className="w-full flex-col items-stretch"
+      testID="translation-list-item"
+      accessibilityLabel={previewText || t('noText')}
     >
       <Card
         className={cn(

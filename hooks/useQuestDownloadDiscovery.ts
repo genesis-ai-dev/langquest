@@ -8,7 +8,7 @@ interface CategoryProgress {
   hasError: boolean;
 }
 
-interface DiscoveredIds {
+export interface DiscoveredIds {
   questIds: string[];
   projectIds: string[];
   questAssetLinkIds: string[];
@@ -57,6 +57,44 @@ const initialProgress: CategoryProgress = {
   hasError: false
 };
 
+/** Rows shown in the discovery drawer (excludes languoid/region trees). */
+export function countDiscoveredRecords(ids: DiscoveredIds): number {
+  return (
+    ids.questIds.length +
+    ids.projectIds.length +
+    ids.questAssetLinkIds.length +
+    ids.assetIds.length +
+    ids.assetContentLinkIds.length +
+    ids.voteIds.length +
+    ids.questTagLinkIds.length +
+    ids.assetTagLinkIds.length +
+    ids.tagIds.length +
+    ids.languageIds.length
+  );
+}
+
+const emptyDiscoveredIds = (): DiscoveredIds => ({
+  questIds: [],
+  projectIds: [],
+  questAssetLinkIds: [],
+  assetIds: [],
+  assetContentLinkIds: [],
+  voteIds: [],
+  questTagLinkIds: [],
+  assetTagLinkIds: [],
+  tagIds: [],
+  languageIds: [],
+  languoidIds: [],
+  languoidAliasIds: [],
+  languoidSourceIds: [],
+  languoidPropertyIds: [],
+  languoidRegionIds: [],
+  regionIds: [],
+  regionAliasIds: [],
+  regionSourceIds: [],
+  regionPropertyIds: []
+});
+
 /**
  * Hook to discover all related records for a quest before downloading.
  * Queries cloud database recursively and updates UI in real-time using Reanimated shared values.
@@ -64,29 +102,16 @@ const initialProgress: CategoryProgress = {
 export function useQuestDownloadDiscovery(questId: string): DiscoveryState {
   const [isDiscovering, setIsDiscovering] = useState(false);
   const [hasError, setHasError] = useState(false);
-  const [discoveredIds, setDiscoveredIds] = useState<DiscoveredIds>({
-    questIds: [],
-    projectIds: [],
-    questAssetLinkIds: [],
-    assetIds: [],
-    assetContentLinkIds: [],
-    voteIds: [],
-    questTagLinkIds: [],
-    assetTagLinkIds: [],
-    tagIds: [],
-    languageIds: [],
-    languoidIds: [],
-    languoidAliasIds: [],
-    languoidSourceIds: [],
-    languoidPropertyIds: [],
-    languoidRegionIds: [],
-    regionIds: [],
-    regionAliasIds: [],
-    regionSourceIds: [],
-    regionPropertyIds: []
-  });
+  const [discoveredIds, setDiscoveredIds] =
+    useState<DiscoveredIds>(emptyDiscoveredIds);
 
   const abortControllerRef = useRef<AbortController | null>(null);
+  const inFlightRef = useRef(false);
+
+  useEffect(() => {
+    setDiscoveredIds(emptyDiscoveredIds());
+    setHasError(false);
+  }, [questId]);
 
   // Create shared values for smooth UI updates without React re-renders
   const questProgress = useSharedValue<CategoryProgress>(initialProgress);
@@ -133,11 +158,13 @@ export function useQuestDownloadDiscovery(questId: string): DiscoveryState {
   ]);
 
   const startDiscovery = useCallback(async () => {
-    if (!questId || isDiscovering) return;
+    if (!questId || inFlightRef.current) return;
 
     console.log(`🔍 [Discovery] Starting discovery for quest: ${questId}`);
+    inFlightRef.current = true;
     setIsDiscovering(true);
     setHasError(false);
+    setDiscoveredIds(emptyDiscoveredIds());
 
     // Reset all progress
     questProgress.value = { ...initialProgress, isLoading: true };
@@ -645,7 +672,7 @@ export function useQuestDownloadDiscovery(questId: string): DiscoveryState {
         }
 
         // Wave 3: Vote and tag queries
-        const [votesResult, tagsResult] = await Promise.all([
+        await Promise.all([
           // Query votes
           (async () => {
             try {
@@ -763,12 +790,12 @@ export function useQuestDownloadDiscovery(questId: string): DiscoveryState {
       console.error('🔍 [Discovery] Unexpected error:', error);
       setHasError(true);
     } finally {
+      inFlightRef.current = false;
       setIsDiscovering(false);
       abortControllerRef.current = null;
     }
   }, [
     questId,
-    isDiscovering,
     questProgress,
     projectProgress,
     questAssetLinksProgress,
@@ -789,6 +816,7 @@ export function useQuestDownloadDiscovery(questId: string): DiscoveryState {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
     }
+    inFlightRef.current = false;
     setIsDiscovering(false);
   }, []);
 

@@ -1,5 +1,5 @@
+import { storeRecordedAudio } from '@/services/attachments/storeRecordedAudio';
 import { resolveTable } from '@/utils/dbUtils';
-import { saveAudioLocally } from '@/utils/fileUtils';
 import { eq } from 'drizzle-orm';
 import uuid from 'react-native-uuid';
 import { system } from '../db/powersync/system';
@@ -24,9 +24,10 @@ export class AudioSegmentService {
     projectId: string
   ): Promise<{ assetId: string; audioUri: string }> {
     try {
-      const localUri = await saveAudioLocally(segment.uri);
+      // Bare '{uuid}.{ext}': on-disk filename and storage object name.
+      const localUri = await storeRecordedAudio(segment.uri);
 
-      console.log('[AUDIO SEGMENT SERVICE] Local URI:', localUri);
+      console.log('[AUDIO SEGMENT SERVICE] Stored audio:', localUri);
 
       const newAsset = await system.db.transaction(async (tx) => {
         const [newAsset] = await tx
@@ -55,15 +56,14 @@ export class AudioSegmentService {
             download_profiles: [creatorId]
           });
 
-        // TODO: only publish the audio to the supabase storage bucket once the user hits publish (store locally only right now)
-
         await tx
           .insert(resolveTable('asset_content_link', { localOverride: true }))
           .values({
             asset_id: newAsset.id,
             source_language_id: sourceLanguageId,
             text: segment.name,
-            // Link to the local file path (localUri already includes 'local/' prefix from saveAudioLocally)
+            // Inserting this row enqueues the upload; AudioUploader starts
+            // as soon as it is online (no publish gate).
             audio: [localUri],
             download_profiles: [creatorId]
           });
@@ -76,50 +76,6 @@ export class AudioSegmentService {
       console.error('Failed to save audio segment:', error);
       throw error;
     }
-  }
-
-  /**
-   * Save multiple audio segments as a batch
-   */
-  async saveAudioSegments(
-    segments: AudioSegmentData[],
-    questId: string,
-    sourceLanguageId: string,
-    creatorId: string,
-    projectId: string
-  ): Promise<{ assetIds: string[]; audioUris: string[] }> {
-    const results = await Promise.allSettled(
-      segments.map((segment) =>
-        this.saveAudioSegment(
-          segment,
-          questId,
-          sourceLanguageId,
-          creatorId,
-          projectId
-        )
-      )
-    );
-
-    const assetIds: string[] = [];
-    const audioUris: string[] = [];
-    const errors: string[] = [];
-
-    results.forEach((result, index) => {
-      if (result.status === 'fulfilled') {
-        assetIds.push(result.value.assetId);
-        audioUris.push(result.value.audioUri);
-      } else {
-        errors.push(
-          `Failed to save segment ${segments[index]?.name}: ${result.reason}`
-        );
-      }
-    });
-
-    if (errors.length > 0) {
-      console.warn('Some audio segments failed to save:', errors);
-    }
-
-    return { assetIds, audioUris };
   }
 
   /**

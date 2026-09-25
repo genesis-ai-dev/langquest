@@ -1,26 +1,21 @@
+import { easeOut } from '@/constants/animations';
 import { cn } from '@/utils/styleUtils';
 import * as SelectPrimitive from '@rn-primitives/select';
 import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from 'lucide-react-native';
-import { MotiView } from 'moti';
 import * as React from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 import { ScrollView as GHScrollView } from 'react-native-gesture-handler';
+import {
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming
+} from 'react-native-reanimated';
 import { Icon } from './icon';
-
-export function getOptionFromValue(value?: string | null): Option {
-  if (value) {
-    return {
-      value: value,
-      label: value
-    };
-  }
-}
+import { NativeOnlyAnimatedView } from './native-only-animated-view';
 
 type Option = SelectPrimitive.Option;
 
 const Select = SelectPrimitive.Root;
-
-const SelectGroup = SelectPrimitive.Group;
 
 const SelectValue = React.forwardRef<
   React.ComponentRef<typeof SelectPrimitive.Value>,
@@ -108,6 +103,15 @@ const SelectContent = React.forwardRef<
   SelectPrimitive.ContentProps & { portalHost?: string }
 >(({ className, children, position = 'popper', portalHost, ...props }, ref) => {
   const { open } = SelectPrimitive.useRootContext();
+  const opacity = useSharedValue(0);
+
+  React.useEffect(() => {
+    opacity.set(withTiming(open ? 1 : 0, { duration: 200, easing: easeOut }));
+  }, [open, opacity]);
+
+  const overlayStyle = useAnimatedStyle(() => ({
+    opacity: opacity.get()
+  }));
 
   return (
     <SelectPrimitive.Portal hostName={portalHost}>
@@ -116,10 +120,8 @@ const SelectContent = React.forwardRef<
         pointerEvents={open ? 'auto' : 'none'}
       >
         <View className="z-[400]">
-          <MotiView
-            from={{ opacity: 0 }}
-            animate={{ opacity: open ? 1 : 0 }}
-            transition={{ type: 'timing', duration: 200 }}
+          <NativeOnlyAnimatedView
+            style={overlayStyle}
             pointerEvents={open ? 'auto' : 'none'}
           >
             <SelectPrimitive.Content
@@ -154,28 +156,13 @@ const SelectContent = React.forwardRef<
               </SelectPrimitive.Viewport>
               <SelectScrollDownButton />
             </SelectPrimitive.Content>
-          </MotiView>
+          </NativeOnlyAnimatedView>
         </View>
       </SelectPrimitive.Overlay>
     </SelectPrimitive.Portal>
   );
 });
 SelectContent.displayName = SelectPrimitive.Content.displayName;
-
-const SelectLabel = React.forwardRef<
-  SelectPrimitive.LabelRef,
-  SelectPrimitive.LabelProps
->(({ className, ...props }, ref) => (
-  <SelectPrimitive.Label
-    ref={ref}
-    className={cn(
-      'native:pb-2 native:pl-10 native:text-base py-1.5 pl-8 pr-2 text-sm font-semibold text-popover-foreground',
-      className
-    )}
-    {...props}
-  />
-));
-SelectLabel.displayName = SelectPrimitive.Label.displayName;
 
 const SelectItem = React.forwardRef<
   SelectPrimitive.ItemRef,
@@ -216,27 +203,10 @@ const SelectItem = React.forwardRef<
 ));
 SelectItem.displayName = SelectPrimitive.Item.displayName;
 
-const SelectSeparator = React.forwardRef<
-  SelectPrimitive.SeparatorRef,
-  SelectPrimitive.SeparatorProps
->(({ className, ...props }, ref) => (
-  <SelectPrimitive.Separator
-    ref={ref}
-    className={cn('-mx-1 my-1 h-px bg-muted', className)}
-    {...props}
-  />
-));
-SelectSeparator.displayName = SelectPrimitive.Separator.displayName;
-
 export {
   Select,
   SelectContent,
-  SelectGroup,
   SelectItem,
-  SelectLabel,
-  SelectScrollDownButton,
-  SelectScrollUpButton,
-  SelectSeparator,
   SelectTrigger,
   SelectValue,
   type Option

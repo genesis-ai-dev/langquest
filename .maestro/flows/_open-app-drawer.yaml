@@ -1,0 +1,70 @@
+appId: ${MAESTRO_APP_ID}
+---
+# Expo's Dev Menu FAB defaults to the top-right, on top of the drawer
+# button. clearState resets it there every run. Drag it down the right
+# edge (it snaps to that edge) so the drawer tap hits the app, not Expo.
+# Park on the left mid-screen. The FAB snaps to an edge; the right
+# edge covers the hamburger (top), settings-merge (toggle on the
+# right), recording-action-replace (card chrome), and batch-delete
+# (footer). Preview/production skip this (MAESTRO_USE_DEV_CLIENT
+# is unset).
+#
+# Leftover discovery, the private-access Modal (Go Back), or
+# Initialization Error can swallow the hamburger or take it out of the
+# tree. Dismiss those first. The hamburger tap is optional so a miss
+# retries instead of failing the helper. Do not use Back to dismiss
+# sheets (that pops the screen).
+- runFlow:
+    when:
+      true: ${output.useDevClient}
+    commands:
+      - swipe:
+          start: 94%, 8%
+          end: 6%, 60%
+          duration: 500
+- runFlow:
+    when:
+      visible: Toggle performance monitor
+    commands:
+      - swipe:
+          direction: DOWN
+- runFlow:
+    when:
+      visible: Initialization Error
+    commands:
+      - tapOn: OK
+- runFlow:
+    when:
+      visible: Go Back
+      notVisible:
+        id: app-drawer-menu-button
+    commands:
+      - tapOn: Go Back
+- repeat:
+    times: 4
+    while:
+      notVisible:
+        id: drawer-projects
+    commands:
+      - runFlow:
+          when:
+            visible: Initialization Error
+          commands:
+            - tapOn: OK
+      - runFlow:
+          when:
+            visible: Go Back
+            notVisible:
+              id: app-drawer-menu-button
+          commands:
+            - tapOn: Go Back
+      - tapOn:
+          id: app-drawer-menu-button
+          optional: true
+          waitToSettleTimeoutMs: 0
+      - waitForAnimationToEnd:
+          timeout: 2000
+- extendedWaitUntil:
+    visible:
+      id: drawer-projects
+    timeout: 15000

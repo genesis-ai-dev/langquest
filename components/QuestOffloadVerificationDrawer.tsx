@@ -5,7 +5,6 @@ import {
   DrawerContent,
   DrawerFooter,
   DrawerHeader,
-  DrawerScrollView,
   DrawerTitle
 } from '@/components/ui/drawer';
 import { Icon } from '@/components/ui/icon';
@@ -141,12 +140,11 @@ export function QuestOffloadVerificationDrawer({
   const { t } = useLocalization();
   const {
     isVerifying,
+    isDraft,
     hasPendingUploads,
-    pendingUploadCount,
     progressSharedValues,
     totalRecordsShared,
-    hasError,
-    estimatedStorageBytes
+    hasError
   } = verificationState;
 
   // Use React state for display values
@@ -225,6 +223,7 @@ export function QuestOffloadVerificationDrawer({
   // Calculate if ready to offload (all records verified, no errors, no pending uploads)
   const isReadyToOffload =
     !isVerifying &&
+    !isDraft &&
     !hasPendingUploads &&
     !hasError &&
     totalRecords > 0 &&
@@ -232,20 +231,10 @@ export function QuestOffloadVerificationDrawer({
       (p) => p.count === 0 || p.verified === p.count
     );
 
-  // Format storage size
-  const formatStorageSize = (bytes: number): string => {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return `${(bytes / Math.pow(k, i)).toFixed(2)} ${sizes[i]}`;
-  };
-
   return (
     <Drawer
       open={isOpen}
       onOpenChange={onOpenChange}
-      snapPoints={[1000, 770]}
       dismissible={!isOffloading}
     >
       <DrawerContent className="pb-safe">
@@ -254,15 +243,17 @@ export function QuestOffloadVerificationDrawer({
             <View className="flex-1">
               <DrawerTitle>{t('offloadQuest')}</DrawerTitle>
               <Text className="text-sm text-muted-foreground">
-                {hasPendingUploads
-                  ? t('pendingUploadsDetected')
-                  : isVerifying
-                    ? t('verifyingCloudData')
-                    : isReadyToOffload
-                      ? t('readyToOffload')
-                      : hasError
-                        ? t('cannotOffloadErrors')
-                        : t('checkingPendingChanges')}
+                {isDraft
+                  ? t('cannotOffloadDraft')
+                  : hasPendingUploads
+                    ? t('pendingUploadsDetected')
+                    : isVerifying
+                      ? t('verifyingCloudData')
+                      : isReadyToOffload
+                        ? t('readyToOffload')
+                        : hasError
+                          ? t('cannotOffloadErrors')
+                          : t('checkingPendingChanges')}
               </Text>
             </View>
             <DrawerClose variant="ghost" size="icon" disabled={isOffloading}>
@@ -271,12 +262,29 @@ export function QuestOffloadVerificationDrawer({
           </View>
         </DrawerHeader>
 
-        {/* Scrollable Content */}
-        <DrawerScrollView
-          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 16 }}
-          style={{ flexGrow: 1 }}
-        >
-          {hasPendingUploads ? (
+        <View className="flex flex-col gap-2 px-4">
+          {isDraft ? (
+            <View className="flex flex-col gap-4 py-6">
+              <View
+                className="rounded-lg bg-destructive/10 p-4"
+                testID="quest-offload-draft"
+              >
+                <View className="mb-2 flex-row items-center gap-2">
+                  <Icon
+                    as={AlertCircleIcon}
+                    size={20}
+                    className="text-destructive"
+                  />
+                  <Text className="font-semibold text-destructive">
+                    {t('cannotOffloadDraft')}
+                  </Text>
+                </View>
+                <Text className="text-sm text-muted-foreground">
+                  {t('cannotOffloadDraftMessage')}
+                </Text>
+              </View>
+            </View>
+          ) : hasPendingUploads ? (
             <View className="flex flex-col gap-4 py-6">
               <View className="rounded-lg bg-yellow-500/10 p-4">
                 <View className="mb-2 flex-row items-center gap-2">
@@ -360,17 +368,6 @@ export function QuestOffloadVerificationDrawer({
                 </Text>
               </View>
 
-              {estimatedStorageBytes > 0 && (
-                <View className="mb-2 flex-row items-center justify-between rounded-lg bg-muted p-3">
-                  <Text className="text-sm font-semibold">
-                    {t('storageToFree')}:
-                  </Text>
-                  <Text className="text-lg font-bold text-primary">
-                    {formatStorageSize(estimatedStorageBytes)}
-                  </Text>
-                </View>
-              )}
-
               {/* Warnings and errors in scrollable area */}
               {isReadyToOffload && (
                 <View className="mb-2 rounded-lg bg-yellow-500/10 p-3">
@@ -420,7 +417,7 @@ export function QuestOffloadVerificationDrawer({
                         variant="outline"
                         className="border-yellow-600"
                         onPress={onContinue}
-                        disabled={hasPendingUploads || isOffloading}
+                        disabled={isOffloading}
                       >
                         <Text className="text-xs font-bold text-yellow-600">
                           Force Offload (Dev Only)
@@ -432,23 +429,26 @@ export function QuestOffloadVerificationDrawer({
               )}
             </>
           )}
-        </DrawerScrollView>
+        </View>
 
         <DrawerFooter>
           <Button
             onPress={onContinue}
-            disabled={!isReadyToOffload || hasPendingUploads}
+            disabled={!isReadyToOffload}
             loading={isOffloading}
             variant={isReadyToOffload ? 'destructive' : 'default'}
+            testID="quest-offload-continue"
           >
             <Text className="font-bold">
               {isVerifying
                 ? t('verifyingCloudData')
-                : hasPendingUploads
-                  ? t('waitingForUploads')
-                  : isReadyToOffload
-                    ? t('continueToOffload')
-                    : t('cannotOffload')}
+                : isDraft
+                  ? t('cannotOffload')
+                  : hasPendingUploads
+                    ? t('waitingForUploads')
+                    : isReadyToOffload
+                      ? t('continueToOffload')
+                      : t('cannotOffload')}
             </Text>
           </Button>
 

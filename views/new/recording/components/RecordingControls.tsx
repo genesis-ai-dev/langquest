@@ -313,6 +313,8 @@ export const RecordingControls = React.memo(
                 variant="destructive"
                 onPress={handleRequestPermission}
                 className="w-48"
+                testID="recording-mic-permission-grant"
+                accessibilityLabel="recording-mic-permission-grant"
               >
                 <Text className="text-base font-bold">
                   {t('grantMicrophonePermission')}
@@ -417,6 +419,8 @@ export const RecordingControls = React.memo(
                 size="sm"
                 onPress={onSettingsPress}
                 className="-ml-2 h-auto flex-row items-center gap-2"
+                testID="recording-vad-settings-open"
+                accessibilityLabel="recording-vad-settings-open"
               >
                 <Icon as={Settings} size={20} />
                 <Text className="text-sm text-muted-foreground">

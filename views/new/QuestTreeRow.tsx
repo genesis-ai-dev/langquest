@@ -4,8 +4,6 @@ import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
 import type { quest as questTable } from '@/db/drizzleSchema';
-import { useNavigationHelpers } from '@/hooks/useNavigation';
-import { useLocalization } from '@/hooks/useLocalization';
 import { useQuestDownloadStatusLive } from '@/hooks/useQuestDownloadStatusLive';
 import type { WithSource } from '@/utils/dbUtils';
 import { FEATURE_FLAG_SHOW_CREATE_NESTED_QUEST } from '@/utils/featureFlags';
@@ -20,7 +18,6 @@ import {
 } from 'lucide-react-native';
 import React from 'react';
 import { Pressable, View } from 'react-native';
-import RNAlert from '@blazejkustra/react-native-alert';
 
 type Quest = typeof questTable.$inferSelect;
 
@@ -30,12 +27,13 @@ export interface QuestTreeRowProps {
   hasChildren: boolean;
   isOpen: boolean;
   canCreateNew: boolean;
-  isDownloading?: boolean;
   onToggleExpand?: () => void;
   onAddChild: (parentId: string) => void;
+  onOpenQuest: (quest: WithSource<Quest>) => void;
   onDownloadClick?: (questId: string) => void;
   downloadingQuestId?: string | null;
   downloadingQuestIds?: Set<string>;
+  downloadedQuestIds?: Set<string>;
 }
 
 export const QuestTreeRow: React.FC<QuestTreeRowProps> = ({
@@ -44,53 +42,25 @@ export const QuestTreeRow: React.FC<QuestTreeRowProps> = ({
   hasChildren,
   isOpen,
   canCreateNew,
-  isDownloading: _isDownloading = false,
   onToggleExpand,
   onAddChild,
+  onOpenQuest,
   onDownloadClick,
   downloadingQuestId,
-  downloadingQuestIds = new Set()
+  downloadingQuestIds = new Set(),
+  downloadedQuestIds = new Set()
 }) => {
-  const { goToQuest, projectId } = useNavigationHelpers();
   const { currentUser } = useAuth();
-  const { t } = useLocalization();
+  const isSignedIn = Boolean(currentUser);
 
-  // Query SQLite directly - single source of truth, no cache, no race conditions
-  const isDownloaded = useQuestDownloadStatusLive(quest.id);
-  const isCloudQuest = quest.source === 'cloud';
+  const liveDownloaded = useQuestDownloadStatusLive(quest.id);
+  const isDownloaded = liveDownloaded || downloadedQuestIds.has(quest.id);
 
-  // Show loading if we're downloading AND not yet downloaded
-  // Loading automatically clears when SQL watch detects isDownloaded becomes true
-  const isOptimisticallyDownloading =
-    downloadingQuestIds.has(quest.id) || downloadingQuestId === quest.id;
-  const isLoading = isOptimisticallyDownloading && !isDownloaded;
+  const isLoading =
+    (downloadingQuestIds.has(quest.id) || downloadingQuestId === quest.id) &&
+    !isDownloaded;
 
-  const handleQuestPress = () => {
-    // Anonymous users can navigate directly to cloud records (cloud-only browsing)
-    // Authenticated users need to download cloud quests before viewing
-    if (currentUser && isCloudQuest && !isDownloaded) {
-      RNAlert.alert(t('downloadRequired'), t('downloadQuestToView'), [
-        { text: t('cancel'), style: 'cancel' },
-        {
-          text: t('downloadNow'),
-          isPreferred: true,
-          onPress: () => {
-            if (onDownloadClick) {
-              onDownloadClick(quest.id);
-            }
-          }
-        }
-      ]);
-      return;
-    }
-
-    // Quest is downloaded, local, or user is anonymous (cloud-only), navigate to it
-    goToQuest({
-      id: quest.id,
-      project_id: projectId!,
-      name: quest.name
-    });
-  };
+  const handleQuestPress = () => onOpenQuest(quest);
 
   const Component = hasChildren ? Pressable : View;
   return (
@@ -116,25 +86,29 @@ export const QuestTreeRow: React.FC<QuestTreeRowProps> = ({
           )}
         </Component>
       )}
-      <View className="flex min-w-[40px] flex-row items-center gap-2">
-        {!quest.visible && (
-          <Icon as={EyeOffIcon} className="text-muted-foreground" size={19} />
-        )}
-        {quest.source === 'local' && (
+      {isSignedIn ? (
+        <View className="flex min-w-[40px] flex-row items-center gap-2">
+          {!quest.visible && (
+            <Icon as={EyeOffIcon} className="text-muted-foreground" size={19} />
+          )}
+          {quest.source === 'local' && (
+            <Icon
+              as={HardDriveIcon}
+              className="text-muted-foreground"
+              size={19}
+            />
+          )}
           <Icon
-            as={HardDriveIcon}
-            className="text-muted-foreground"
-            size={19}
+            as={FolderIcon}
+            className="mr-2 text-muted-foreground"
+            size={22}
           />
-        )}
-        <Icon
-          as={FolderIcon}
-          className="mr-2 text-muted-foreground"
-          size={22}
-        />
-      </View>
+        </View>
+      ) : null}
       <Pressable
         className="flex-1 justify-center rounded-lg px-1 active:scale-[0.98] active:bg-accent/50"
+        testID="quest-list-item"
+        accessibilityLabel={quest.name || 'quest-list-item'}
         onPress={handleQuestPress}
         hitSlop={10}
       >
@@ -158,9 +132,8 @@ export const QuestTreeRow: React.FC<QuestTreeRowProps> = ({
           </Text>
         )} */}
       </Pressable>
-      {/* Download status indicator */}
-      <View className="ml-2 flex flex-row items-center gap-1">
-        {quest.source !== 'local' && (
+      {isSignedIn && quest.source !== 'local' ? (
+        <View className="ml-2 flex flex-row items-center gap-1">
           <DownloadIndicator
             isFlaggedForDownload={isDownloaded}
             isLoading={isLoading}
@@ -171,9 +144,10 @@ export const QuestTreeRow: React.FC<QuestTreeRowProps> = ({
             }}
             className="text-muted-foreground"
             size={24}
+            testID="quest-download"
           />
-        )}
-      </View>
+        </View>
+      ) : null}
       {FEATURE_FLAG_SHOW_CREATE_NESTED_QUEST && canCreateNew && (
         <Button
           size="icon"

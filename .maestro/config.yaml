@@ -1,0 +1,7 @@
+# Applied when Maestro loads this workspace. disableAnimations skips the
+# system animation delay that otherwise sits between almost every tap.
+platform:
+  android:
+    disableAnimations: true
+  ios:
+    disableAnimations: true

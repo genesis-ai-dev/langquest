@@ -1,4 +1,3 @@
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -7,13 +6,9 @@ import {
   CardTitle
 } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
-import { Progress } from '@/components/ui/progress';
 import { Text } from '@/components/ui/text';
-import { useAuth } from '@/contexts/AuthContext';
 import { useNavigationHelpers } from '@/hooks/useNavigation';
-import { useAttachmentProgress } from '@/hooks/useAttachmentProgress';
 import { useLocalization } from '@/hooks/useLocalization';
-import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { usePowerSyncStatus } from '@/hooks/usePowerSyncStatus';
 import { cn } from '@/utils/styleUtils';
 import {
@@ -31,16 +26,8 @@ import { ScrollView, View } from 'react-native';
 export default function DownloadStatusView() {
   const { t } = useLocalization();
   const { goToProjects } = useNavigationHelpers();
-  const { isAuthenticated } = useAuth();
-  const isConnected = useNetworkStatus();
-
-  // Get PowerSync status (memoized to prevent re-renders)
   const powerSyncStatus = usePowerSyncStatus();
 
-  // Get attachment progress (only when authenticated)
-  const { progress, syncProgress } = useAttachmentProgress(isAuthenticated);
-
-  // Format last sync time
   const formattedLastSync = useMemo(() => {
     if (!powerSyncStatus.lastSyncedAt) {
       return t('never');
@@ -52,25 +39,13 @@ export default function DownloadStatusView() {
     }
   }, [powerSyncStatus.lastSyncedAt, t]);
 
-  // Calculate download progress percentage
-  const downloadProgressPercentage = useMemo(() => {
-    if (syncProgress.downloadTotal === 0) return 0;
-    return (syncProgress.downloadCurrent / syncProgress.downloadTotal) * 100;
-  }, [syncProgress.downloadCurrent, syncProgress.downloadTotal]);
-
-  // Calculate attachment sync percentage
-  const attachmentSyncPercentage = useMemo(() => {
-    if (progress.total === 0) return 0;
-    return (progress.synced / progress.total) * 100;
-  }, [progress.synced, progress.total]);
-
   return (
     <ScrollView
       className="flex-1 bg-background"
       contentContainerClassName="pb-safe android:pb-[calc(env(safe-area-inset-bottom)+1rem)]"
+      testID="download-status-screen"
     >
       <View className="flex-1 gap-4 p-4">
-        {/* Header */}
         <View className="flex-row items-center justify-between">
           <Text className="text-2xl font-bold text-foreground">
             {t('downloadStatus')}
@@ -80,7 +55,6 @@ export default function DownloadStatusView() {
           </Button>
         </View>
 
-        {/* PowerSync Connection Status */}
         <Card>
           <CardHeader>
             <CardTitle className="flex-row items-center gap-2">
@@ -180,149 +154,6 @@ export default function DownloadStatusView() {
             )}
           </View>
         </Card>
-
-        {/* Network Status */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex-row items-center gap-2">
-              <View className="flex-row items-center gap-2">
-                <Icon
-                  as={isConnected ? CheckCircle2 : CloudOff}
-                  size={20}
-                  className={cn(
-                    isConnected ? 'text-green-500' : 'text-destructive'
-                  )}
-                />
-                <Text>{t('networkStatus')}</Text>
-              </View>
-            </CardTitle>
-            <CardDescription>
-              {isConnected ? t('online') : t('offline')}
-            </CardDescription>
-          </CardHeader>
-        </Card>
-
-        {/* Attachment Download Progress */}
-        {isAuthenticated && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex-row items-center gap-2">
-                <Icon as={CloudDownload} size={20} className="text-primary" />
-                <Text className="ml-1">{t('attachmentDownloadProgress')}</Text>
-              </CardTitle>
-              <CardDescription>
-                {progress.hasActivity ? t('downloading') : t('allSynced')}
-              </CardDescription>
-            </CardHeader>
-            <View className="gap-4 p-4 pt-0">
-              {/* Overall Progress */}
-              <View className="gap-2">
-                <View className="flex-row items-center justify-between">
-                  <Text className="text-sm font-medium text-foreground">
-                    {t('overallProgress')}
-                  </Text>
-                  <Text className="text-sm text-muted-foreground">
-                    {progress.synced}/{progress.total} {t('files')}
-                  </Text>
-                </View>
-                <Progress value={attachmentSyncPercentage} className="h-2" />
-              </View>
-
-              {/* Current Download Progress */}
-              {syncProgress.downloading && (
-                <View className="gap-2">
-                  <View className="flex-row items-center justify-between">
-                    <Text className="text-sm font-medium text-foreground">
-                      {t('currentDownload')}
-                    </Text>
-                    <Text className="text-sm text-muted-foreground">
-                      {syncProgress.downloadCurrent}/
-                      {syncProgress.downloadTotal}
-                    </Text>
-                  </View>
-                  <Progress
-                    value={downloadProgressPercentage}
-                    className="h-2"
-                  />
-                </View>
-              )}
-
-              {/* Current Upload Progress */}
-              {syncProgress.uploading && (
-                <View className="gap-2">
-                  <View className="flex-row items-center justify-between">
-                    <Text className="text-sm font-medium text-foreground">
-                      {t('currentUpload')}
-                    </Text>
-                    <Text className="text-sm text-muted-foreground">
-                      {syncProgress.uploadCurrent}/{syncProgress.uploadTotal}
-                    </Text>
-                  </View>
-                  <Progress
-                    value={
-                      syncProgress.uploadTotal === 0
-                        ? 0
-                        : (syncProgress.uploadCurrent /
-                            syncProgress.uploadTotal) *
-                          100
-                    }
-                    className="h-2"
-                  />
-                </View>
-              )}
-
-              {/* Queue Status */}
-              <View className="gap-2">
-                <Text className="text-sm font-medium text-foreground">
-                  {t('queueStatus')}
-                </Text>
-                <View className="flex-row flex-wrap gap-2">
-                  <Badge
-                    variant={progress.synced > 0 ? 'default' : 'secondary'}
-                    className="px-3 py-1"
-                  >
-                    <Text className="text-xs">
-                      {t('synced')}: {progress.synced}
-                    </Text>
-                  </Badge>
-                  {progress.downloading > 0 && (
-                    <Badge variant="default" className="bg-blue-500 px-3 py-1">
-                      <Text className="text-xs">
-                        {t('downloading')}: {progress.downloading}
-                      </Text>
-                    </Badge>
-                  )}
-                  {progress.uploading > 0 && (
-                    <Badge variant="default" className="bg-green-500 px-3 py-1">
-                      <Text className="text-xs">
-                        {t('uploading')}: {progress.uploading}
-                      </Text>
-                    </Badge>
-                  )}
-                  {progress.unsynced > 0 && (
-                    <Badge variant="outline" className="px-3 py-1">
-                      <Text className="text-xs">
-                        {t('unsynced')}: {progress.unsynced}
-                      </Text>
-                    </Badge>
-                  )}
-                </View>
-              </View>
-            </View>
-          </Card>
-        )}
-
-        {/* Anonymous User Message */}
-        {!isAuthenticated && (
-          <Card>
-            <CardHeader>
-              <CardTitle>{t('signInRequired')}</CardTitle>
-              <CardDescription>
-                {t('signInToViewDownloadStatus')}
-              </CardDescription>
-            </CardHeader>
-          </Card>
-        )}
       </View>
     </ScrollView>
   );

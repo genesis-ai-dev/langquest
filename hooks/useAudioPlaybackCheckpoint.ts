@@ -1,16 +1,16 @@
 import React from 'react';
 
-export type PlayAllCheckpoint = {
+export interface PlayAllCheckpoint {
   playlistKey: string;
   itemIndex: number;
   uriIndex: number;
   positionMs: number;
-};
+}
 
-type SavePlayAllCheckpointOptions = {
+interface SavePlayAllCheckpointOptions {
   force?: boolean;
   throttleMs?: number;
-};
+}
 
 const DEFAULT_PLAY_ALL_THROTTLE_MS = 500;
 const MIN_VALID_POSITION_MS = 500;

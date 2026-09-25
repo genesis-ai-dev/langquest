@@ -129,20 +129,6 @@ class SyncCallbackService {
       })
     );
   }
-
-  /**
-   * Get count of pending callbacks
-   */
-  getPendingCount(): number {
-    return this.callbacks.size;
-  }
-
-  /**
-   * Check if a specific quest has a pending callback
-   */
-  hasCallback(questId: string): boolean {
-    return this.callbacks.has(questId);
-  }
 }
 
 // Export singleton instance

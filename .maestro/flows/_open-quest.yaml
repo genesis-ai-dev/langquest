@@ -1,0 +1,11 @@
+appId: ${MAESTRO_APP_ID}
+---
+# After creating a quest, the new row is tappable. Search must not steal
+# focus so the first tap opens the assets screen.
+- tapOn:
+    id: quest-list-item
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: assets-refresh-button
+    timeout: 45000

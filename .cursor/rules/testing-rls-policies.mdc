@@ -122,7 +122,7 @@ UPDATE 2 -- postgres role has full access
 
 1. **Always test with different roles**: Test your policies with `anon`, `authenticated`, and specific user contexts
 2. **Use in development**: These procedures are perfect for development and testing environments
-3. **pgTAP integration**: These procedures can be used for writing pgTAP unit tests for policies
+3. **pgTAP integration**: `supabase test db` does not apply pending migrations, so automated tests must create session helpers in the `tests` schema (see `supabase/tests/rls_*.sql`) instead of calling `auth.login_as_*`
 4. **Clean up after testing**: Always call `auth.logout()` when finished testing to return to postgres role
 5. **Verify expected behavior**: Make sure your policies behave as intended for each role
 

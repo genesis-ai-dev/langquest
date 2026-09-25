@@ -1,4 +1,6 @@
 import { system } from '@/db/powersync/system';
+import { quest } from '@/db/drizzleSchema';
+import { eq } from 'drizzle-orm';
 
 interface DiscoveredIds {
   questIds: string[];
@@ -151,6 +153,28 @@ export async function bulkDownloadQuest(
     // Update each table
     const questsUpdated = await updateTable('quest', discoveredIds.questIds);
     results.push({ tableName: 'quest', recordsUpdated: questsUpdated });
+
+    for (const questId of discoveredIds.questIds) {
+      try {
+        const row = await system.db.query.quest.findFirst({
+          where: eq(quest.id, questId),
+          columns: { download_profiles: true }
+        });
+        if (!row) continue;
+        const profiles = row.download_profiles ?? [];
+        if (profiles.includes(userId)) continue;
+        await system.db
+          .update(quest)
+          .set({ download_profiles: [...profiles, userId] })
+          .where(eq(quest.id, questId));
+      } catch (error) {
+        console.warn(
+          '[Bulk Download] Local download_profiles stamp failed',
+          questId,
+          error
+        );
+      }
+    }
 
     const projectsUpdated = await updateTable(
       'project',

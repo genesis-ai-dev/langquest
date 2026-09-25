@@ -203,27 +203,27 @@ INSERT INTO "public"."languoid_region" ("id", "languoid_id", "region_id", "major
 -- Data for Name: asset; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-INSERT INTO "public"."asset" ("id", "created_at", "last_updated", "name", "source_language_id", "images", "active") VALUES
-	('b45f16fc-f7c9-403f-b559-1b4f6e66cafc', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:1 (Mixteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', NULL, true),
-	('b51d0e7b-afb9-4d56-a6e7-1dd769d5deee', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:5 (Zapoteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', NULL, true),
-	('b538be82-1ff6-4131-9d1e-fa71fb398134', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:4 (Mixteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', NULL, true),
-	('c29749a5-81af-4b64-b96d-4c89fe43ac3b', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 1:5 (Zapoteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', NULL, true),
-	('bdb5a215-6ecc-4492-b31e-eb6f7d756aa2', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:2 (Zapoteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', NULL, true),
-	('c3224b50-0deb-48e9-a1b2-4819eaf55789', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:3 (Zapoteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', NULL, true),
-	('eff8abcd-6179-4b14-aaaa-69ab054a99ae', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 1:3 (Mixteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', NULL, true),
-	('1035d01f-4d59-4805-9d5c-5f40595398ab', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:4 (Zapoteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', NULL, true),
-	('0ae4c34e-2a21-4b3f-ab30-d927cc58ce49', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:3 (Mixteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', NULL, true),
-	('17f6f122-e655-48fe-b02f-f09723a17d59', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 1:2 (Zapoteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', NULL, true),
-	('2d33323a-f98c-4642-ab8c-8225cd664ce1', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 1:1 (Zapoteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', NULL, true),
-	('2fae8ba4-2a76-468f-a03c-34bfbd408c16', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 1:5 (Mixteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', NULL, true),
-	('30be1d80-e1b5-4567-a063-093f30e1e8cb', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 1:4 (Zapoteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', NULL, true),
-	('3ca42ab6-7d76-4ccd-b7ed-ed17b39a4333', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:5 (Mixteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', NULL, true),
-	('3d7ebf63-ce54-4b8c-8c4b-a1d589ba02b3', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 1:4 (Mixteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', NULL, true),
-	('43500d02-78c7-47be-897a-21d4302c61ba', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:1 (Zapoteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', NULL, true),
-	('4554299a-c42c-439a-903f-67c106c3b46e', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 1:3 (Zapoteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', NULL, true),
-	('5cfffc2f-e1d1-4418-a5d0-20988b322d35', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:2 (Mixteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', NULL, true),
-	('a513e5d6-126b-4725-9029-ec08c7f55a0a', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 1:1 (Mixteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', NULL, true),
-	('13120777-7cef-4942-b2b8-37cd9f241c1b', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 1:2 (Mixteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', ARRAY['images/87aae958-21af-42c9-a42b-89ad96c9ab4b.jpg', 'images/b74d0e60-3fd7-4a17-ab14-5cdcbe79b789.jpg'], true);
+INSERT INTO "public"."asset" ("id", "created_at", "last_updated", "name", "source_language_id", "active") VALUES
+	('b45f16fc-f7c9-403f-b559-1b4f6e66cafc', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:1 (Mixteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', true),
+	('b51d0e7b-afb9-4d56-a6e7-1dd769d5deee', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:5 (Zapoteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', true),
+	('b538be82-1ff6-4131-9d1e-fa71fb398134', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:4 (Mixteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', true),
+	('c29749a5-81af-4b64-b96d-4c89fe43ac3b', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 1:5 (Zapoteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', true),
+	('bdb5a215-6ecc-4492-b31e-eb6f7d756aa2', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:2 (Zapoteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', true),
+	('c3224b50-0deb-48e9-a1b2-4819eaf55789', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:3 (Zapoteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', true),
+	('eff8abcd-6179-4b14-aaaa-69ab054a99ae', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 1:3 (Mixteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', true),
+	('1035d01f-4d59-4805-9d5c-5f40595398ab', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:4 (Zapoteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', true),
+	('0ae4c34e-2a21-4b3f-ab30-d927cc58ce49', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:3 (Mixteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', true),
+	('17f6f122-e655-48fe-b02f-f09723a17d59', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 1:2 (Zapoteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', true),
+	('2d33323a-f98c-4642-ab8c-8225cd664ce1', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 1:1 (Zapoteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', true),
+	('2fae8ba4-2a76-468f-a03c-34bfbd408c16', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 1:5 (Mixteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', true),
+	('30be1d80-e1b5-4567-a063-093f30e1e8cb', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 1:4 (Zapoteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', true),
+	('3ca42ab6-7d76-4ccd-b7ed-ed17b39a4333', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:5 (Mixteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', true),
+	('3d7ebf63-ce54-4b8c-8c4b-a1d589ba02b3', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 1:4 (Mixteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', true),
+	('43500d02-78c7-47be-897a-21d4302c61ba', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:1 (Zapoteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', true),
+	('4554299a-c42c-439a-903f-67c106c3b46e', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 1:3 (Zapoteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', true),
+	('5cfffc2f-e1d1-4418-a5d0-20988b322d35', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:2 (Mixteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', true),
+	('a513e5d6-126b-4725-9029-ec08c7f55a0a', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 1:1 (Mixteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', true),
+	('13120777-7cef-4942-b2b8-37cd9f241c1b', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 1:2 (Mixteco)', 'b032faf4-aebf-4848-984d-053eccc54f1f', true);
 
 
 --
@@ -364,10 +364,13 @@ INSERT INTO "public"."project_language_link" ("project_id", "language_id", "lang
 -- Data for Name: quest; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-INSERT INTO "public"."quest" ("id", "created_at", "last_updated", "name", "description", "project_id", "active") VALUES
-	('bace07b1-41de-4535-9c68-aa81683d9370', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 1:1-5 (Mixteco)', 'Traducir Lucas 1:1-5 al Mixteco de Penasco', 'bace07b1-41de-4535-9c68-aa81683d9370', true),
-	('b819ba73-2274-468d-b18d-330b1ecf49b1', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:1-5 (Mixteco)', 'Traducir Lucas 2:1-5 al Mixteco de Penasco', 'bace07b1-41de-4535-9c68-aa81683d9370', true),
-	('c6d7e8f9-0a1b-2c3d-4e5f-6789abcdef01', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:1-5 (Zapoteco)', 'Traducir Lucas 2:1-5 al Zapoteco de Santiago', 'b819ba73-2274-468d-b18d-330b1ecf49b1', true);
+-- published_at must be explicit: seeds run after migrations, so the backfill in
+-- 20260904000000_quest_published_at.sql never sees these rows. Left null they
+-- are drafts, and the sync rules only send a draft to its creator_id.
+INSERT INTO "public"."quest" ("id", "created_at", "last_updated", "name", "description", "project_id", "active", "published_at") VALUES
+	('bace07b1-41de-4535-9c68-aa81683d9370', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 1:1-5 (Mixteco)', 'Traducir Lucas 1:1-5 al Mixteco de Penasco', 'bace07b1-41de-4535-9c68-aa81683d9370', true, '2024-01-01 00:00:00+00'),
+	('b819ba73-2274-468d-b18d-330b1ecf49b1', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:1-5 (Mixteco)', 'Traducir Lucas 2:1-5 al Mixteco de Penasco', 'bace07b1-41de-4535-9c68-aa81683d9370', true, '2024-01-01 00:00:00+00'),
+	('c6d7e8f9-0a1b-2c3d-4e5f-6789abcdef01', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Lucas 2:1-5 (Zapoteco)', 'Traducir Lucas 2:1-5 al Zapoteco de Santiago', 'b819ba73-2274-468d-b18d-330b1ecf49b1', true, '2024-01-01 00:00:00+00');
 
 -- Link Mixteco project to Universal language as a source via project_language_link
 INSERT INTO "public"."project_language_link" ("project_id", "language_id", "languoid_id", "language_type", "active", "created_at", "last_updated") VALUES
@@ -429,6 +432,18 @@ INSERT INTO "public"."asset" ("id", "created_at", "last_updated", "name", "sourc
 INSERT INTO "public"."asset_content_link" ("id", "created_at", "last_updated", "asset_id", "source_language_id", "text", "audio", "download_profiles", "active") VALUES
 	(gen_random_uuid(), '2025-03-22 00:00:00+00', '2025-03-22 00:00:00+00', '1af7aa51-dc61-965f-e1d3-f8ebc6f5a1f0', '9e3f8bd9-c2e5-4f5a-b98d-123456789012', 'First translation', '["translations/6f1dcec7-50a5-40dc-aad6-8a291b3a6b86.m4a"]'::jsonb, ARRAY['fd56eb4e-0b54-4715-863c-f865aee0b16d']::uuid[], true),
 	(gen_random_uuid(), '2025-03-22 00:00:00+00', '2025-03-22 00:00:00+00', '38003a13-ec16-99cf-1973-c6bf864f63a8', '9e3f8bd9-c2e5-4f5a-b98d-123456789012', 'Second translation', '["translations/432012bd-87f4-43db-be4e-8a7512b800a4.m4a"]'::jsonb, ARRAY['135167eb-7a93-4d90-8b00-85508facac71']::uuid[], true);
+
+-- Seeds run after the audio_uploaded_at backfill. The BEFORE INSERT trigger
+-- only stamps the column when matching storage.objects exist, and this seed
+-- never inserts those objects, so every seeded audio row would stay null and
+-- look like a pending upload. Stamp created_at (postgres role; the client
+-- guard trigger does not fire here).
+UPDATE "public"."asset_content_link"
+SET "audio_uploaded_at" = "created_at"::timestamptz
+WHERE "audio" IS NOT NULL
+  AND jsonb_typeof("audio") = 'array'
+  AND jsonb_array_length("audio") > 0
+  AND "audio_uploaded_at" IS NULL;
 
 -- Create quest_asset_link records to maintain quest relationships
 INSERT INTO "public"."quest_asset_link" ("quest_id", "asset_id", "visible", "download_profiles", "active", "created_at", "last_updated") VALUES
@@ -518,24 +533,24 @@ INSERT INTO "public"."project" ("id", "created_at", "last_updated", "name", "des
 	('ddddd001-0000-4000-8000-000000000001', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Dedupe Demo (Ruth)', 'Demo project with a duplicate book quest for the dedupe trigger', '9e3f8bd9-c2e5-4f5a-b98d-123456789012', 'c111d43b-5983-4342-9d9e-5fc8d09d77b9', ARRAY['c111d43b-5983-4342-9d9e-5fc8d09d77b9']::uuid[], true, 'bible');
 
 -- 1. Live book quest (first in wins)
-INSERT INTO "public"."quest" ("id", "created_at", "last_updated", "name", "description", "project_id", "active", "creator_id", "download_profiles", "parent_id", "metadata") VALUES
-	('ddddd001-0000-4000-8000-00000000000a', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Ruth', '4 chapters', 'ddddd001-0000-4000-8000-000000000001', true, 'c111d43b-5983-4342-9d9e-5fc8d09d77b9', ARRAY['c111d43b-5983-4342-9d9e-5fc8d09d77b9']::uuid[], NULL, '{"bible":{"book":"rut"}}');
+INSERT INTO "public"."quest" ("id", "created_at", "last_updated", "name", "description", "project_id", "active", "creator_id", "download_profiles", "parent_id", "metadata", "published_at") VALUES
+	('ddddd001-0000-4000-8000-00000000000a', '2024-01-01 00:00:00+00', '2024-01-01 00:00:00+00', 'Ruth', '4 chapters', 'ddddd001-0000-4000-8000-000000000001', true, 'c111d43b-5983-4342-9d9e-5fc8d09d77b9', ARRAY['c111d43b-5983-4342-9d9e-5fc8d09d77b9']::uuid[], NULL, '{"bible":{"book":"rut"}}', '2024-01-01 00:00:00+00');
 
 -- Chapters under the live book
-INSERT INTO "public"."quest" ("id", "created_at", "last_updated", "name", "description", "project_id", "active", "creator_id", "download_profiles", "parent_id", "metadata") VALUES
-	('ddddd001-0000-4000-8000-00000000000b', '2024-01-02 00:00:00+00', '2024-01-02 00:00:00+00', 'Ruth 1', '22 verses', 'ddddd001-0000-4000-8000-000000000001', true, 'c111d43b-5983-4342-9d9e-5fc8d09d77b9', ARRAY['c111d43b-5983-4342-9d9e-5fc8d09d77b9']::uuid[], 'ddddd001-0000-4000-8000-00000000000a', '{"bible":{"book":"rut","chapter":1}}'),
-	('ddddd001-0000-4000-8000-00000000000c', '2024-01-02 00:00:00+00', '2024-01-02 00:00:00+00', 'Ruth 2', '23 verses', 'ddddd001-0000-4000-8000-000000000001', true, 'c111d43b-5983-4342-9d9e-5fc8d09d77b9', ARRAY['c111d43b-5983-4342-9d9e-5fc8d09d77b9']::uuid[], 'ddddd001-0000-4000-8000-00000000000a', '{"bible":{"book":"rut","chapter":2}}');
+INSERT INTO "public"."quest" ("id", "created_at", "last_updated", "name", "description", "project_id", "active", "creator_id", "download_profiles", "parent_id", "metadata", "published_at") VALUES
+	('ddddd001-0000-4000-8000-00000000000b', '2024-01-02 00:00:00+00', '2024-01-02 00:00:00+00', 'Ruth 1', '22 verses', 'ddddd001-0000-4000-8000-000000000001', true, 'c111d43b-5983-4342-9d9e-5fc8d09d77b9', ARRAY['c111d43b-5983-4342-9d9e-5fc8d09d77b9']::uuid[], 'ddddd001-0000-4000-8000-00000000000a', '{"bible":{"book":"rut","chapter":1}}', '2024-01-02 00:00:00+00'),
+	('ddddd001-0000-4000-8000-00000000000c', '2024-01-02 00:00:00+00', '2024-01-02 00:00:00+00', 'Ruth 2', '23 verses', 'ddddd001-0000-4000-8000-000000000001', true, 'c111d43b-5983-4342-9d9e-5fc8d09d77b9', ARRAY['c111d43b-5983-4342-9d9e-5fc8d09d77b9']::uuid[], 'ddddd001-0000-4000-8000-00000000000a', '{"bible":{"book":"rut","chapter":2}}', '2024-01-02 00:00:00+00');
 
 -- 2. Duplicate book quest (as if created offline by another member).
 --    The trigger tombstones this row as it inserts.
-INSERT INTO "public"."quest" ("id", "created_at", "last_updated", "name", "description", "project_id", "active", "creator_id", "download_profiles", "parent_id", "metadata") VALUES
-	('ddddd001-0000-4000-8000-00000000000d', '2024-02-01 00:00:00+00', '2024-02-01 00:00:00+00', 'Ruth', '4 chapters', 'ddddd001-0000-4000-8000-000000000001', true, 'f2adf435-fd35-4927-8644-9b03785722b5', ARRAY['f2adf435-fd35-4927-8644-9b03785722b5']::uuid[], NULL, '{"bible":{"book":"rut"}}');
+INSERT INTO "public"."quest" ("id", "created_at", "last_updated", "name", "description", "project_id", "active", "creator_id", "download_profiles", "parent_id", "metadata", "published_at") VALUES
+	('ddddd001-0000-4000-8000-00000000000d', '2024-02-01 00:00:00+00', '2024-02-01 00:00:00+00', 'Ruth', '4 chapters', 'ddddd001-0000-4000-8000-000000000001', true, 'f2adf435-fd35-4927-8644-9b03785722b5', ARRAY['f2adf435-fd35-4927-8644-9b03785722b5']::uuid[], NULL, '{"bible":{"book":"rut"}}', '2024-02-01 00:00:00+00');
 
 -- 3. Chapter created under the duplicate book.
 --    The trigger re-points parent_id to the live book, making it a second
 --    version of "Ruth 1".
-INSERT INTO "public"."quest" ("id", "created_at", "last_updated", "name", "description", "project_id", "active", "creator_id", "download_profiles", "parent_id", "metadata") VALUES
-	('ddddd001-0000-4000-8000-00000000000e', '2024-02-02 00:00:00+00', '2024-02-02 00:00:00+00', 'Ruth 1', '22 verses', 'ddddd001-0000-4000-8000-000000000001', true, 'f2adf435-fd35-4927-8644-9b03785722b5', ARRAY['f2adf435-fd35-4927-8644-9b03785722b5']::uuid[], 'ddddd001-0000-4000-8000-00000000000d', '{"bible":{"book":"rut","chapter":1}}');
+INSERT INTO "public"."quest" ("id", "created_at", "last_updated", "name", "description", "project_id", "active", "creator_id", "download_profiles", "parent_id", "metadata", "published_at") VALUES
+	('ddddd001-0000-4000-8000-00000000000e', '2024-02-02 00:00:00+00', '2024-02-02 00:00:00+00', 'Ruth 1', '22 verses', 'ddddd001-0000-4000-8000-000000000001', true, 'f2adf435-fd35-4927-8644-9b03785722b5', ARRAY['f2adf435-fd35-4927-8644-9b03785722b5']::uuid[], 'ddddd001-0000-4000-8000-00000000000d', '{"bible":{"book":"rut","chapter":1}}', '2024-02-02 00:00:00+00');
 
 --
 -- PostgreSQL database dump complete

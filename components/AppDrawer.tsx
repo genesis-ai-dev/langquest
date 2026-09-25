@@ -9,10 +9,10 @@ import {
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
-import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useAttachmentProgress } from '@/hooks/useAttachmentProgress';
 import { getUpdateVersion } from '@/hooks/useExpoUpdates';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useNotifications } from '@/hooks/useNotifications';
 import { usePowerSyncStatus } from '@/hooks/usePowerSyncStatus';
 import { isDegradedMode } from '@/services/degradedModeService';
@@ -52,6 +52,7 @@ interface DrawerItemType {
   onPress: () => void;
   notificationCount?: number;
   disabled?: boolean;
+  testID?: string;
 }
 
 export default function AppDrawer({
@@ -78,10 +79,10 @@ export default function AppDrawer({
         ? 'profile'
         : pathname.includes('/notifications')
           ? 'notifications'
-          : pathname.includes('/settings')
-            ? 'settings'
-            : pathname.includes('/download-status')
-              ? 'download-status'
+          : pathname.includes('/download-status')
+            ? 'download-status'
+            : pathname.includes('/settings')
+              ? 'settings'
               : undefined;
 
   // Always call hooks (Rules of Hooks), but only subscribe when drawer is visible
@@ -178,35 +179,6 @@ export default function AppDrawer({
   const uploadBarStyle = useAnimatedStyle(() => ({
     width: `${animatedUploadProgress.value}%`
   }));
-
-  // Memoize progress values to prevent re-renders when object reference changes
-  // but values are the same - extract individual values for dependency tracking
-  // TEMPORARILY DISABLED: Commenting out to debug infinite loop
-  // const stableProgress = useMemo(() => {
-  //   return {
-  //     total: 0,
-  //     synced: 0,
-  //     downloading: 0,
-  //     queued: 0,
-  //     unsynced: 0,
-  //     hasActivity: false
-  //   };
-  // }, []);
-
-  // // TEMPORARILY DISABLED: Commenting out to debug infinite loop
-  // const powerSyncStatus = useMemo(
-  //   () => ({
-  //     connected: false,
-  //     connecting: false,
-  //     downloading: false,
-  //     uploading: false,
-  //     hasSynced: undefined,
-  //     lastSyncedAt: undefined,
-  //     downloadError: undefined,
-  //     uploadError: undefined
-  //   }),
-  //   []
-  // );
 
   // Track if drawer has ever been opened to ensure proper initialization
   const [hasOpened, setHasOpened] = React.useState(false);
@@ -318,7 +290,8 @@ export default function AppDrawer({
         name: t('projects'),
         view: 'projects',
         icon: HomeIcon,
-        onPress: handleGoToProjects
+        onPress: handleGoToProjects,
+        testID: 'drawer-projects'
       }
     ];
 
@@ -329,20 +302,30 @@ export default function AppDrawer({
         view: 'notifications',
         icon: BellIcon,
         onPress: handleGoToNotifications,
-        notificationCount
+        notificationCount,
+        testID: 'drawer-notifications'
       });
       items.push(
         {
           name: t('profile'),
           view: 'profile',
           icon: UserIcon,
-          onPress: handleGoToProfile
+          onPress: handleGoToProfile,
+          testID: 'drawer-profile'
         },
         {
           name: t('settings'),
           view: 'settings',
           icon: SettingsIcon,
-          onPress: handleGoToSettings
+          onPress: handleGoToSettings,
+          testID: 'drawer-settings'
+        },
+        {
+          name: t('downloadStatus'),
+          view: 'download-status',
+          icon: CloudDownload,
+          onPress: handleGoToDownloadStatus,
+          testID: 'drawer-download-status'
         }
       );
     } else {
@@ -353,14 +336,6 @@ export default function AppDrawer({
         onPress: handleSignIn
       });
     }
-
-    // // Add download status menu item (always available)
-    // items.push({
-    //   name: 'Download Status',
-    //   view: 'download-status',
-    //   icon: CloudDownload,
-    //   onPress: handleGoToDownloadStatus
-    // });
 
     // Add logout for development
     if (__DEV__) {
@@ -380,6 +355,7 @@ export default function AppDrawer({
     handleGoToNotifications,
     handleGoToProfile,
     handleGoToSettings,
+    handleGoToDownloadStatus,
     handleSignIn,
     handleSignOut
   ]);
@@ -499,7 +475,10 @@ export default function AppDrawer({
                   </View>
                   <View className="flex-1">
                     <View className="flex-row items-center gap-1.5">
-                      <Text className="text-xs text-foreground">
+                      <Text
+                        className="text-xs text-foreground"
+                        testID="download-status-files"
+                      >
                         {stableProgress.synced}/{stableProgress.total}{' '}
                         {t('files')}
                       </Text>
@@ -629,6 +608,8 @@ export default function AppDrawer({
               return (
                 <Button
                   key={index}
+                  testID={item.testID}
+                  accessibilityLabel={item.testID}
                   variant={isActive ? 'secondary' : 'ghost'}
                   className={cn(
                     'native:px-2 h-auto justify-start px-2 py-4',

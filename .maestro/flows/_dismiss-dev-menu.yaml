@@ -1,0 +1,8 @@
+appId: ${MAESTRO_APP_ID}
+---
+- runFlow:
+    when:
+      visible: Toggle performance monitor
+    commands:
+      - swipe:
+          direction: DOWN

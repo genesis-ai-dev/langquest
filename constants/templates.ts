@@ -4,8 +4,7 @@ import { bibleToVersificationTemplate } from './bibleStructure';
  * Segment of a quest or chapter.
  *
  * The `source` key is currently optional and may be used in the future to
- * embed rich content such as parallel text/audio, associated images, or
- * granular content links. Future extension may involve support for word-level
+ * embed rich content such as parallel text/audio or granular content links. Future extension may involve support for word-level
  * alignments, embedded external references, or editorial content.
  */
 export interface Segment {
@@ -17,7 +16,6 @@ export interface Segment {
       | { audio: string; text?: never }
       | { text: string; audio: string }
     )[];
-    images?: string[];
   };
 }
 

@@ -1,0 +1,18 @@
+appId: ${MAESTRO_APP_ID}
+---
+# Confirm publish from the system alert. The upload-status drawer must
+# already be gone so its Save is not under the alert.
+- extendedWaitUntil:
+    visible: Save to Cloud
+    timeout: 20000
+- extendedWaitUntil:
+    notVisible:
+      id: quest-publish-confirm
+    timeout: 5000
+- tapOn:
+    text: Save
+    below: Save to Cloud
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    notVisible: Save to Cloud
+    timeout: 20000

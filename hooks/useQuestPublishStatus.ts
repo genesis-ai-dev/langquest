@@ -1,56 +1,55 @@
 import { quest } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import { useQuery } from '@tanstack/react-query';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
+import { isUnpublishedQuest } from '@/utils/dbUtils';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { eq } from 'drizzle-orm';
 
 export interface QuestPublishStatus {
-  hasLocalCopy: boolean; // Indicates if local-only version exists
-  hasSyncedCopy: boolean; // Indicates if published (synced) version exists
-  isPublished: boolean; // Convenience flag: true if hasSyncedCopy
+  hasLocalCopy: boolean;
+  hasSyncedCopy: boolean;
+  isPublished: boolean;
 }
 
 /**
- * Hook to check if a quest has been published
- * Returns publishing status by checking both local and synced quest tables
- *
- * A quest is considered "published" if it exists in the synced table (not just local-only)
+ * A quest is published when published_at is set.
+ * Drafts (published_at null) are local-only from the reader's perspective.
  */
 export function useQuestPublishStatus(
   questId: string | null | undefined
 ): QuestPublishStatus & { isLoading: boolean } {
-  const { data, isLoading } = useQuery({
-    queryKey: ['quest-publish-status', questId],
-    queryFn: async (): Promise<QuestPublishStatus> => {
-      if (!questId) {
-        return {
-          hasLocalCopy: false,
-          hasSyncedCopy: false,
-          isPublished: false
-        };
-      }
-
-      const results = await system.db
-        .select()
+  const { data, isLoading } = useHybridQuery<{
+    id: string;
+    published_at: string | Date | null;
+  }>({
+    queryKey: ['quest-publish-status', questId ?? ''],
+    enabled: !!questId,
+    offlineQuery: toCompilableQuery(
+      system.db
+        .select({ id: quest.id, published_at: quest.published_at })
         .from(quest)
-        .where(eq(quest.id, questId));
-
-      // Check which tables the quest exists in
-      const hasLocal = results.some((q) => q.source === 'local');
-      const hasSynced = results.some((q) => q.source === 'synced');
-
-      return {
-        hasLocalCopy: hasLocal,
-        hasSyncedCopy: hasSynced,
-        isPublished: hasSynced // Published means it exists in synced table
-      };
-    },
-    enabled: !!questId
+        .where(eq(quest.id, questId ?? ''))
+        .limit(1)
+    ),
+    cloudQueryFn: async () => {
+      if (!questId) return [];
+      const { data, error } = await system.supabaseConnector.client
+        .from('quest')
+        .select('id, published_at')
+        .eq('id', questId)
+        .limit(1);
+      if (error) throw error;
+      return data ?? [];
+    }
   });
 
+  const row = data[0];
+  const unpublished = !row || isUnpublishedQuest(row);
+
   return {
-    hasLocalCopy: data?.hasLocalCopy ?? false,
-    hasSyncedCopy: data?.hasSyncedCopy ?? false,
-    isPublished: data?.isPublished ?? false,
+    hasLocalCopy: unpublished,
+    hasSyncedCopy: !unpublished,
+    isPublished: !unpublished,
     isLoading
   };
 }

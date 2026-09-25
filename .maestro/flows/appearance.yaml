@@ -1,0 +1,150 @@
+appId: ${MAESTRO_APP_ID}
+onFlowStart:
+  - runScript: ../api.js
+---
+# Settings → Appearance: pick a non-default icon theme, the process stays
+# up so the selected row can be asserted, then relaunch to confirm it
+# sticks. Restore the default the same way. Dev client still cancels
+# because swapping aliases breaks the Expo Dev Launcher.
+- evalScript: ${output.skipSignInCleanup = true}
+- runFlow: _start-signed-in.yaml
+- runFlow: _open-app-drawer.yaml
+- tapOn:
+    id: drawer-settings
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: settings-screen
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: settings-appearance
+    direction: DOWN
+    centerElement: true
+    timeout: 20000
+- tapOn:
+    id: settings-appearance
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: appearance-screen
+    timeout: 15000
+- extendedWaitUntil:
+    visible:
+      id: appearance-theme-default-selected
+    timeout: 10000
+- tapOn:
+    id: appearance-theme-first
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: appearance-theme-confirm
+    timeout: 15000
+
+# Dev client: cancel keeps .MainActivity enabled so later flows can launch.
+- runFlow:
+    when:
+      true: ${output.useDevClient}
+    commands:
+      - tapOn:
+          id: appearance-theme-cancel
+          waitToSettleTimeoutMs: 0
+      - extendedWaitUntil:
+          notVisible:
+            id: appearance-theme-confirm
+          timeout: 10000
+      - assertVisible:
+          id: appearance-theme-default-selected
+
+# Preview/production: apply without killing the process, then relaunch
+# to confirm the preference survived.
+- runFlow:
+    when:
+      true: ${!output.useDevClient}
+    commands:
+      - tapOn:
+          id: appearance-theme-confirm
+          waitToSettleTimeoutMs: 0
+      - runFlow:
+          when:
+            platform: iOS
+          commands:
+            # iOS 18 and earlier show a system alert after the icon changes.
+            # iOS 26 does not.
+            - extendedWaitUntil:
+                visible: OK
+                timeout: 2000
+                optional: true
+            - runFlow:
+                when:
+                  visible: OK
+                commands:
+                  - tapOn: OK
+      - extendedWaitUntil:
+          visible:
+            id: appearance-theme-first-selected
+          timeout: 15000
+      - runFlow: _relaunch-keep-state.yaml
+      - runFlow: _open-app-drawer.yaml
+      - tapOn:
+          id: drawer-settings
+          waitToSettleTimeoutMs: 0
+      - scrollUntilVisible:
+          element:
+            id: settings-appearance
+          direction: DOWN
+          centerElement: true
+          timeout: 20000
+      - tapOn:
+          id: settings-appearance
+          waitToSettleTimeoutMs: 0
+      - extendedWaitUntil:
+          visible:
+            id: appearance-theme-first-selected
+          timeout: 15000
+      # Restore the default icon without killing this process.
+      - tapOn:
+          id: appearance-theme-default
+          waitToSettleTimeoutMs: 0
+      - extendedWaitUntil:
+          visible:
+            id: appearance-theme-confirm
+          timeout: 15000
+      - tapOn:
+          id: appearance-theme-confirm
+          waitToSettleTimeoutMs: 0
+      - runFlow:
+          when:
+            platform: iOS
+          commands:
+            # iOS 18 and earlier show a system alert after the icon changes.
+            # iOS 26 does not.
+            - extendedWaitUntil:
+                visible: OK
+                timeout: 2000
+                optional: true
+            - runFlow:
+                when:
+                  visible: OK
+                commands:
+                  - tapOn: OK
+      - runFlow: _relaunch-keep-state.yaml
+      - runFlow: _open-app-drawer.yaml
+      - tapOn:
+          id: drawer-settings
+          waitToSettleTimeoutMs: 0
+      - scrollUntilVisible:
+          element:
+            id: settings-appearance
+          direction: DOWN
+          centerElement: true
+          timeout: 20000
+      - tapOn:
+          id: settings-appearance
+          waitToSettleTimeoutMs: 0
+      - extendedWaitUntil:
+          visible:
+            id: appearance-theme-default-selected
+          timeout: 15000
+
+- evalScript: ${output.api.deleteUserIfExists(output.signInEmail)}

@@ -42,7 +42,7 @@ import Animated, {
   useAnimatedStyle,
   useDerivedValue
 } from 'react-native-reanimated';
-import type { HybridDataSource } from '../../useHybridData';
+import type { HybridDataSource } from '@/hooks/useHybridQuery';
 
 interface AssetCardProps {
   asset: Pick<Asset, 'id' | 'name'> & {
@@ -108,11 +108,13 @@ function AssetActionButtons({
         type="new"
         onPress={handleNewPress}
         selected={selectedType === 'new'}
+        testID="recording-action-new"
       />
       <ButtonNewAssetAction
         type="replace"
         onPress={handleReplacePress}
         selected={selectedType === 'replace'}
+        testID="recording-action-replace"
       />
     </View>
   );
@@ -251,6 +253,8 @@ function RecordAssetCardInternal({
       delayLongPress={500}
       activeOpacity={0.7}
       disabled={isSelectionMode} // Disable card press in selection mode (use checkbox instead)
+      testID="recording-asset-card"
+      accessible={false}
     >
       <View
         className={cn(
@@ -297,6 +301,8 @@ function RecordAssetCardInternal({
               playDisabled ? 'opacity-40' : themeColors.playButtonActive
             )}
             activeOpacity={0.7}
+            testID="recording-asset-play"
+            accessibilityLabel="recording-asset-play"
           >
             <Icon
               as={isPlaying ? PauseIcon : PlayIcon}
@@ -321,6 +327,7 @@ function RecordAssetCardInternal({
               >
                 <Text
                   className={`text-sm font-medium ${isRenameable && !isSelectionMode && onRename ? 'text-foreground underline' : 'text-foreground'}`}
+                  accessibilityLabel={asset.name || t('unnamedAsset')}
                 >
                   {asset.name || t('unnamedAsset')}
                 </Text>
@@ -361,6 +368,8 @@ function RecordAssetCardInternal({
                 className="pl-2"
                 style={{ zIndex: 1 }}
                 activeOpacity={0.7}
+                testID="recording-asset-select"
+                accessibilityLabel="recording-asset-select"
               >
                 <Icon
                   as={isSelected ? CheckCircleIcon : CircleIcon}

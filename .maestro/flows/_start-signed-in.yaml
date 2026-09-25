@@ -1,0 +1,7 @@
+appId: ${MAESTRO_APP_ID}
+---
+- evalScript: ${output.signInEmail = output.signInEmail || output.api.uniqueEmail("signin")}
+- evalScript: ${output.signInPassword = output.signInPassword || output.api.uniquePassword("signin")}
+- evalScript: ${output.api.createConfirmedUser(output.signInEmail, output.signInPassword)}
+- runFlow: _launch-and-onboard.yaml
+- runFlow: _sign-in-form.yaml

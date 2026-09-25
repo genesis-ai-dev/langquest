@@ -1,6 +1,7 @@
-import AudioRecorder, {
-  type AudioRecorderRef,
-  type RecordingState
+import AudioRecorder from '@/components/AudioRecorder';
+import type {
+  AudioRecorderRef,
+  RecordingState
 } from '@/components/AudioRecorder';
 import {
   Drawer,
@@ -28,7 +29,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import type { asset_content_link, language } from '@/db/drizzleSchema';
 import { project } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import { promoteLocalAudio } from '@/services/attachments/promoteLocalAudio';
+import { storeRecordedAudio } from '@/services/attachments/storeRecordedAudio';
 import { useLanguageById } from '@/hooks/db/useLanguages';
 import { useLanguoidById } from '@/hooks/db/useLanguoids';
 import { useLocalization } from '@/hooks/useLocalization';
@@ -43,11 +44,7 @@ import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useLocalStore } from '@/store/localStore';
 import { resolveTable } from '@/utils/dbUtils';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
-import {
-  deleteIfExists,
-  getLocalAttachmentUri,
-  saveAudioLocally
-} from '@/utils/fileUtils';
+import { deleteIfExists } from '@/utils/fileUtils';
 import { cn, getThemeColor } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -77,7 +74,7 @@ import {
   View
 } from 'react-native';
 import { z } from 'zod';
-import { useHybridData } from './useHybridData';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
 type AssetContent = typeof asset_content_link.$inferSelect;
 
 interface NextGenNewTranslationModalProps {
@@ -152,9 +149,8 @@ export default function NextGenNewTranslationModal({
     );
   }, [projectId, isAuthenticated]);
 
-  const { data: queriedProjectDataArray } = useHybridData({
-    dataType: 'project-new-translation',
-    queryKeyParams: [projectId || ''],
+  const { data: queriedProjectDataArray } = useHybridQuery({
+    queryKey: ['project-new-translation', projectId || ''],
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     offlineQuery: projectOfflineQuery,
     cloudQueryFn: async (): Promise<(typeof project.$inferSelect)[]> => {
@@ -473,25 +469,11 @@ export default function NextGenNewTranslationModal({
 
         let audioAttachment: string | null = null;
         if (data.audioUri) {
-          // Convert recording to local attachment path
-          // - On web: converts blob URL to OPFS file
-          // - On native: moves from cache dir to local attachments dir
-          const localAudioPath = await saveAudioLocally(data.audioUri);
-
-          if (isLocalSource) {
-            // Pre-publish content: keep the 'local/…' value so the recording
-            // stays on-device. Publishing the quest strips the prefix and
-            // promotes the file — upload happens when the user publishes.
-            audioAttachment = localAudioPath;
-          } else {
-            // The row goes straight to the synced tables and syncs now, so
-            // the file must take its published filename now; the acl row
-            // (audio_uploaded_at null) is what makes the AudioUploader
-            // pick it up.
-            audioAttachment = await promoteLocalAudio(
-              getLocalAttachmentUri(localAudioPath)
-            );
-          }
+          // Move the recording into shared_attachments/ under its storage
+          // object name (web: blob URL → OPFS; native: cache dir → documents).
+          // The acl row below (audio_uploaded_at null) is what makes the
+          // AudioUploader pick it up — for drafts and published quests alike.
+          audioAttachment = await storeRecordedAudio(data.audioUri);
         }
 
         // Guard against anonymous users
@@ -890,8 +872,7 @@ export default function NextGenNewTranslationModal({
                         </View>
                       </View>
                     ) : enableAiSuggestions &&
-                      predictionDetails &&
-                      predictionDetails.hasApiKey === false ? (
+                      predictionDetails?.hasApiKey === false ? (
                       // Show examples button when API key is missing
                       <View className="rounded-lg border-2 border-warning/30 bg-warning/5 p-4">
                         <View className="mb-2 flex-row items-center justify-between">
@@ -1038,6 +1019,7 @@ export default function NextGenNewTranslationModal({
                             <Textarea
                               {...transformInputProps(field)}
                               ref={textareaRef}
+                              testID="translation-text"
                               placeholder={
                                 contentType === 'transcription'
                                   ? t('enterYourTranscriptionIn', {
@@ -1117,6 +1099,7 @@ export default function NextGenNewTranslationModal({
                 (translationType === 'audio' && !form.getValues('audioUri'))
               }
               onPress={() => void handleFormSubmit()}
+              testID="translation-submit"
             >
               <Text className="text-base font-bold">{t('createObject')}</Text>
             </FormSubmit>
@@ -1156,21 +1139,20 @@ export default function NextGenNewTranslationModal({
 
                   <ScrollView className="max-h-[80%]">
                     {/* API Key Warning */}
-                    {predictionDetails &&
-                      predictionDetails.hasApiKey === false && (
-                        <View className="mb-6 rounded-lg border-2 border-warning bg-warning/10 p-4">
-                          <Text className="mb-2 text-base font-semibold text-warning-foreground">
-                            API Key Not Configured
-                          </Text>
-                          <Text className="text-sm text-warning-foreground">
-                            Translation prediction requires an OpenRouter API
-                            key to be configured. The examples below show
-                            contextually relevant translation examples that
-                            would be used for prediction, but no AI translation
-                            can be generated without an API key.
-                          </Text>
-                        </View>
-                      )}
+                    {predictionDetails?.hasApiKey === false && (
+                      <View className="mb-6 rounded-lg border-2 border-warning bg-warning/10 p-4">
+                        <Text className="mb-2 text-base font-semibold text-warning-foreground">
+                          API Key Not Configured
+                        </Text>
+                        <Text className="text-sm text-warning-foreground">
+                          Translation prediction requires an OpenRouter API key
+                          to be configured. The examples below show contextually
+                          relevant translation examples that would be used for
+                          prediction, but no AI translation can be generated
+                          without an API key.
+                        </Text>
+                      </View>
+                    )}
 
                     {/* Examples Section */}
                     {predictionDetails && (

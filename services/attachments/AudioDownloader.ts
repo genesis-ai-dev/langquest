@@ -3,24 +3,32 @@
  *
  * Work list, derived on every pass:
  *
- *   asset_content_link_synced rows where
+ *   asset_content_link rows where
  *     audio IS NOT NULL AND audio_uploaded_at IS NOT NULL
  *   → flattened to filenames
  *   → minus files already on this device (LocalFileIndex)
  *
  * Scope needs no code here: download_profiles already gates which rows
  * PowerSync syncs to the device. The audio_uploaded_at filter means we only
- * fetch files the server has confirmed exist — historically-lost files stop
+ * fetch files the server has confirmed exist — including older rows whose
+ * object name still starts with `local/`. Historically-lost files stop
  * being retried and simply stay absent.
+ *
+ * Files always land at shared_attachments/{uuid}.{ext} (the value minus any
+ * legacy `local/` prefix); the LocalFileIndex is keyed the same way.
  *
  * Nothing here marks anything "synced": a file is downloaded when it's on
  * disk, which the LocalFileIndex reflects immediately.
  */
 
 import type * as drizzleSchema from '@/db/drizzleSchema';
-import { asset_content_link_synced } from '@/db/drizzleSchemaSynced';
+import { asset_content_link } from '@/db/drizzleSchema';
 import type { SupabaseStorageAdapter } from '@/db/supabase/SupabaseStorageAdapter';
-import { isInvalidAudioValue, isLocalOnlyAudio } from '@/utils/attachmentPaths';
+import {
+  isRemoteAudioObject,
+  localAudioFileName,
+  storageAudioObjectName
+} from '@/utils/attachmentPaths';
 import { getLocalAttachmentUri, writeFile } from '@/utils/fileUtils';
 import type { PowerSyncSQLiteDatabase } from '@powersync/drizzle-driver';
 import { and, isNotNull } from 'drizzle-orm';
@@ -61,7 +69,15 @@ export interface AudioDownloaderOptions {
   isOnline: () => boolean;
 }
 
+interface DownloadItem {
+  /** Bare on-disk filename (LocalFileIndex key). */
+  filename: string;
+  /** Storage object names to try, in order (raw audio[] values first). */
+  storageNames: string[];
+}
+
 export class AudioDownloader {
+  /** Keyed by on-disk filename. */
   private attempts = new Map<string, FileAttemptState>();
   private draining = false;
   private dirty = false;
@@ -131,12 +147,12 @@ export class AudioDownloader {
 
   private confirmedAudioQuery() {
     return this.options.db
-      .select({ audio: asset_content_link_synced.audio })
-      .from(asset_content_link_synced)
+      .select({ audio: asset_content_link.audio })
+      .from(asset_content_link)
       .where(
         and(
-          isNotNull(asset_content_link_synced.audio),
-          isNotNull(asset_content_link_synced.audio_uploaded_at)
+          isNotNull(asset_content_link.audio),
+          isNotNull(asset_content_link.audio_uploaded_at)
         )
       );
   }
@@ -169,18 +185,34 @@ export class AudioDownloader {
     }
   }
 
-  private async getWorkList(): Promise<string[]> {
+  private async getWorkList(): Promise<DownloadItem[]> {
     const rows = await this.confirmedAudioQuery();
-    const names = new Set<string>();
+    // A legacy `local/x` value and a modern `x` value share one on-disk file;
+    // group by filename and remember every object name that might hold it.
+    const byFilename = new Map<string, Set<string>>();
     for (const row of rows) {
       for (const value of row.audio ?? []) {
-        if (!value || isInvalidAudioValue(value) || isLocalOnlyAudio(value)) {
+        if (!value || !isRemoteAudioObject(value)) {
           continue;
+        }
+        const filename = localAudioFileName(value);
+        if (this.options.fileIndex.has(filename)) continue;
+        let names = byFilename.get(filename);
+        if (!names) {
+          names = new Set();
+          byFilename.set(filename, names);
         }
         names.add(value);
       }
     }
-    return [...names].filter((name) => !this.options.fileIndex.has(name));
+    return [...byFilename.entries()].map(([filename, names]) => {
+      const storageNames = [...names];
+      for (const raw of names) {
+        const stripped = storageAudioObjectName(raw);
+        if (!names.has(stripped)) storageNames.push(stripped);
+      }
+      return { filename, storageNames };
+    });
   }
 
   private async drainOnce(): Promise<void> {
@@ -188,7 +220,7 @@ export class AudioDownloader {
 
     const workList = await this.getWorkList();
 
-    const workSet = new Set(workList);
+    const workSet = new Set(workList.map((item) => item.filename));
     for (const name of this.attempts.keys()) {
       if (!workSet.has(name)) this.attempts.delete(name);
     }
@@ -207,7 +239,7 @@ export class AudioDownloader {
 
     const now = Date.now();
     const ready = workList.filter(
-      (name) => (this.attempts.get(name)?.nextAttemptAt ?? 0) <= now
+      (item) => (this.attempts.get(item.filename)?.nextAttemptAt ?? 0) <= now
     );
     if (ready.length === 0) {
       this.publishWorkStatus(workList, 0);
@@ -239,8 +271,8 @@ export class AudioDownloader {
         queue.length = 0;
         return;
       }
-      const filename = queue.shift();
-      if (filename === undefined) return;
+      const item = queue.shift();
+      if (item === undefined) return;
       active++;
       this.publishWorkStatus(
         workList,
@@ -250,7 +282,7 @@ export class AudioDownloader {
         succeeded
       );
       try {
-        if (await this.downloadOne(filename)) succeeded++;
+        if (await this.downloadOne(item)) succeeded++;
       } finally {
         active--;
         completed++;
@@ -277,45 +309,54 @@ export class AudioDownloader {
   }
 
   /** @returns true if the file is now on disk. */
-  private async downloadOne(filename: string): Promise<boolean> {
-    try {
-      const blob = await this.options.storage.downloadFile(filename);
-      const base64Data = await blobToBase64(blob);
-      // eslint-disable-next-line @typescript-eslint/await-thenable -- writeFile is platform-split: sync on native (typed here), async on web
-      await writeFile(getLocalAttachmentUri(filename), base64Data, {
-        encoding: 'base64'
-      });
-      this.attempts.delete(filename);
-      this.options.fileIndex.add(filename);
-      return true;
-    } catch (error) {
-      const previous = this.attempts.get(filename);
-      const failures = (previous?.failures ?? 0) + 1;
-      const backoff =
-        BACKOFF_STEPS_MS[Math.min(failures, BACKOFF_STEPS_MS.length) - 1] ??
-        BACKOFF_STEPS_MS[BACKOFF_STEPS_MS.length - 1]!;
-      this.attempts.set(filename, {
-        failures,
-        nextAttemptAt: Date.now() + backoff,
-        lastError: error instanceof Error ? error.message : String(error)
-      });
-      console.warn(
-        `[AudioDownloader] Download failed for ${filename} (attempt ${failures}, retry in ${Math.round(backoff / 1000)}s):`,
-        error
-      );
-      return false;
+  private async downloadOne({
+    filename,
+    storageNames
+  }: DownloadItem): Promise<boolean> {
+    let lastError: unknown;
+    for (const storageName of storageNames) {
+      try {
+        const blob = await this.options.storage.downloadFile(storageName);
+        const base64Data = await blobToBase64(blob);
+        // eslint-disable-next-line @typescript-eslint/await-thenable -- writeFile is platform-split: sync on native (typed here), async on web
+        await writeFile(getLocalAttachmentUri(filename), base64Data, {
+          encoding: 'base64'
+        });
+        this.attempts.delete(filename);
+        this.options.fileIndex.add(filename);
+        return true;
+      } catch (error) {
+        lastError = error;
+      }
     }
+
+    const previous = this.attempts.get(filename);
+    const failures = (previous?.failures ?? 0) + 1;
+    const backoff =
+      BACKOFF_STEPS_MS[Math.min(failures, BACKOFF_STEPS_MS.length) - 1] ??
+      BACKOFF_STEPS_MS[BACKOFF_STEPS_MS.length - 1]!;
+    this.attempts.set(filename, {
+      failures,
+      nextAttemptAt: Date.now() + backoff,
+      lastError:
+        lastError instanceof Error ? lastError.message : String(lastError)
+    });
+    console.warn(
+      `[AudioDownloader] Download failed for ${filename} (attempt ${failures}, retry in ${Math.round(backoff / 1000)}s):`,
+      lastError
+    );
+    return false;
   }
 
   private publishWorkStatus(
-    workList: string[],
+    workList: DownloadItem[],
     active: number,
     batchTotal = 0,
     batchDone = 0,
     batchSucceeded = 0
   ): void {
     const failing = workList.filter(
-      (name) => (this.attempts.get(name)?.failures ?? 0) > 0
+      (item) => (this.attempts.get(item.filename)?.failures ?? 0) > 0
     ).length;
     this.updateStatus({
       // The work list is derived once per pass, so subtract this pass's

@@ -1,0 +1,23 @@
+appId: ${MAESTRO_APP_ID}
+onFlowStart:
+  - runScript: ../api.js
+---
+- evalScript: ${output.projectName = "maestro-project-" + Date.now()}
+- evalScript: ${output.questName = "maestro-quest-" + Date.now()}
+- evalScript: ${output.assetName = "maestro-asset-" + Date.now()}
+- evalScript: ${output.skipSignInCleanup = true}
+- runFlow: _start-signed-in.yaml
+- runFlow: _create-project-quest.yaml
+- evalScript: ${output.api.seedSourceAsset(output.projectName, output.questName, output.signInEmail, output.assetName, "Hello source")}
+- tapOn:
+    id: assets-refresh-button
+- extendedWaitUntil:
+    visible: ${output.assetName}
+    timeout: 45000
+- tapOn:
+    id: quest-publish
+- tapOn:
+    id: quest-publish-confirm
+- runFlow: _confirm-cloud-save.yaml
+- evalScript: ${output.api.deleteProject(output.projectName)}
+- evalScript: ${output.api.deleteUserIfExists(output.signInEmail)}

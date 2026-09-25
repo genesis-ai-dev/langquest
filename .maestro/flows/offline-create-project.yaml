@@ -1,0 +1,66 @@
+appId: ${MAESTRO_APP_ID}
+onFlowStart:
+  - runScript: ../api.js
+onFlowComplete:
+  - runFlow: _recover-after-airplane.yaml
+---
+# Create a project (and languoid) while offline, then wait until both land
+# on the server. Language search has no local catalog, so the empty result
+# still offers "Add this as a new language" (createLanguoidOffline).
+# Android only — iOS Simulator has no airplane mode.
+- evalScript: ${output.projectName = "maestro-offp-" + Date.now()}
+- evalScript: ${output.projectLanguage = "maestro-offlang-" + Date.now()}
+- evalScript: ${output.skipSignInCleanup = true}
+- runFlow: _start-signed-in.yaml
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      # Home chrome is up only after system.init(). Airplane here must not
+      # strand the session on a failed lazy init.
+      - setAirplaneMode: enabled
+      - runFlow: _open-app-drawer.yaml
+      - extendedWaitUntil:
+          visible: '(?i)(Disconnected|sync error)'
+          timeout: 20000
+      - tapOn:
+          id: drawer-projects
+          waitToSettleTimeoutMs: 0
+      - extendedWaitUntil:
+          visible:
+            id: projects-create-button
+          timeout: 20000
+      - tapOn:
+          id: projects-create-button
+          waitToSettleTimeoutMs: 0
+      - tapOn:
+          id: project-create-name
+          waitToSettleTimeoutMs: 0
+      - inputText: ${output.projectName}
+      - runFlow: _hide-keyboard.yaml
+      - tapOn:
+          id: project-create-language
+          waitToSettleTimeoutMs: 0
+      - runFlow: _tap-language-search.yaml
+      - inputText: ${output.projectLanguage}
+      - runFlow: _tap-language-create-new.yaml
+      - runFlow: _wait-language-search-gone.yaml
+      - extendedWaitUntil:
+          visible:
+            id: project-create-submit
+          timeout: 15000
+      - tapOn:
+          id: project-create-submit
+          waitToSettleTimeoutMs: 0
+      - extendedWaitUntil:
+          notVisible:
+            id: project-create-name
+          timeout: 20000
+      - extendedWaitUntil:
+          visible: ${output.projectName}
+          timeout: 20000
+      - setAirplaneMode: disabled
+      - evalScript: ${output.api.waitForProject(output.projectName, 45000)}
+      - evalScript: ${output.api.waitForLanguoid(output.projectLanguage, 45000)}
+- evalScript: ${output.api.deleteProject(output.projectName)}
+- evalScript: ${output.api.deleteUserIfExists(output.signInEmail)}

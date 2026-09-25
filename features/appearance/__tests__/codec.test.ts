@@ -53,7 +53,7 @@ describe('profiles manifest', () => {
     const profiles = getThemeProfiles();
     const a = profiles.find((p) => p.family === 'A');
     const b = profiles.find((p) => p.family === 'B');
-    expect(a?.label && a.label.length).toBeGreaterThan(0);
-    expect(b?.label && b.label.length).toBeGreaterThan(0);
+    expect(a?.label?.length).toBeGreaterThan(0);
+    expect(b?.label?.length).toBeGreaterThan(0);
   });
 });

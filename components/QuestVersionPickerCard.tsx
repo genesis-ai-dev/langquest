@@ -1,9 +1,11 @@
-import { DownloadIndicator } from '@/components/DownloadIndicator';
+import { DownloadStatusBadge } from '@/components/DownloadStatusBadge';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
+import { useAuth } from '@/contexts/AuthContext';
+import { useLocalization } from '@/hooks/useLocalization';
 import { formatRelativeDate } from '@/utils/dateUtils';
 import { cn } from '@/utils/styleUtils';
-import { HardDriveIcon } from 'lucide-react-native';
+import { HardDriveIcon, PlusCircleIcon } from 'lucide-react-native';
 import React from 'react';
 import { Pressable, View } from 'react-native';
 
@@ -18,7 +20,6 @@ export interface QuestVersionPickerCardProps {
   isDownloading: boolean;
   visible?: boolean;
   onPress: () => void;
-  onDownloadClick: () => void;
 }
 
 function buildPrimaryLabel(
@@ -57,11 +58,12 @@ export function QuestVersionPickerCard({
   isDownloaded,
   isDownloading,
   visible = true,
-  onPress,
-  onDownloadClick
+  onPress
 }: QuestVersionPickerCardProps) {
+  const { currentUser } = useAuth();
+  const isSignedIn = Boolean(currentUser);
   const displayCreator = creatorName?.trim() || 'Unknown';
-  const needsDownload = isCloud && !isDownloaded;
+  const needsDownload = isSignedIn && isCloud && !isDownloaded;
   const avatarInitial = displayCreator.charAt(0).toUpperCase();
   const primaryLabel = buildPrimaryLabel(
     displayCreator,
@@ -72,7 +74,9 @@ export function QuestVersionPickerCard({
 
   return (
     <Pressable
-      onPress={needsDownload ? onDownloadClick : onPress}
+      onPress={onPress}
+      testID="bible-chapter-version"
+      accessibilityLabel="bible-chapter-version"
       className={cn(
         'flex-row items-center gap-3 rounded-lg border border-border bg-card p-4 active:opacity-70',
         needsDownload && 'opacity-60',
@@ -100,18 +104,49 @@ export function QuestVersionPickerCard({
         <Text className="font-semibold">{primaryLabel}</Text>
         <Text className="text-sm text-muted-foreground">{secondaryLabel}</Text>
       </View>
-      <View className="items-center justify-center">
-        {isLocal && (
-          <Icon as={HardDriveIcon} size={18} className="text-chart-2" />
-        )}
-        {!isLocal && (
-          <DownloadIndicator
-            isFlaggedForDownload={isDownloaded}
-            isLoading={isDownloading && !isDownloaded}
-            onPress={onDownloadClick}
-            size={18}
-          />
-        )}
+      {isSignedIn ? (
+        <View className="items-center justify-center">
+          {isLocal && (
+            <Icon as={HardDriveIcon} size={18} className="text-chart-2" />
+          )}
+          {!isLocal && (
+            <DownloadStatusBadge
+              status={
+                isDownloaded
+                  ? 'downloaded'
+                  : isDownloading
+                    ? 'downloading'
+                    : 'cloud'
+              }
+              size={18}
+            />
+          )}
+        </View>
+      ) : null}
+    </Pressable>
+  );
+}
+
+export function QuestCreateNewVersionRow({ onPress }: { onPress: () => void }) {
+  const { t } = useLocalization();
+
+  return (
+    <Pressable
+      onPress={onPress}
+      testID="quest-create-new-version"
+      accessibilityLabel="quest-create-new-version"
+      className="flex-row items-center gap-3 rounded-lg border border-dashed border-border p-4 active:opacity-70"
+    >
+      <View className="h-10 w-10 items-center justify-center rounded-full bg-muted">
+        <Icon as={PlusCircleIcon} size={20} className="text-primary" />
+      </View>
+      <View className="flex-1">
+        <Text className="font-semibold text-primary">
+          {t('createNewVersion')}
+        </Text>
+        <Text className="text-sm text-muted-foreground">
+          {t('startNewRecording')}
+        </Text>
       </View>
     </Pressable>
   );

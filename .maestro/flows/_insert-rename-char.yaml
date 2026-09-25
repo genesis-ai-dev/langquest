@@ -1,0 +1,32 @@
+appId: ${MAESTRO_APP_ID}
+---
+# Caller sets output.renameOriginal. Writes the new name to
+# output.renamedTyped.
+# Android: tap the left end (caret, not replace) and type one x; read the
+# field because the caret landing varies. iOS Maestro inputText replaces
+# the selected name, so type original+"x" as the whole value.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - tapOn:
+          id: asset-rename-input
+          point: '5%,50%'
+          waitToSettleTimeoutMs: 0
+      - inputText: x
+      - copyTextFrom:
+          id: asset-rename-input
+      - evalScript: ${output.renamedTyped = output.api.assertInsertedOnce(maestro.copiedText, output.renameOriginal, "x", "rename input")}
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn:
+          id: asset-rename-input
+          point: '5%,50%'
+          waitToSettleTimeoutMs: 0
+      - inputText: ${output.renameOriginal}x
+      - copyTextFrom:
+          id: asset-rename-input
+      - evalScript: ${output.api.assertEqual(maestro.copiedText, output.renameOriginal + "x", "rename input")}
+      - evalScript: ${output.renamedTyped = output.renameOriginal + "x"}

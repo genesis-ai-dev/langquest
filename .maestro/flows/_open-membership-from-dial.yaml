@@ -1,0 +1,45 @@
+appId: ${MAESTRO_APP_ID}
+---
+# Speed dial is bottom-right. _open-app-drawer parks the Expo Tools FAB
+# on that corner. Drag the FAB to mid-right, dismiss the Dev Menu if
+# dragging opened it, then tap the dial. Retry after another dismiss.
+- runFlow:
+    when:
+      true: ${output.useDevClient}
+    commands:
+      - swipe:
+          start: 94%, 85%
+          end: 94%, 45%
+          duration: 500
+- runFlow: _dismiss-dev-menu.yaml
+- extendedWaitUntil:
+    visible:
+      id: project-speed-dial
+    timeout: 20000
+- tapOn:
+    id: project-speed-dial
+    waitToSettleTimeoutMs: 0
+- runFlow: _dismiss-dev-menu.yaml
+- repeat:
+    times: 4
+    while:
+      notVisible:
+        id: project-membership
+    commands:
+      - runFlow: _dismiss-dev-menu.yaml
+      - tapOn:
+          id: project-speed-dial
+          waitToSettleTimeoutMs: 0
+      - waitForAnimationToEnd:
+          timeout: 2000
+- extendedWaitUntil:
+    visible:
+      id: project-membership
+    timeout: 8000
+- tapOn:
+    id: project-membership
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: membership-tab-members
+    timeout: 15000

@@ -58,6 +58,7 @@ export default function SettingsView() {
   );
   const enableMerge = useLocalStore((state) => state.enableMerge);
   const enableAssetImport = useLocalStore((state) => state.enableAssetImport);
+  const enableAssetDetails = useLocalStore((state) => state.enableAssetDetails);
   const enableFia = useLocalStore((state) => state.enableFia);
 
   const setShowHiddenContent = useLocalStore(
@@ -87,6 +88,9 @@ export default function SettingsView() {
   const setEnableMerge = useLocalStore((state) => state.setEnableMerge);
   const setEnableAssetImport = useLocalStore(
     (state) => state.setEnableAssetImport
+  );
+  const setEnableAssetDetails = useLocalStore(
+    (state) => state.setEnableAssetDetails
   );
   const setEnableFia = useLocalStore((state) => state.setEnableFia);
 
@@ -146,6 +150,10 @@ export default function SettingsView() {
 
   const handleAssetImportToggle = (value: boolean) => {
     setEnableAssetImport(value);
+  };
+
+  const handleAssetDetailsToggle = (value: boolean) => {
+    setEnableAssetDetails(value);
   };
 
   const handleFiaToggle = (value: boolean) => {
@@ -354,6 +362,14 @@ export default function SettingsView() {
           type: 'toggle',
           value: enableAssetImport,
           onPress: () => handleAssetImportToggle(!enableAssetImport)
+        },
+        {
+          id: 'assetDetails',
+          title: t('enableAssetDetails'),
+          description: t('enableAssetDetailsDescription'),
+          type: 'toggle',
+          value: enableAssetDetails,
+          onPress: () => handleAssetDetailsToggle(!enableAssetDetails)
         }
       ]
     },
@@ -393,6 +409,7 @@ export default function SettingsView() {
               checked={item.value || false}
               onCheckedChange={() => item.onPress?.()}
               disabled={isDisabled}
+              testID={`settings-${item.id}`}
               className={cn(!item.value && 'dark:bg-accent/60')}
             />
           </Card>
@@ -437,6 +454,8 @@ export default function SettingsView() {
                 }
               }}
               disabled={isDisabled}
+              testID={`settings-${item.id}`}
+              accessibilityLabel={`settings-${item.id}`}
             >
               <CardHeader className="flex-1 p-0">
                 <CardTitle className="text-primary">{item.title}</CardTitle>
@@ -458,7 +477,9 @@ export default function SettingsView() {
     >
       <View className="gap-6">
         <View className="flex-row items-center justify-between">
-          <Text className="text-2xl font-bold">{t('settings')}</Text>
+          <Text className="text-2xl font-bold" testID="settings-screen">
+            {t('settings')}
+          </Text>
         </View>
 
         {!isOnline && (

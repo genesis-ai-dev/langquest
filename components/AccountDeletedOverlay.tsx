@@ -16,10 +16,8 @@ import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
 import { profileService } from '@/database_services/profileService';
-import { system } from '@/db/powersync/system';
 import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
-import { useLocalStore } from '@/store/localStore';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, LogOutIcon, RotateCcw } from 'lucide-react-native';
 import React from 'react';
@@ -31,7 +29,6 @@ export function AccountDeletedOverlay() {
   const { currentUser, signOut } = useAuth();
   const { goToProjects } = useNavigationHelpers();
   const queryClient = useQueryClient();
-  const setSystemReady = useLocalStore((state) => state.setSystemReady);
 
   const { mutateAsync: restoreAccount, isPending } = useMutation({
     mutationFn: async () => {
@@ -41,29 +38,6 @@ export function AccountDeletedOverlay() {
       await profileService.restoreAccount(currentUser.id);
     },
     onSuccess: async () => {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      // Reinitialize system to recreate views etc.
-      console.log(
-        '[AccountDeletedOverlay] Reinitializing system after account restore...'
-      );
-      setSystemReady(false);
-      try {
-        await system.cleanup();
-        await system.init();
-        setSystemReady(true);
-        console.log(
-          '[AccountDeletedOverlay] System reinitialized successfully'
-        );
-      } catch (error) {
-        console.error(
-          '[AccountDeletedOverlay] Failed to reinitialize system:',
-          error
-        );
-        setSystemReady(true); // Set to true anyway so user isn't stuck
-      }
-
-      // Invalidate profile query to refresh
       void queryClient.invalidateQueries({
         queryKey: ['profile', currentUser?.id]
       });
@@ -73,7 +47,6 @@ export function AccountDeletedOverlay() {
           text: t('ok'),
           isPreferred: true,
           onPress: () => {
-            // Navigate to projects page after restore
             goToProjects();
           }
         }
@@ -100,11 +73,9 @@ export function AccountDeletedOverlay() {
           style: 'cancel'
         },
         {
-          text: t('restoreAccount'),
+          text: t('confirmRestore'),
           onPress: () => {
-            void restoreAccount().then(() => {
-              goToProjects();
-            });
+            void restoreAccount();
           }
         }
       ]
@@ -116,7 +87,10 @@ export function AccountDeletedOverlay() {
   };
 
   return (
-    <View className="flex-1 items-center justify-center bg-background p-6">
+    <View
+      testID="account-deleted-overlay"
+      className="flex-1 items-center justify-center bg-background p-6"
+    >
       <View className="w-full max-w-md flex-col gap-6">
         {/* Icon/Warning */}
         <View className="items-center">
@@ -148,6 +122,7 @@ export function AccountDeletedOverlay() {
             disabled={isPending}
             loading={isPending}
             className="w-full"
+            testID="account-deleted-restore"
           >
             {!isPending && (
               <Icon
@@ -167,6 +142,7 @@ export function AccountDeletedOverlay() {
             onPress={handleLogout}
             disabled={isPending}
             className="w-full"
+            testID="account-deleted-logout"
           >
             <Icon as={LogOutIcon} size={20} className="mr-2 text-foreground" />
             <Text className="text-lg font-semibold text-foreground">

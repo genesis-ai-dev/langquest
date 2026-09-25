@@ -46,10 +46,12 @@ export function RecordingHelpDialog({ onClose }: RecordingHelpDialogProps) {
       <Pressable
         className="flex-1 items-center justify-center bg-black/50"
         onPress={handleBackdropPress}
+        accessible={false}
       >
         <Pressable
           className="mx-6 max-w-md rounded-2xl bg-card p-6"
           onPress={(e) => e.stopPropagation()}
+          accessible={false}
         >
           {/* Title */}
           <Text className="text-xl font-bold text-foreground">
@@ -70,7 +72,13 @@ export function RecordingHelpDialog({ onClose }: RecordingHelpDialogProps) {
 
           {/* Button */}
           <View className="mt-6">
-            <Button variant="default" onPress={handleOk} className="w-full">
+            <Button
+              variant="default"
+              onPress={handleOk}
+              className="w-full"
+              testID="recording-help-ok"
+              accessibilityLabel="recording-help-ok"
+            >
               <Text>{t('ok')}</Text>
             </Button>
           </View>

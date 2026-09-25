@@ -2,20 +2,17 @@
 import { AssetSettingsModal } from '@/components/AssetSettingsModal';
 import { NewHighlightBadge } from '@/components/NewHighlightBadge';
 import { AssetSkeleton } from '@/components/AssetSkeleton';
-import ImageCarousel from '@/components/ImageCarousel';
+import { Badge } from '@/components/ui/badge';
 import { ReportModal } from '@/components/NewReportModal';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { SourceContent } from '@/components/SourceContent';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Text as RNPText } from '@/components/ui/text';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { useAuth } from '@/contexts/AuthContext';
 import { LayerType, useStatusContext } from '@/contexts/StatusContext';
-import { updateContentLinkOrder } from '@/database_services/assetService';
 import { getEffectiveLastRecordingSessionId } from '@/database_services/questService';
-import type { LayerStatus } from '@/database_services/types';
 import {
   asset,
   asset_content_link,
@@ -25,7 +22,6 @@ import {
   quest as questTable
 } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import { AppConfig } from '@/db/supabase/AppConfig';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useOrthographyExamples } from '@/hooks/useOrthographyExamples';
@@ -34,11 +30,8 @@ import { useTranscription } from '@/hooks/useTranscription';
 import { useTranscriptionLocalization } from '@/hooks/useTranscriptionLocalization';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useLocalStore } from '@/store/localStore';
-import {
-  isLocalOnlyAudio,
-  resolveExistingAudioUri
-} from '@/utils/attachmentPaths';
-import { fileExists, getLocalAttachmentUri } from '@/utils/fileUtils';
+import { resolvePlayableAudioUri } from '@/utils/resolvePlayableAudio';
+import { fileExists } from '@/utils/fileUtils';
 import { cn } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { useFocusEffect } from '@react-navigation/native';
@@ -46,33 +39,22 @@ import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { and, asc, eq, inArray } from 'drizzle-orm';
 import { Stack } from 'expo-router';
 import {
-  ChevronLeftIcon,
-  ChevronRightIcon,
   CrownIcon,
-  FileTextIcon,
   FlagIcon,
-  ImageIcon,
   LockIcon,
   PlusIcon,
   SettingsIcon,
   UserIcon
 } from 'lucide-react-native';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import type { FlatList as FlatListType, ViewToken } from 'react-native';
-import { Dimensions, FlatList, Text, TextInput, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Dimensions, Text, View } from 'react-native';
 import { scheduleOnRN } from 'react-native-worklets';
 import NextGenNewTranslationModal from './NextGenNewTranslationModal';
 import NextGenTranslationsList from './NextGenTranslationsList';
-import { useHybridData } from './useHybridData';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
+import { defaultGetItemId, mergeLocalFirst } from '@/hooks/hybridQueryUtils';
 
-// Static viewability config for FlatList - defined outside component to avoid recreation
-const VIEWABILITY_CONFIG = {
-  itemVisiblePercentThreshold: 50
-};
-
-const ASSET_VIEWER_PROPORTION = 0.35;
-
-type TabType = 'text' | 'image';
+const SOURCE_TEXT_MAX_PROPORTION = 0.25;
 
 function useNextGenOfflineAsset(assetId: string) {
   const { isAuthenticated } = useAuth();
@@ -122,9 +104,10 @@ function useNextGenOfflineAsset(assetId: string) {
     [getOfflineQuery]
   );
 
-  return useHybridData({
-    dataType: 'asset',
-    queryKeyParams: [assetId],
+  return useHybridQuery({
+    // Not ['asset', id]: useAssetById (breadcrumbs) uses that key without
+    // content, and a shared cache entry would drop the content on refetch.
+    queryKey: ['asset-with-content', assetId],
     offlineQuery,
     cloudQueryFn: async () => {
       if (!assetId) return [];
@@ -151,29 +134,34 @@ function useNextGenOfflineAsset(assetId: string) {
         })
         .limit(1)
         .overrideTypes<
-          (Omit<typeof asset.$inferSelect, 'images'> & {
-            images: string;
+          (typeof asset.$inferSelect & {
             content?: (typeof asset_content_link.$inferSelect)[];
           })[]
         >();
 
       if (error) throw error;
 
-      // Parse images JSON and map to asset format
-      return data.map((item) => {
-        const parsedImages = item.images
-          ? (JSON.parse(item.images) as string[])
-          : [];
-
-        return {
-          ...item,
-          images: parsedImages,
-          content: item.content || []
-        };
-      });
+      return data.map((item) => ({
+        ...item,
+        content: item.content || []
+      }));
     },
     enableCloudQuery: !!assetId,
-    enableOfflineQuery: !!assetId
+    enableOfflineQuery: !!assetId,
+    merge: (local, remote) => {
+      const merged = mergeLocalFirst(local, remote, defaultGetItemId);
+      return merged.map((item) => {
+        const localContent = (item as { content?: unknown[] }).content;
+        if (localContent && localContent.length > 0) return item;
+        const fromCloud = remote.find(
+          (row) => defaultGetItemId(row) === defaultGetItemId(item)
+        ) as { content?: unknown[] } | undefined;
+        if (fromCloud?.content && fromCloud.content.length > 0) {
+          return { ...item, content: fromCloud.content };
+        }
+        return item;
+      });
+    }
   });
 }
 
@@ -200,8 +188,6 @@ export default function NextGenAssetDetailView() {
   const [showAssetSettingsModal, setShowAssetSettingsModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [currentContentIndex, setCurrentContentIndex] = useState(0);
-  const [showReorderInput, setShowReorderInput] = useState(false);
-  const [reorderValue, setReorderValue] = useState('');
 
   // Transcription feature
   const enableTranscription = useLocalStore(
@@ -215,10 +201,6 @@ export default function NextGenAssetDetailView() {
   const [contentTypeFilter, setContentTypeFilter] = useState<
     'translation' | 'transcription'
   >('translation');
-
-  // Use state for activeTab since user can change it
-  const [activeTab, setActiveTab] = useState<TabType>('text');
-
   const {
     data: queriedAsset,
     isLoading: isAssetLoading,
@@ -237,12 +219,11 @@ export default function NextGenAssetDetailView() {
 
   // Use passed project data if available (instant!), otherwise query using hybrid data
   // This supports both authenticated (offline) and anonymous (cloud-only) users
-  const { data: queriedProjectDataArray } = useHybridData<
+  const { data: queriedProjectDataArray } = useHybridQuery<
     typeof project.$inferSelect
   >({
-    dataType: 'project-detail',
-    queryKeyParams: [projectId || ''],
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    queryKey: ['project-detail', projectId || ''],
+
     offlineQuery: toCompilableQuery(
       system.db.query.project.findFirst({
         where: eq(project.id, projectId!)
@@ -269,12 +250,11 @@ export default function NextGenAssetDetailView() {
   const projectData = queriedProjectData;
 
   // Fetch quest data for "New" label highlighting (recording session tracking)
-  const { data: questDataArray, refetch: refetchQuest } = useHybridData<
+  const { data: questDataArray, refetch: refetchQuest } = useHybridQuery<
     typeof questTable.$inferSelect
   >({
-    dataType: 'quest-detail',
-    queryKeyParams: [questId || ''],
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    queryKey: ['quest-detail', questId || ''],
+
     offlineQuery: toCompilableQuery(
       system.db.query.quest.findFirst({
         where: eq(questTable.id, questId!)
@@ -335,11 +315,10 @@ export default function NextGenAssetDetailView() {
   );
 
   // Get target languoid_id from project_language_link
-  const { data: targetLanguoidLink = [] } = useHybridData<{
+  const { data: targetLanguoidLink = [] } = useHybridQuery<{
     languoid_id: string | null;
   }>({
-    dataType: 'project-target-languoid-id',
-    queryKeyParams: [projectId || ''],
+    queryKey: ['project-target-languoid-id', projectId || ''],
     offlineQuery: toCompilableQuery(
       system.db
         .select({ languoid_id: project_language_link.languoid_id })
@@ -384,7 +363,6 @@ export default function NextGenAssetDetailView() {
   const activeAsset = offlineAsset?.[0] as
     | (typeof asset.$inferSelect & {
         content?: (typeof asset_content_link.$inferSelect)[];
-        images?: string[];
       })
     | undefined;
 
@@ -402,7 +380,8 @@ export default function NextGenAssetDetailView() {
   // For local (unpublished) content, the current user is always the creator.
   // useUserPermissions may initially return false for private projects because its
   // internal query for creator_id hasn't resolved yet (race condition on first mount).
-  const isLocalContent = activeAsset?.source === 'local';
+  const isLocalContent =
+    questData?.published_at == null && questData?.source !== 'cloud';
   const canTranslate = canTranslateFromPermissions || isLocalContent;
 
   // Highlight assets from the last recording session (only for unpublished content)
@@ -413,25 +392,6 @@ export default function NextGenAssetDetailView() {
     isLocalContent &&
     !!assetMeta?.recordingSessionId &&
     assetMeta.recordingSessionId === lastRecordingSessionId;
-
-  // Track previous asset ID to detect when asset changes
-  const prevAssetIdRef = React.useRef<string | null>(null);
-
-  React.useEffect(() => {
-    if (!activeAsset) return;
-
-    if (prevAssetIdRef.current !== activeAsset.id) {
-      prevAssetIdRef.current = activeAsset.id;
-
-      const hasTextContent =
-        activeAsset.content && activeAsset.content.length > 0;
-      const hasImages = activeAsset.images && activeAsset.images.length > 0;
-      const newTab = hasTextContent ? 'text' : hasImages ? 'image' : 'text';
-
-      setActiveTab(newTab);
-      setCurrentContentIndex(0);
-    }
-  }, [activeAsset]);
 
   useEffect(() => {
     if (__DEV__ && projectData && !projectData.target_language_id) {
@@ -449,7 +409,11 @@ export default function NextGenAssetDetailView() {
     : currentStatus.getStatusParams(
         LayerType.ASSET,
         activeAsset.id || '',
-        activeAsset as LayerStatus,
+        {
+          visible: activeAsset.visible,
+          active: activeAsset.active,
+          source: isLocalContent ? 'local' : 'synced'
+        },
         questId
       );
 
@@ -471,17 +435,26 @@ export default function NextGenAssetDetailView() {
   }, [activeAsset?.content]);
 
   // Fetch all languoids used by content items
-  const { data: contentLanguoids = [] } = useHybridData({
-    dataType: 'languoids-by-id',
-    queryKeyParams: contentLanguoidIds,
+  const { data: contentLanguoids = [] } = useHybridQuery<
+    typeof languoidTable.$inferSelect
+  >({
+    queryKey: ['languoids-by-id', ...contentLanguoidIds],
+    enabled: contentLanguoidIds.length > 0,
     offlineQuery: toCompilableQuery(
       system.db.query.languoid.findMany({
-        where: contentLanguoidIds.length
-          ? inArray(languoidTable.id, contentLanguoidIds)
-          : undefined
+        where: inArray(languoidTable.id, contentLanguoidIds)
       })
     ),
-    enableCloudQuery: false
+    cloudQueryFn: async () => {
+      if (contentLanguoidIds.length === 0) return [];
+      const { data, error } = await system.supabaseConnector.client
+        .from('languoid')
+        .select('*')
+        .in('id', contentLanguoidIds)
+        .overrideTypes<(typeof languoidTable.$inferSelect)[]>();
+      if (error) throw error;
+      return data ?? [];
+    }
   });
 
   const languoidById = new Map(contentLanguoids.map((l) => [l.id, l] as const));
@@ -497,16 +470,11 @@ export default function NextGenAssetDetailView() {
     projectId,
     currentContentLanguageId
   );
-
-  // Active tab is now derived from asset content via useMemo above
-
-  // Reset content index and scroll position when asset changes
+  // Reset to the first content version when the asset changes
   // Use queueMicrotask to defer state update and avoid cascading renders
   useEffect(() => {
     scheduleOnRN(() => {
       setCurrentContentIndex(0);
-      // Also scroll the FlatList to the first item
-      contentFlatListRef.current?.scrollToIndex({ index: 0, animated: false });
     });
   }, [assetId]);
 
@@ -539,36 +507,9 @@ export default function NextGenAssetDetailView() {
       );
 
       const resolved = await Promise.all(
-        audioValues.map(async (audioValue: string): Promise<string | null> => {
-          const localUri = await resolveExistingAudioUri(audioValue);
-          if (localUri) {
-            return localUri;
-          }
-
-          // Pre-publish and legacy file:// values only ever exist on-device
-          if (
-            isLocalOnlyAudio(audioValue) ||
-            audioValue.startsWith('file://')
-          ) {
-            console.warn(`Local audio file not found: ${audioValue}`);
-            return null;
-          }
-
-          // Published audio not on this device - fall back to cloud URL
-          try {
-            if (!AppConfig.supabaseBucket) {
-              console.warn('Supabase bucket not configured');
-              return null;
-            }
-            const { data } = system.supabaseConnector.client.storage
-              .from(AppConfig.supabaseBucket)
-              .getPublicUrl(audioValue);
-            return data.publicUrl;
-          } catch (error) {
-            console.error('Failed to get cloud audio URL:', error);
-            return null;
-          }
-        })
+        audioValues.map((audioValue: string) =>
+          resolvePlayableAudioUri(audioValue)
+        )
       );
 
       setResolvedAudioUris(resolved.filter((uri) => uri !== null));
@@ -582,42 +523,8 @@ export default function NextGenAssetDetailView() {
     'assets'
   );
 
-  // FlatList ref for programmatic scrolling - must be before any early returns
-  const contentFlatListRef =
-    useRef<FlatListType<typeof asset_content_link.$inferSelect>>(null);
-
-  // Handle viewable items change (when user swipes) - must be before any early returns
-  // Using useCallback instead of useRef().current for React Compiler optimization
-  const onViewableItemsChanged = useCallback(
-    ({ viewableItems }: { viewableItems: ViewToken[] }) => {
-      const firstItem = viewableItems[0];
-      if (firstItem?.index != null) {
-        setCurrentContentIndex(firstItem.index);
-      }
-    },
-    [] // setCurrentContentIndex is stable from useState
-  );
-
-  // Screen dimensions for layout calculations
-  const screenHeight = Dimensions.get('window').height;
-  const screenWidth = Dimensions.get('window').width;
-  const assetViewerHeight = screenHeight * ASSET_VIEWER_PROPORTION;
-  // Content width for FlatList paging (full width minus padding)
-  const contentWidth = screenWidth - 32; // 16px padding on each side
-
-  // Scroll to a specific content index
-  const scrollToContentIndex = (index: number) => {
-    if (contentFlatListRef.current && activeAsset?.content) {
-      const clampedIndex = Math.max(
-        0,
-        Math.min(index, activeAsset.content.length - 1)
-      );
-      contentFlatListRef.current.scrollToIndex({
-        index: clampedIndex,
-        animated: true
-      });
-    }
-  };
+  const sourceTextMaxHeight =
+    Dimensions.get('window').height * SOURCE_TEXT_MAX_PROPORTION;
 
   if (!assetId) {
     return (
@@ -784,6 +691,23 @@ export default function NextGenAssetDetailView() {
     setShowNewTranslationModal(true);
   };
 
+  const contentItems = activeAsset.content ?? [];
+  const currentContent = contentItems[currentContentIndex] ?? contentItems[0];
+  // Recordings store the asset name as their text; don't repeat it.
+  const hasDistinctText = (content: typeof asset_content_link.$inferSelect) => {
+    const text = content.text?.trim() ?? '';
+    return (
+      text !== '' &&
+      text !== activeAsset.name?.trim() &&
+      text !== assetNameParam?.trim()
+    );
+  };
+  const showSourceSection = contentItems.some(
+    (content) => hasDistinctText(content) || (content.audio?.length ?? 0) > 0
+  );
+  const showCurrentText = !!currentContent && hasDistinctText(currentContent);
+  const showCurrentContent = showCurrentText || resolvedAudioUris.length > 0;
+
   return (
     <View className="mb-safe flex-1 px-4">
       {assetDisplayName ? (
@@ -798,6 +722,11 @@ export default function NextGenAssetDetailView() {
             </Text>
             {/* New badge for recently recorded assets */}
             {isHighlighted && <NewHighlightBadge />}
+            {!allowEditing && (
+              <Badge variant="outline">
+                <RNPText variant="small">{t('inactive')}</RNPText>
+              </Badge>
+            )}
           </View>
           {Boolean(projectData?.private) && (
             <View className="flex-row items-center gap-1">
@@ -826,6 +755,8 @@ export default function NextGenAssetDetailView() {
               variant="ghost"
               size="icon"
               className="p-2"
+              testID="asset-settings-open"
+              accessibilityLabel="asset-settings-open"
             >
               <Icon as={SettingsIcon} size={22} className="text-foreground" />
             </Button>
@@ -837,6 +768,8 @@ export default function NextGenAssetDetailView() {
                 variant="ghost"
                 size="icon"
                 className="p-2"
+                testID="asset-report"
+                accessibilityLabel="asset-report"
               >
                 <Icon as={FlagIcon} size={20} className="text-foreground" />
               </Button>
@@ -844,263 +777,70 @@ export default function NextGenAssetDetailView() {
           ))}
       </View>
 
-      {/* Tab Bar */}
-      <Tabs
-        value={activeTab}
-        onValueChange={(value) => setActiveTab(value as TabType)}
-      >
-        <TabsList className="w-full flex-row">
-          <TabsTrigger
-            value="text"
-            className="flex-1 items-center py-2"
-            disabled={!activeAsset.content || activeAsset.content.length === 0}
-          >
-            <Icon as={FileTextIcon} size={24} />
-          </TabsTrigger>
-          <TabsTrigger
-            value="image"
-            className="flex-1 items-center py-2"
-            disabled={!activeAsset.images || activeAsset.images.length === 0}
-          >
-            <Icon as={ImageIcon} size={24} />
-          </TabsTrigger>
-        </TabsList>
+      {/* Source content */}
+      {showSourceSection && (
+        <View className={cn(!allowEditing && 'opacity-50', 'gap-2 py-2')}>
+          {contentItems.length > 1 && (
+            <View className="flex-row flex-wrap items-center gap-2">
+              {contentItems.map((content, index) => (
+                <Button
+                  key={content.id}
+                  variant={
+                    index === currentContentIndex ? 'default' : 'outline'
+                  }
+                  size="sm"
+                  className="h-8 min-w-8 px-3"
+                  onPress={() => setCurrentContentIndex(index)}
+                  testID={`asset-content-version-${index + 1}`}
+                  accessibilityLabel={`asset-content-version-${index + 1}`}
+                >
+                  <RNPText>{index + 1}</RNPText>
+                </Button>
+              ))}
+            </View>
+          )}
 
-        {/* Asset Content Viewer */}
-        <View
-          className={cn(!allowEditing && 'opacity-50', 'flex overflow-hidden')}
-          style={{ height: assetViewerHeight }}
-        >
-          <TabsContent value="text" className="flex-1 py-2">
-            {activeAsset.content && activeAsset.content.length > 0 ? (
-              <View style={{ flex: 1 }}>
-                {/* Swipeable content carousel */}
-                <FlatList
-                  ref={contentFlatListRef}
-                  data={activeAsset.content}
-                  horizontal
-                  pagingEnabled
-                  showsHorizontalScrollIndicator={false}
-                  keyExtractor={(item) => item.id}
-                  onViewableItemsChanged={onViewableItemsChanged}
-                  viewabilityConfig={VIEWABILITY_CONFIG}
-                  snapToInterval={contentWidth}
-                  decelerationRate="fast"
-                  getItemLayout={(_, index) => ({
-                    length: contentWidth,
-                    offset: contentWidth * index,
-                    index
-                  })}
-                  style={{ height: 200 }}
-                  renderItem={({ item: content, index }) => {
-                    const languoidId =
-                      content.languoid_id || content.source_language_id;
-                    const languoid = languoidId
-                      ? (languoidById.get(languoidId) ?? null)
-                      : null;
-                    const isCurrentItem = index === currentContentIndex;
-
-                    return (
-                      <View
-                        style={{ width: contentWidth, paddingHorizontal: 8 }}
-                      >
-                        <SourceContent
-                          content={content}
-                          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                          sourceLanguage={languoid as any}
-                          audioSegments={
-                            isCurrentItem ? resolvedAudioUris : undefined
-                          }
-                          onTranscribe={
-                            isCurrentItem &&
-                            enableTranscription &&
-                            isAuthenticated
-                              ? handleTranscribe
-                              : undefined
-                          }
-                          isTranscribing={
-                            isCurrentItem && (isTranscribing || isLocalizing)
-                          }
-                        />
-                      </View>
-                    );
-                  }}
-                />
-
-                {/* Navigation controls and pagination - only show if multiple items */}
-                {activeAsset.content.length > 1 && (
-                  <View className="flex-row items-center justify-center gap-2 pt-2">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      disabled={currentContentIndex === 0}
-                      onPress={() =>
-                        scrollToContentIndex(currentContentIndex - 1)
-                      }
-                    >
-                      <Icon
-                        as={ChevronLeftIcon}
-                        size={20}
-                        className={
-                          currentContentIndex === 0
-                            ? 'text-muted-foreground'
-                            : 'text-foreground'
-                        }
-                      />
-                    </Button>
-
-                    {/* Position indicator */}
-                    {showReorderInput && allowEditing ? (
-                      <View className="flex-row items-center gap-2">
-                        <TextInput
-                          style={{
-                            height: 40,
-                            minWidth: 40,
-                            paddingHorizontal: 8,
-                            fontSize: 14,
-                            textAlign: 'center'
-                          }}
-                          className="rounded border border-primary bg-background text-foreground"
-                          keyboardType="number-pad"
-                          value={reorderValue}
-                          onChangeText={setReorderValue}
-                          autoFocus
-                          selectTextOnFocus
-                          returnKeyType="done"
-                          onSubmitEditing={async () => {
-                            const newPos = parseInt(reorderValue, 10);
-                            const content = activeAsset.content;
-                            if (
-                              !content ||
-                              isNaN(newPos) ||
-                              newPos < 1 ||
-                              newPos > content.length
-                            ) {
-                              setShowReorderInput(false);
-                              return;
-                            }
-                            const targetIndex = newPos - 1;
-                            if (targetIndex !== currentContentIndex) {
-                              // Build new order: move current item to target position
-                              const ids = content.map((c) => c.id);
-                              const movedId = ids.splice(
-                                currentContentIndex,
-                                1
-                              )[0]!;
-                              ids.splice(targetIndex, 0, movedId);
-                              await updateContentLinkOrder(
-                                activeAsset.id,
-                                ids,
-                                {
-                                  localOverride: activeAsset.source === 'local'
-                                }
-                              );
-                              setCurrentContentIndex(targetIndex);
-                            }
-                            setShowReorderInput(false);
-                          }}
-                          onBlur={() => setShowReorderInput(false)}
-                        />
-                        <Text className="text-sm text-muted-foreground">
-                          of {activeAsset.content.length}
-                        </Text>
-                      </View>
-                    ) : allowEditing ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-8 px-3"
-                        onPress={() => {
-                          setReorderValue(String(currentContentIndex + 1));
-                          setShowReorderInput(true);
-                        }}
-                      >
-                        <Text className="text-xs text-foreground">
-                          {currentContentIndex + 1} of{' '}
-                          {activeAsset.content.length}
-                        </Text>
-                      </Button>
-                    ) : (
-                      <Text className="text-sm text-muted-foreground">
-                        {currentContentIndex + 1} of{' '}
-                        {activeAsset.content.length}
-                      </Text>
-                    )}
-
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      disabled={
-                        currentContentIndex === activeAsset.content.length - 1
-                      }
-                      onPress={() =>
-                        scrollToContentIndex(currentContentIndex + 1)
-                      }
-                    >
-                      <Icon
-                        as={ChevronRightIcon}
-                        size={20}
-                        className={
-                          currentContentIndex === activeAsset.content.length - 1
-                            ? 'text-muted-foreground'
-                            : 'text-foreground'
-                        }
-                      />
-                    </Button>
-                  </View>
-                )}
-              </View>
-            ) : (
-              <Text className="p-8 text-center text-base italic text-muted-foreground">
-                {t('noContentAvailable')}
-              </Text>
-            )}
-          </TabsContent>
-
-          <TabsContent value="image">
-            {activeAsset.images && activeAsset.images.length > 0 ? (
-              <View className="h-48 overflow-hidden rounded-lg">
-                <ImageCarousel
-                  uris={activeAsset.images.map((imageId) =>
-                    getLocalAttachmentUri(imageId)
-                  )}
-                />
-              </View>
-            ) : (
-              <Text className="p-8 text-center text-base italic text-muted-foreground">
-                {t('noContentAvailable')}
-              </Text>
-            )}
-          </TabsContent>
+          {currentContent && showCurrentContent && (
+            <SourceContent
+              content={currentContent}
+              audioSegments={resolvedAudioUris}
+              onTranscribe={
+                enableTranscription && isAuthenticated
+                  ? handleTranscribe
+                  : undefined
+              }
+              isTranscribing={isTranscribing || isLocalizing}
+              showText={showCurrentText}
+              maxTextHeight={sourceTextMaxHeight}
+            />
+          )}
         </View>
-      </Tabs>
+      )}
 
       {/* Translations/Transcriptions List - Pass project data to avoid re-querying */}
       <View className="flex-1">
-        {/* Content Type Toggle - only show transcription option if source has audio */}
+        {/* Transcriptions need source audio; with only translations there is nothing to toggle */}
         <View className="h-px bg-border" />
-        <View className="pt-2">
-          <ToggleGroup
-            type="single"
-            value={contentTypeFilter}
-            onValueChange={(value) => {
-              if (value)
-                setContentTypeFilter(value as typeof contentTypeFilter);
-            }}
-            className="w-full"
-          >
-            <ToggleGroupItem value="translation" className="flex-1">
-              <RNPText>{t('translations')}</RNPText>
-            </ToggleGroupItem>
-            {sourceHasAudio && (
+        {sourceHasAudio && (
+          <View className="pt-2">
+            <ToggleGroup
+              type="single"
+              value={contentTypeFilter}
+              onValueChange={(value) => {
+                if (value)
+                  setContentTypeFilter(value as typeof contentTypeFilter);
+              }}
+              className="w-full"
+            >
+              <ToggleGroupItem value="translation" className="flex-1">
+                <RNPText>{t('translations')}</RNPText>
+              </ToggleGroupItem>
               <ToggleGroupItem value="transcription" className="flex-1">
                 <RNPText>{t('transcriptions')}</RNPText>
               </ToggleGroupItem>
-            )}
-          </ToggleGroup>
-        </View>
+            </ToggleGroup>
+          </View>
+        )}
 
         <NextGenTranslationsList
           assetId={assetId}
@@ -1132,6 +872,7 @@ export default function NextGenAssetDetailView() {
             <Button
               className="flex-row items-center justify-center gap-2 px-6 py-4"
               onPress={onPress}
+              testID="asset-translate-button"
             >
               <Icon
                 as={LockIcon}
@@ -1155,6 +896,7 @@ export default function NextGenAssetDetailView() {
         <Button
           className="-mx-4 flex-row items-center justify-center gap-2 px-6 py-4"
           onPress={() => router.push('/(auth)/sign-in')}
+          testID="asset-translate-button"
         >
           <Icon as={LockIcon} size={24} />
           <Text className="font-bold text-secondary">
@@ -1166,6 +908,7 @@ export default function NextGenAssetDetailView() {
           className="-mx-4 flex-row items-center justify-center gap-2 px-6 py-4"
           disabled={!canTranslate}
           onPress={handleNewTranslationPress}
+          testID="asset-translate-button"
         >
           <Icon as={PlusIcon} size={24} />
           <Text className="font-bold text-secondary">
@@ -1190,7 +933,7 @@ export default function NextGenAssetDetailView() {
           assetContent={activeAsset.content}
           sourceLanguage={null}
           translationLanguageId={translationLanguageId}
-          isLocalSource={activeAsset.source === 'local'}
+          isLocalSource={isLocalContent}
           initialContentType={contentTypeFilter}
           initialText={transcriptionText}
           resolvedAudioUris={resolvedAudioUris}

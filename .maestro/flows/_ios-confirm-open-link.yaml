@@ -1,0 +1,13 @@
+appId: ${MAESTRO_APP_ID}
+---
+# Custom-scheme openLink on iOS shows "Open in LangQuest (Dev)?".
+# Open sits to the right of Cancel.
+- runFlow:
+    when:
+      platform: iOS
+      visible: 'Open in .*'
+    commands:
+      - tapOn:
+          text: Open
+          rightOf: Cancel
+          waitToSettleTimeoutMs: 0

@@ -95,6 +95,7 @@ async function enqueueDashboardRefresh(minutes: number) {
       const { data, error } = await supabase
         .from('quest')
         .select('project_id')
+        .not('published_at', 'is', null)
         .in('id', ids);
       throwIfError(error, 'Failed querying quest for project_id');
       addProjectIds(data, 'project_id');
@@ -114,6 +115,7 @@ async function enqueueDashboardRefresh(minutes: number) {
     const { data, error } = await supabase
       .from('quest')
       .select('project_id')
+      .not('published_at', 'is', null)
       .gt('last_updated', cutoffIso);
     throwIfError(error, 'Failed querying quest');
     addProjectIds(data, 'project_id');
@@ -164,6 +166,7 @@ async function enqueueDashboardRefresh(minutes: number) {
       const { data: questRows, error: questError } = await supabase
         .from('quest')
         .select('project_id')
+        .not('published_at', 'is', null)
         .in('id', ids);
       throwIfError(questError, 'Failed querying quest from quest_asset_link');
       addProjectIds(questRows, 'project_id');

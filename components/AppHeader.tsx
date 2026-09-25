@@ -8,7 +8,7 @@ import { useSyncState } from '@/hooks/useSyncState';
 import { cn, useThemeToken } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { usePathname, useRouter, useSegments } from 'expo-router';
 import {
   AlertTriangle,
   ChevronLeftIcon,
@@ -40,8 +40,12 @@ export default function AppHeader({
   onOnboardingPress?: () => void;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
+  const segments = useSegments();
+  const authSheetOpen = segments.includes('(auth)');
   const breadcrumbs = useBreadcrumbs();
-  const isProjectsView = breadcrumbs.length <= 1;
+  const isProjectsView =
+    breadcrumbs.length <= 1 && !pathname.includes('/project/');
 
   // Get background HSL from generated-tokens.ts (format: "240 100% 98.04%")
   const backgroundHsl = useThemeToken('background');
@@ -133,7 +137,12 @@ export default function AppHeader({
 
         <View className="flex-1 flex-row gap-2 overflow-hidden">
           {router.canGoBack() && !isProjectsView && (
-            <Button variant="ghost" size="icon" onPress={() => router.back()}>
+            <Button
+              variant="ghost"
+              size="icon"
+              onPress={() => router.back()}
+              testID="nav-back"
+            >
               <Icon as={ChevronLeftIcon} className="size-6" />
             </Button>
           )}
@@ -280,44 +289,46 @@ export default function AppHeader({
 
         {/* Menu Button with Indicators */}
         <View className="relative">
-          <Button
-            variant="ghost"
-            size="icon"
-            onPress={drawerToggleCallback}
-            className="relative"
-            testID="app-drawer-menu-button"
-            accessible
-            accessibilityLabel="app-drawer-menu-button"
-          >
-            <Icon as={MenuIcon} className="size-6 text-foreground" />
+          {!authSheetOpen ? (
+            <Button
+              variant="ghost"
+              size="icon"
+              onPress={drawerToggleCallback}
+              className="relative"
+              testID="app-drawer-menu-button"
+              accessible
+              accessibilityLabel="app-drawer-menu-button"
+            >
+              <Icon as={MenuIcon} className="size-6 text-foreground" />
 
-            {/* Network Status Indicator - Bottom Right Corner */}
-            {!isConnected ? (
-              <View className="absolute bottom-0 right-0 h-3.5 w-3.5 items-center justify-center rounded-full bg-red-500 shadow-sm">
-                <Icon as={CloudOff} size={10} className="text-white" />
-              </View>
-            ) : hasSyncError ? (
-              <Pressable onPress={handleSyncErrorTap} hitSlop={10}>
-                <View className="absolute bottom-0 right-0 h-3.5 w-3.5 items-center justify-center rounded-full bg-destructive shadow-sm">
-                  <Icon as={AlertTriangle} size={10} className="text-white" />
+              {/* Network Status Indicator - Bottom Right Corner */}
+              {!isConnected ? (
+                <View className="absolute bottom-0 right-0 h-3.5 w-3.5 items-center justify-center rounded-full bg-red-500 shadow-sm">
+                  <Icon as={CloudOff} size={10} className="text-white" />
                 </View>
-              </Pressable>
-            ) : isSyncing ? (
-              <Animated.View
-                style={spinStyle}
-                className="absolute bottom-0 right-0 h-3.5 w-3.5 items-center justify-center rounded-full bg-primary shadow-sm"
-              >
-                <Icon as={RefreshCw} size={10} className="text-white" />
-              </Animated.View>
-            ) : null}
+              ) : hasSyncError ? (
+                <Pressable onPress={handleSyncErrorTap} hitSlop={10}>
+                  <View className="absolute bottom-0 right-0 h-3.5 w-3.5 items-center justify-center rounded-full bg-destructive shadow-sm">
+                    <Icon as={AlertTriangle} size={10} className="text-white" />
+                  </View>
+                </Pressable>
+              ) : isSyncing ? (
+                <Animated.View
+                  style={spinStyle}
+                  className="absolute bottom-0 right-0 h-3.5 w-3.5 items-center justify-center rounded-full bg-primary shadow-sm"
+                >
+                  <Icon as={RefreshCw} size={10} className="text-white" />
+                </Animated.View>
+              ) : null}
 
-            {/* Notification Badge - Top Right Corner */}
-            {notificationCount > 0 && (
-              <View className="absolute -right-0.5 -top-0.5 h-3 w-3 items-center justify-center rounded-full bg-red-500 shadow-sm">
-                <View className="h-1.5 w-1.5 rounded-full bg-white" />
-              </View>
-            )}
-          </Button>
+              {/* Notification Badge - Top Right Corner */}
+              {notificationCount > 0 && (
+                <View className="absolute -right-0.5 -top-0.5 h-3 w-3 items-center justify-center rounded-full bg-red-500 shadow-sm">
+                  <View className="h-1.5 w-1.5 rounded-full bg-white" />
+                </View>
+              )}
+            </Button>
+          ) : null}
         </View>
       </View>
     </View>

@@ -8,7 +8,6 @@ import { UpdateBanner } from '@/components/UpdateBanner';
 import { AudioProvider } from '@/contexts/AudioContext';
 import { AuthProvider } from '@/contexts/AuthContext';
 import PostHogProvider from '@/contexts/PostHogProvider';
-import { system } from '@/db/powersync/system';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useExpoDb } from '@/hooks/useExpoDb';
 import { LocalizationProvider } from '@/hooks/useLocalization';
@@ -20,7 +19,6 @@ import {
   NotoSans_600SemiBold,
   NotoSans_700Bold
 } from '@expo-google-fonts/noto-sans';
-import { PowerSyncContext } from '@powersync/react';
 import { ThemeProvider } from '@react-navigation/native';
 import { PortalHost } from '@rn-primitives/portal';
 import { useFonts } from 'expo-font';
@@ -41,6 +39,7 @@ import {
   useSessionStore
 } from '@/store/localStore';
 import { EntryGate } from '@/features/appearance/EntryGate';
+import { useDeferredIconTheme } from '@/features/appearance/useDeferredIconTheme';
 import { initializeNetwork } from '@/store/networkStore';
 import { toNavTheme } from '@/utils/styleUtils';
 import { TermsGateView } from '@/views/TermsGateView';
@@ -95,13 +94,29 @@ export const FORM_SHEET_OPTIONS = {
  * Instead, (auth)/_layout.tsx handles auth routing with <Redirect href="/">.
  */
 function RootNavigator() {
-  const { isLoading, isAuthenticated, migrationNeeded, appUpgradeNeeded } =
-    useAuth();
+  useDeferredIconTheme();
+  const {
+    isLoading,
+    isAuthenticated,
+    isSystemReady,
+    migrationNeeded,
+    appUpgradeNeeded,
+    sessionType
+  } = useAuth();
 
   const needsMigration = isAuthenticated && !!migrationNeeded;
   const needsUpgrade = isAuthenticated && !!appUpgradeNeeded;
+  // Guest home already mounted (app). Recovery must not flip this or the
+  // nested (auth) stack dies (`state.stale` of undefined).
+  const waitingForSystem =
+    isAuthenticated &&
+    sessionType !== 'password-reset' &&
+    !isSystemReady &&
+    !needsMigration &&
+    !needsUpgrade;
 
-  const appReady = !needsMigration && !needsUpgrade && !isLoading;
+  const appReady =
+    !needsMigration && !needsUpgrade && !isLoading && !waitingForSystem;
 
   const isReady = appReady || needsMigration || needsUpgrade;
 
@@ -230,49 +245,46 @@ export default function RootLayout() {
   }
 
   return (
-    <PowerSyncContext.Provider value={system.powersync}>
-      <PostHogProvider>
-        <PreAuthMigrationCheck>
-          <AuthProvider>
-            <QueryProvider>
-              <LocalizationProvider>
-                <AudioProvider>
-                  <SafeAreaProvider>
-                    <GestureHandlerRootView style={{ flex: 1 }}>
-                      <KeyboardProvider>
-                        <StatusBar style={systemBarsStyle} />
-                        <UpdateBanner />
-                        <BottomSheetModalProvider>
-                          <ThemeProvider value={NAV_THEME[scheme]}>
-                            <RootNavigator />
-                            <PortalHost />
-                          </ThemeProvider>
-                        </BottomSheetModalProvider>
-                      </KeyboardProvider>
-                      <Toaster
-                        position="bottom-center"
-                        offset={50}
-                        theme={scheme} // ou "system"
-                        closeButton
-                        toastOptions={{
-                          style: {
-                            backgroundColor:
-                              NAV_THEME[scheme].colors.background,
-                            borderWidth: 1,
-                            borderColor: NAV_THEME[scheme].colors.border,
-                            borderRadius: 10
-                          }
-                        }}
-                      />
-                    </GestureHandlerRootView>
-                  </SafeAreaProvider>
-                </AudioProvider>
-              </LocalizationProvider>
-            </QueryProvider>
-          </AuthProvider>
-        </PreAuthMigrationCheck>
-      </PostHogProvider>
-    </PowerSyncContext.Provider>
+    <PostHogProvider>
+      <PreAuthMigrationCheck>
+        <AuthProvider>
+          <QueryProvider>
+            <LocalizationProvider>
+              <AudioProvider>
+                <SafeAreaProvider>
+                  <GestureHandlerRootView style={{ flex: 1 }}>
+                    <KeyboardProvider>
+                      <StatusBar style={systemBarsStyle} />
+                      <UpdateBanner />
+                      <BottomSheetModalProvider>
+                        <ThemeProvider value={NAV_THEME[scheme]}>
+                          <RootNavigator />
+                          <PortalHost />
+                        </ThemeProvider>
+                      </BottomSheetModalProvider>
+                    </KeyboardProvider>
+                    <Toaster
+                      position="bottom-center"
+                      offset={50}
+                      theme={scheme} // ou "system"
+                      closeButton
+                      toastOptions={{
+                        style: {
+                          backgroundColor: NAV_THEME[scheme].colors.background,
+                          borderWidth: 1,
+                          borderColor: NAV_THEME[scheme].colors.border,
+                          borderRadius: 10
+                        }
+                      }}
+                    />
+                  </GestureHandlerRootView>
+                </SafeAreaProvider>
+              </AudioProvider>
+            </LocalizationProvider>
+          </QueryProvider>
+        </AuthProvider>
+      </PreAuthMigrationCheck>
+    </PostHogProvider>
   );
 }
 

@@ -12,7 +12,7 @@ import {
   allocateQuestVersionLabel,
   withQuestVersionLabel
 } from '@/utils/questVersionLabel';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { useFiaBookCreation } from './useFiaBookCreation';
 
 interface CreatePericopeParams {
@@ -26,7 +26,6 @@ interface CreatePericopeParams {
 
 export function useFiaPericopeCreation() {
   const { currentUser } = useAuth();
-  const queryClient = useQueryClient();
   const { findOrCreateBook } = useFiaBookCreation();
 
   const { mutateAsync: createPericope, isPending } = useMutation({
@@ -82,7 +81,8 @@ export function useFiaPericopeCreation() {
             parent_id: bookQuest.id,
             creator_id: currentUser.id,
             download_profiles: [currentUser.id],
-            metadata
+            metadata,
+            published_at: null
           })
           .returning();
 
@@ -96,17 +96,6 @@ export function useFiaPericopeCreation() {
           projectId,
           bookId
         };
-      });
-    },
-    onSuccess: async (result) => {
-      // Wait for PowerSync to sync
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-
-      await queryClient.invalidateQueries({
-        queryKey: ['fia-pericope-quests', result.projectId, result.bookId]
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ['quests', 'for-project', result.projectId]
       });
     }
   });

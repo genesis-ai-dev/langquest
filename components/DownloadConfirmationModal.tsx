@@ -81,7 +81,11 @@ export const DownloadConfirmationModal: React.FC<
         </Text>
 
         <DrawerFooter className="gap-3">
-          <Button variant="default" onPress={onConfirm}>
+          <Button
+            variant="default"
+            onPress={onConfirm}
+            testID="quest-download-confirm"
+          >
             <Text>Download</Text>
           </Button>
 

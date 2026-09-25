@@ -1,0 +1,153 @@
+appId: ${MAESTRO_APP_ID}
+onFlowStart:
+  - runScript: ../api.js
+---
+# Non-owner reports a published quest, then one of its assets. Same modal
+# as report-project.yaml; hideKeyboard is Back and closes it. Download
+# through quest-download first (same as asset-file-download.yaml) so the
+# assets screen reads the local copy.
+- evalScript: ${output.ownerEmail = output.api.uniqueEmail("qrowner")}
+- evalScript: ${output.ownerPassword = output.api.uniquePassword("qrowner")}
+- evalScript: ${output.projectName = "maestro-qreport-" + Date.now()}
+- evalScript: ${output.questName = "maestro-qreport-q-" + Date.now()}
+- evalScript: ${output.assetName = "maestro-qreport-a-" + Date.now()}
+# Short tokens: Android inputText into the report drawer textarea has
+# dropped characters from longer maestro-*-report- + Date.now() strings.
+- evalScript: ${output.questReportDetails = "qr-" + Date.now()}
+- evalScript: ${output.assetReportDetails = "ar-" + Date.now()}
+- evalScript: ${output.skipSignInCleanup = true}
+- evalScript: ${output.api.createConfirmedUser(output.ownerEmail, output.ownerPassword)}
+- evalScript: ${output.api.seedProject(output.projectName, output.ownerEmail, false)}
+- evalScript: ${output.api.seedQuest(output.projectName, output.questName, output.ownerEmail, true)}
+- evalScript: ${output.api.seedSourceAsset(output.projectName, output.questName, output.ownerEmail, output.assetName, "Report source")}
+- runFlow: _start-signed-in.yaml
+- runFlow: _enable-asset-details-setting.yaml
+- tapOn:
+    id: projects-tab-all
+- tapOn:
+    id: projects-search
+- inputText: ${output.projectName}
+- runFlow: _hide-keyboard.yaml
+- extendedWaitUntil:
+    visible: ${output.projectName}
+    timeout: 45000
+- tapOn:
+    text: ${output.projectName}
+    below:
+      id: projects-search
+- extendedWaitUntil:
+    visible:
+      id: quest-download
+    timeout: 45000
+- tapOn:
+    id: quest-download
+- extendedWaitUntil:
+    visible: Continue to Download
+    timeout: 45000
+- tapOn:
+    id: quest-download-continue
+- extendedWaitUntil:
+    visible:
+      id: quest-download-confirm
+    timeout: 20000
+- tapOn:
+    id: quest-download-confirm
+- evalScript: ${output.api.waitForQuestDownload(output.questName, output.signInEmail, true)}
+- extendedWaitUntil:
+    notVisible:
+      id: quest-download-confirm
+    timeout: 15000
+- extendedWaitUntil:
+    notVisible:
+      id: quest-download-continue
+    timeout: 15000
+- tapOn:
+    id: quest-list-item
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: assets-refresh-button
+    timeout: 45000
+- tapOn:
+    id: assets-refresh-button
+- extendedWaitUntil:
+    visible: ${output.assetName}
+    timeout: 45000
+- tapOn:
+    id: quest-speed-dial
+    waitToSettleTimeoutMs: 0
+- runFlow:
+    when:
+      notVisible:
+        id: quest-report
+    commands:
+      - tapOn:
+          id: quest-speed-dial
+          waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: quest-report
+    timeout: 15000
+- tapOn:
+    id: quest-report
+- extendedWaitUntil:
+    visible:
+      id: report-reason-spam
+    timeout: 15000
+- tapOn:
+    id: report-reason-spam
+- tapOn:
+    id: report-details
+- inputText: ${output.questReportDetails}
+- copyTextFrom:
+    id: report-details
+- evalScript: ${output.questReportDetails = String(maestro.copiedText || '').trim()}
+- runFlow: _hide-keyboard.yaml
+- extendedWaitUntil:
+    visible:
+      id: report-submit
+    timeout: 15000
+- tapOn:
+    id: report-submit
+- extendedWaitUntil:
+    visible: Success
+    timeout: 30000
+- tapOn: OK
+- evalScript: ${output.api.waitForReport(output.questReportDetails, 45000)}
+- tapOn:
+    id: asset-open-details
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: asset-report
+    timeout: 20000
+- tapOn:
+    id: asset-report
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: report-reason-spam
+    timeout: 15000
+- tapOn:
+    id: report-reason-spam
+- tapOn:
+    id: report-details
+- inputText: ${output.assetReportDetails}
+- copyTextFrom:
+    id: report-details
+- evalScript: ${output.assetReportDetails = String(maestro.copiedText || '').trim()}
+- runFlow: _hide-keyboard.yaml
+- extendedWaitUntil:
+    visible:
+      id: report-submit
+    timeout: 15000
+- tapOn:
+    id: report-submit
+- extendedWaitUntil:
+    visible: Success
+    timeout: 30000
+- tapOn: OK
+- evalScript: ${output.api.waitForReport(output.assetReportDetails, 45000)}
+- evalScript: ${output.api.deleteProject(output.projectName)}
+- evalScript: ${output.api.deleteUserIfExists(output.signInEmail)}
+- evalScript: ${output.api.deleteUserIfExists(output.ownerEmail)}

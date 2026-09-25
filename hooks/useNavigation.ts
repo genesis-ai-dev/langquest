@@ -19,9 +19,9 @@ export function useNavigationHelpers() {
     promptVersionLabel?: string;
   }>();
 
-  const projectId = (params.projectId as string) || undefined;
-  const questId = (params.questId as string) || undefined;
-  const assetId = (params.assetId as string) || undefined;
+  const projectId = params.projectId! || undefined;
+  const questId = params.questId! || undefined;
+  const assetId = params.assetId! || undefined;
   const rawName = params.name;
   const assetNameParam = Array.isArray(rawName)
     ? rawName[0]
@@ -39,6 +39,14 @@ export function useNavigationHelpers() {
   const goToProjects = useCallback(() => {
     router.dismissTo('/(app)');
   }, [router]);
+
+  const goToProjectDirectory = useCallback(() => {
+    if (!projectId) {
+      router.dismissTo('/(app)');
+      return;
+    }
+    router.dismissTo(`/(app)/project/${projectId}`);
+  }, [router, projectId]);
 
   const goToQuest = useCallback(
     (quest: {
@@ -122,6 +130,7 @@ export function useNavigationHelpers() {
     pathname,
     router,
     goToProjects,
+    goToProjectDirectory,
     goToQuest,
     goToAsset,
     goToRecording

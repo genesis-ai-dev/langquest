@@ -1,10 +1,20 @@
 import { system } from '@/db/powersync/system';
+import { router } from 'expo-router';
 
 export interface DeepLinkResult {
   handled: boolean;
   type?: 'password-reset' | 'email-confirmation' | 'invite';
   navigateTo?: string;
   params?: Record<string, string>;
+}
+
+let pendingPasswordRecovery = false;
+
+/** SIGNED_IN from setSession() is not PASSWORD_RECOVERY. Call before setSession. */
+export function consumePendingPasswordRecovery() {
+  const pending = pendingPasswordRecovery;
+  pendingPasswordRecovery = false;
+  return pending;
 }
 
 interface ParsedDeepLink {
@@ -67,6 +77,12 @@ export async function handleAuthDeepLink(url: string): Promise<DeepLinkResult> {
   }
 
   try {
+    const isRecovery =
+      path.includes('reset-password') || params.type === 'recovery';
+    if (isRecovery) {
+      pendingPasswordRecovery = true;
+    }
+
     // Set the session using the tokens from the deep link
     const { error } = await system.supabaseConnector.client.auth.setSession({
       access_token: params.access_token,
@@ -74,17 +90,14 @@ export async function handleAuthDeepLink(url: string): Promise<DeepLinkResult> {
     });
 
     if (error) {
+      pendingPasswordRecovery = false;
       console.error('[DeepLinkHandler] Failed to set session:', error);
       return { handled: false };
     }
 
-    // Determine the type of deep link based on the URL or token type
-    let type: 'password-reset' | 'email-confirmation' = 'email-confirmation';
-
-    // Check if this is a password reset link
-    if (path.includes('reset-password') || params.type === 'recovery') {
-      type = 'password-reset';
-    }
+    const type: 'password-reset' | 'email-confirmation' = isRecovery
+      ? 'password-reset'
+      : 'email-confirmation';
 
     console.log(`[DeepLinkHandler] Successfully handled ${type} deep link`);
     console.log(
@@ -93,48 +106,14 @@ export async function handleAuthDeepLink(url: string): Promise<DeepLinkResult> {
     );
     console.log('[DeepLinkHandler] Params type:', params.type);
 
-    // The auth state change listener in AuthContext will handle the rest
+    if (type === 'password-reset') {
+      router.replace('/reset-password');
+    }
+
     return { handled: true, type };
   } catch (error) {
+    pendingPasswordRecovery = false;
     console.error('[DeepLinkHandler] Error handling deep link:', error);
     return { handled: false };
   }
-}
-
-/**
- * Handle invite deep links - navigates to notifications page
- * This is called for non-auth deep links like invite links
- */
-export function handleInviteDeepLink(url: string): DeepLinkResult {
-  console.log('[DeepLinkHandler] Processing potential invite deep link:', url);
-
-  const { params, path } = parseDeepLink(url);
-
-  // Check if this is a notifications/invite deep link
-  if (path.includes('notifications')) {
-    console.log(
-      '[DeepLinkHandler] Invite deep link detected, navigating to notifications'
-    );
-
-    return {
-      handled: true,
-      type: 'invite',
-      navigateTo: '/notifications',
-      params
-    };
-  }
-
-  // Check for custom scheme deep links (langquest://notifications)
-  if (url.includes('://notifications')) {
-    console.log('[DeepLinkHandler] Custom scheme notifications link detected');
-
-    return {
-      handled: true,
-      type: 'invite',
-      navigateTo: '/notifications',
-      params
-    };
-  }
-
-  return { handled: false };
 }

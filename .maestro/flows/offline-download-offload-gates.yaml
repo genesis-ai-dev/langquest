@@ -1,0 +1,145 @@
+appId: ${MAESTRO_APP_ID}
+onFlowStart:
+  - runScript: ../api.js
+onFlowComplete:
+  - runFlow: _recover-after-airplane.yaml
+---
+# Download control is disabled for cloud-only quests while offline. After a
+# download, tapping it offline opens the undownload warning; cancel leaves
+# the quest downloaded, confirm offloads. Android only.
+- evalScript: ${output.ownerEmail = output.api.uniqueEmail("offgateowner")}
+- evalScript: ${output.ownerPassword = output.api.uniquePassword("offgateowner")}
+- evalScript: ${output.projectName = "maestro-offgate-" + Date.now()}
+- evalScript: ${output.questName = "maestro-offgate-q-" + Date.now()}
+- evalScript: ${output.assetName = "maestro-offgate-a-" + Date.now()}
+- evalScript: ${output.skipSignInCleanup = true}
+- evalScript: ${output.api.createConfirmedUser(output.ownerEmail, output.ownerPassword)}
+- evalScript: ${output.api.seedProject(output.projectName, output.ownerEmail, false)}
+- evalScript: ${output.api.seedQuest(output.projectName, output.questName, output.ownerEmail, true)}
+- evalScript: ${output.api.seedSourceAsset(output.projectName, output.questName, output.ownerEmail, output.assetName, "Gate source")}
+- runFlow: _start-signed-in.yaml
+- tapOn:
+    id: projects-tab-all
+- tapOn:
+    id: projects-search
+- inputText: ${output.projectName}
+- runFlow: _hide-keyboard.yaml
+- extendedWaitUntil:
+    visible: ${output.projectName}
+    timeout: 45000
+- tapOn:
+    text: ${output.projectName}
+    below:
+      id: projects-search
+- extendedWaitUntil:
+    visible:
+      id: quest-download
+    timeout: 45000
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - setAirplaneMode: enabled
+      - extendedWaitUntil:
+          visible:
+            id: quest-download
+            enabled: false
+          timeout: 15000
+      - setAirplaneMode: disabled
+      - extendedWaitUntil:
+          visible:
+            id: quest-download
+            enabled: true
+          timeout: 30000
+- tapOn:
+    id: quest-download
+- extendedWaitUntil:
+    visible: Continue to Download
+    timeout: 45000
+- tapOn:
+    id: quest-download-continue
+- extendedWaitUntil:
+    visible:
+      id: quest-download-confirm
+    timeout: 20000
+- tapOn:
+    id: quest-download-confirm
+- evalScript: ${output.api.waitForQuestDownload(output.questName, output.signInEmail, true)}
+- extendedWaitUntil:
+    notVisible:
+      id: quest-download-confirm
+    timeout: 15000
+- extendedWaitUntil:
+    notVisible:
+      id: quest-download-continue
+    timeout: 15000
+- tapOn:
+    id: quest-list-item
+- runFlow:
+    when:
+      visible:
+        id: quest-list-item
+      notVisible:
+        id: assets-refresh-button
+    commands:
+      - tapOn:
+          id: quest-list-item
+- extendedWaitUntil:
+    visible:
+      id: assets-refresh-button
+    timeout: 45000
+- tapOn:
+    id: nav-back
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: quest-download
+    timeout: 20000
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - setAirplaneMode: enabled
+      - tapOn:
+          id: quest-download
+          waitToSettleTimeoutMs: 0
+      - extendedWaitUntil:
+          visible:
+            id: offline-undownload-warning
+          timeout: 15000
+      - tapOn:
+          id: offline-undownload-cancel
+          waitToSettleTimeoutMs: 0
+      - extendedWaitUntil:
+          notVisible:
+            id: offline-undownload-warning
+          timeout: 10000
+      - tapOn:
+          id: quest-download
+          waitToSettleTimeoutMs: 0
+      - extendedWaitUntil:
+          visible:
+            id: offline-undownload-confirm
+          timeout: 15000
+      - tapOn:
+          id: offline-undownload-confirm
+          waitToSettleTimeoutMs: 0
+      # Drawer can open offline. Cloud verification waits for radios.
+      - extendedWaitUntil:
+          visible: Offload Quest
+          timeout: 15000
+      - setAirplaneMode: disabled
+      - extendedWaitUntil:
+          visible: Ready to offload
+          timeout: 45000
+      - scrollUntilVisible:
+          element:
+            id: quest-offload-continue
+          direction: DOWN
+          timeout: 20000
+      - tapOn:
+          id: quest-offload-continue
+      - evalScript: ${output.api.waitForQuestDownload(output.questName, output.signInEmail, false)}
+- evalScript: ${output.api.deleteProject(output.projectName)}
+- evalScript: ${output.api.deleteUserIfExists(output.signInEmail)}
+- evalScript: ${output.api.deleteUserIfExists(output.ownerEmail)}

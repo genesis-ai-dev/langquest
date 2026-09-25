@@ -1,0 +1,13 @@
+appId: ${MAESTRO_APP_ID}
+---
+# Confirm restore from the alert. The overlay button is Restore Account;
+# the alert action is Confirm restore so the two cannot share a hit target.
+- extendedWaitUntil:
+    visible: Restore Account?
+    timeout: 5000
+- tapOn:
+    text: Confirm restore
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    notVisible: Restore Account?
+    timeout: 10000

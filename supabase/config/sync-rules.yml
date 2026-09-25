@@ -29,12 +29,19 @@ bucket_definitions:
 
       # Co-member profiles are synced via the co_member_profiles sync stream
       - SELECT * FROM "project" WHERE bucket.profile_id in download_profiles
-      - SELECT * FROM "quest" WHERE bucket.profile_id in download_profiles
+      # Published quests, plus the user's own drafts. Split into two disjoint
+      # queries because a data query cannot OR a non-parameter condition
+      # (published_at) against a bucket-parameter one (creator_id).
+      - SELECT * FROM "quest" WHERE bucket.profile_id in download_profiles AND published_at IS NOT NULL
+      - SELECT * FROM "quest" WHERE bucket.profile_id in download_profiles AND published_at IS NULL AND creator_id = bucket.profile_id
       - SELECT * FROM "asset" WHERE bucket.profile_id in download_profiles
       - SELECT * FROM "asset_content_link" WHERE bucket.profile_id in download_profiles
       - SELECT project_id || '_' || languoid_id as id, * FROM "project_language_link" WHERE bucket.profile_id in download_profiles
       - SELECT asset_id || '_' || tag_id as id, * FROM "asset_tag_link" WHERE bucket.profile_id in download_profiles
       - SELECT * FROM "language" WHERE bucket.profile_id in download_profiles
+      # Data queries cannot join or subquery the parent quest, so rows under an
+      # unpublished quest stay private via download_profiles: a draft is only
+      # stamped with its creator, and other users cannot download it.
       - SELECT quest_id || '_' || asset_id as id, * FROM "quest_asset_link" WHERE bucket.profile_id in download_profiles
       - SELECT quest_id || '_' || tag_id as id, * FROM "quest_tag_link" WHERE bucket.profile_id in download_profiles
       - SELECT * FROM "tag" WHERE bucket.profile_id in download_profiles

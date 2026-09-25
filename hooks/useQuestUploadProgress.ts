@@ -1,9 +1,9 @@
 import {
-  asset_content_link_synced,
-  asset_synced,
-  quest_asset_link_synced,
-  quest_synced
-} from '@/db/drizzleSchemaSynced';
+  asset,
+  asset_content_link,
+  quest,
+  quest_asset_link
+} from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { eq, inArray, sql } from 'drizzle-orm';
 import React from 'react';
@@ -27,7 +27,7 @@ export interface QuestUploadBreakdown {
 }
 
 export interface QuestUploadProgress {
-  /** Total published records being tracked (quest, links, assets, content). */
+  /** Total records being tracked (quest, links, assets, content). */
   totalRecords: number;
   /** Records the server has confirmed via uploaded_at. */
   confirmedRecords: number;
@@ -39,11 +39,11 @@ export interface QuestUploadProgress {
   percent: number;
   /** Per-table breakdown for the details drawer. */
   breakdown: QuestUploadBreakdown;
-  /** True once there is something published and everything is confirmed. */
+  /** True once there is something to track and everything is confirmed. */
   isComplete: boolean;
   /** True while at least one record or audio file is still unconfirmed. */
   isPending: boolean;
-  /** True when nothing has been published for this quest yet. */
+  /** True when the quest has no records to track yet. */
   isEmpty: boolean;
 }
 
@@ -137,18 +137,21 @@ function toProgress(
 }
 
 /**
- * Live upload-confirmation progress for a published quest.
+ * Live upload-confirmation progress for a quest, draft or published.
  *
- * Counts the quest's synced spline records (confirmed via uploaded_at) and its
+ * Counts the quest's spline records (confirmed via uploaded_at) and its
  * audio files (confirmed via audio_uploaded_at) and returns a combined percent
  * plus a per-table breakdown. Both signals are stamped server-side and synced
- * back down, so watching the local SQLite *_synced tables reflects real server
- * confirmation, not just the optimistic "queued" state at publish time.
+ * back down, so watching these rows in local SQLite reflects real server
+ * confirmation, not just the optimistic "queued" state.
  *
  * Only the spline tables that carry uploaded_at are counted (quest,
  * quest_asset_link, asset, asset_content_link). Tag-link tables have no
- * uploaded_at column. Published records live in the *_synced tables, which is
- * exactly what an upload flushes.
+ * uploaded_at column.
+ *
+ * Drafts and published quests share the same tables and are counted the same
+ * way: draft rows sync and draft audio uploads at record time, so the percent
+ * is a backup indicator independent of `published_at`.
  */
 export function useQuestUploadProgress(
   questId: string | null | undefined
@@ -168,45 +171,45 @@ export function useQuestUploadProgress(
     const questCounts = system.db
       .select({
         total: sql<number>`count(*)`,
-        confirmed: sql<number>`count(*) filter (where ${quest_synced.uploaded_at} is not null)`
+        confirmed: sql<number>`count(*) filter (where ${quest.uploaded_at} is not null)`
       })
-      .from(quest_synced)
-      .where(eq(quest_synced.id, questId));
+      .from(quest)
+      .where(eq(quest.id, questId));
 
     const qalCounts = system.db
       .select({
         total: sql<number>`count(*)`,
-        confirmed: sql<number>`count(*) filter (where ${quest_asset_link_synced.uploaded_at} is not null)`
+        confirmed: sql<number>`count(*) filter (where ${quest_asset_link.uploaded_at} is not null)`
       })
-      .from(quest_asset_link_synced)
-      .where(eq(quest_asset_link_synced.quest_id, questId));
+      .from(quest_asset_link)
+      .where(eq(quest_asset_link.quest_id, questId));
 
     const questAssetIds = system.db
-      .select({ asset_id: quest_asset_link_synced.asset_id })
-      .from(quest_asset_link_synced)
-      .where(eq(quest_asset_link_synced.quest_id, questId));
+      .select({ asset_id: quest_asset_link.asset_id })
+      .from(quest_asset_link)
+      .where(eq(quest_asset_link.quest_id, questId));
 
     const assetCounts = system.db
       .select({
         total: sql<number>`count(*)`,
-        confirmed: sql<number>`count(*) filter (where ${asset_synced.uploaded_at} is not null)`
+        confirmed: sql<number>`count(*) filter (where ${asset.uploaded_at} is not null)`
       })
-      .from(asset_synced)
-      .where(inArray(asset_synced.id, questAssetIds));
+      .from(asset)
+      .where(inArray(asset.id, questAssetIds));
 
     // audio is JSON-as-text in SQLite; '' / '[]' mean "no audio referenced".
-    const hasAudio = sql`${asset_content_link_synced.audio} is not null
-      and ${asset_content_link_synced.audio} != '[]'
-      and ${asset_content_link_synced.audio} != ''`;
+    const hasAudio = sql`${asset_content_link.audio} is not null
+      and ${asset_content_link.audio} != '[]'
+      and ${asset_content_link.audio} != ''`;
     const aclCounts = system.db
       .select({
         total: sql<number>`count(*)`,
-        confirmed: sql<number>`count(*) filter (where ${asset_content_link_synced.uploaded_at} is not null)`,
+        confirmed: sql<number>`count(*) filter (where ${asset_content_link.uploaded_at} is not null)`,
         audio_total: sql<number>`count(*) filter (where ${hasAudio})`,
-        audio_confirmed: sql<number>`count(*) filter (where ${hasAudio} and ${asset_content_link_synced.audio_uploaded_at} is not null)`
+        audio_confirmed: sql<number>`count(*) filter (where ${hasAudio} and ${asset_content_link.audio_uploaded_at} is not null)`
       })
-      .from(asset_content_link_synced)
-      .where(inArray(asset_content_link_synced.asset_id, questAssetIds));
+      .from(asset_content_link)
+      .where(inArray(asset_content_link.asset_id, questAssetIds));
 
     // Hold partial results and only publish once every watch has reported, so
     // consumers never see a mix of fresh and missing categories.
@@ -220,6 +223,9 @@ export function useQuestUploadProgress(
     const publish = () => {
       if (abortController.signal.aborted) return;
       if (!rows.quest || !rows.qal || !rows.asset || !rows.acl) return;
+      // Drafts count too: their rows sync (uploaded_at) and their audio
+      // uploads as soon as it is recorded (audio_uploaded_at), so the percent
+      // is a real backup indicator before the user ever publishes.
       setProgress(toProgress(rows.quest, rows.qal, rows.asset, rows.acl));
     };
 

@@ -1,0 +1,54 @@
+appId: ${MAESTRO_APP_ID}
+onFlowStart:
+  - runScript: ../api.js
+---
+# Unique user deletes their account from Profile. Verify active=false.
+- evalScript: ${output.skipSignInCleanup = true}
+- runFlow: _start-signed-in.yaml
+- runFlow: _open-app-drawer.yaml
+- tapOn:
+    id: drawer-profile
+    waitToSettleTimeoutMs: 0
+- scrollUntilVisible:
+    element: Advanced
+    direction: DOWN
+- tapOn: Advanced
+- scrollUntilVisible:
+    element: Delete Account
+    direction: DOWN
+- tapOn: Delete Account
+- extendedWaitUntil:
+    visible: Continue
+    timeout: 15000
+- tapOn: Continue
+- tapOn:
+    id: account-deletion-confirm
+- extendedWaitUntil:
+    visible: 'Are you absolutely sure.*'
+    timeout: 5000
+# Android AlertDialog uppercases the destructive button. iOS stacks
+# Delete Account above Cancel; a bare Delete Account tap hits the page
+# button and leaves the alert up.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - tapOn: DELETE ACCOUNT
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn:
+          text: Delete Account
+          above: Cancel
+          waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible: Done
+    timeout: 45000
+- tapOn: Done
+- evalScript: ${output.api.waitForProfileActive(output.signInEmail, false)}
+- extendedWaitUntil:
+    visible:
+      id: home-sign-in
+    timeout: 30000
+- evalScript: ${output.api.deleteUserIfExists(output.signInEmail)}

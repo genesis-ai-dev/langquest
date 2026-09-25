@@ -26,9 +26,9 @@ export function BibleBookList({
   onBookSelect,
   existingBookIds,
   canCreateNew = false,
-  onCloudLoadingChange
+  onCloudLoadingChange: _onCloudLoadingChange
 }: BibleBookListProps) {
-  const { t } = useLocalization();
+  const { t: _t } = useLocalization();
   const getBookName = useBibleBookNameGetter();
   const primaryColor = useThemeColor('primary');
   const secondaryColor = useThemeColor('chart-2');
@@ -77,6 +77,8 @@ export function BibleBookList({
         )}
         onPress={() => onBookSelect(book.id)}
         disabled={isDisabled}
+        testID={`bible-book-${book.id}`}
+        accessibilityLabel={`bible-book-${book.id}`}
       >
         <Image
           source={iconSource}
@@ -131,53 +133,6 @@ export function BibleBookList({
           <View style={{ width: availableWidth, paddingVertical: 16 }}>
             <Skeleton style={{ width: 200, height: 24 }} />
           </View>
-        )}
-      />
-    </View>
-  );
-}
-
-export function BibleBookListSkeleton() {
-  const screenWidth = Dimensions.get('window').width;
-  const buttonWidth = 110;
-  const gap = 12;
-  const padding = 16;
-  const availableWidth = screenWidth - padding * 2;
-  const buttonsPerRow = Math.max(
-    2,
-    Math.floor((availableWidth + gap) / (buttonWidth + gap))
-  );
-
-  // Create skeleton items (39 OT + 27 NT = 66 books)
-  const skeletonBooks = Array.from({ length: 66 }, (_, i) => ({
-    id: `skeleton-${i}`,
-    testament: i < 39 ? ('old' as const) : ('new' as const)
-  }));
-
-  return (
-    <View className="flex-1">
-      {/* Header skeleton matching actual book list header */}
-      <View className="flex-row items-center justify-start gap-3 p-4">
-        <Skeleton className="rounded-lg" style={{ width: 48, height: 48 }} />
-        <Skeleton className="rounded-lg" style={{ width: 200, height: 32 }} />
-      </View>
-
-      <LegendList
-        data={skeletonBooks}
-        keyExtractor={(item) => item.id}
-        numColumns={buttonsPerRow}
-        estimatedItemSize={140}
-        columnWrapperStyle={{ gap: gap }}
-        contentContainerStyle={{
-          paddingHorizontal: padding
-        }}
-        bottomExtra={24}
-        recycleItems
-        renderItem={() => (
-          <Skeleton
-            className="rounded-lg"
-            style={{ width: buttonWidth, height: 140 }}
-          />
         )}
       />
     </View>

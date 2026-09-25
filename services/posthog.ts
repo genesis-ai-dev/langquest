@@ -2,7 +2,8 @@ import { useLocalStore } from '@/store/localStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Device from 'expo-device';
 import * as Updates from 'expo-updates';
-import PostHog, { PostHogOptions } from 'posthog-react-native';
+import type { PostHogOptions } from 'posthog-react-native';
+import PostHog from 'posthog-react-native';
 
 function isPostHogDisabled() {
   return (
@@ -40,7 +41,7 @@ const createPostHogInstance = (optIn = false) => {
 // Initialize PostHog with basic settings immediately (no circular dependency)
 const posthog = createPostHogInstance();
 
-let pendingPostHogUserId: string | null = null;
+const pendingPostHogUserId: string | null = null;
 let lastIdentifiedPostHogUserId: string | null = null;
 
 function getAnalyticsOptIn() {

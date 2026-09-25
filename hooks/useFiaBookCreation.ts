@@ -10,9 +10,9 @@ import type { QuestMetadata } from '@/db/drizzleSchemaColumns';
 import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
 import { resolveTable } from '@/utils/dbUtils';
-import { useHybridData } from '@/views/new/useHybridData';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 
 interface CreateBookParams {
@@ -30,7 +30,6 @@ interface BookQuest {
 
 export function useFiaBookCreation() {
   const { currentUser } = useAuth();
-  const queryClient = useQueryClient();
   const { t } = useLocalization();
 
   const { mutateAsync: findOrCreateBook, isPending } = useMutation({
@@ -44,14 +43,16 @@ export function useFiaBookCreation() {
       return await system.db.transaction(async (tx) => {
         // Check if book quest already exists via FIA metadata
         const booksWithMetadata = await tx.run(
-          sql.raw(`
+          sql`
             SELECT id, name, project_id, metadata
             FROM quest
-            WHERE REPLACE(project_id, '-', '') = REPLACE('${projectId}', '-', '')
+            WHERE REPLACE(project_id, '-', '') = REPLACE(${projectId}, '-', '')
               AND parent_id IS NULL
-              AND json_extract(metadata, '$.fia.bookId') = '${bookId}'
+              AND json_extract(json(metadata), '$.fia.bookId') = ${bookId}
+            ORDER BY CASE WHEN published_at IS NULL THEN 0 ELSE 1 END,
+                     created_at DESC
             LIMIT 1
-          `)
+          `
         );
 
         if (
@@ -116,7 +117,8 @@ export function useFiaBookCreation() {
             parent_id: null,
             creator_id: currentUser.id,
             download_profiles: [currentUser.id],
-            metadata
+            metadata,
+            published_at: null
           })
           .returning();
 
@@ -129,11 +131,6 @@ export function useFiaBookCreation() {
           name: newBook.name,
           project_id: newBook.project_id
         };
-      });
-    },
-    onSuccess: (result) => {
-      void queryClient.invalidateQueries({
-        queryKey: ['fia-book-quests', result.project_id]
       });
     }
   });
@@ -161,9 +158,8 @@ export function useFiaBookQuests(projectId: string) {
       )
     );
 
-  const { data: books = [], ...rest } = useHybridData({
-    dataType: 'fia-book-quests',
-    queryKeyParams: [projectId],
+  const { data: books = [], ...rest } = useHybridQuery({
+    queryKey: ['fia-book-quests', projectId],
     offlineQuery: toCompilableQuery(offlineQueryBuilder),
     cloudQueryFn: async () => {
       const { data, error } = await system.supabaseConnector.client

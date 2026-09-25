@@ -1,5 +1,5 @@
 import { Text } from '@/components/ui/text';
-import type { asset_content_link, language } from '@/db/drizzleSchema';
+import type { asset_content_link } from '@/db/drizzleSchema';
 import { useLocalization } from '@/hooks/useLocalization';
 import { getThemeColor } from '@/utils/styleUtils';
 import { ActivityIndicator, ScrollView, View } from 'react-native';
@@ -7,48 +7,43 @@ import MiniAudioPlayer from './MiniAudioPlayer';
 
 interface SourceContentProps {
   content: typeof asset_content_link.$inferSelect;
-  sourceLanguage: typeof language.$inferSelect | null;
   audioSegments?: string[] | null;
   isLoading?: boolean;
   onTranscribe?: (uri: string) => void;
   isTranscribing?: boolean;
+  showText?: boolean;
+  maxTextHeight?: number;
 }
 
 export const SourceContent: React.FC<SourceContentProps> = ({
   content,
-  sourceLanguage,
   audioSegments,
   isLoading = false,
   onTranscribe,
-  isTranscribing = false
+  isTranscribing = false,
+  showText = true,
+  maxTextHeight
 }) => {
   const { t } = useLocalization();
 
   return (
-    <View className="flex h-[200px] flex-col items-center gap-2 rounded bg-muted p-3">
-      {/* Language name header */}
-      {sourceLanguage && (
-        <Text className="text-sm font-semibold text-muted-foreground">
-          {sourceLanguage?.native_name || sourceLanguage?.english_name}
-        </Text>
-      )}
-
-      {/* Text content - scrollable */}
-      <View className="w-full flex-1 rounded bg-primary-foreground p-3">
+    <View className="w-full gap-2 rounded bg-muted p-3">
+      {showText && content.text ? (
         <ScrollView
-          showsVerticalScrollIndicator={true}
-          contentContainerStyle={{ flexGrow: 1 }}
+          className="rounded bg-primary-foreground"
+          style={{ maxHeight: maxTextHeight }}
+          contentContainerStyle={{ padding: 12 }}
+          showsVerticalScrollIndicator
         >
           <Text className="text-base leading-relaxed text-foreground">
             {content.text}
           </Text>
         </ScrollView>
-      </View>
+      ) : null}
 
-      {/* Audio player */}
-      {(content.audio && audioSegments) || (content.audio && isLoading) ? (
+      {audioSegments?.length || (content.audio?.length && isLoading) ? (
         <View className="w-full items-center justify-center">
-          {audioSegments ? (
+          {audioSegments?.length ? (
             <MiniAudioPlayer
               audioSegments={audioSegments}
               id={content.id}

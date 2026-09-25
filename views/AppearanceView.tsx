@@ -24,14 +24,13 @@ import { Switch } from '@/components/ui/switch';
 import { Text } from '@/components/ui/text';
 import { clearPin, hasPin, setPin } from '@/features/appearance/guard';
 import { ICON_PREVIEWS } from '@/features/appearance/iconAssets';
-import { applyTheme } from '@/features/appearance/iconTheme';
 import { normalizeKeypadInput } from '@/features/appearance/matchSequence';
 import {
   getFamilyLabel,
   getThemeProfile,
-  getThemeProfiles,
-  type ThemeFamily
+  getThemeProfiles
 } from '@/features/appearance/profiles.data';
+import type { ThemeFamily } from '@/features/appearance/profiles.data';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
 import { cn } from '@/utils/styleUtils';
@@ -47,9 +46,10 @@ interface IconTileProps {
   selected: boolean;
   source: ImageSourcePropType;
   onPress: () => void;
+  testID?: string;
 }
 
-function IconTile({ selected, source, onPress }: IconTileProps) {
+function IconTile({ selected, source, onPress, testID }: IconTileProps) {
   return (
     <Button
       variant="plain"
@@ -59,6 +59,7 @@ function IconTile({ selected, source, onPress }: IconTileProps) {
         selected ? 'border-primary' : 'border-transparent'
       )}
       onPress={onPress}
+      testID={selected && testID ? `${testID}-selected` : testID}
     >
       <Image
         source={source}
@@ -110,15 +111,13 @@ export default function AppearanceView() {
   }, []);
 
   const applySelection = useCallback(
-    async (pending: PendingTheme) => {
+    (pending: PendingTheme) => {
       if (pending.kind === 'default') {
         setAppearanceThemeId(null);
-        await applyTheme(null);
         return;
       }
       setAppearanceThemeId(pending.id);
       setEntryGuardMode(pending.family);
-      await applyTheme(pending.id);
     },
     [setAppearanceThemeId, setEntryGuardMode]
   );
@@ -127,7 +126,7 @@ export default function AppearanceView() {
     if (!pendingTheme) return;
     const next = pendingTheme;
     setPendingTheme(null);
-    void applySelection(next);
+    applySelection(next);
   }, [applySelection, pendingTheme]);
 
   const handleCancelTheme = useCallback(() => {
@@ -223,7 +222,9 @@ export default function AppearanceView() {
       >
         <View className="gap-6">
           <View className="gap-1">
-            <Text className="text-2xl font-bold">{t('appIconTheme')}</Text>
+            <Text className="text-2xl font-bold" testID="appearance-screen">
+              {t('appIconTheme')}
+            </Text>
             <Text className="text-muted-foreground">
               {t('appIconThemeDescription')}
             </Text>
@@ -233,16 +234,22 @@ export default function AppearanceView() {
             <IconTile
               selected={appearanceThemeId === null}
               source={DEFAULT_ICON_PREVIEW}
+              testID="appearance-theme-default"
               onPress={() => {
                 if (appearanceThemeId === null) return;
                 setPendingTheme({ kind: 'default' });
               }}
             />
-            {profiles.map((profile) => (
+            {profiles.map((profile, index) => (
               <IconTile
                 key={profile.id}
                 selected={profile.id === appearanceThemeId}
                 source={ICON_PREVIEWS[profile.id] ?? DEFAULT_ICON_PREVIEW}
+                testID={
+                  index === 0
+                    ? 'appearance-theme-first'
+                    : `appearance-theme-${profile.id}`
+                }
                 onPress={() => {
                   if (profile.id === appearanceThemeId) return;
                   setPendingTheme({
@@ -364,10 +371,17 @@ export default function AppearanceView() {
           </View>
 
           <DrawerFooter className="flex-row justify-end gap-2">
-            <Button variant="outline" onPress={handleCancelTheme}>
+            <Button
+              variant="outline"
+              onPress={handleCancelTheme}
+              testID="appearance-theme-cancel"
+            >
               <Text>{t('cancel')}</Text>
             </Button>
-            <Button onPress={handleConfirmTheme}>
+            <Button
+              onPress={handleConfirmTheme}
+              testID="appearance-theme-confirm"
+            >
               <Text>{t('ok')}</Text>
             </Button>
           </DrawerFooter>

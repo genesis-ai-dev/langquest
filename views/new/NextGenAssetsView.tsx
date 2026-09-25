@@ -37,6 +37,7 @@ import RNAlert from '@blazejkustra/react-native-alert';
 import { LegendList } from '@/components/ui/legend-list';
 import { useKeepAwake } from 'expo-keep-awake';
 import { Stack } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   ArrowBigDownDashIcon,
   ChevronRight,
@@ -68,19 +69,21 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { toast } from 'sonner-native';
-import type { HybridDataSource } from './useHybridData';
-import { useHybridData } from './useHybridData';
+import type { HybridDataSource } from '@/hooks/useHybridQuery';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
 
 import { AssetListSkeleton } from '@/components/AssetListSkeleton';
 import { ExportButton } from '@/components/ExportButton';
 import { ModalDetails } from '@/components/ModalDetails';
+import { QuestDownloadButton } from '@/components/QuestDownloadButton';
 import { ReportModal } from '@/components/NewReportModal';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { PublishQuestButton } from '@/components/PublishQuestButton';
 import { QuestSyncedBadge } from '@/components/QuestSyncedBadge';
-import { QuestOffloadVerificationDrawer } from '@/components/QuestOffloadVerificationDrawer';
-import { run as runAssetGarbageCollector } from '@/database_services/assetGarbageCollectorService';
+import { useCollectAssetsOnBlur } from '@/hooks/useCollectAssetsOnBlur';
 import {
+  getMaxQuestOrderIndex,
+  getQuestAssetOrderIndex,
   renameAsset,
   softDeleteAssetsFromQuest,
   softMergeAssetsInQuest
@@ -89,6 +92,7 @@ import {
   redo as redoAssetOperation,
   undo as undoAssetOperation
 } from '@/database_services/assetUndoService';
+import { whenAssetWritesIdle } from '@/database_services/assetWriteQueue';
 import {
   createQuestRecordingSession,
   getEffectiveLastRecordingSessionId
@@ -98,22 +102,20 @@ import type {
   AssetOperationTypes
 } from '@/database_services/types';
 // import { audioSegmentService } from '@/database_services/audioSegmentService';
-import { AppConfig } from '@/db/supabase/AppConfig';
 import { useAssetsByQuest } from '@/hooks/db/useAssets';
 import { useBlockedAssetsCount } from '@/hooks/useBlockedCount';
-import { useQuestOffloadVerification } from '@/hooks/useQuestOffloadVerification';
+import { useQuestDownloadFlow } from '@/hooks/useQuestDownloadFlow';
 import { useHasUserReported } from '@/hooks/useReports';
 import { useUndoHistory } from '@/hooks/useUndoHistory';
-import { resolveTable } from '@/utils/dbUtils';
-import {
-  isLocalOnlyAudio,
-  resolveExistingAudioUri
-} from '@/utils/attachmentPaths';
+import { getAssetAudioUris as getPlayableAssetAudioUris } from '@/utils/getAssetAudioUris';
 import { publishQuest as publishQuestUtils } from '@/utils/publishQuest';
-import { offloadQuest } from '@/utils/questOffloadUtils';
+import { resolveQuestDownloadAction } from '@/utils/questDownloadGate';
 import { getThemeColor } from '@/utils/styleUtils';
+import {
+  invalidateCloud,
+  invalidateOfflineChapterLists
+} from '@/hooks/hybridCache';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { useFocusEffect } from '@react-navigation/native';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { eq } from 'drizzle-orm';
 import { AssetCardItem } from './AssetCardItem';
@@ -126,6 +128,7 @@ type AssetQuestLink = Asset & {
   quest_active: boolean;
   quest_visible: boolean;
   tag_ids?: string[] | undefined;
+  source?: HybridDataSource;
 };
 
 const ENABLE_ASSET_LIST_TRANSITIONS = true;
@@ -139,7 +142,7 @@ function KeepAwakeGuard() {
 }
 
 export default function NextGenAssetsView() {
-  const { questId, projectId, router, goToRecording } = useNavigationHelpers();
+  const { questId, projectId, goToRecording } = useNavigationHelpers();
   const { currentUser } = useAuth();
   const audioContext = useAudio();
   const queryClient = useQueryClient();
@@ -178,13 +181,11 @@ export default function NextGenAssetsView() {
   const [showDetailsModal, setShowDetailsModal] = React.useState(false);
   const [showSettingsModal, setShowSettingsModal] = React.useState(false);
   const [showReportModal, setShowReportModal] = React.useState(false);
-  const [showOffloadDrawer, setShowOffloadDrawer] = React.useState(false);
   const [showRenameDrawer, setShowRenameDrawer] = React.useState(false);
   const [renameAssetId, setRenameAssetId] = React.useState<string | null>(null);
   const [renameAssetName, setRenameAssetName] = React.useState('');
   const [showPrivateAccessModal, setShowPrivateAccessModal] =
     React.useState(false);
-  const [isOffloading, setIsOffloading] = React.useState(false);
   const [isRefreshing, setIsRefreshing] = React.useState(false);
   // Track which asset is currently playing during play-all
   const [currentlyPlayingAssetId, setCurrentlyPlayingAssetId] = React.useState<
@@ -287,9 +288,8 @@ export default function NextGenAssetsView() {
   type Quest = typeof questTable.$inferSelect;
 
   // Use passed quest data if available (instant!), otherwise query
-  const { data: queriedQuestData, refetch: refetchQuest } = useHybridData({
-    dataType: 'current-quest',
-    queryKeyParams: [questId],
+  const { data: queriedQuestData } = useHybridQuery({
+    queryKey: ['current-quest', questId],
     offlineQuery: toCompilableQuery(
       system.db.query.quest.findFirst({
         where: eq(questTable.id, questId!)
@@ -328,14 +328,8 @@ export default function NextGenAssetsView() {
     [selectedQuest?.metadata, activeRecordingSessionId]
   );
 
-  useFocusEffect(
-    React.useCallback(() => {
-      void refetchQuest();
-    }, [refetchQuest])
-  );
-
   // Check if quest is published (source is 'synced') - computed early for use in callbacks
-  const isPublished = selectedQuest?.source === 'synced';
+  const isPublished = selectedQuest?.published_at != null;
 
   // Handle selection behavior:
   // - Published: single selection for playAll start point
@@ -370,9 +364,8 @@ export default function NextGenAssetsView() {
   );
 
   // Query project data to get privacy status if not passed
-  const { data: queriedProjectData } = useHybridData({
-    dataType: 'project-privacy-assets',
-    queryKeyParams: [projectId],
+  const { data: queriedProjectData } = useHybridQuery({
+    queryKey: ['project-privacy-assets', projectId],
     offlineQuery: toCompilableQuery(
       system.db.query.project.findFirst({
         where: eq(project.id, projectId!),
@@ -412,11 +405,12 @@ export default function NextGenAssetsView() {
   // User can see published badge if they are creator, member, or owner
   const canSeePublishedBadge = isCreator || isMember;
 
-  // Initialize offload verification hook
-  const verificationState = useQuestOffloadVerification(questId || '');
+  const questDownloadFlow = useQuestDownloadFlow(projectId || '');
 
   // Query SQLite directly - single source of truth, no cache, no race conditions
-  const isQuestDownloaded = useQuestDownloadStatusLive(questId || null);
+  const isQuestDownloaded =
+    useQuestDownloadStatusLive(questId || null) ||
+    questDownloadFlow.downloadedQuestIds.has(questId || '');
 
   // Clean deeper layers
   const currentStatus = useStatusContext();
@@ -451,14 +445,18 @@ export default function NextGenAssetsView() {
         assetMap.set(asset.id, asset);
       } else {
         // Prefer synced over local
-        if (asset.source === 'synced' && existing.source !== 'synced') {
+        if (asset.source !== 'cloud' && existing.source === 'cloud') {
           assetMap.set(asset.id, asset);
         }
       }
     }
 
-    return Array.from(assetMap.values());
-  }, [data.pages]);
+    return Array.from(assetMap.values()).filter((item) => {
+      const term = searchQuery.trim().toLowerCase();
+      if (!term) return true;
+      return (item.name ?? '').toLowerCase().includes(term);
+    });
+  }, [data.pages, searchQuery]);
 
   const selectedAssetForRecording = React.useMemo(() => {
     const selectedAssetId = Array.from(selectedAssetIds)[0];
@@ -469,16 +467,7 @@ export default function NextGenAssetsView() {
 
   const blockedCount = useBlockedAssetsCount(questId || '');
 
-  const handleAssetUpdate = React.useCallback(async () => {
-    // await queryClient.invalidateQueries({
-    //   // queryKey: ['assets', 'by-quest', questId],
-    //   queryKey: ['by-quest', questId],
-    //   exact: false
-    // });
-    await queryClient.invalidateQueries({
-      queryKey: ['assets']
-    });
-  }, [queryClient]);
+  const handleAssetUpdate = React.useCallback(async () => {}, []);
 
   const handleRenameAsset = React.useCallback(
     (assetId: string, currentName: string | null) => {
@@ -521,8 +510,7 @@ export default function NextGenAssetsView() {
         }
 
         cancelSelection();
-        void queryClient.invalidateQueries({ queryKey: ['assets'] });
-        void refetch();
+        void invalidateCloud(queryClient, 'assets');
       } catch (e) {
         console.error('Failed to batch delete assets', e);
         RNAlert.alert(t('error'), 'Failed to delete assets. Please try again.');
@@ -561,7 +549,6 @@ export default function NextGenAssetsView() {
     pushUndoHistory,
     queryClient,
     questId,
-    refetch,
     selectedAssetIds,
     t
   ]);
@@ -591,12 +578,6 @@ export default function NextGenAssetsView() {
           clearUndoHistory();
         }
 
-        const previousData = selectedAssets.map((asset) => ({
-          id: asset.id,
-          name: asset.name ?? null,
-          order_index: asset.order_index
-        }));
-
         const merged = await softMergeAssetsInQuest({
           questId,
           assetsToMerge: selectedAssets.map((asset) => ({
@@ -612,21 +593,13 @@ export default function NextGenAssetsView() {
           pushUndoHistory({
             domain: 'asset',
             action: 'merge',
-            previousData,
-            newData: [
-              {
-                id: merged.newAssetId,
-                name: merged.newAssetName,
-                order_index: merged.orderIndex
-              }
-            ],
+            previousData: merged.previousData,
+            newData: merged.newData,
             canUndo: true
           });
         }
 
         cancelSelection();
-        void queryClient.invalidateQueries({ queryKey: ['assets'] });
-        void refetch();
       } catch (e) {
         console.error('Failed to batch merge assets', e);
         RNAlert.alert(t('error'), 'Failed to merge assets. Please try again.');
@@ -666,10 +639,8 @@ export default function NextGenAssetsView() {
     clearUndoHistory,
     projectId,
     pushUndoHistory,
-    queryClient,
     questId,
-    t,
-    refetch
+    t
   ]);
 
   const handleSaveRename = React.useCallback(
@@ -685,8 +656,6 @@ export default function NextGenAssetsView() {
           newData: [{ id: renameAssetId, name: newName }],
           canUndo: true
         });
-        void queryClient.invalidateQueries({ queryKey: ['assets'] });
-        void refetch();
       } catch (error) {
         console.error('❌ Failed to rename asset:', error);
         if (error instanceof Error) {
@@ -695,7 +664,7 @@ export default function NextGenAssetsView() {
         }
       }
     },
-    [renameAssetId, renameAssetName, pushUndoHistory, queryClient, refetch, t]
+    [renameAssetId, renameAssetName, pushUndoHistory, t]
   );
 
   const handleUndoAction = React.useCallback(() => {
@@ -713,22 +682,12 @@ export default function NextGenAssetsView() {
       } as AssetOperationTypes;
 
       await undoAssetOperation(projectId, questId, operation);
-      await queryClient.invalidateQueries({ queryKey: ['assets'] });
       const message = getAssetOperationMessage(operation, 'undo');
       toast.info(t('undo'), {
         description: t(message.key).replace('{count}', String(message.count))
       });
-      await refetch();
     });
-  }, [
-    currentUndoOperation,
-    projectId,
-    queryClient,
-    questId,
-    refetch,
-    t,
-    undoHistory
-  ]);
+  }, [currentUndoOperation, projectId, questId, t, undoHistory]);
 
   const handleRedoAction = React.useCallback(() => {
     if (!currentRedoOperation?.canUndo) return;
@@ -745,22 +704,12 @@ export default function NextGenAssetsView() {
       } as AssetOperationTypes;
 
       await redoAssetOperation(projectId, questId, operation);
-      await queryClient.invalidateQueries({ queryKey: ['assets'] });
       const message = getAssetOperationMessage(operation, 'redo');
       toast.info(t('redo'), {
         description: t(message.key).replace('{count}', String(message.count))
       });
-      await refetch();
     });
-  }, [
-    currentRedoOperation,
-    projectId,
-    queryClient,
-    questId,
-    redoHistory,
-    refetch,
-    t
-  ]);
+  }, [currentRedoOperation, projectId, questId, redoHistory, t]);
 
   const blockIndividualPlayRef = React.useRef(false);
   const stableOnPlay = React.useCallback((assetId: string) => {
@@ -874,91 +823,8 @@ export default function NextGenAssetsView() {
   // Special audio ID for "play all" mode
   // const PLAY_ALL_AUDIO_ID = 'play-all-assets';
 
-  // Fetch audio URIs for an asset (similar to RecordingViewSimplified)
-  // Includes fallback logic for local-only files when server records are removed
   const getAssetAudioUris = React.useCallback(
-    async (assetId: string): Promise<string[]> => {
-      try {
-        // Get content links from both synced and local tables
-        const assetContentLinkSynced = resolveTable('asset_content_link', {
-          localOverride: false
-        });
-        const contentLinksSynced = await system.db
-          .select()
-          .from(assetContentLinkSynced)
-          .where(eq(assetContentLinkSynced.asset_id, assetId));
-
-        const assetContentLinkLocal = resolveTable('asset_content_link', {
-          localOverride: true
-        });
-        const contentLinksLocal = await system.db
-          .select()
-          .from(assetContentLinkLocal)
-          .where(eq(assetContentLinkLocal.asset_id, assetId));
-
-        // Prefer synced links, but merge with local for fallback
-        const allContentLinks = [...contentLinksSynced, ...contentLinksLocal];
-
-        // Deduplicate by ID (prefer synced over local)
-        const seenIds = new Set<string>();
-        const uniqueLinks = allContentLinks.filter((link) => {
-          if (seenIds.has(link.id)) {
-            return false;
-          }
-          seenIds.add(link.id);
-          return true;
-        });
-
-        if (uniqueLinks.length === 0) {
-          return [];
-        }
-
-        // Get audio values from content links (can be URIs or attachment IDs)
-        const audioValues = uniqueLinks
-          .flatMap((link) => {
-            const audioArray = link.audio ?? [];
-            return audioArray;
-          })
-          .filter((value): value is string => !!value);
-
-        if (audioValues.length === 0) {
-          return [];
-        }
-
-        // Resolve each audio value to its deterministic on-device location;
-        // fall back to streaming from cloud storage when not local.
-        const uris: string[] = [];
-        for (const audioValue of audioValues) {
-          const localUri = await resolveExistingAudioUri(audioValue);
-          if (localUri) {
-            uris.push(localUri);
-            continue;
-          }
-
-          if (
-            !isLocalOnlyAudio(audioValue) &&
-            !audioValue.startsWith('file://') &&
-            AppConfig.supabaseBucket
-          ) {
-            try {
-              const { data } = system.supabaseConnector.client.storage
-                .from(AppConfig.supabaseBucket)
-                .getPublicUrl(audioValue);
-              if (data.publicUrl) {
-                uris.push(data.publicUrl);
-              }
-            } catch (error) {
-              console.error('Failed to get cloud audio URL:', error);
-            }
-          }
-        }
-
-        return uris;
-      } catch (error) {
-        console.error('Failed to fetch audio URIs:', error);
-        return [];
-      }
-    },
+    (assetId: string) => getPlayableAssetAudioUris(assetId),
     []
   );
 
@@ -1198,48 +1064,8 @@ export default function NextGenAssetsView() {
     },
     onSuccess: async (result) => {
       if (result.success) {
-        // Wait for PowerSync to sync the published quest before invalidating
-        await new Promise((resolve) => setTimeout(resolve, 1500));
-
-        console.log('📥 [Publish Quest] Invalidating queries...');
-
-        // Invalidate the quest query used by this component
-        await queryClient.invalidateQueries({
-          queryKey: ['current-quest', 'offline', questId]
-        });
-        await queryClient.invalidateQueries({
-          queryKey: ['current-quest', 'cloud', questId]
-        });
-
-        // Invalidate general quest queries
-        await queryClient.invalidateQueries({
-          queryKey: ['quests', 'for-project', projectId]
-        });
-        await queryClient.invalidateQueries({
-          queryKey: ['quests', 'infinite', 'for-project', projectId]
-        });
-        await queryClient.invalidateQueries({
-          queryKey: ['quests', 'offline', 'for-project', projectId]
-        });
-        await queryClient.invalidateQueries({
-          queryKey: ['quests', 'cloud', 'for-project', projectId]
-        });
-        await queryClient.invalidateQueries({
-          queryKey: ['quests']
-        });
-
-        // Invalidate assets queries to refresh the assets list
-        await queryClient.invalidateQueries({
-          queryKey: ['assets']
-        });
-
-        // Refetch quest data to update the selectedQuest immediately
-        void refetchQuest();
-
-        // Refetch assets to update download indicators
-        void refetch();
-
-        console.log('✅ [Publish Quest] All queries invalidated');
+        await invalidateOfflineChapterLists(queryClient);
+        await invalidateCloud(queryClient, 'quests', 'current-quest', 'assets');
       } else {
         RNAlert.alert(t('error'), result.message || t('error'), [
           { text: t('ok'), isPreferred: true }
@@ -1256,94 +1082,22 @@ export default function NextGenAssetsView() {
     }
   });
 
-  // Handle offload button click - start verification
-  const handleOffloadClick = () => {
-    console.log('🗑️ [Offload] Opening verification drawer');
-    setShowOffloadDrawer(true);
-    verificationState.startVerification();
+  const questDownloadAction = resolveQuestDownloadAction({
+    isSignedIn: Boolean(currentUser),
+    isLocal: selectedQuest?.source === 'local',
+    isDownloaded: isQuestDownloaded,
+    isPublished: selectedQuest?.published_at != null
+  });
+  const isQuestDownloading =
+    !isQuestDownloaded &&
+    !!questId &&
+    questDownloadFlow.downloadingQuestIds.has(questId);
+  const handleDownloadClick = () => {
+    if (questId) questDownloadFlow.download(questId);
   };
-
-  // Handle offload confirmation - execute offload
-  const handleOffloadConfirm = async () => {
-    console.log('🗑️ [Offload] User confirmed, executing offload');
-    setIsOffloading(true);
-    try {
-      await offloadQuest({
-        questId: questId || '',
-        verifiedIds: verificationState.verifiedIds,
-        onProgress: (progress, message) => {
-          console.log(`🗑️ [Offload Progress] ${progress}%: ${message}`);
-        }
-      });
-
-      console.log('🗑️ [Offload] Complete - waiting for PowerSync to sync...');
-      // Wait for PowerSync to sync the removal before invalidating
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-
-      console.log('🗑️ [Offload] Invalidating all queries...');
-
-      // Invalidate download status queries
-      await queryClient.invalidateQueries({
-        queryKey: ['download-status', 'quest', questId]
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ['download-status', 'project', projectId]
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ['quest-download-status', questId]
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ['project-download-status', projectId]
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ['download-status']
-      });
-
-      // Invalidate ALL quest queries (comprehensive like create quest)
-      await queryClient.invalidateQueries({
-        queryKey: ['quests', 'for-project', projectId]
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ['quests', 'infinite', 'for-project', projectId]
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ['quests', 'offline', 'for-project', projectId]
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ['quests', 'cloud', 'for-project', projectId]
-      });
-      // Also invalidate generic quest queries
-      await queryClient.invalidateQueries({
-        queryKey: ['quests']
-      });
-
-      // Invalidate project queries
-      await queryClient.invalidateQueries({
-        queryKey: ['projects']
-      });
-
-      // Invalidate assets queries to refresh the assets list
-      await queryClient.invalidateQueries({
-        queryKey: ['assets']
-      });
-
-      // Invalidate quest closure data
-      await queryClient.invalidateQueries({
-        queryKey: ['quest-closure', questId]
-      });
-
-      console.log('✅ [Offload] All queries invalidated');
-
-      RNAlert.alert(t('success'), t('offloadComplete'));
-      setShowOffloadDrawer(false);
-
-      router.back();
-    } catch (error) {
-      console.error('Failed to offload quest:', error);
-      RNAlert.alert(t('error'), t('offloadError'));
-    } finally {
-      setIsOffloading(false);
-    }
+  // Offloaded quests are no longer on-device; leave the assets screen.
+  const handleOffloadClick = () => {
+    if (questId) questDownloadFlow.offload(questId, { leaveQuest: true });
   };
 
   // Handle going to recording - stops any playing audio first
@@ -1364,23 +1118,22 @@ export default function NextGenAssetsView() {
     }
 
     // Create recording session and navigate to RecordingView
+    await whenAssetWritesIdle(questId);
+
     const recordingSessionId = await createQuestRecordingSession(questId);
-    void refetchQuest();
-    const lastOrderIndex = assets.reduce<number | null>((maxOrder, asset) => {
-      if (typeof asset.order_index !== 'number') {
-        return maxOrder;
-      }
-      if (maxOrder === null || asset.order_index > maxOrder) {
-        return asset.order_index;
-      }
-      return maxOrder;
-    }, null);
+    const lastOrderIndex = await getMaxQuestOrderIndex(questId);
+    const selectedOrderIndex =
+      typeof selectedAssetForRecording?.id === 'string'
+        ? await getQuestAssetOrderIndex(questId, selectedAssetForRecording.id)
+        : null;
     const initialOrderIndex =
-      typeof selectedAssetForRecording?.order_index === 'number'
-        ? selectedAssetForRecording.order_index
-        : typeof lastOrderIndex === 'number'
-          ? (Math.floor(lastOrderIndex / 1000) + 1) * 1000
-          : DEFAULT_RECORDING_INITIAL_ORDER_INDEX;
+      typeof selectedOrderIndex === 'number'
+        ? selectedOrderIndex
+        : typeof selectedAssetForRecording?.order_index === 'number'
+          ? selectedAssetForRecording.order_index
+          : typeof lastOrderIndex === 'number'
+            ? (Math.floor(lastOrderIndex / 1000) + 1) * 1000
+            : DEFAULT_RECORDING_INITIAL_ORDER_INDEX;
 
     goToRecording({
       initialOrderIndex: initialOrderIndex,
@@ -1392,16 +1145,22 @@ export default function NextGenAssetsView() {
     goToRecording,
     questId,
     projectId,
-    assets,
     selectedQuest?.name,
     selectedAssetForRecording,
     isPlayAllRunningRef,
-    stopPlayAll,
-    refetchQuest
+    stopPlayAll
   ]);
 
-  // Cleanup effect: Clear all refs and stop audio when component unmounts
-  // This prevents memory leaks when navigating away from the assets view
+  // Refetch on focus. refetch must be a stable identity or this effect
+  // retriggers on every fetch and an empty list flashes placeholders.
+  useFocusEffect(
+    React.useCallback(() => {
+      void refetch();
+    }, [refetch])
+  );
+
+  useCollectAssetsOnBlur();
+
   React.useEffect(() => {
     // Capture refs in variables to avoid stale closure warnings
     const timeoutIds = timeoutIdsRef.current;
@@ -1424,7 +1183,6 @@ export default function NextGenAssetsView() {
       // Reset state
       playbackCheckpoint.clearAllCheckpoints();
       setCurrentlyPlayingAssetId(null);
-      void runAssetGarbageCollector();
     };
   }, [isPlayAllRunningRef, playbackCheckpoint, stopPlayAll]);
 
@@ -1449,6 +1207,12 @@ export default function NextGenAssetsView() {
         <View className="flex flex-row items-center justify-between">
           <Text className="text-base font-semibold">{t('assets')}</Text>
           <View className="flex flex-row items-center gap-2">
+            <QuestDownloadButton
+              action={questDownloadAction}
+              isDownloading={isQuestDownloading}
+              onDownload={handleDownloadClick}
+              onOffload={handleOffloadClick}
+            />
             {isPublished ? (
               // Only show cloud-check icon if user is creator, member, or owner
               canSeePublishedBadge ? (
@@ -1515,13 +1279,11 @@ export default function NextGenAssetsView() {
               variant="ghost"
               size="icon"
               disabled={isRefreshing}
+              testID="assets-refresh-button"
               onPress={async () => {
                 setIsRefreshing(true);
                 console.log('🔄 Manually refreshing assets queries...');
-                await queryClient.invalidateQueries({
-                  queryKey: ['assets']
-                });
-                void refetch();
+                await invalidateCloud(queryClient, 'assets');
                 console.log('🔄 Assets queries invalidated');
                 // Stop animation after a brief delay
                 const timeoutId = setTimeout(() => {
@@ -1547,6 +1309,8 @@ export default function NextGenAssetsView() {
                   size="icon"
                   disabled={!hasUndoHistory || !currentUndoOperation?.canUndo}
                   onPress={handleUndoAction}
+                  testID="assets-undo"
+                  accessibilityLabel="assets-undo"
                 >
                   <Icon as={Undo2} size={18} className="text-primary" />
                 </Button>
@@ -1555,6 +1319,8 @@ export default function NextGenAssetsView() {
                   size="icon"
                   disabled={!hasRedoHistory || !currentRedoOperation?.canUndo}
                   onPress={handleRedoAction}
+                  testID="assets-redo"
+                  accessibilityLabel="assets-redo"
                 >
                   <Icon as={Redo2} size={18} className="text-primary" />
                 </Button>
@@ -1597,6 +1363,9 @@ export default function NextGenAssetsView() {
         prefixStyling={false}
         size="sm"
         returnKeyType="search"
+        testID="assets-search"
+        accessibilityLabel="assets-search"
+        selectTextOnFocus
         suffix={
           isFetching && searchQuery ? (
             <ActivityIndicator size="small" color={getThemeColor('primary')} />
@@ -1610,7 +1379,7 @@ export default function NextGenAssetsView() {
         <Text className="text-sm text-muted-foreground">{statusText}</Text>
       )}
 
-      {isLoading || (isFetching && assets.length === 0) ? (
+      {isLoading ? (
         searchQuery.trim().length > 0 ? (
           <View className="flex-1 items-center justify-center pt-8">
             <ActivityIndicator size="large" color={getThemeColor('primary')} />
@@ -1621,10 +1390,14 @@ export default function NextGenAssetsView() {
         )
       ) : (
         <LegendList
+          key={searchQuery}
           data={assets}
           keyExtractor={(item) => item.id}
-          extraData={[currentlyPlayingAssetId, selectedAssetIds]}
-          recycleItems
+          extraData={[
+            currentlyPlayingAssetId,
+            selectedAssetIds,
+            debouncedSearchQuery
+          ]}
           renderItem={({ item }) => renderItem({ item, isPublished })}
           onEndReached={onEndReached}
           onEndReachedThreshold={0.5}
@@ -1703,6 +1476,7 @@ export default function NextGenAssetsView() {
                       icon={FlagIcon}
                       variant="outline"
                       onPress={() => setShowReportModal(true)}
+                      testID="quest-report"
                     />
                   ) : null}
                 </>
@@ -1714,22 +1488,16 @@ export default function NextGenAssetsView() {
                 onPress={() => {
                   console.log('📋 [Info] Opening details modal', {
                     selectedQuest: selectedQuest?.id,
-                    isDownloaded: isQuestDownloaded,
-                    storageBytes: verificationState.estimatedStorageBytes
+                    isDownloaded: isQuestDownloaded
                   });
                   setShowDetailsModal(true);
-                  // Start verification to get storage estimate if quest is downloaded and exists in cloud
-                  if (
-                    isQuestDownloaded &&
-                    !verificationState.isVerifying &&
-                    selectedQuest?.source !== 'local'
-                  ) {
-                    verificationState.startVerification();
-                  }
                 }}
               />
             </SpeedDialItems>
-            <SpeedDialTrigger className="-top-0.5 rounded-md text-destructive-foreground" />
+            <SpeedDialTrigger
+              className="-top-0.5 rounded-md text-destructive-foreground"
+              testID="quest-speed-dial"
+            />
           </SpeedDial>
         </View>
       )}
@@ -1766,6 +1534,7 @@ export default function NextGenAssetsView() {
             <Pressable
               className="ml-14 w-full flex-row items-center justify-around gap-2 rounded-lg bg-primary p-2 px-2"
               onPress={() => void handleGoToRecording()}
+              testID="asset-record-button"
             >
               <Icon as={MicIcon} size={24} className="text-secondary" />
               <View className="ml-1 flex-col items-start justify-start gap-0">
@@ -1856,6 +1625,9 @@ export default function NextGenAssetsView() {
           questId={questId}
           projectId={projectId || ''}
           questSource={selectedQuest?.source}
+          onOffloadClick={
+            questDownloadAction === 'offload' ? handleOffloadClick : undefined
+          }
         />
       )}
       {selectedQuest && (
@@ -1865,8 +1637,6 @@ export default function NextGenAssetsView() {
           content={selectedQuest}
           onClose={() => setShowDetailsModal(false)}
           isDownloaded={isQuestDownloaded}
-          estimatedStorageBytes={verificationState.estimatedStorageBytes}
-          onOffloadClick={handleOffloadClick}
         />
       )}
       {showReportModal && (
@@ -1881,25 +1651,13 @@ export default function NextGenAssetsView() {
         />
       )}
 
-      {/* Offload Verification Drawer */}
-      <QuestOffloadVerificationDrawer
-        isOpen={showOffloadDrawer}
-        onOpenChange={(open) => {
-          if (!open && !isOffloading) {
-            setShowOffloadDrawer(false);
-            verificationState.cancel();
-          }
-        }}
-        onContinue={handleOffloadConfirm}
-        verificationState={verificationState}
-        isOffloading={isOffloading}
-      />
+      {questDownloadFlow.sheets}
 
       {/* Private Access Gate Modal for Membership Requests */}
       {isPrivateProject && (
         <PrivateAccessGate
           projectId={projectId || ''}
-          projectName={projectName as string}
+          projectName={projectName}
           isPrivate={isPrivateProject as boolean}
           action="contribute"
           modal={true}

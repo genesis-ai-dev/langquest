@@ -40,11 +40,14 @@ interface QuestUploadDetailsDrawerProps {
 function ProgressBarRow({
   label,
   icon,
-  progress
+  progress,
+  testID
 }: {
   label: string;
   icon: LucideIcon;
   progress: UploadCategoryProgress;
+  /** Placed on the `confirmed/total` text so tests can assert the count. */
+  testID?: string;
 }) {
   const { total, confirmed } = progress;
   const isComplete = total > 0 && confirmed >= total;
@@ -58,7 +61,10 @@ function ProgressBarRow({
           <Text className="text-sm">{label}</Text>
         </View>
         <View className="flex-row items-center gap-1.5">
-          <Text className="font-mono text-xs text-muted-foreground">
+          <Text
+            className="font-mono text-xs text-muted-foreground"
+            testID={testID}
+          >
             {confirmed}/{total}
           </Text>
           {isComplete && (
@@ -75,10 +81,12 @@ function ProgressBarRow({
 }
 
 /**
- * Bottom drawer showing upload confirmation for a published quest: one bar
- * for information records (all synced tables combined) and one for audio
- * files. Also hosts the publish action (the toolbar button now opens this
- * drawer instead of publishing directly).
+ * Bottom drawer showing upload confirmation for a quest (draft or published):
+ * one bar for information records (all synced tables combined) and one for
+ * audio files. Records sync and audio uploads as soon as they are created, so
+ * a draft shows real backup progress here. Also hosts the publish action for
+ * drafts (the toolbar button opens this drawer instead of publishing
+ * directly).
  */
 export function QuestUploadDetailsDrawer({
   isOpen,
@@ -99,9 +107,12 @@ export function QuestUploadDetailsDrawer({
           <View className="flex-row items-center justify-between">
             <View className="flex-1">
               <DrawerTitle>{t('uploadStatus')}</DrawerTitle>
-              <Text className="text-sm text-muted-foreground">
+              <Text
+                className="text-sm text-muted-foreground"
+                testID="upload-status-summary"
+              >
                 {progress.isEmpty
-                  ? t('nothingPublishedYet')
+                  ? t('nothingToUploadYet')
                   : progress.isComplete
                     ? t('allUploadsConfirmed')
                     : t('percentConfirmedByServer').replace(
@@ -125,11 +136,13 @@ export function QuestUploadDetailsDrawer({
               total: progress.totalRecords,
               confirmed: progress.confirmedRecords
             }}
+            testID="upload-status-records"
           />
           <ProgressBarRow
             label={t('audioFiles')}
             icon={AudioLinesIcon}
             progress={breakdown.audio}
+            testID="upload-status-audio"
           />
         </View>
 
@@ -147,6 +160,7 @@ export function QuestUploadDetailsDrawer({
               onPress={onPublishPress}
               disabled={!canPublish}
               loading={isPublishing}
+              testID="quest-publish-confirm"
             >
               <Text className="font-bold">{t('publish')}</Text>
             </Button>

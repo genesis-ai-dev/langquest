@@ -1,11 +1,8 @@
-import { DownloadConfirmationModal } from '@/components/DownloadConfirmationModal';
 import { ModalDetails } from '@/components/ModalDetails';
 import { ReportModal } from '@/components/NewReportModal';
 import { PrivateAccessGate } from '@/components/PrivateAccessGate';
 import { ProjectMembershipModal } from '@/components/ProjectMembershipModal';
 import { ProjectSettingsModal } from '@/components/ProjectSettingsModal';
-import { QuestDownloadDiscoveryDrawer } from '@/components/QuestDownloadDiscoveryDrawer';
-import { QuestOffloadVerificationDrawer } from '@/components/QuestOffloadVerificationDrawer';
 import { Button } from '@/components/ui/button';
 import {
   Drawer,
@@ -36,12 +33,12 @@ import { Text } from '@/components/ui/text';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/contexts/AuthContext';
 
-import type { quest } from '@/db/drizzleSchema';
 import { invite, profile_project_link } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useProjectById } from '@/hooks/db/useProjects';
 import type { Quest } from '@/hooks/db/useQuests';
 import { useHasUserReported } from '@/hooks/db/useReports';
+import { invalidateCloud } from '@/hooks/hybridCache';
 import {
   useBibleBookCreation,
   useBibleBooks
@@ -51,23 +48,21 @@ import {
   useFiaBookQuests
 } from '@/hooks/useFiaBookCreation';
 import { useFiaBooks } from '@/hooks/useFiaBooks';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useProjectSourceLanguoid } from '@/hooks/useProjectSourceLanguoid';
-import { useQuestDownloadDiscovery } from '@/hooks/useQuestDownloadDiscovery';
-import { useQuestOffloadVerification } from '@/hooks/useQuestOffloadVerification';
+import { useQuestDownloadFlow } from '@/hooks/useQuestDownloadFlow';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
-import { syncCallbackService } from '@/services/syncCallbackService';
 import { useLocalStore } from '@/store/localStore';
-import { bulkDownloadQuest } from '@/utils/bulkDownload';
 import { resolveTable } from '@/utils/dbUtils';
-import { offloadQuest } from '@/utils/questOffloadUtils';
+import { extractFiaMetadata } from '@/utils/fiaUtils';
 import { cn, getThemeColor, useThemeColor } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { and, count, eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import {
   BookOpenIcon,
@@ -79,7 +74,6 @@ import {
   RefreshCwIcon,
   SearchIcon,
   SettingsIcon,
-  UserPlusIcon,
   UsersIcon,
   XIcon
 } from 'lucide-react-native';
@@ -99,7 +93,6 @@ import z from 'zod';
 import { BibleBookList } from './BibleBookList';
 import { FiaBookList } from './FiaBookList';
 import { QuestListView } from './QuestListView';
-import { useHybridData } from './useHybridData';
 
 // Hook to determine if the invite banner should be shown for a project
 // Returns shouldShowInviteBanner=true if ALL of the following are true:
@@ -142,6 +135,7 @@ function InviteMembersBanner({
           size="sm"
           className={cn('h-7 gap-1 px-3')}
           onPress={onInvite}
+          testID="project-invite-banner"
         >
           <Text className="text-xs font-medium text-primary-foreground">
             {t('invite')}
@@ -168,38 +162,37 @@ function useProjectHasNoInvites(projectId: string) {
     data: inviteData,
     isLoading: isInviteLoading,
     isError: isInviteError
-  } = useHybridData<{
-    count: number;
+  } = useHybridQuery<{
+    id: string;
   }>({
-    dataType: 'project-invite-count',
-    queryKeyParams: [projectId],
-
-    // PowerSync query - count all invites for this project
+    queryKey: ['project-invite-count', projectId],
     offlineQuery: toCompilableQuery(
       system.db
-        .select({ count: count() })
+        .select({ id: invite.id })
         .from(invite)
         .where(eq(invite.project_id, projectId))
     ),
-
-    enableCloudQuery: false
+    cloudQueryFn: async () => {
+      const { data, error } = await system.supabaseConnector.client
+        .from('invite')
+        .select('id')
+        .eq('project_id', projectId);
+      if (error) throw error;
+      return data ?? [];
+    }
   });
 
-  // Query member count for this project (offline only - PowerSync has this data)
   const {
     data: memberData,
     isLoading: isMemberLoading,
     isError: isMemberError
-  } = useHybridData<{
-    count: number;
+  } = useHybridQuery<{
+    id: string;
   }>({
-    dataType: 'project-member-count',
-    queryKeyParams: [projectId],
-
-    // PowerSync query - count active members
+    queryKey: ['project-member-count', projectId],
     offlineQuery: toCompilableQuery(
       system.db
-        .select({ count: count() })
+        .select({ id: profile_project_link.id })
         .from(profile_project_link)
         .where(
           and(
@@ -208,12 +201,19 @@ function useProjectHasNoInvites(projectId: string) {
           )
         )
     ),
-
-    enableCloudQuery: false
+    cloudQueryFn: async () => {
+      const { data, error } = await system.supabaseConnector.client
+        .from('profile_project_link')
+        .select('id')
+        .eq('project_id', projectId)
+        .eq('active', true);
+      if (error) throw error;
+      return data ?? [];
+    }
   });
 
-  const inviteCount = inviteData[0]?.count ?? 0;
-  const memberCount = memberData[0]?.count ?? 0;
+  const inviteCount = inviteData.length;
+  const memberCount = memberData.length;
 
   // Solo owner = only 1 member and that member is the owner
   const isSoloOwner = isOwner && memberCount === 1;
@@ -245,7 +245,7 @@ export default function ProjectDirectoryView() {
   const primaryColor = useThemeColor('primary');
 
   // Track cloud loading states from child components
-  const [questListCloudLoading, setQuestListCloudLoading] =
+  const [_questListCloudLoading, setQuestListCloudLoading] =
     React.useState(false);
   const [questListFetching, setQuestListFetching] = React.useState(false);
 
@@ -307,203 +307,7 @@ export default function ProjectDirectoryView() {
   const [showPrivateAccessModal, setShowPrivateAccessModal] = useState(false);
   const { findOrCreateBook } = useBibleBookCreation();
 
-  // Discovery drawer state for quest downloads
-  const [questIdToDownload, setQuestIdToDownload] = React.useState<
-    string | null
-  >(null);
-  const [showDiscoveryDrawer, setShowDiscoveryDrawer] = React.useState(false);
-  const [showConfirmationModal, setShowConfirmationModal] =
-    React.useState(false);
-
-  // Track quest IDs that are currently downloading (for optimistic UI updates)
-  const [downloadingQuestIds, setDownloadingQuestIds] = React.useState<
-    Set<string>
-  >(new Set());
-
-  // Offload drawer state for quest undownloads
-  const [showOffloadDrawer, setShowOffloadDrawer] = React.useState(false);
-  const [isOffloading, setIsOffloading] = React.useState(false);
-
-  // Discovery hook
-  const discoveryState = useQuestDownloadDiscovery(questIdToDownload || '');
-
-  // Verification hook for offload
-  const verificationState = useQuestOffloadVerification(
-    questIdToDownload || ''
-  );
-
-  // Track if we've started discovery for this quest ID to prevent loops
-  const startedDiscoveryRef = React.useRef<string | null>(null);
-  // Track if we've started verification for this quest ID to prevent loops
-  const startedVerificationRef = React.useRef<string | null>(null);
-
-  // Auto-start discovery when drawer opens with a quest ID
-  React.useEffect(() => {
-    if (
-      showDiscoveryDrawer &&
-      questIdToDownload &&
-      !discoveryState.isDiscovering &&
-      startedDiscoveryRef.current !== questIdToDownload
-    ) {
-      startedDiscoveryRef.current = questIdToDownload;
-      discoveryState.startDiscovery();
-    }
-
-    // Reset ref when drawer closes
-    if (!showDiscoveryDrawer) {
-      startedDiscoveryRef.current = null;
-    }
-  }, [showDiscoveryDrawer, questIdToDownload, discoveryState]);
-
-  // Bulk download mutation
-  const bulkDownloadMutation = useMutation({
-    mutationFn: async () => {
-      if (
-        !currentUser?.id ||
-        discoveryState.discoveredIds.questIds.length === 0
-      ) {
-        throw new Error('Missing user or discovered IDs');
-      }
-
-      const data = await bulkDownloadQuest(
-        discoveryState.discoveredIds,
-        currentUser.id
-      );
-
-      console.log('📥 [Bulk Download] Success:', data);
-      return data;
-    },
-    onMutate: () => {
-      console.log(
-        '📥 [Bulk Download] Optimistically updating cache (BEFORE mutation)'
-      );
-
-      // Optimistically update the cache for downloaded quests IMMEDIATELY
-      const downloadedQuestIds = new Set(discoveryState.discoveredIds.questIds);
-
-      const updateQuestCache = (oldData: unknown) => {
-        if (!oldData || !currentUser?.id) return oldData;
-
-        // Handle infinite query structure
-        const data = oldData as {
-          pages: {
-            data: {
-              id: string;
-              download_profiles?: string[] | null;
-              source?: string;
-              [key: string]: unknown;
-            }[];
-            nextCursor?: number;
-            hasMore: boolean;
-          }[];
-          pageParams: number[];
-        };
-
-        // Update each page
-        const updatedPages = data.pages.map((page) => ({
-          ...page,
-          data: page.data.map((quest) => {
-            // If this quest was downloaded, update its download_profiles and source
-            if (downloadedQuestIds.has(quest.id)) {
-              const currentProfiles = quest.download_profiles || [];
-              const updatedProfiles = currentProfiles.includes(currentUser.id)
-                ? currentProfiles
-                : [...currentProfiles, currentUser.id];
-
-              console.log(
-                `📥 [Cache Update] Updated quest ${quest.id.slice(0, 8)}...`
-              );
-
-              return {
-                ...quest,
-                download_profiles: updatedProfiles,
-                source: 'synced' // Mark as synced since it's now downloaded
-              };
-            }
-            return quest;
-          })
-        }));
-
-        return {
-          ...data,
-          pages: updatedPages
-        };
-      };
-
-      // Update offline queries (handles all search query variations)
-      queryClient.setQueriesData(
-        {
-          queryKey: ['quests', 'offline', 'for-project', projectId],
-          exact: false
-        },
-        updateQuestCache
-      );
-
-      // Update cloud queries (handles all search query variations)
-      queryClient.setQueriesData(
-        {
-          queryKey: ['quests', 'cloud', 'for-project', projectId],
-          exact: false
-        },
-        updateQuestCache
-      );
-
-      console.log(
-        '📥 [Bulk Download] Cache updated - UI should show downloaded state immediately'
-      );
-    },
-    onSuccess: () => {
-      console.log('📥 [Bulk Download] Success - registering sync callback...');
-
-      // Register callback to invalidate queries after PowerSync sync completes
-      if (questIdToDownload) {
-        // Get all quest IDs to clear from downloading state
-        const questIdsToClear = discoveryState.discoveredIds.questIds;
-
-        syncCallbackService.registerCallback(questIdToDownload, async () => {
-          console.log(
-            '📥 [Bulk Download] Sync completed - invalidating queries'
-          );
-
-          // Clear downloading state - sync is complete, UI should show real data now
-          setDownloadingQuestIds((prev) => {
-            const next = new Set(prev);
-            questIdsToClear.forEach((id) => next.delete(id));
-            return next;
-          });
-
-          // Invalidate all quest queries for this project
-          await queryClient.invalidateQueries({
-            queryKey: ['quests', 'infinite', 'for-project', projectId]
-          });
-
-          await queryClient.invalidateQueries({
-            queryKey: ['quests', 'offline', 'for-project', projectId]
-          });
-
-          await queryClient.invalidateQueries({
-            queryKey: ['quests', 'cloud', 'for-project', projectId]
-          });
-
-          // Invalidate assets queries to refresh assets list if user is viewing a quest
-          await queryClient.invalidateQueries({
-            queryKey: ['assets']
-          });
-
-          console.log(
-            '📥 [Bulk Download] Queries invalidated - UI will refresh'
-          );
-        });
-      }
-    },
-    onError: (error) => {
-      console.error('📥 [Bulk Download] Failed:', error);
-      // Rollback optimistic cache updates if mutation fails
-      // Query client will automatically rollback if we return context
-    }
-  });
-
-  type _Quest = typeof quest.$inferSelect;
+  const questDownloadFlow = useQuestDownloadFlow(projectId || '');
 
   const formSchema = z.object({
     name: z.string(t('nameRequired')).nonempty(t('nameRequired')).trim(),
@@ -545,7 +349,6 @@ export default function ProjectDirectoryView() {
 
   const _showHiddenContent = useLocalStore((state) => state.showHiddenContent);
   const enableFia = useLocalStore((state) => state.enableFia);
-  const setEnableFia = useLocalStore((state) => state.setEnableFia);
   const dismissedInviteBanners = useLocalStore(
     (state) => state.dismissedInviteBanners
   );
@@ -587,8 +390,7 @@ export default function ProjectDirectoryView() {
   const existingFiaBookIds = React.useMemo(() => {
     const ids = new Set<string>();
     for (const bq of existingFiaBookQuests) {
-      const bookId = (bq.metadata as { fia?: { bookId?: string } })?.fia
-        ?.bookId;
+      const bookId = extractFiaMetadata(bq.metadata)?.bookId;
       if (bookId) ids.add(bookId);
     }
     return ids;
@@ -609,33 +411,47 @@ export default function ProjectDirectoryView() {
   // Handle book selection with permission check (after isMember and existingBookIds are defined)
   const handleBookSelect = React.useCallback(
     (bookId: string) => {
-      const bookExists = existingBookIds.has(bookId);
+      const matches = existingBooks.filter(
+        (book) => book.metadata?.bible?.book === bookId
+      );
+      const existingBook =
+        matches.find((book) => book.published_at != null) ?? matches[0];
 
-      if (bookExists || isMember) {
-        if (isMember && template === 'bible') {
-          findOrCreateBook({
-            projectId: projectId!,
-            bookId: bookId
-          })
-            .then((result) => {
-              if (result?.id) {
-                goToQuest({
-                  id: result.id,
-                  project_id: result.project_id,
-                  name: result.name
-                });
-              }
-            })
-            .catch((error: unknown) => {
-              console.error('Error finding/creating book quest:', error);
-            });
-        }
-      } else {
+      if (existingBook) {
+        goToQuest({
+          id: existingBook.id,
+          project_id: existingBook.project_id,
+          name: existingBook.name
+        });
+        return;
+      }
+
+      if (!isMember) {
         RNAlert.alert(t('error'), t('membersOnlyCreate'));
+        return;
+      }
+
+      if (template === 'bible') {
+        findOrCreateBook({
+          projectId: projectId!,
+          bookId: bookId
+        })
+          .then((result) => {
+            if (result?.id) {
+              goToQuest({
+                id: result.id,
+                project_id: result.project_id,
+                name: result.name
+              });
+            }
+          })
+          .catch((error: unknown) => {
+            console.error('Error finding/creating book quest:', error);
+          });
       }
     },
     [
-      existingBookIds,
+      existingBooks,
       isMember,
       goToQuest,
       projectId,
@@ -648,35 +464,50 @@ export default function ProjectDirectoryView() {
   // Handle FIA book selection
   const handleFiaBookSelect = React.useCallback(
     (bookId: string) => {
-      const bookExists = existingFiaBookIds.has(bookId);
-      if (bookExists || isMember) {
-        const fiaBook = fiaBooks.find((b) => b.id === bookId);
-        if (isMember && fiaBook) {
-          findOrCreateFiaBook({
-            projectId: projectId!,
-            bookId,
-            bookTitle: fiaBook.title,
-            pericopeCount: fiaBook.pericopes.length
-          })
-            .then((result) => {
-              if (result?.id) {
-                goToQuest({
-                  id: result.id,
-                  project_id: result.project_id,
-                  name: result.name
-                });
-              }
-            })
-            .catch((error: unknown) => {
-              console.error('Error finding/creating FIA book quest:', error);
-            });
-        }
-      } else {
-        RNAlert.alert(t('error'), t('membersOnlyCreate'));
+      const matches = existingFiaBookQuests.filter(
+        (bq) => extractFiaMetadata(bq.metadata)?.bookId === bookId
+      );
+      const existingBook =
+        matches.find((book) => book.published_at != null) ?? matches[0];
+
+      if (existingBook) {
+        goToQuest({
+          id: existingBook.id,
+          project_id: existingBook.project_id,
+          name: existingBook.name
+        });
+        return;
       }
+
+      if (!isMember) {
+        RNAlert.alert(t('error'), t('membersOnlyCreate'));
+        return;
+      }
+
+      const fiaBook = fiaBooks.find((b) => b.id === bookId);
+      if (!fiaBook) return;
+
+      findOrCreateFiaBook({
+        projectId: projectId!,
+        bookId,
+        bookTitle: fiaBook.title,
+        pericopeCount: fiaBook.pericopes.length
+      })
+        .then((result) => {
+          if (result?.id) {
+            goToQuest({
+              id: result.id,
+              project_id: result.project_id,
+              name: result.name
+            });
+          }
+        })
+        .catch((error: unknown) => {
+          console.error('Error finding/creating FIA book quest:', error);
+        });
     },
     [
-      existingFiaBookIds,
+      existingFiaBookQuests,
       isMember,
       goToQuest,
       projectId,
@@ -710,210 +541,7 @@ export default function ProjectDirectoryView() {
     }
   }, [isCreateOpen, form]);
 
-  // Handle download/offload click - check if quest is downloaded
-  const handleDownloadClick = async (questId: string) => {
-    // Anonymous users cannot download - this should not be called, but guard anyway
-    if (!currentUser) {
-      console.log(
-        '[ProjectDirectoryView] Download requested but user is anonymous'
-      );
-      return;
-    }
-
-    // Check if quest is already downloaded
-    const { data, error } = await system.supabaseConnector.client
-      .from('quest')
-      .select('download_profiles')
-      .eq('id', questId)
-      .single<{ download_profiles: string[] | null }>();
-
-    if (error) {
-      console.error('Error checking quest download status:', error);
-      return;
-    }
-
-    const isDownloaded =
-      (data?.download_profiles as string[] | null | undefined)?.includes(
-        currentUser.id
-      ) ?? false;
-
-    setQuestIdToDownload(questId);
-
-    if (isDownloaded) {
-      // Quest is downloaded, start offload verification
-      console.log(
-        '🗑️ [Offload] Opening verification drawer for quest:',
-        questId
-      );
-      setShowOffloadDrawer(true);
-      // Verification will auto-start via useEffect
-    } else {
-      // Quest not downloaded, start download discovery
-      console.log('📥 [Download] Opening discovery drawer for quest:', questId);
-      setShowDiscoveryDrawer(true);
-      // Discovery will auto-start via useEffect
-    }
-  };
-
-  // Handle discovery completion - show confirmation
-  const handleDiscoveryContinue = () => {
-    setShowDiscoveryDrawer(false);
-    setShowConfirmationModal(true);
-  };
-
-  // Handle confirmation - execute bulk download
-  const handleConfirmDownload = async () => {
-    setShowConfirmationModal(false);
-
-    // Track all discovered quest IDs as downloading for optimistic UI
-    // Set this BEFORE mutation so components can show loading state
-    const questIdsToTrack = new Set(discoveryState.discoveredIds.questIds);
-    setDownloadingQuestIds((prev) => new Set([...prev, ...questIdsToTrack]));
-
-    try {
-      // Mutation's onMutate will optimistically update cache, triggering UI updates
-      await bulkDownloadMutation.mutateAsync();
-      // Don't clear questIdToDownload yet - wait for sync callback
-    } catch (error) {
-      // On error, rollback cache and clear downloading state
-      // The mutation's onError will handle cache rollback
-      setDownloadingQuestIds((prev) => {
-        const next = new Set(prev);
-        questIdsToTrack.forEach((id) => next.delete(id));
-        return next;
-      });
-      setQuestIdToDownload(null);
-      throw error;
-    }
-  };
-
-  // Handle cancellation
-  const handleCancelDiscovery = () => {
-    console.log('📥 [Download] User cancelled discovery');
-    discoveryState.cancel();
-
-    // Cancel sync callback if registered
-    if (questIdToDownload) {
-      syncCallbackService.cancelCallback(questIdToDownload);
-      // Clear downloading state
-      setDownloadingQuestIds((prev) => {
-        const next = new Set(prev);
-        next.delete(questIdToDownload);
-        return next;
-      });
-    }
-
-    setShowDiscoveryDrawer(false);
-    setQuestIdToDownload(null);
-  };
-
-  const handleCancelConfirmation = () => {
-    console.log('📥 [Download] User cancelled confirmation');
-
-    // Cancel sync callback if registered
-    if (questIdToDownload) {
-      syncCallbackService.cancelCallback(questIdToDownload);
-
-      // Clear downloading state for all discovered quest IDs
-      const questIdsToClear = discoveryState.discoveredIds.questIds;
-      setDownloadingQuestIds((prev) => {
-        const next = new Set(prev);
-        questIdsToClear.forEach((id) => next.delete(id));
-        return next;
-      });
-    }
-
-    setShowConfirmationModal(false);
-    setQuestIdToDownload(null);
-  };
-
-  // Handle offload verification - start offload
-  const handleOffloadContinue = async () => {
-    console.log('🗑️ [Offload] User confirmed, executing offload');
-    setShowOffloadDrawer(false);
-    setIsOffloading(true);
-
-    const offloadQuestId = questIdToDownload || '';
-    const questIdForSyncCallback = questIdToDownload;
-
-    try {
-      await offloadQuest({
-        questId: offloadQuestId,
-        verifiedIds: verificationState.verifiedIds,
-        onProgress: (progress, message) => {
-          console.log(`🗑️ [Offload Progress] ${progress}%: ${message}`);
-        }
-      });
-    } catch (error) {
-      console.error('🗑️ [Offload] Failed:', error);
-      RNAlert.alert(t('error'), t('offloadError'));
-      setIsOffloading(false);
-      setQuestIdToDownload(null);
-      return;
-    }
-
-    console.log('🗑️ [Offload] Complete - registering sync callback...');
-
-    if (questIdForSyncCallback) {
-      syncCallbackService.registerCallback(questIdForSyncCallback, async () => {
-        console.log('🗑️ [Offload] Sync completed - invalidating queries');
-
-        await queryClient.invalidateQueries({
-          queryKey: ['quests', 'infinite', 'for-project', projectId]
-        });
-
-        await queryClient.invalidateQueries({
-          queryKey: ['quests', 'offline', 'for-project', projectId]
-        });
-
-        await queryClient.invalidateQueries({
-          queryKey: ['quests', 'cloud', 'for-project', projectId]
-        });
-
-        console.log('🗑️ [Offload] Queries invalidated - UI will refresh');
-      });
-    }
-
-    setIsOffloading(false);
-    setQuestIdToDownload(null);
-  };
-
-  // Handle offload cancellation
-  const handleCancelOffload = () => {
-    console.log('🗑️ [Offload] User cancelled verification');
-    verificationState.cancel();
-
-    // Cancel sync callback if registered
-    if (questIdToDownload) {
-      syncCallbackService.cancelCallback(questIdToDownload);
-    }
-
-    setShowOffloadDrawer(false);
-    setQuestIdToDownload(null);
-  };
-
-  // Auto-start verification when offload drawer opens
-  React.useEffect(() => {
-    if (
-      showOffloadDrawer &&
-      questIdToDownload &&
-      !verificationState.isVerifying &&
-      startedVerificationRef.current !== questIdToDownload
-    ) {
-      console.log(
-        '🗑️ [Offload] Auto-starting verification for quest:',
-        questIdToDownload
-      );
-      startedVerificationRef.current = questIdToDownload;
-      verificationState.startVerification();
-    }
-    // Reset ref when drawer closes or quest changes
-    if (!showOffloadDrawer || !questIdToDownload) {
-      startedVerificationRef.current = null;
-    }
-  }, [showOffloadDrawer, questIdToDownload, verificationState]);
-
-  const { mutateAsync: createQuest, isPending: isCreatingQuest } = useMutation({
+  const { mutateAsync: createQuest } = useMutation({
     mutationFn: async (values: FormData) => {
       if (!projectId || !currentUser?.id) return;
       const [newQuest] = await system.db
@@ -923,7 +551,8 @@ export default function ProjectDirectoryView() {
           project_id: projectId,
           parent_id: parentForNewQuest,
           creator_id: currentUser.id,
-          download_profiles: [currentUser.id]
+          download_profiles: [currentUser.id],
+          published_at: null
         })
         .returning();
 
@@ -1041,33 +670,6 @@ export default function ProjectDirectoryView() {
           };
         }
       );
-
-      console.log('📥 [Create Quest] Waiting for PowerSync to sync...');
-      // Wait for PowerSync to sync, then invalidate to ensure consistency
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-
-      console.log('📥 [Create Quest] Invalidating all quest queries...');
-      // Invalidate ALL quest queries to refresh the list (matches manual refresh button)
-      await queryClient.invalidateQueries({
-        queryKey: ['quests', 'for-project', projectId]
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ['quests', 'infinite', 'for-project', projectId]
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ['quests', 'offline', 'for-project', projectId]
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ['quests', 'cloud', 'for-project', projectId]
-      });
-
-      console.log('📥 [Create Quest] Invalidating assets queries');
-      // Invalidate assets queries to refresh assets list if user is viewing a quest
-      await queryClient.invalidateQueries({
-        queryKey: ['assets']
-      });
-
-      console.log('✅ [Create Quest] All queries invalidated');
     },
     onError: (error, values, context) => {
       console.error('Failed to create quest', error);
@@ -1128,9 +730,11 @@ export default function ProjectDirectoryView() {
                 variant="default"
                 size="sm"
                 onPress={() => setShowPrivateAccessModal(true)}
+                testID="project-request-access"
+                accessibilityLabel="Request Membership"
               >
-                <Icon as={UserPlusIcon} size={16} />
                 <Icon as={LockIcon} size={16} />
+                <Text>{t('requestMembership')}</Text>
               </Button>
             )}
           </View>
@@ -1144,9 +748,10 @@ export default function ProjectDirectoryView() {
       );
     }
 
-    // FIA project routing
+    // FIA project routing. Guests have no Settings, so skip the
+    // experimental opt-in and let them browse like other public projects.
     if (template === 'fia') {
-      if (!enableFia) {
+      if (!enableFia && currentUser) {
         return (
           <View className="flex-1 items-center justify-center gap-4 p-8">
             <Icon
@@ -1163,6 +768,8 @@ export default function ProjectDirectoryView() {
             <Button
               variant="default"
               onPress={() => router.push('/(app)/settings')}
+              testID="fia-open-settings"
+              accessibilityLabel="fia-open-settings"
             >
               <Icon as={SettingsIcon} size={16} />
               <Text>{t('openSettings')}</Text>
@@ -1190,9 +797,11 @@ export default function ProjectDirectoryView() {
                 variant="default"
                 size="sm"
                 onPress={() => setShowPrivateAccessModal(true)}
+                testID="project-request-access"
+                accessibilityLabel="Request Membership"
               >
-                <Icon as={UserPlusIcon} size={16} />
                 <Icon as={LockIcon} size={16} />
+                <Text>{t('requestMembership')}</Text>
               </Button>
             )}
           </View>
@@ -1223,18 +832,7 @@ export default function ProjectDirectoryView() {
                 onPress={async () => {
                   setIsRefreshing(true);
                   console.log('🔄 Manually refreshing quest queries...');
-                  await queryClient.invalidateQueries({
-                    queryKey: ['quests', 'for-project', projectId]
-                  });
-                  await queryClient.invalidateQueries({
-                    queryKey: ['quests', 'infinite', 'for-project', projectId]
-                  });
-                  await queryClient.invalidateQueries({
-                    queryKey: ['quests', 'offline', 'for-project', projectId]
-                  });
-                  await queryClient.invalidateQueries({
-                    queryKey: ['quests', 'cloud', 'for-project', projectId]
-                  });
+                  await invalidateCloud(queryClient, 'quests');
                   console.log('🔄 Quest queries invalidated');
                   // Stop animation after a brief delay
                   setTimeout(() => {
@@ -1252,9 +850,11 @@ export default function ProjectDirectoryView() {
                 variant="default"
                 size="sm"
                 onPress={() => setShowPrivateAccessModal(true)}
+                testID="project-request-access"
+                accessibilityLabel="Request Membership"
               >
-                <Icon as={UserPlusIcon} size={16} />
                 <Icon as={LockIcon} size={16} />
+                <Text>{t('requestMembership')}</Text>
               </Button>
             )}
           </View>
@@ -1269,6 +869,8 @@ export default function ProjectDirectoryView() {
             prefixStyling={false}
             size="sm"
             returnKeyType="search"
+            testID="quests-search"
+            accessibilityLabel="quests-search"
             suffix={
               questListFetching && searchQuery ? (
                 <ActivityIndicator
@@ -1297,11 +899,17 @@ export default function ProjectDirectoryView() {
             projectSource={project?.source || 'local'}
             isMember={isMember}
             onAddChild={openCreateForParent}
-            onDownloadClick={handleDownloadClick}
+            onOpenQuest={(quest) =>
+              void questDownloadFlow.openQuest(quest, isMember)
+            }
+            onDownloadClick={(questId) =>
+              void questDownloadFlow.toggle(questId)
+            }
             onCloudLoadingChange={setQuestListCloudLoading}
             onFetchingChange={setQuestListFetching}
-            downloadingQuestId={questIdToDownload}
-            downloadingQuestIds={downloadingQuestIds}
+            downloadingQuestId={questDownloadFlow.pendingDownloadQuestId}
+            downloadingQuestIds={questDownloadFlow.downloadingQuestIds}
+            downloadedQuestIds={questDownloadFlow.downloadedQuestIds}
           />
 
           {/* Only show create button for authenticated users */}
@@ -1313,6 +921,8 @@ export default function ProjectDirectoryView() {
               }}
             >
               <Button
+                testID="quest-create-button"
+                accessibilityLabel="quest-create-button"
                 onPress={() => openCreateForParent(null)}
                 variant="default"
                 size="sm"
@@ -1356,6 +966,7 @@ export default function ProjectDirectoryView() {
                       <FormControl>
                         <Input
                           {...transformInputProps(field)}
+                          testID="quest-create-name"
                           placeholder={t('questName')}
                           size="sm"
                           prefix={FolderPenIcon}
@@ -1387,6 +998,8 @@ export default function ProjectDirectoryView() {
               </View>
               <DrawerFooter>
                 <FormSubmit
+                  testID="quest-create-submit"
+                  accessibilityLabel="quest-create-submit"
                   onPress={form.handleSubmit((data) => createQuest(data))}
                 >
                   <Text>{t('createObject')}</Text>
@@ -1431,6 +1044,7 @@ export default function ProjectDirectoryView() {
                     icon={FlagIcon}
                     variant="outline"
                     onPress={() => setShowReportModal(true)}
+                    testID="project-report"
                   />
                 ) : null}
                 {project?.source !== 'local' &&
@@ -1439,6 +1053,7 @@ export default function ProjectDirectoryView() {
                       icon={UsersIcon}
                       variant="outline"
                       onPress={() => openMembershipModal('members')}
+                      testID="project-membership"
                     />
                   )}
               </>
@@ -1450,7 +1065,7 @@ export default function ProjectDirectoryView() {
               onPress={() => setShowProjectDetails(true)}
             />
           </SpeedDialItems>
-          <SpeedDialTrigger />
+          <SpeedDialTrigger testID="project-speed-dial" />
         </SpeedDial>
       </View>
 
@@ -1499,49 +1114,7 @@ export default function ProjectDirectoryView() {
         onClose={() => setShowPrivateAccessModal(false)}
       />
 
-      {/* Discovery Drawer */}
-      <QuestDownloadDiscoveryDrawer
-        isOpen={showDiscoveryDrawer}
-        onOpenChange={(open) => {
-          if (!open) handleCancelDiscovery();
-        }}
-        onContinue={handleDiscoveryContinue}
-        discoveryState={discoveryState}
-      />
-
-      {/* Confirmation Modal */}
-      <DownloadConfirmationModal
-        visible={showConfirmationModal}
-        onConfirm={handleConfirmDownload}
-        onCancel={handleCancelConfirmation}
-        downloadType="quest"
-        discoveredCounts={{
-          Quests: discoveryState.progressSharedValues.quest.value.count,
-          Projects: discoveryState.progressSharedValues.project.value.count,
-          'Quest-Asset Links':
-            discoveryState.progressSharedValues.questAssetLinks.value.count,
-          Assets: discoveryState.progressSharedValues.assets.value.count,
-          'Asset Content Links':
-            discoveryState.progressSharedValues.assetContentLinks.value.count,
-          Votes: discoveryState.progressSharedValues.votes.value.count,
-          'Quest Tags':
-            discoveryState.progressSharedValues.questTagLinks.value.count,
-          'Asset Tags':
-            discoveryState.progressSharedValues.assetTagLinks.value.count,
-          Tags: discoveryState.progressSharedValues.tags.value.count,
-          Languages: discoveryState.progressSharedValues.languages.value.count
-        }}
-      />
-      {/* Offload Verification Drawer */}
-      <QuestOffloadVerificationDrawer
-        isOpen={showOffloadDrawer}
-        onOpenChange={(open) => {
-          if (!open) handleCancelOffload();
-        }}
-        onContinue={handleOffloadContinue}
-        verificationState={verificationState}
-        isOffloading={isOffloading}
-      />
+      {questDownloadFlow.sheets}
     </>
   );
 }

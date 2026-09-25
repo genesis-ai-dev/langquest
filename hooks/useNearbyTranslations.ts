@@ -1,14 +1,17 @@
 import {
   asset,
   asset_content_link,
-  quest_asset_link,
   quest,
+  quest_asset_link,
   vote
 } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import { eq, and, isNotNull, isNull, inArray, sql, ne } from 'drizzle-orm';
-import { useQuery } from '@tanstack/react-query';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
+import { useQuery as usePowerSyncQuery } from '@powersync/tanstack-react-query';
+import { useQuery } from '@tanstack/react-query';
+import { and, eq, isNotNull, sql } from 'drizzle-orm';
+import React from 'react';
 
 export interface TranslationExample {
   source: string;
@@ -17,20 +20,65 @@ export interface TranslationExample {
 }
 
 /**
- * Fetches contextually relevant translations from the same project for use as examples in AI translation prediction
+ * Fetches contextually relevant translations from the same project for use as
+ * examples in AI translation prediction.
  *
- * When sourceText is provided:
- * - Queries entire project for contextually relevant examples using text similarity
- * - Prioritizes examples that share words/phrases with sourceText
- * - Still selects highest-rated translation per source asset
- *
- * When sourceText is NOT provided (fallback):
- * - First gets examples from current quest
- * - Expands to other quests in same project if needed
- *
- * Maximum of 30 examples are returned (hardcoded limit).
+ * Online + sourceText: ranked RPC results.
+ * Otherwise (and as fallback): local SQLite, watched via PowerSync.
  */
 const MAX_EXAMPLES = 30;
+const DISABLED_WATCH = 'SELECT 1 WHERE 0';
+
+interface LocalTranslationRow {
+  sourceAssetId: string | null;
+  translationText: string | null;
+  createdAt: string;
+  upvoteCount: number;
+  sourceText: string | null;
+  inCurrentQuest: number | null;
+}
+
+function pickLocalExamples(rows: LocalTranslationRow[]): TranslationExample[] {
+  const bestBySource = new Map<string, LocalTranslationRow>();
+
+  for (const row of rows) {
+    if (!row.sourceAssetId || !row.translationText) continue;
+
+    const existing = bestBySource.get(row.sourceAssetId);
+    if (!existing) {
+      bestBySource.set(row.sourceAssetId, row);
+      continue;
+    }
+
+    const existingUpvotes = Number(existing.upvoteCount) || 0;
+    const currentUpvotes = Number(row.upvoteCount) || 0;
+    if (currentUpvotes > existingUpvotes) {
+      bestBySource.set(row.sourceAssetId, row);
+    } else if (currentUpvotes === existingUpvotes) {
+      const existingDate = existing.createdAt
+        ? new Date(existing.createdAt)
+        : new Date(0);
+      const currentDate = row.createdAt ? new Date(row.createdAt) : new Date(0);
+      if (currentDate > existingDate) {
+        bestBySource.set(row.sourceAssetId, row);
+      }
+    }
+  }
+
+  const currentQuest: TranslationExample[] = [];
+  const others: TranslationExample[] = [];
+
+  for (const row of bestBySource.values()) {
+    const sourceText = row.sourceText?.trim();
+    const target = row.translationText?.trim();
+    if (!sourceText || !target) continue;
+    const example = { source: sourceText, target };
+    if (row.inCurrentQuest) currentQuest.push(example);
+    else others.push(example);
+  }
+
+  return [...currentQuest, ...others].slice(0, MAX_EXAMPLES);
+}
 
 export function useNearbyTranslations(
   questId: string | null | undefined,
@@ -38,367 +86,152 @@ export function useNearbyTranslations(
   sourceText?: string | null
 ) {
   const isOnline = useNetworkStatus();
+  const watch =
+    !!questId &&
+    !!targetLanguageId &&
+    questId !== '' &&
+    targetLanguageId !== '';
+  const trimmedSource = sourceText?.trim() ?? '';
+  const rpcEnabled = watch && isOnline && trimmedSource.length > 0;
 
-  return useQuery<TranslationExample[]>({
-    queryKey: ['nearby-translations', questId, targetLanguageId, sourceText],
+  const localQuery = usePowerSyncQuery<LocalTranslationRow>({
+    queryKey: [
+      'nearby-translations',
+      'offline',
+      questId ?? '',
+      targetLanguageId
+    ],
+    query: watch
+      ? toCompilableQuery(
+          system.db
+            .select({
+              sourceAssetId: asset.source_asset_id,
+              translationText: asset_content_link.text,
+              createdAt: asset.created_at,
+              upvoteCount: sql<number>`COALESCE(
+                SUM(
+                  CASE
+                    WHEN ${vote.polarity} = 'up' AND ${vote.active} = 1 THEN 1
+                    ELSE 0
+                  END
+                ),
+                0
+              )`.as('upvote_count'),
+              sourceText: sql<string | null>`(
+                SELECT ${asset_content_link.text}
+                FROM ${asset_content_link}
+                WHERE ${asset_content_link.asset_id} = ${asset.source_asset_id}
+                  AND ${asset_content_link.active} = 1
+                  AND ${asset_content_link.text} IS NOT NULL
+                LIMIT 1
+              )`,
+              inCurrentQuest: sql<number | null>`(
+                SELECT 1
+                FROM ${quest_asset_link}
+                WHERE ${quest_asset_link.asset_id} = ${asset.source_asset_id}
+                  AND ${quest_asset_link.quest_id} = ${questId}
+                  AND ${quest_asset_link.active} = 1
+                LIMIT 1
+              )`
+            })
+            .from(asset)
+            .innerJoin(
+              asset_content_link,
+              eq(asset_content_link.asset_id, asset.id)
+            )
+            .leftJoin(vote, eq(vote.asset_id, asset.id))
+            .where(
+              and(
+                isNotNull(asset.source_asset_id),
+                eq(asset.source_language_id, targetLanguageId),
+                eq(asset.active, true),
+                isNotNull(asset_content_link.text),
+                eq(
+                  asset.project_id,
+                  sql`(SELECT ${quest.project_id} FROM ${quest} WHERE ${quest.id} = ${questId})`
+                )
+              )
+            )
+            .groupBy(
+              asset.id,
+              asset.source_asset_id,
+              asset_content_link.id,
+              asset_content_link.text,
+              asset.created_at
+            )
+        )
+      : DISABLED_WATCH
+  });
+
+  const localExamples = React.useMemo(
+    () => pickLocalExamples(localQuery.data ?? []),
+    [localQuery.data]
+  );
+
+  const rpcQuery = useQuery<TranslationExample[]>({
+    queryKey: [
+      'nearby-translations',
+      'cloud',
+      questId ?? '',
+      targetLanguageId,
+      trimmedSource
+    ],
     queryFn: async () => {
-      if (!questId || !targetLanguageId) {
+      if (!questId) return [];
+
+      const currentQuest = await system.db
+        .select({ projectId: quest.project_id })
+        .from(quest)
+        .where(eq(quest.id, questId))
+        .limit(1)
+        .then((results) => results[0]);
+
+      if (!currentQuest) return [];
+
+      const rpcResult = await system.supabaseConnector.client.rpc(
+        'get_similar_translations',
+        {
+          p_project_id: currentQuest.projectId,
+          p_target_language_id: targetLanguageId,
+          p_source_text: trimmedSource,
+          p_limit: MAX_EXAMPLES
+        }
+      );
+
+      if (rpcResult.error) {
+        console.error('[useNearbyTranslations] RPC error:', rpcResult.error);
         return [];
       }
 
-      try {
-        // Step 0: Get the current quest's project_id
-        const currentQuest = await system.db
-          .select({
-            projectId: quest.project_id
-          })
-          .from(quest)
-          .where(eq(quest.id, questId))
-          .limit(1)
-          .then((results) => results[0]);
-
-        if (!currentQuest) {
-          if (__DEV__) {
-            console.warn('[useNearbyTranslations] Current quest not found');
-          }
-          return [];
-        }
-
-        // If sourceText is provided and we're online, call the RPC to get ranked examples
-        if (sourceText && isOnline && sourceText.trim().length > 0) {
-          interface RpcExample {
+      const rpcExamples = rpcResult.data as
+        | {
             source_text: string;
             target_text: string;
             similarity_score: number;
-          }
+          }[]
+        | null;
 
-          const rpcResult = await system.supabaseConnector.client.rpc(
-            'get_similar_translations',
-            {
-              p_project_id: currentQuest.projectId,
-              p_target_language_id: targetLanguageId,
-              p_source_text: sourceText.trim(),
-              p_limit: MAX_EXAMPLES
-            }
-          );
-
-          if (rpcResult.error) {
-            console.error(
-              '[useNearbyTranslations] RPC error:',
-              rpcResult.error
-            );
-            // Fall through to local logic if RPC fails
-          } else {
-            const rpcExamples = rpcResult.data as RpcExample[] | null;
-            if (rpcExamples && rpcExamples.length > 0) {
-              // Map RPC results to TranslationExample format
-              const mappedExamples: TranslationExample[] = rpcExamples.map(
-                (e) => ({
-                  source: e.source_text,
-                  target: e.target_text,
-                  similarityScore: e.similarity_score
-                })
-              );
-
-              if (__DEV__) {
-                console.log(
-                  '[useNearbyTranslations] RPC returned examples:',
-                  mappedExamples.length
-                );
-              }
-              return mappedExamples;
-            }
-          }
-        }
-
-        // Step 1: Get all original assets in the current quest (exclude translations which have source_asset_id)
-        const currentQuestAssets = await system.db
-          .select({
-            assetId: asset.id,
-            assetContentId: asset_content_link.id,
-            sourceText: asset_content_link.text
-          })
-          .from(quest_asset_link)
-          .innerJoin(asset, eq(quest_asset_link.asset_id, asset.id))
-          .leftJoin(
-            asset_content_link,
-            eq(asset_content_link.asset_id, asset.id)
-          )
-          .where(
-            and(
-              eq(quest_asset_link.quest_id, questId),
-              isNull(asset.source_asset_id), // Only original assets, not translations
-              eq(asset.active, true),
-              isNotNull(asset_content_link.text) // Only assets with text content
-            )
-          )
-          .limit(100);
-
-        // Step 2: Get examples from current quest first
-        const examples: TranslationExample[] = [];
-        const sourceTextMap = new Map<string, string>();
-
-        // Add current quest assets to the source text map
-        currentQuestAssets.forEach((a) => {
-          if (a.sourceText) {
-            sourceTextMap.set(a.assetId, a.sourceText);
-          }
-        });
-
-        const currentQuestAssetIds = currentQuestAssets.map((a) => a.assetId);
-
-        if (currentQuestAssetIds.length > 0) {
-          const currentQuestExamples = await getExamplesFromAssets(
-            currentQuestAssetIds,
-            targetLanguageId,
-            sourceTextMap
-          );
-          examples.push(...currentQuestExamples);
-        }
-
-        if (__DEV__) {
-          console.log(
-            '[useNearbyTranslations] Current quest assets:',
-            currentQuestAssets.length
-          );
-          console.log(
-            '[useNearbyTranslations] Examples from current quest:',
-            examples.length
-          );
-        }
-
-        // Step 3: If we need more examples, get them from other quests in the same project
-        if (examples.length < MAX_EXAMPLES) {
-          // Get other quests in the same project (excluding current quest)
-          const otherQuests = await system.db
-            .select({
-              id: quest.id
-            })
-            .from(quest)
-            .where(
-              and(
-                eq(quest.project_id, currentQuest.projectId),
-                ne(quest.id, questId), // Exclude current quest
-                eq(quest.active, true)
-              )
-            )
-            .limit(50); // Limit to avoid querying too many quests
-
-          if (__DEV__) {
-            console.log(
-              '[useNearbyTranslations] Other quests in project:',
-              otherQuests.length
-            );
-          }
-
-          // Get assets from other quests
-          const otherQuestIds = otherQuests.map((q) => q.id);
-          if (otherQuestIds.length > 0) {
-            const otherQuestAssets = await system.db
-              .select({
-                assetId: asset.id,
-                assetContentId: asset_content_link.id,
-                sourceText: asset_content_link.text
-              })
-              .from(quest_asset_link)
-              .innerJoin(asset, eq(quest_asset_link.asset_id, asset.id))
-              .leftJoin(
-                asset_content_link,
-                eq(asset_content_link.asset_id, asset.id)
-              )
-              .where(
-                and(
-                  inArray(quest_asset_link.quest_id, otherQuestIds),
-                  isNull(asset.source_asset_id), // Only original assets, not translations
-                  eq(asset.active, true),
-                  isNotNull(asset_content_link.text) // Only assets with text content
-                )
-              )
-              .limit(200); // Get more assets from other quests
-
-            // Add other quest assets to the source text map
-            otherQuestAssets.forEach((a) => {
-              if (a.sourceText && !sourceTextMap.has(a.assetId)) {
-                sourceTextMap.set(a.assetId, a.sourceText);
-              }
-            });
-
-            const otherQuestAssetIds = otherQuestAssets.map((a) => a.assetId);
-
-            if (otherQuestAssetIds.length > 0) {
-              const otherQuestExamples = await getExamplesFromAssets(
-                otherQuestAssetIds,
-                targetLanguageId,
-                sourceTextMap
-              );
-
-              // Add examples up to MAX_EXAMPLES
-              for (const example of otherQuestExamples) {
-                if (examples.length >= MAX_EXAMPLES) {
-                  break;
-                }
-                examples.push(example);
-              }
-            }
-
-            if (__DEV__) {
-              console.log(
-                '[useNearbyTranslations] Other quest assets:',
-                otherQuestAssets.length
-              );
-              console.log(
-                '[useNearbyTranslations] Total examples after other quests:',
-                examples.length
-              );
-            }
-          }
-        }
-
-        if (__DEV__) {
-          console.log(
-            '[useNearbyTranslations] Final examples count:',
-            examples.length
-          );
-          if (examples.length === 0) {
-            console.warn(
-              '[useNearbyTranslations] No examples found. This might mean:'
-            );
-            console.warn(
-              '  - No translations exist in the target language for assets in this quest or project'
-            );
-            console.warn(
-              '  - The quest/project has no assets with text content'
-            );
-            console.warn('  - All translations are inactive or have no text');
-          }
-        }
-
-        return examples;
-      } catch (error) {
-        console.error(
-          '[useNearbyTranslations] Error fetching nearby translations:',
-          error
-        );
-        return [];
-      }
+      return (rpcExamples ?? []).map((example) => ({
+        source: example.source_text,
+        target: example.target_text,
+        similarityScore: example.similarity_score
+      }));
     },
-    enabled:
-      !!questId &&
-      !!targetLanguageId &&
-      questId !== '' &&
-      targetLanguageId !== '',
-    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
-    gcTime: 10 * 60 * 1000 // Keep in cache for 10 minutes
+    enabled: rpcEnabled,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000
   });
-}
 
-/**
- * Helper function to get examples from a set of asset IDs
- * Returns the highest-rated translation for each source asset
- */
-async function getExamplesFromAssets(
-  assetIds: string[],
-  targetLanguageId: string,
-  sourceTextMap: Map<string, string>
-): Promise<TranslationExample[]> {
-  if (assetIds.length === 0) {
-    return [];
-  }
+  const rpcExamples = rpcQuery.data;
+  const data =
+    rpcExamples && rpcExamples.length > 0 ? rpcExamples : localExamples;
 
-  // Get all translations with their upvote counts
-  const translationsWithVotes = await system.db
-    .select({
-      translationAssetId: asset.id,
-      sourceAssetId: asset.source_asset_id,
-      translationText: asset_content_link.text,
-      upvoteCount: sql<number>`COALESCE(
-        SUM(
-          CASE
-            WHEN ${vote.polarity} = 'up' AND ${vote.active} = 1 THEN 1
-            ELSE 0
-          END
-        ),
-        0
-      )`.as('upvote_count'),
-      createdAt: asset.created_at
-    })
-    .from(asset)
-    .innerJoin(asset_content_link, eq(asset_content_link.asset_id, asset.id))
-    .leftJoin(vote, eq(vote.asset_id, asset.id))
-    .where(
-      and(
-        isNotNull(asset.source_asset_id),
-        inArray(asset.source_asset_id, assetIds), // Only translations of these assets
-        eq(asset.source_language_id, targetLanguageId), // Filter by target language
-        eq(asset.active, true),
-        isNotNull(asset_content_link.text)
-      )
-    )
-    .groupBy(
-      asset.id,
-      asset.source_asset_id,
-      asset_content_link.id,
-      asset_content_link.text,
-      asset.created_at
-    )
-    .all();
-
-  // For each source asset, select only the highest-rated translation
-  // If tied, select the most recent one
-  const bestTranslationBySource = new Map<
-    string,
-    (typeof translationsWithVotes)[0]
-  >();
-
-  for (const translation of translationsWithVotes) {
-    if (!translation.sourceAssetId || !translation.translationText) {
-      continue;
-    }
-
-    const existing = bestTranslationBySource.get(translation.sourceAssetId);
-
-    if (!existing) {
-      // No translation selected yet for this source asset
-      bestTranslationBySource.set(translation.sourceAssetId, translation);
-    } else {
-      // Compare: higher upvote count wins, or if tied, most recent wins
-      const existingUpvotes = Number(existing.upvoteCount) || 0;
-      const currentUpvotes = Number(translation.upvoteCount) || 0;
-
-      if (currentUpvotes > existingUpvotes) {
-        // Current translation has more upvotes
-        bestTranslationBySource.set(translation.sourceAssetId, translation);
-      } else if (currentUpvotes === existingUpvotes) {
-        // Tie: use most recent
-        const existingDate = existing.createdAt
-          ? new Date(existing.createdAt)
-          : new Date(0);
-        const currentDate = translation.createdAt
-          ? new Date(translation.createdAt)
-          : new Date(0);
-
-        if (currentDate > existingDate) {
-          bestTranslationBySource.set(translation.sourceAssetId, translation);
-        }
-      }
-    }
-  }
-
-  // Build examples from the best translations
-  const examples: TranslationExample[] = [];
-
-  for (const [
-    sourceAssetId,
-    translation
-  ] of bestTranslationBySource.entries()) {
-    const sourceText = sourceTextMap.get(sourceAssetId);
-    if (sourceText?.trim() && translation.translationText) {
-      examples.push({
-        source: sourceText.trim(),
-        target: translation.translationText.trim()
-      });
-    }
-  }
-
-  return examples;
+  return {
+    data,
+    isLoading:
+      (watch && localQuery.isLoading && !localExamples.length) ||
+      (rpcEnabled && rpcQuery.isLoading && !rpcExamples?.length),
+    isFetching: localQuery.isFetching || rpcQuery.isFetching,
+    error: localQuery.error ?? rpcQuery.error
+  };
 }

@@ -1,5 +1,6 @@
 import { DownloadConfirmationModal } from '@/components/DownloadConfirmationModal';
 import { DownloadIndicator } from '@/components/DownloadIndicator';
+import { DownloadStatusBadge } from '@/components/DownloadStatusBadge';
 import { QuestDownloadDiscoveryDrawer } from '@/components/QuestDownloadDiscoveryDrawer';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
@@ -18,37 +19,33 @@ import {
   quest_asset_link
 } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import { AppConfig } from '@/db/supabase/AppConfig';
 import { useAssetsByQuest, useLocalAssetsByQuest } from '@/hooks/db/useAssets';
 import { useAudioPlaybackCheckpoint } from '@/hooks/useAudioPlaybackCheckpoint';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useQuestDownloadDiscovery } from '@/hooks/useQuestDownloadDiscovery';
 import { useQuestDownloadStatusLive } from '@/hooks/useQuestDownloadStatusLive';
+import { useSheetHandoff } from '@/hooks/useSheetHandoff';
 import { useSingleAudioController } from '@/hooks/useSingleAudioController';
 import type { LocalizationKey } from '@/services/localizations';
 import { syncCallbackService } from '@/services/syncCallbackService';
 import { useLocalStore } from '@/store/localStore';
-import {
-  isLocalOnlyAudio,
-  resolveExistingAudioUri
-} from '@/utils/attachmentPaths';
 import { bulkDownloadQuest } from '@/utils/bulkDownload';
 import type { WithSource } from '@/utils/dbUtils';
-import { resolveTable } from '@/utils/dbUtils';
+import { getAssetAudioUris as getPlayableAssetAudioUris } from '@/utils/getAssetAudioUris';
 import { formatQuestDisplayLabel } from '@/utils/questVersionLabel';
 import { cn, useThemeColor } from '@/utils/styleUtils';
-import { useHybridData } from '@/views/new/useHybridData';
+import { invalidateCloud } from '@/hooks/hybridCache';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { LegendList } from '@legendapp/list';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { and, eq, getTableColumns, sql } from 'drizzle-orm';
+import { and, eq, getTableColumns, isNotNull, sql } from 'drizzle-orm';
 import {
   CheckIcon,
   CheckSquareIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   CircleAlertIcon,
-  CircleCheckIcon,
   Edit3Icon,
   InfoIcon,
   PauseIcon,
@@ -515,7 +512,7 @@ function QuestCard({
           size={18}
         />
       ) : (
-        <Icon as={CircleCheckIcon} size={20} className="text-primary" />
+        <DownloadStatusBadge status="downloaded" size={18} />
       )}
     </Pressable>
   );
@@ -859,7 +856,7 @@ function ValidationAssetCard({
 
 function ValidationStep({
   selectedAssets,
-  usedLabels,
+  usedLabels: _usedLabels,
   conflictingAssetIds,
   effectiveVerseRanges,
   playingAssetId,
@@ -987,10 +984,8 @@ export function ImportWizard({
   >(null);
   const [isImporting, setIsImporting] = React.useState(false);
   const startedDiscoveryRef = React.useRef<string | null>(null);
-  const isTransitioningToConfirmationRef = React.useRef(false);
-  const confirmationTimerRef = React.useRef<ReturnType<
-    typeof setTimeout
-  > | null>(null);
+  const { handoff, isHandingOff, endHandoff, completeHandoff } =
+    useSheetHandoff();
   const stopCurrentSoundRef = React.useRef(audioContext.stopCurrentSound);
 
   // Only reflect actively playing audio so the icon returns to play on pause/end.
@@ -1002,14 +997,6 @@ export function ImportWizard({
   React.useEffect(() => {
     stopCurrentSoundRef.current = audioContext.stopCurrentSound;
   }, [audioContext.stopCurrentSound]);
-
-  React.useEffect(() => {
-    return () => {
-      if (confirmationTimerRef.current) {
-        clearTimeout(confirmationTimerRef.current);
-      }
-    };
-  }, []);
 
   const currentContext = React.useMemo(
     () => getQuestContext(currentQuest.metadata),
@@ -1030,9 +1017,8 @@ export function ImportWizard({
     void stopCurrentSoundRef.current();
   }, [visible]);
 
-  const compatibleQuestsQuery = useHybridData<ImportQuest>({
-    dataType: 'import-compatible-quests',
-    queryKeyParams: [projectId, currentQuest.id],
+  const compatibleQuestsQuery = useHybridQuery<ImportQuest>({
+    queryKey: ['import-compatible-quests', projectId, currentQuest.id],
     offlineQuery: toCompilableQuery(
       system.db
         .select({
@@ -1059,7 +1045,8 @@ export function ImportWizard({
           and(
             eq(quest.project_id, projectId),
             eq(quest.active, true),
-            eq(quest.visible, true)
+            eq(quest.visible, true),
+            isNotNull(quest.published_at)
           )
         )
     ),
@@ -1071,6 +1058,7 @@ export function ImportWizard({
           .eq('project_id', projectId)
           .eq('active', true)
           .eq('visible', true)
+          .not('published_at', 'is', null)
           .order('created_at', { ascending: false })
           .overrideTypes<Quest[]>();
 
@@ -1413,20 +1401,6 @@ export function ImportWizard({
         })
       });
 
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['assets'], exact: false }),
-        queryClient.invalidateQueries({ queryKey: ['quests'], exact: false }),
-        // BibleAssetsView / NextGenAssetsView load the quest as 'current-quest'
-        queryClient.invalidateQueries({
-          queryKey: ['current-quest'],
-          exact: false
-        }),
-        queryClient.invalidateQueries({
-          queryKey: ['quest-asset-link'],
-          exact: false
-        })
-      ]);
-
       if (result.linkedAssetIds.length > 0) {
         toast.success(
           `Imported ${result.linkedAssetIds.length} asset${result.linkedAssetIds.length === 1 ? '' : 's'}`
@@ -1449,60 +1423,7 @@ export function ImportWizard({
   };
 
   const getAssetAudioUris = React.useCallback(
-    async (assetId: string): Promise<string[]> => {
-      try {
-        const assetContentLinkSynced = resolveTable('asset_content_link', {
-          localOverride: false
-        });
-        const assetContentLinkLocal = resolveTable('asset_content_link', {
-          localOverride: true
-        });
-
-        const [syncedLinks, localLinks] = await Promise.all([
-          system.db
-            .select()
-            .from(assetContentLinkSynced)
-            .where(eq(assetContentLinkSynced.asset_id, assetId)),
-          system.db
-            .select()
-            .from(assetContentLinkLocal)
-            .where(eq(assetContentLinkLocal.asset_id, assetId))
-        ]);
-
-        const audioValues = [...syncedLinks, ...localLinks]
-          .flatMap((link) => link.audio ?? [])
-          .filter((value): value is string => Boolean(value));
-
-        const uris: string[] = [];
-        for (const audioValue of audioValues) {
-          const localUri = await resolveExistingAudioUri(audioValue);
-          if (localUri) {
-            uris.push(localUri);
-            continue;
-          }
-
-          // Only published filenames can be streamed from storage; local-only
-          // and file:// values have no remote counterpart.
-          if (
-            !isLocalOnlyAudio(audioValue) &&
-            !audioValue.startsWith('file://') &&
-            AppConfig.supabaseBucket
-          ) {
-            const { data } = system.supabaseConnector.client.storage
-              .from(AppConfig.supabaseBucket)
-              .getPublicUrl(audioValue);
-            if (data.publicUrl) {
-              uris.push(data.publicUrl);
-            }
-          }
-        }
-
-        return uris;
-      } catch (error) {
-        console.error('[ImportWizard] Failed to resolve asset audio:', error);
-        return [];
-      }
-    },
+    (assetId: string) => getPlayableAssetAudioUris(assetId),
     []
   );
 
@@ -1561,14 +1482,11 @@ export function ImportWizard({
           questIdsToClear.forEach((id) => next.delete(id));
           return next;
         });
-        await queryClient.invalidateQueries({
-          queryKey: ['import-compatible-quests'],
-          exact: false
-        });
-        await queryClient.invalidateQueries({
-          queryKey: ['assets'],
-          exact: false
-        });
+        await invalidateCloud(
+          queryClient,
+          'import-compatible-quests',
+          'assets'
+        );
       };
 
       if (questIdToDownload) {
@@ -1583,7 +1501,7 @@ export function ImportWizard({
   });
 
   const handleDownloadQuest = (questId: string) => {
-    isTransitioningToConfirmationRef.current = false;
+    endHandoff();
     setQuestIdToDownload(questId);
     setHideWizardForDownloadOverlay(true);
     setShowDiscoveryDrawer(true);
@@ -1605,19 +1523,14 @@ export function ImportWizard({
   };
 
   const handleDiscoveryContinue = () => {
-    isTransitioningToConfirmationRef.current = true;
-    setShowDiscoveryDrawer(false);
-    if (confirmationTimerRef.current) {
-      clearTimeout(confirmationTimerRef.current);
-    }
-    confirmationTimerRef.current = setTimeout(() => {
-      setShowConfirmationModal(true);
-      confirmationTimerRef.current = null;
-    }, 350);
+    handoff(
+      () => setShowDiscoveryDrawer(false),
+      () => setShowConfirmationModal(true)
+    );
   };
 
   const handleConfirmDownload = async () => {
-    isTransitioningToConfirmationRef.current = false;
+    endHandoff();
     setShowConfirmationModal(false);
     setHideWizardForDownloadOverlay(false);
     const questIdsToTrack = new Set(discoveryState.discoveredIds.questIds);
@@ -1637,7 +1550,7 @@ export function ImportWizard({
   };
 
   const handleCancelConfirmation = () => {
-    isTransitioningToConfirmationRef.current = false;
+    endHandoff();
     if (questIdToDownload) {
       syncCallbackService.cancelCallback(questIdToDownload);
       const questIdsToClear = discoveryState.discoveredIds.questIds;
@@ -1666,12 +1579,8 @@ export function ImportWizard({
   };
 
   const handleRefreshAssets = React.useCallback(async () => {
-    await queryClient.invalidateQueries({
-      queryKey: ['assets']
-    });
-    void publishedAssetsQuery.refetch();
-    void localAssetsQuery.refetch();
-  }, [queryClient, publishedAssetsQuery, localAssetsQuery]);
+    await invalidateCloud(queryClient, 'assets');
+  }, [queryClient]);
 
   if (!visible) {
     return null;
@@ -1688,6 +1597,7 @@ export function ImportWizard({
         <View
           className="flex-1 bg-background"
           style={{ paddingTop: insets.top }}
+          testID="import-wizard"
         >
           <View className="flex-row items-center justify-between border-b border-border px-6 py-4">
             <Text className="text-base font-semibold">
@@ -1882,9 +1792,9 @@ export function ImportWizard({
       <QuestDownloadDiscoveryDrawer
         isOpen={showDiscoveryDrawer}
         onOpenChange={(open) => {
-          if (!open && !isTransitioningToConfirmationRef.current) {
-            handleCancelDiscovery();
-          }
+          if (open) return;
+          if (isHandingOff()) completeHandoff();
+          else handleCancelDiscovery();
         }}
         onContinue={handleDiscoveryContinue}
         discoveryState={discoveryState}

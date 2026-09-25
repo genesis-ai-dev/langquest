@@ -10,25 +10,11 @@ export interface ProjectWithRelatedLanguoid {
   languoid: Languoid | null;
 }
 
-const { db } = system;
-
 export class ProjectService {
-  async getAllProjects(): Promise<Project[]> {
-    console.log('getAllProjects trying to fetch projects');
-    const results = await db.select().from(project);
-    console.log('getAllProjects fetched projects', results);
-    return results;
-  }
-
-  async getProjectById(id: string) {
-    const [result] = await db.select().from(project).where(eq(project.id, id));
-    return result;
-  }
-
   async getProjectWithRelatedLanguoid(
     projectId: string
   ): Promise<ProjectWithRelatedLanguoid | null> {
-    const [projectRecord] = await db
+    const [projectRecord] = await system.db
       .select()
       .from(project)
       .where(eq(project.id, projectId))
@@ -38,7 +24,7 @@ export class ProjectService {
       return null;
     }
 
-    const [targetLanguageLink] = await db
+    const [targetLanguageLink] = await system.db
       .select({ languoid_id: project_language_link.languoid_id })
       .from(project_language_link)
       .where(
@@ -56,7 +42,7 @@ export class ProjectService {
       };
     }
 
-    const [languoidRecord] = await db
+    const [languoidRecord] = await system.db
       .select()
       .from(languoid)
       .where(eq(languoid.id, targetLanguageLink.languoid_id))

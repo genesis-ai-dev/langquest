@@ -5,14 +5,18 @@
  */
 
 import { useAuth } from '@/contexts/AuthContext';
-import { profile, quest } from '@/db/drizzleSchema';
+import { quest } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useLocalStore } from '@/store/localStore';
 import { normalizeUuid } from '@/utils/uuidUtils';
-import type { HybridDataSource } from '@/views/new/useHybridData';
+import type { HybridDataSource } from '@/hooks/useHybridQuery';
+import { toCompilableQuery } from '@powersync/drizzle-driver';
+import { useQuery as usePowerSyncQuery } from '@powersync/tanstack-react-query';
 import { useQuery } from '@tanstack/react-query';
-import { eq, inArray } from 'drizzle-orm';
+import { publishedOrOwnQuest } from '@/utils/dbUtils';
+import { and, eq } from 'drizzle-orm';
 import React from 'react';
+import { useProfileDisplayNames } from './db/useProfiles';
 import { useNetworkStatus } from './useNetworkStatus';
 
 export interface BibleChapterQuest {
@@ -71,26 +75,23 @@ function parseMetadata(raw: unknown): BibleMetadata | null {
   }
 }
 
-async function fetchLocalChapters(
-  projectId: string,
-  bookId: string
-): Promise<QuestWithMetadata[]> {
-  const allQuests = await system.db.query.quest.findMany({
-    where: eq(quest.project_id, projectId),
-    columns: {
-      id: true,
-      name: true,
-      source: true,
-      created_at: true,
-      download_profiles: true,
-      metadata: true,
-      creator_id: true,
-      visible: true
-    }
-  });
+const DISABLED_WATCH = 'SELECT 1 WHERE 0';
 
+function mapQuestRowsToChapters(
+  allQuests: {
+    id: string;
+    name: string;
+    published_at: string | Date | null;
+    created_at: string | Date;
+    download_profiles: unknown;
+    metadata: unknown;
+    creator_id: string | null;
+    visible: boolean;
+  }[],
+  bookId: string
+): QuestWithMetadata[] {
   return allQuests
-    .map((q) => {
+    .map((q): QuestWithMetadata | null => {
       const meta = parseMetadata(q.metadata);
       if (meta?.bible?.book !== bookId || meta.bible.chapter == null)
         return null;
@@ -113,7 +114,7 @@ async function fetchLocalChapters(
       let createdAt: string;
       const ca = q.created_at;
       if (ca && typeof ca === 'object' && 'toISOString' in ca) {
-        createdAt = (ca as Date).toISOString();
+        createdAt = ca.toISOString();
       } else if (typeof ca === 'string') {
         createdAt = ca;
       } else {
@@ -124,12 +125,12 @@ async function fetchLocalChapters(
         quest_id: q.id,
         quest_name: q.name,
         quest_version_label: meta.versionLabel ?? null,
-        quest_source: q.source,
+        quest_source: q.published_at == null ? 'local' : 'synced',
         quest_created_at: createdAt,
         quest_download_profiles: parsedProfiles,
         quest_creator_id: q.creator_id ?? null,
         quest_visible: q.visible ?? true,
-        chapter_number: meta.bible.chapter!
+        chapter_number: meta.bible.chapter
       } satisfies QuestWithMetadata;
     })
     .filter((x): x is QuestWithMetadata => x !== null);
@@ -137,16 +138,22 @@ async function fetchLocalChapters(
 
 async function fetchCloudChapters(
   projectId: string,
-  bookId: string
+  bookId: string,
+  userId?: string
 ): Promise<QuestWithMetadata[]> {
   try {
     const { data, error } = await system.supabaseConnector.client
       .from('quest')
       .select(
-        'id, name, created_at, download_profiles, metadata, creator_id, visible'
+        'id, name, created_at, download_profiles, metadata, creator_id, visible, published_at'
       )
       .eq('project_id', projectId)
-      .not('metadata', 'is', null);
+      .not('metadata', 'is', null)
+      .or(
+        userId
+          ? `published_at.not.is.null,creator_id.eq.${userId}`
+          : 'published_at.not.is.null'
+      );
 
     if (error || !data) return [];
 
@@ -165,34 +172,13 @@ async function fetchCloudChapters(
         quest_download_profiles: row.download_profiles as string[] | null,
         quest_creator_id: (row.creator_id as string) ?? null,
         quest_visible: (row.visible as boolean) ?? true,
-        chapter_number: meta.bible.chapter!
+        chapter_number: meta.bible.chapter
       });
     }
     return results;
   } catch {
     return [];
   }
-}
-
-async function fetchCreatorNames(
-  creatorIds: string[]
-): Promise<Map<string, string>> {
-  const nameMap = new Map<string, string>();
-  if (creatorIds.length === 0) return nameMap;
-
-  try {
-    const profiles = await system.db.query.profile.findMany({
-      where: inArray(profile.id, creatorIds),
-      columns: { id: true, username: true, email: true }
-    });
-    for (const p of profiles) {
-      nameMap.set(p.id, p.username || p.email || 'Unknown');
-    }
-  } catch {
-    /* ignore — names are best-effort */
-  }
-
-  return nameMap;
 }
 
 const getSourcePriority = (source: HybridDataSource): number => {
@@ -271,23 +257,25 @@ function processChapterResults(
           (v) =>
             showHiddenContent || v.visible || v.creator_id === currentUserId
         )
-        .map((v) => ({
-          id: v.id,
-          name: v.name,
-          versionLabel: v.versionLabel,
-          chapterNumber: v.chapterNumber,
-          source: (v.sources.has('synced')
-            ? 'synced'
-            : v.sources.has('local')
-              ? 'local'
-              : 'cloud') as HybridDataSource,
-          hasLocalCopy: v.sources.has('local'),
-          hasSyncedCopy: v.sources.has('synced'),
-          download_profiles: v.download_profiles,
-          creator_id: v.creator_id,
-          created_at: v.created_at,
-          visible: v.visible
-        }))
+        .map(
+          (v): BibleChapterQuest => ({
+            id: v.id,
+            name: v.name,
+            versionLabel: v.versionLabel,
+            chapterNumber: v.chapterNumber,
+            source: v.sources.has('synced')
+              ? 'synced'
+              : v.sources.has('local')
+                ? 'local'
+                : 'cloud',
+            hasLocalCopy: v.sources.has('local'),
+            hasSyncedCopy: v.sources.has('synced'),
+            download_profiles: v.download_profiles,
+            creator_id: v.creator_id,
+            created_at: v.created_at,
+            visible: v.visible
+          })
+        )
         .sort((a, b) => {
           const aPriority = getSourcePriority(a.source);
           const bPriority = getSourcePriority(b.source);
@@ -312,20 +300,44 @@ export function useBibleChapters(projectId: string, bookId: string) {
   const showHiddenContent = useLocalStore((s) => s.showHiddenContent);
   const { currentUser } = useAuth();
 
+  const watchLocal = !!projectId && !!bookId;
+
   const {
-    data: localResults = [],
+    data: localQuests = [],
     isLoading: isLoadingLocal,
     error: localError
-  } = useQuery({
-    queryKey: ['bible-chapters', 'local', projectId, bookId],
-    queryFn: () => fetchLocalChapters(projectId, bookId),
-    enabled: !!projectId && !!bookId,
-    staleTime: 30000
+  } = usePowerSyncQuery({
+    queryKey: ['bible-chapters', 'offline', projectId],
+    query: watchLocal
+      ? toCompilableQuery(
+          system.db.query.quest.findMany({
+            where: and(
+              eq(quest.project_id, projectId),
+              publishedOrOwnQuest(currentUser?.id)
+            ),
+            columns: {
+              id: true,
+              name: true,
+              published_at: true,
+              created_at: true,
+              download_profiles: true,
+              metadata: true,
+              creator_id: true,
+              visible: true
+            }
+          })
+        )
+      : DISABLED_WATCH
   });
+
+  const localResults = React.useMemo(
+    () => mapQuestRowsToChapters(localQuests, bookId),
+    [localQuests, bookId]
+  );
 
   const { data: cloudResults = [], isLoading: isLoadingCloud } = useQuery({
     queryKey: ['bible-chapters', 'cloud', projectId, bookId],
-    queryFn: () => fetchCloudChapters(projectId, bookId),
+    queryFn: () => fetchCloudChapters(projectId, bookId, currentUser?.id),
     enabled: !!projectId && !!bookId && isOnline,
     staleTime: 60000
   });
@@ -349,12 +361,7 @@ export function useBibleChapters(projectId: string, bookId: string) {
     return Array.from(ids);
   }, [chapterGroups]);
 
-  const { data: creatorNameMap } = useQuery({
-    queryKey: ['profile-names', ...creatorIds.sort()],
-    queryFn: () => fetchCreatorNames(creatorIds),
-    enabled: creatorIds.length > 0,
-    staleTime: 300000
-  });
+  const creatorNameMap = useProfileDisplayNames(creatorIds);
 
   const chapters = React.useMemo(() => {
     if (!creatorNameMap || creatorNameMap.size === 0) return chapterGroups;

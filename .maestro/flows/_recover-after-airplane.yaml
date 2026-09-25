@@ -1,0 +1,37 @@
+appId: ${MAESTRO_APP_ID}
+---
+# Airplane in a prior flow can leave Metro dead (empty Dev Launcher,
+# Initialization Error, Disconnected badge). Restore radios, then wait
+# until the next launch is not starting from that hole. Preview builds
+# skip the Metro deep link. Do not open the drawer unless the hamburger
+# is already on screen (a Modal or the launcher will not have it).
+# Auth is a form sheet over (app). The hamburger stays in the tree
+# under sign-in, but taps hit the sheet and drawer-projects never
+# appears (auth-guest ends on that screen).
+- evalScript: ${output.useDevClient = typeof MAESTRO_USE_DEV_CLIENT !== 'undefined' && String(MAESTRO_USE_DEV_CLIENT) === 'true'}
+- setAirplaneMode: disabled
+- runFlow:
+    when:
+      visible: Initialization Error
+    commands:
+      - tapOn: OK
+- runFlow:
+    when:
+      true: ${output.useDevClient}
+      visible: '(?i)Fetch development servers'
+    commands:
+      - openLink: ${MAESTRO_DEV_CLIENT_URL}
+- runFlow:
+    when:
+      visible:
+        id: app-drawer-menu-button
+      notVisible:
+        id: sign-in-email
+    commands:
+      - runFlow: _open-app-drawer.yaml
+      - extendedWaitUntil:
+          notVisible: '(?i)(Disconnected|sync error)'
+          timeout: 30000
+      - tapOn:
+          id: drawer-projects
+          waitToSettleTimeoutMs: 0

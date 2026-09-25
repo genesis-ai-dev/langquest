@@ -131,7 +131,6 @@ export function OnboardingProgressIndicator({
         {stepOrder.map((step, index) => {
           const isActive = index === currentStepIndex;
           const isCompleted = index < currentStepIndex;
-          const isPending = index > currentStepIndex;
 
           return (
             <View key={step} className="relative z-[20] items-center">

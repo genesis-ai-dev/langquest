@@ -15,13 +15,18 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useLocalStore } from '@/store/localStore';
 import { createLanguoidOffline } from '@/utils/languoidUtils';
-import { cn, getThemeColor, useThemeColor } from '@/utils/styleUtils';
-import { LanguagesIcon, PlusCircleIcon, SearchIcon } from 'lucide-react-native';
-import { MotiView } from 'moti';
+import { cn, useThemeColor } from '@/utils/styleUtils';
+import {
+  ChevronDownIcon,
+  LanguagesIcon,
+  PlusCircleIcon,
+  SearchIcon
+} from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
-import { Dropdown } from 'react-native-element-dropdown';
+import { ActivityIndicator, Keyboard, View } from 'react-native';
+import { Drawer, DrawerContent } from './ui/drawer';
 import Animated, {
+  Easing,
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
@@ -56,39 +61,47 @@ interface LanguageComboboxProps {
   allowCreate?: boolean;
   /** Callback when a new language is created (receives the new languoid ID) */
   onCreateNew?: (languoidId: string, name: string) => void;
+  testID?: string;
+  searchTestID?: string;
 }
 
 function LoadingState() {
   const shimmer = useSharedValue(0);
+  const rotation = useSharedValue(0);
 
   React.useEffect(() => {
-    shimmer.value = withRepeat(
-      withSequence(
-        withTiming(1, { duration: 1000 }),
-        withTiming(0, { duration: 1000 })
-      ),
-      -1,
-      false
+    shimmer.set(
+      withRepeat(
+        withSequence(
+          withTiming(1, { duration: 1000 }),
+          withTiming(0, { duration: 1000 })
+        ),
+        -1,
+        false
+      )
     );
-  }, [shimmer]);
+    rotation.set(
+      withRepeat(
+        withTiming(1, { duration: 2000, easing: Easing.linear }),
+        -1,
+        false
+      )
+    );
+  }, [shimmer, rotation]);
 
   const shimmerStyle = useAnimatedStyle(() => ({
-    opacity: 0.3 + shimmer.value * 0.4
+    opacity: 0.3 + shimmer.get() * 0.4
+  }));
+
+  const rotationStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${rotation.get() * 360}deg` }]
   }));
 
   return (
     <View className="flex flex-row items-center gap-2">
-      <MotiView
-        from={{ rotate: '0deg' }}
-        animate={{ rotate: '360deg' }}
-        transition={{
-          type: 'timing',
-          duration: 2000,
-          loop: true
-        }}
-      >
+      <Animated.View style={rotationStyle}>
         <Icon as={LanguagesIcon} className="text-muted-foreground" size={20} />
-      </MotiView>
+      </Animated.View>
       <View className="flex flex-1 flex-col gap-2">
         <Animated.View
           style={shimmerStyle}
@@ -111,7 +124,9 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
   uiReadyOnly = false,
   toggleUILocalization,
   allowCreate = false,
-  onCreateNew
+  onCreateNew,
+  testID,
+  searchTestID
 }) => {
   const primaryColor = useThemeColor('primary');
   const setSavedLanguage = useLocalStore((state) => state.setSavedLanguage);
@@ -123,6 +138,7 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
 
   // State for creation flow
   const [isCreating, setIsCreating] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
 
   // Store the currently selected languoid to preserve it in dropdown data
   const [selectedLanguoid, setSelectedLanguoid] = useState<
@@ -363,8 +379,9 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
         setSavedLanguage(newLanguoid as any);
         onChange?.(newLanguoid);
 
-        // Clear search
+        Keyboard.dismiss();
         setSearchQuery('');
+        setIsOpen(false);
       } catch (error) {
         console.error('Failed to create languoid:', error);
       } finally {
@@ -393,8 +410,9 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
         onChange?.(item.languoid);
       }
 
-      // Clear search after selection
+      Keyboard.dismiss();
       setSearchQuery('');
+      setIsOpen(false);
     },
     [
       handleCreateNew,
@@ -406,9 +424,11 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
     ]
   );
 
-  // Determine loading state
-  const isLoading =
-    isLocalLoading || (shouldUseServerSearch && isSearchLoading) || isCreating;
+  const closePicker = useCallback(() => {
+    Keyboard.dismiss();
+    setIsOpen(false);
+    setSearchQuery('');
+  }, [setSearchQuery]);
 
   // Show loading state while fetching initial data (only for uiReadyOnly mode)
   if (uiReadyOnly && isLocalLoading && localLanguoids.length === 0) {
@@ -419,85 +439,69 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
     );
   }
 
+  const selectedLabel = selectedLanguoid?.name ?? t('selectLanguage');
+  const hasSelection = Boolean(selectedLanguoid);
+
   return (
-    <View className={cn('w-full', className)}>
-      <Dropdown
-        style={{
-          height: 48,
-          borderWidth: 1,
-          borderRadius: 8,
-          paddingHorizontal: 12,
-          backgroundColor: getThemeColor('card'),
-          borderColor: getThemeColor('border')
+    <View className={cn('w-full', className)} accessible={false}>
+      <ButtonPressable
+        testID={testID}
+        accessibilityLabel={testID}
+        onPress={() => setIsOpen(true)}
+        className="h-12 flex-row items-center rounded-lg border border-border bg-card px-3"
+      >
+        <Icon
+          as={LanguagesIcon}
+          className="mr-2 text-muted-foreground"
+          size={20}
+        />
+        <Text
+          className={cn(
+            'flex-1 text-sm',
+            hasSelection ? 'text-foreground' : 'text-muted-foreground'
+          )}
+          numberOfLines={1}
+        >
+          {selectedLabel}
+        </Text>
+        <Icon
+          as={ChevronDownIcon}
+          className="text-muted-foreground"
+          size={16}
+        />
+      </ButtonPressable>
+
+      <Drawer
+        open={isOpen}
+        onOpenChange={(open) => {
+          if (!open) closePicker();
         }}
-        placeholderStyle={{
-          fontSize: 14,
-          color: getThemeColor('muted-foreground')
-        }}
-        selectedTextStyle={{
-          fontSize: 14,
-          lineHeight: 48,
-          color: getThemeColor('foreground')
-        }}
-        iconStyle={{
-          width: 20,
-          height: 20
-        }}
-        containerStyle={{
-          borderRadius: 8,
-          overflow: 'hidden',
-          borderWidth: 1,
-          marginTop: 8,
-          backgroundColor: getThemeColor('card'),
-          borderColor: getThemeColor('border')
-        }}
-        dropdownPosition="auto"
-        itemTextStyle={{
-          fontSize: 14,
-          color: getThemeColor('foreground')
-        }}
-        itemContainerStyle={{
-          borderRadius: 8,
-          overflow: 'hidden'
-        }}
-        // activeColor={getThemeColor('primary')}
-        activeColor={getThemeColor('primary')}
-        data={sortedData}
-        search
-        maxHeight={400}
-        labelField="label"
-        valueField="value"
-        placeholder={t('selectLanguage')}
-        value={effectiveValue}
-        onChange={handleValueChange}
-        renderInputSearch={() => (
-          <View className="overflow-hidden border-b border-border">
+        snapPoints={['75%']}
+        stackBehavior="push"
+        android_keyboardInputMode="adjustResize"
+      >
+        <DrawerContent className="pb-safe">
+          <View accessible={false}>
             <Input
+              drawerInput
               value={immediateSearchQuery}
               onChangeText={setSearchQuery}
+              testID={searchTestID}
               placeholder={t('searchLanguages')}
               prefix={SearchIcon}
               size="sm"
-              className="border-0"
+              className="border-0 border-b border-border"
               autoCapitalize="none"
               autoCorrect={false}
+              autoFocus
               suffix={
                 (isSearchLoading || isCreating) && immediateSearchQuery ? (
-                  <ActivityIndicator
-                    size="small"
-                    color={getThemeColor('primary')}
-                  />
+                  <ActivityIndicator size="small" color={primaryColor} />
                 ) : undefined
               }
             />
           </View>
-        )}
-        flatListProps={{
-          style: {
-            backgroundColor: getThemeColor('card')
-          },
-          contentContainerStyle: {},
-          ListEmptyComponent: () => (
+          {sortedData.length === 0 ? (
             <View className="px-3 py-4">
               <Text className="text-center text-sm text-muted-foreground">
                 {isSearchLoading
@@ -507,72 +511,72 @@ export const LanguageCombobox: React.FC<LanguageComboboxProps> = ({
                     : t('typeToSearch', { min: 2 })}
               </Text>
             </View>
-          )
-        }}
-        renderLeftIcon={() => (
-          <Icon
-            as={LanguagesIcon}
-            className="mr-2 text-muted-foreground"
-            size={20}
-          />
-        )}
-        renderItem={(item, selected) => {
-          // Special rendering for "Create new" option
-          if (item.isCreateOption) {
-            return (
-              <ButtonPressable
-                className="flex flex-row items-center bg-primary/10 p-3"
-                onPress={() => handleValueChange(item)}
-              >
-                <Icon
-                  as={PlusCircleIcon}
-                  className="mr-2 text-primary"
-                  size={20}
-                />
-                <View className="flex-1">
-                  <Text className="text-sm font-medium text-primary">
-                    {t('createLanguage', { name: item.displayLabel })}
-                  </Text>
-                  <Text className="text-xs text-muted-foreground">
-                    Add this as a new language
-                  </Text>
-                </View>
-              </ButtonPressable>
-            );
-          }
+          ) : (
+            sortedData.map((item) => {
+              if (item.isCreateOption) {
+                return (
+                  <ButtonPressable
+                    key={item.value}
+                    testID="language-create-new"
+                    accessibilityLabel="language-create-new"
+                    className="flex flex-row items-center bg-primary/10 p-3"
+                    onPress={() => handleValueChange(item)}
+                  >
+                    <Icon
+                      as={PlusCircleIcon}
+                      className="mr-2 text-primary"
+                      size={20}
+                    />
+                    <View className="flex-1">
+                      <Text className="text-sm font-medium text-primary">
+                        {t('createLanguage', { name: item.displayLabel })}
+                      </Text>
+                      <Text className="text-xs text-muted-foreground">
+                        Add this as a new language
+                      </Text>
+                    </View>
+                  </ButtonPressable>
+                );
+              }
 
-          // Normal item rendering
-          return (
-            <View
-              className={cn(
-                'flex flex-row items-center px-3 py-3',
-                selected && 'bg-accent'
-              )}
-            >
-              <View className="flex-1">
-                <Text
+              const selected = item.value === effectiveValue;
+              const rowLabel = item.displayLabel || item.label;
+              return (
+                <ButtonPressable
+                  key={item.value}
+                  testID={rowLabel}
+                  accessibilityLabel={rowLabel}
                   className={cn(
-                    'flex-1 text-sm',
-                    selected
-                      ? 'font-medium text-accent-foreground'
-                      : 'text-foreground'
+                    'flex flex-row items-center px-3 py-3',
+                    selected && 'bg-accent'
                   )}
-                  numberOfLines={1}
+                  onPress={() => handleValueChange(item)}
                 >
-                  {item.displayLabel || item.label}
-                </Text>
-                {/* Show matched alias and/or ISO code if available */}
-                {(item.isoCode || item.matchedAlias) && (
-                  <Text className="text-xs text-muted-foreground">
-                    {item.matchedAlias && `[${item.matchedAlias}] `}
-                    {item.isoCode && `iso:${item.isoCode}`}
-                  </Text>
-                )}
-              </View>
-            </View>
-          );
-        }}
-      />
+                  <View className="flex-1" accessible={false}>
+                    <Text
+                      className={cn(
+                        'flex-1 text-sm',
+                        selected
+                          ? 'font-medium text-accent-foreground'
+                          : 'text-foreground'
+                      )}
+                      numberOfLines={1}
+                    >
+                      {rowLabel}
+                    </Text>
+                    {(item.isoCode || item.matchedAlias) && (
+                      <Text className="text-xs text-muted-foreground">
+                        {item.matchedAlias && `[${item.matchedAlias}] `}
+                        {item.isoCode && `iso:${item.isoCode}`}
+                      </Text>
+                    )}
+                  </View>
+                </ButtonPressable>
+              );
+            })
+          )}
+        </DrawerContent>
+      </Drawer>
     </View>
   );
 };

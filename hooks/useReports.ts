@@ -5,6 +5,7 @@ import type { reasonOptions } from '@/db/constants';
 import { reports } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useHybridQuery } from '@/hooks/useHybridQuery';
+import { invalidateCloud } from '@/hooks/hybridCache';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { and, eq } from 'drizzle-orm';
@@ -40,7 +41,7 @@ export const useHasUserReported = (
         )
       })
     ),
-    onlineFn: async () => {
+    cloudQueryFn: async () => {
       const { data, error } = await system.supabaseConnector.client
         .from('reports')
         .select('*')
@@ -76,11 +77,6 @@ export const useReports = (
       details?: string;
     }) => {
       return await reportService.createReport(data);
-    },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({
-        queryKey: ['reports']
-      });
     }
   });
 
@@ -89,37 +85,13 @@ export const useReports = (
       return await blockService.blockUser(data);
     },
     onSuccess: () => {
-      // Invalidate blocked users queries
-      void queryClient.invalidateQueries({
-        queryKey: ['blockedUsers']
-      });
-      void queryClient.invalidateQueries({
-        queryKey: ['blocked-users']
-      });
-      // Invalidate user restrictions which include blocked users
-      void queryClient.invalidateQueries({
-        queryKey: ['blocked_users']
-      });
-      // Invalidate all asset/quest/translation queries that filter by blocked users
-      void queryClient.invalidateQueries({
-        queryKey: ['assets']
-      });
-      void queryClient.invalidateQueries({
-        queryKey: ['quests']
-      });
-      void queryClient.invalidateQueries({
-        queryKey: ['translation']
-      });
-      void queryClient.invalidateQueries({
-        queryKey: ['target_assets']
-      });
-      // Invalidate blocked count queries
-      void queryClient.invalidateQueries({
-        queryKey: ['blocked-translations-count']
-      });
-      void queryClient.invalidateQueries({
-        queryKey: ['blocked-assets-count']
-      });
+      void invalidateCloud(
+        queryClient,
+        'assets',
+        'quests',
+        'translation',
+        'target_assets'
+      );
     }
   });
 
@@ -132,40 +104,13 @@ export const useReports = (
       return await blockService.blockContent(data);
     },
     onSuccess: () => {
-      // Invalidate blocked content queries (both formats)
-      void queryClient.invalidateQueries({
-        queryKey: ['blockedContent']
-      });
-      void queryClient.invalidateQueries({
-        queryKey: ['blocked-content']
-      });
-      void queryClient.invalidateQueries({
-        queryKey: ['blocked_content']
-      });
-      // Invalidate user restrictions which include blocked content
-      void queryClient.invalidateQueries({
-        queryKey: ['blocked_content']
-      });
-      // Invalidate all asset/quest/translation queries that filter by blocked content
-      void queryClient.invalidateQueries({
-        queryKey: ['assets']
-      });
-      void queryClient.invalidateQueries({
-        queryKey: ['quests']
-      });
-      void queryClient.invalidateQueries({
-        queryKey: ['translation']
-      });
-      void queryClient.invalidateQueries({
-        queryKey: ['target_assets']
-      });
-      // Invalidate blocked count queries
-      void queryClient.invalidateQueries({
-        queryKey: ['blocked-translations-count']
-      });
-      void queryClient.invalidateQueries({
-        queryKey: ['blocked-assets-count']
-      });
+      void invalidateCloud(
+        queryClient,
+        'assets',
+        'quests',
+        'translation',
+        'target_assets'
+      );
     }
   });
 

@@ -29,12 +29,12 @@ export interface FiaMediaItem {
   nodeId: string;
   title: string;
   description: string;
-  assets: Array<{
+  assets: {
     type: string;
     imageUrl: string | null;
     title: string;
     description: string;
-  }>;
+  }[];
 }
 
 export interface FiaTerm {

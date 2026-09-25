@@ -17,8 +17,6 @@ import { cn } from '@/utils/styleUtils';
 import type { ViewProps } from 'react-native';
 import { View } from 'react-native';
 import { Button } from './button';
-import type { Option } from './select';
-import { getOptionFromValue } from './select';
 import * as Slot from './slot';
 import { Text } from './text';
 
@@ -59,25 +57,6 @@ export const transformInputProps = <
     ...rest,
     onChangeText: props.onChange,
     editable: !disabled
-  };
-};
-
-export const transformSelectProps = <
-  TFieldValues extends FieldValues = FieldValues,
-  TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>
->(
-  props: ControllerRenderProps<TFieldValues, TName>,
-  valueExtractor?: (value: TFieldValues[TName]) => Option
-) => {
-  const { value, onChange, ...rest } = props;
-  return {
-    ...rest,
-    onValueChange: (option: Option) => {
-      onChange(option?.value);
-    },
-    value: valueExtractor
-      ? (valueExtractor(value) ?? { value: '', label: '' })
-      : getOptionFromValue(value)
   };
 };
 
@@ -179,23 +158,6 @@ const FormControl = React.forwardRef<
 });
 FormControl.displayName = 'FormControl';
 
-const FormDescription = React.forwardRef<
-  React.ComponentRef<typeof Text>,
-  React.ComponentPropsWithoutRef<typeof Text>
->(({ className, ...props }, ref) => {
-  const { formDescriptionId } = useFormField();
-
-  return (
-    <Text
-      ref={ref}
-      id={formDescriptionId}
-      className={cn('text-[0.8rem] text-muted-foreground', className)}
-      {...props}
-    />
-  );
-});
-FormDescription.displayName = 'FormDescription';
-
 const FormMessage = React.forwardRef<
   React.ComponentRef<typeof Text>,
   React.ComponentPropsWithoutRef<typeof Text>
@@ -249,11 +211,9 @@ FormSubmit.displayName = 'FormSubmit';
 export {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
-  FormSubmit,
-  useFormField
+  FormSubmit
 };

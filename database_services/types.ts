@@ -1,4 +1,4 @@
-import type { HybridDataSource } from '@/views/new/useHybridData';
+import type { HybridDataSource } from '@/hooks/useHybridQuery';
 
 export interface LayerStatus {
   visible: boolean;
@@ -31,10 +31,24 @@ export type AssetOperationAction =
 export interface AssetOperationDataItem {
   id: string;
   name?: string | null;
-  // orderIndex?: number | null;
   order_index?: number | null;
   metadata?: Record<string, any> | null;
   download_profiles?: string[] | null;
+  project_id?: string | null;
+  source_language_id?: string | null;
+  creator_id?: string | null;
+  link_id?: string | null;
+  contents?: AssetContentSnapshot[];
+}
+
+export interface AssetContentSnapshot {
+  id?: string | null;
+  source_language_id?: string | null;
+  languoid_id?: string | null;
+  text?: string | null;
+  audio?: string[] | null;
+  download_profiles?: string[] | null;
+  order_index?: number | null;
 }
 
 export interface AssetOperationTypes {

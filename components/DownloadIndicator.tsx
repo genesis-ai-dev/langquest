@@ -3,9 +3,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { storage } from '@/utils/storage';
 import { cn, useThemeColor } from '@/utils/styleUtils';
-import { CircleArrowDownIcon, CircleCheckIcon } from 'lucide-react-native';
+import { CircleArrowDownIcon, CloudUploadIcon } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { ActivityIndicator } from 'react-native';
+import { resolveDownloadPressAction } from './downloadPressAction';
 import { DownloadConfirmationModal } from './DownloadConfirmationModal';
 import { OfflineUndownloadWarning } from './OfflineUndownloadWarning';
 import { Icon } from './ui/icon';
@@ -28,6 +29,7 @@ interface DownloadIndicatorProps {
   className?: string;
   // Override default icon color logic
   iconColor?: string;
+  testID?: string;
 }
 
 export const DownloadIndicator: React.FC<DownloadIndicatorProps> = ({
@@ -40,7 +42,8 @@ export const DownloadIndicator: React.FC<DownloadIndicatorProps> = ({
   downloadType,
   stats,
   className,
-  iconColor
+  iconColor,
+  testID
 }) => {
   const { isAuthenticated } = useAuth();
   const isConnected = useNetworkStatus();
@@ -55,21 +58,26 @@ export const DownloadIndicator: React.FC<DownloadIndicatorProps> = ({
   }
 
   const handlePress = async () => {
-    if (!isConnected && isFlaggedForDownload) {
-      const showWarning = await storage.getOfflineUndownloadWarningEnabled();
-      if (showWarning) {
-        setShowWarning(true);
-        return;
-      }
+    const action = resolveDownloadPressAction({
+      isConnected,
+      isFlaggedForDownload,
+      showUndownloadWarning:
+        !isConnected &&
+        isFlaggedForDownload &&
+        (await storage.getOfflineUndownloadWarningEnabled()),
+      hasDownloadConfirmation: Boolean(downloadType && stats)
+    });
+
+    if (action === 'undownload-warning') {
+      setShowWarning(true);
+      return;
     }
 
-    // Show confirmation modal for project/quest downloads (not already downloaded)
-    if (downloadType && stats && !isFlaggedForDownload) {
+    if (action === 'download-confirm') {
       setShowConfirmation(true);
       return;
     }
 
-    // Direct download for assets or already downloaded items
     onPress();
   };
 
@@ -95,7 +103,7 @@ export const DownloadIndicator: React.FC<DownloadIndicatorProps> = ({
   const getIconAndColor = () => {
     if (isFlaggedForDownload) {
       return {
-        Icon: CircleCheckIcon,
+        Icon: CloudUploadIcon,
         className: iconColor || 'text-primary'
       };
     }
@@ -124,6 +132,8 @@ export const DownloadIndicator: React.FC<DownloadIndicatorProps> = ({
         className={cn(isDisabled && 'opacity-50', className)}
         hitSlop={10}
         disabled={isDisabled || isLoading}
+        testID={testID}
+        accessibilityLabel={testID}
       >
         {isLoading ? (
           <ActivityIndicator size={size} color={primaryColor} />

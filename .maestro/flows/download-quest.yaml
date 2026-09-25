@@ -1,0 +1,156 @@
+appId: ${MAESTRO_APP_ID}
+onFlowStart:
+  - runScript: ../api.js
+---
+# 5.1 download a published public quest as a second user, 5.2 Download
+# Status from the drawer, 5.5 offload. Owner is API-only; the device is
+# the downloader. The downloader is not a member, so tapping the quest
+# opens the cloud assets like a guest (no Download Required) before and
+# after the download; downloading goes through the row's quest-download.
+- evalScript: ${output.ownerEmail = output.api.uniqueEmail("dlowner")}
+- evalScript: ${output.ownerPassword = output.api.uniquePassword("dlowner")}
+- evalScript: ${output.projectName = "maestro-dl-" + Date.now()}
+- evalScript: ${output.questName = "maestro-dlq-" + Date.now()}
+- evalScript: ${output.assetName = "maestro-dla-" + Date.now()}
+- evalScript: ${output.api.createConfirmedUser(output.ownerEmail, output.ownerPassword)}
+- evalScript: ${output.api.seedProject(output.projectName, output.ownerEmail, false)}
+- evalScript: ${output.api.seedQuest(output.projectName, output.questName, output.ownerEmail, true)}
+- evalScript: ${output.api.seedSourceAsset(output.projectName, output.questName, output.ownerEmail, output.assetName, "Download source")}
+- evalScript: ${output.skipSignInCleanup = true}
+- runFlow: _start-signed-in.yaml
+- tapOn:
+    id: projects-tab-all
+- tapOn:
+    id: projects-search
+- inputText: ${output.projectName}
+- runFlow: _hide-keyboard.yaml
+- extendedWaitUntil:
+    visible: ${output.projectName}
+    timeout: 45000
+- tapOn:
+    text: ${output.projectName}
+    below:
+      id: projects-search
+- extendedWaitUntil:
+    visible:
+      id: quest-list-item
+    timeout: 45000
+- tapOn:
+    id: quest-list-item
+- runFlow:
+    when:
+      visible:
+        id: quest-list-item
+      notVisible:
+        id: assets-refresh-button
+    commands:
+      - tapOn:
+          id: quest-list-item
+- extendedWaitUntil:
+    visible:
+      id: assets-refresh-button
+    timeout: 45000
+- assertNotVisible: '(?i)Download Now'
+- tapOn:
+    id: assets-refresh-button
+- extendedWaitUntil:
+    visible: ${output.assetName}
+    timeout: 45000
+- tapOn:
+    id: nav-back
+- extendedWaitUntil:
+    visible:
+      id: quest-download
+    timeout: 45000
+- tapOn:
+    id: quest-download
+- extendedWaitUntil:
+    visible: Continue to Download
+    timeout: 45000
+- tapOn:
+    id: quest-download-continue
+- extendedWaitUntil:
+    visible:
+      id: quest-download-confirm
+    timeout: 20000
+- tapOn:
+    id: quest-download-confirm
+- evalScript: ${output.api.waitForQuestDownload(output.questName, output.signInEmail, true)}
+# Confirmation must dismiss discovery. If Continue to Download is still
+# on screen, the sheets stacked (Cancel would be a no-op). Then open
+# Download Status (5.2).
+- extendedWaitUntil:
+    notVisible:
+      id: quest-download-confirm
+    timeout: 15000
+- extendedWaitUntil:
+    notVisible:
+      id: quest-download-continue
+    timeout: 15000
+- runFlow: _open-download-status.yaml
+- assertVisible: Download Status
+- runFlow: _open-app-drawer.yaml
+- tapOn:
+    id: drawer-projects
+    waitToSettleTimeoutMs: 0
+- tapOn:
+    id: projects-tab-all
+# Do not eraseText + inputText: the controlled search still has the first
+# query (or is empty). eraseText leaves leftover digits and concat makes
+# the list "No projects found".
+- extendedWaitUntil:
+    visible: ${output.projectName}
+    timeout: 45000
+- tapOn:
+    text: ${output.projectName}
+    below:
+      id: projects-search
+- extendedWaitUntil:
+    visible:
+      id: quest-list-item
+    timeout: 45000
+- tapOn:
+    id: quest-list-item
+    waitToSettleTimeoutMs: 0
+# After a confirmed download, the quest opens from the local copy.
+- extendedWaitUntil:
+    visible:
+      id: assets-refresh-button
+    timeout: 45000
+- tapOn:
+    id: assets-refresh-button
+- extendedWaitUntil:
+    visible: ${output.assetName}
+    timeout: 45000
+- tapOn:
+    id: nav-back
+- extendedWaitUntil:
+    visible:
+      id: quest-list-item
+    timeout: 45000
+- tapOn:
+    id: quest-download
+# Header "Ready to offload" is on screen. The continue control sits in
+# the footer; wait for verification then scroll the sheet, not the
+# directory behind it. Prefer id over i18n "Offload from Device".
+- extendedWaitUntil:
+    visible: Ready to offload
+    timeout: 45000
+- scrollUntilVisible:
+    element:
+      id: quest-offload-continue
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: quest-offload-continue
+- evalScript: ${output.api.waitForQuestDownload(output.questName, output.signInEmail, false)}
+- tapOn:
+    id: quest-list-item
+- extendedWaitUntil:
+    visible:
+      id: assets-refresh-button
+    timeout: 45000
+- assertNotVisible: '(?i)Download Now'
+- evalScript: ${output.api.deleteProject(output.projectName)}
+- evalScript: ${output.api.deleteUserIfExists(output.signInEmail)}
+- evalScript: ${output.api.deleteUserIfExists(output.ownerEmail)}

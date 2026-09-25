@@ -1,0 +1,145 @@
+appId: ${MAESTRO_APP_ID}
+onFlowStart:
+  - runScript: ../api.js
+---
+# Storage objects are removed through a server-side queue with a 24h grace
+# period, and only when nothing references them any more. Two takes are
+# merged (the merged rows re-reference the same objects, the source rows
+# are garbage-collected): the queue must keep those objects. The merged
+# asset is then deleted for real: the queue must remove them.
+#
+# Local collection runs when the assets screen blurs (NextGen and Bible
+# share that). A soft delete on the focused screen must not queue. Undo
+# while still on the screen must restore the take. Leaving queues it.
+#
+# The sweep runs process_storage_object_deletions() through pg_net; the
+# local vault needs supabase_url and supabase_service_role_key.
+- evalScript: ${output.projectName = "maestro-delq-" + Date.now()}
+- evalScript: ${output.questName = "maestro-delqq-" + Date.now()}
+- evalScript: ${output.skipSignInCleanup = true}
+- runFlow: _start-signed-in.yaml
+- runFlow: _enable-merge-setting.yaml
+- runFlow: _create-project-quest.yaml
+- extendedWaitUntil:
+    visible:
+      id: asset-record-button
+    timeout: 30000
+- runFlow: _open-recording-screen.yaml
+- evalScript: ${output.expectTake = "001"}
+- runFlow: _record-take.yaml
+- evalScript: ${output.expectTake = "002"}
+- runFlow: _record-take.yaml
+- evalScript: ${output.o1 = output.api.waitForAudioUploaded(output.questName, 90000, "001").audio[0]}
+- evalScript: ${output.o2 = output.api.waitForAudioUploaded(output.questName, 90000, "002").audio[0]}
+- evalScript: ${output.api.assertNotEqual(output.o1, output.o2, "takes have distinct objects")}
+# --- Merge 001 + 002: new rows copy both object names --------------------
+- longPressOn:
+    id: recording-asset-card
+    index: 0
+- extendedWaitUntil:
+    visible:
+      id: assets-batch-delete
+    timeout: 10000
+- tapOn:
+    id: recording-asset-select
+    index: 1
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: assets-merge
+      enabled: true
+    timeout: 10000
+# Under 30 assets there is no confirmation alert for merge or delete.
+- tapOn:
+    id: assets-merge
+    enabled: true
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    notVisible: '002'
+    timeout: 30000
+- evalScript: ${output.api.waitForAudioCount(output.questName, "001", 2, 60000)}
+# Leaving the session runs the garbage collector: the two source rows are
+# deleted on the server and their object names land in the queue even
+# though the merged rows still point at them.
+- runFlow: _leave-recording-refresh.yaml
+- extendedWaitUntil:
+    visible: '001'
+    timeout: 20000
+- evalScript: ${output.api.waitForDeletionQueued(output.o1, 60000)}
+- evalScript: ${output.api.waitForDeletionQueued(output.o2, 60000)}
+- evalScript: ${output.api.expectSweepAction(output.o1, "kept_referenced")}
+- evalScript: ${output.api.expectSweepAction(output.o2, "kept_referenced")}
+- evalScript: ${output.api.waitForStorageObject(output.o1, 5000)}
+- evalScript: ${output.api.waitForStorageObject(output.o2, 5000)}
+- evalScript: ${output.api.waitForDeletionNotQueued(output.o1, 0)}
+- evalScript: ${output.api.waitForDeletionNotQueued(output.o2, 0)}
+# --- Delete the merged asset, undo, redo ---------------------------------
+- longPressOn:
+    id: asset-list-item-.*
+- extendedWaitUntil:
+    visible:
+      id: assets-batch-delete
+    timeout: 10000
+- tapOn:
+    id: assets-batch-delete
+    point: '20%,50%'
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    notVisible: '001'
+    timeout: 30000
+# Soft delete only drops the quest link. Collection waits until this
+# screen blurs, so the content rows stay and undo can restore them.
+- evalScript: ${output.api.waitForDeletionNotQueued(output.o1, 5000)}
+- extendedWaitUntil:
+    visible:
+      id: assets-undo
+      enabled: true
+    timeout: 15000
+- tapOn:
+    id: assets-undo
+    enabled: true
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible: '001'
+    timeout: 30000
+- evalScript: ${output.api.waitForRecordedAudio(output.questName, 30000, "001")}
+- tapOn:
+    id: assets-redo
+    enabled: true
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    notVisible: '001'
+    timeout: 30000
+# Leaving this screen runs the collector: content rows go, names are
+# queued, objects survive the grace period.
+- tapOn:
+    id: nav-back
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: quest-list-item
+    timeout: 20000
+# No keyboard is up here, so tap the row directly (_open-quest.yaml's
+# hideKeyboard would act as Back).
+- tapOn:
+    id: quest-list-item
+- extendedWaitUntil:
+    visible:
+      id: assets-refresh-button
+    timeout: 45000
+- evalScript: ${output.api.waitForNoRecordedAudio(output.questName, 60000)}
+- evalScript: ${output.api.waitForDeletionQueued(output.o1, 60000)}
+- evalScript: ${output.api.waitForDeletionQueued(output.o2, 60000)}
+- evalScript: ${output.api.waitForStorageObject(output.o1, 5000)}
+- evalScript: ${output.api.waitForStorageObject(output.o2, 5000)}
+# Skip the grace period: the processor asks Storage to delete, and a later
+# pass sees the object gone and drops the queue row.
+- evalScript: ${output.api.waitForSweptObjectGone(output.o1, 60000)}
+- evalScript: ${output.api.waitForSweptObjectGone(output.o2, 60000)}
+- evalScript: ${output.api.expectSweepAction(output.o1, "done")}
+- evalScript: ${output.api.expectSweepAction(output.o2, "done")}
+- evalScript: ${output.api.waitForDeletionNotQueued(output.o1, 0)}
+- evalScript: ${output.api.waitForDeletionNotQueued(output.o2, 0)}
+- evalScript: ${output.api.deleteProject(output.projectName)}
+- evalScript: ${output.api.cleanupStorageObjects([output.o1, output.o2])}
+- evalScript: ${output.api.deleteUserIfExists(output.signInEmail)}

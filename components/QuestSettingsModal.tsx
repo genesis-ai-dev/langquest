@@ -4,10 +4,8 @@ import {
   useQuestStatuses
 } from '@/database_services/status/quest';
 import { useLocalization } from '@/hooks/useLocalization';
-import { useQuestOffloadVerification } from '@/hooks/useQuestOffloadVerification';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
-import { offloadQuest } from '@/utils/questOffloadUtils';
-import type { HybridDataSource } from '@/views/new/useHybridData';
+import type { HybridDataSource } from '@/hooks/useHybridQuery';
 import RNAlert from '@blazejkustra/react-native-alert';
 import {
   CheckCircleIcon,
@@ -18,7 +16,6 @@ import {
 } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { View } from 'react-native';
-import { QuestOffloadVerificationDrawer } from './QuestOffloadVerificationDrawer';
 import { SwitchBox } from './SwitchBox';
 import { Button } from './ui/button';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from './ui/drawer';
@@ -31,6 +28,8 @@ interface QuestSettingsModalProps {
   questId: string;
   projectId: string;
   questSource?: HybridDataSource;
+  /** Present only when this quest can be offloaded. */
+  onOffloadClick?: () => void;
 }
 
 // type TStatusType = 'active' | 'visible';
@@ -40,12 +39,11 @@ export const QuestSettingsModal: React.FC<QuestSettingsModalProps> = ({
   onClose,
   questId,
   projectId,
-  questSource
+  questSource,
+  onOffloadClick
 }) => {
   const { t } = useLocalization();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showOffloadDrawer, setShowOffloadDrawer] = useState(false);
-  const [isOffloading, setIsOffloading] = useState(false);
 
   const { membership } = useUserPermissions(projectId || '', 'manage');
   const isOwner = membership === 'owner';
@@ -58,12 +56,6 @@ export const QuestSettingsModal: React.FC<QuestSettingsModalProps> = ({
     refetch
   } = useQuestStatuses(questId, questSource);
 
-  // Initialize offload verification hook
-  const verificationState = useQuestOffloadVerification(questId);
-
-  // Check if quest has local data (source is 'local' or has been downloaded)
-  const hasLocalData =
-    questData?.source === 'local' || questData?.source === 'synced';
   const areSwitchesDisabled =
     isLoading || isSubmitting || !isOwner || !questData;
 
@@ -121,116 +113,80 @@ export const QuestSettingsModal: React.FC<QuestSettingsModalProps> = ({
     }
   };
 
-  const handleStartOffload = () => {
-    setShowOffloadDrawer(true);
-    verificationState.startVerification();
-  };
-
-  const handleContinueOffload = async () => {
-    setIsOffloading(true);
-    try {
-      await offloadQuest({
-        questId,
-        verifiedIds: verificationState.verifiedIds,
-        onProgress: (progress, message) => {
-          console.log(`Offload progress: ${progress.toFixed(0)}% - ${message}`);
-        }
-      });
-
-      RNAlert.alert(t('success'), t('offloadComplete'));
-      setShowOffloadDrawer(false);
-      onClose();
-      refetch();
-    } catch (error) {
-      console.error('Failed to offload quest:', error);
-      RNAlert.alert(t('error'), t('offloadError'));
-    } finally {
-      setIsOffloading(false);
-    }
-  };
-
   return (
-    <>
-      <Drawer
-        open={isVisible}
-        onOpenChange={(open) => {
-          if (!open) {
-            onClose();
-          }
-        }}
-        snapPoints={[400]}
-        enableDynamicSizing={false}
-      >
-        <DrawerContent className="bg-background pb-4">
-          <DrawerHeader>
-            <DrawerTitle>{t('questSettings')}</DrawerTitle>
-          </DrawerHeader>
+    <Drawer
+      open={isVisible}
+      onOpenChange={(open) => {
+        if (!open) {
+          onClose();
+        }
+      }}
+      snapPoints={[400]}
+      enableDynamicSizing={false}
+    >
+      <DrawerContent className="bg-background pb-4">
+        <DrawerHeader>
+          <DrawerTitle>{t('questSettings')}</DrawerTitle>
+        </DrawerHeader>
 
-          <View className="flex-1 gap-2">
-            <SwitchBox
-              title={t('visibility')}
-              description={
-                questData?.visible
-                  ? t('visibleQuestDescription')
-                  : t('invisibleQuestDescription')
-              }
-              value={questData?.visible ?? false}
-              onChange={() => handleToggleVisible()}
-              disabled={areSwitchesDisabled}
-              icon={questData?.visible ? EyeIcon : EyeOffIcon}
-            />
-            <SwitchBox
-              title={t('active')}
-              description={
-                questData?.active
-                  ? t('activeQuestDescription')
-                  : t('inactiveQuestDescription')
-              }
-              value={questData?.active ?? false}
-              onChange={() => handleToggleActive()}
-              disabled={areSwitchesDisabled}
-              icon={questData?.active ? CheckCircleIcon : XCircleIcon}
-            />
+        <View className="flex-1 gap-2">
+          <SwitchBox
+            title={t('visibility')}
+            description={
+              questData?.visible
+                ? t('visibleQuestDescription')
+                : t('invisibleQuestDescription')
+            }
+            value={questData?.visible ?? false}
+            onChange={() => handleToggleVisible()}
+            disabled={areSwitchesDisabled}
+            icon={questData?.visible ? EyeIcon : EyeOffIcon}
+          />
+          <SwitchBox
+            title={t('active')}
+            description={
+              questData?.active
+                ? t('activeQuestDescription')
+                : t('inactiveQuestDescription')
+            }
+            value={questData?.active ?? false}
+            onChange={() => handleToggleActive()}
+            disabled={areSwitchesDisabled}
+            icon={questData?.active ? CheckCircleIcon : XCircleIcon}
+          />
 
-            {/* Offload Quest Button */}
-            {hasLocalData && isOwner && (
-              <View className="border-t border-border pt-4">
-                <Button
-                  variant="outline"
-                  onPress={handleStartOffload}
-                  disabled={isSubmitting || isLoading}
-                  className="border-destructive"
-                >
-                  <View className="flex-row items-center gap-3">
-                    <Icon
-                      as={CloudUpload}
-                      size={20}
-                      className="text-destructive"
-                    />
-                    <View className="flex-1">
-                      <Text className="font-semibold text-destructive">
-                        {t('offloadQuest')}
-                      </Text>
-                      <Text className="text-sm text-muted-foreground">
-                        {t('offloadQuestDescription')}
-                      </Text>
-                    </View>
+          {/* Offload Quest Button */}
+          {onOffloadClick && isOwner && (
+            <View className="border-t border-border pt-4">
+              <Button
+                variant="outline"
+                onPress={() => {
+                  onClose();
+                  onOffloadClick();
+                }}
+                disabled={isSubmitting || isLoading}
+                className="border-destructive"
+              >
+                <View className="flex-row items-center gap-3">
+                  <Icon
+                    as={CloudUpload}
+                    size={20}
+                    className="text-destructive"
+                  />
+                  <View className="flex-1">
+                    <Text className="font-semibold text-destructive">
+                      {t('offloadQuest')}
+                    </Text>
+                    <Text className="text-sm text-muted-foreground">
+                      {t('offloadQuestDescription')}
+                    </Text>
                   </View>
-                </Button>
-              </View>
-            )}
-          </View>
-        </DrawerContent>
-      </Drawer>
-
-      {/* Offload Verification Drawer */}
-      <QuestOffloadVerificationDrawer
-        isOpen={showOffloadDrawer}
-        onOpenChange={setShowOffloadDrawer}
-        onContinue={handleContinueOffload}
-        verificationState={verificationState}
-        isOffloading={isOffloading}
-      />
-    </>
+                </View>
+              </Button>
+            </View>
+          )}
+        </View>
+      </DrawerContent>
+    </Drawer>
   );
 };

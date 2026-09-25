@@ -21,14 +21,14 @@ import {
   TooltipTrigger
 } from '@/components/ui/tooltip';
 import { useAuth } from '@/contexts/AuthContext';
-import { emailStatusOptions } from '@/db/constants';
-import type { profile, request } from '@/db/drizzleSchema';
-import { invite, project as projectTable } from '@/db/drizzleSchema';
+import type { emailStatusOptions } from '@/db/constants';
+import type { profile } from '@/db/drizzleSchema';
 import {
-  invite_synced,
-  profile_project_link_synced,
-  request_synced
-} from '@/db/drizzleSchemaSynced';
+  invite,
+  profile_project_link,
+  project as projectTable,
+  request
+} from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
@@ -36,21 +36,20 @@ import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useLocalStore } from '@/store/localStore';
 import {
   DEFAULT_INVITE_MAX_RESEND_ATTEMPTS,
-  type EmailSuppressionSnapshot,
   inviteMaySendAnotherOutboundEmail,
   isEmailSuppressionActive
 } from '@/utils/inviteBounceGuard';
+import type { EmailSuppressionSnapshot } from '@/utils/inviteBounceGuard';
 import {
   getInviteBounceReason,
   getInviteSendBlockedMessageKey,
   inviteBounceBlocksRetry
 } from '@/utils/inviteBounceReason';
 import { cn } from '@/utils/styleUtils';
-import { useHybridData } from '@/views/new/useHybridData';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { PortalHost } from '@rn-primitives/portal';
-import { useQueryClient } from '@tanstack/react-query';
 import { and, eq } from 'drizzle-orm';
 import {
   CircleCheckIcon,
@@ -120,8 +119,6 @@ const isValidEmail = (email: string): boolean => {
   return emailRegex.test(email);
 };
 
-const { db } = system;
-
 interface ProjectInviteMembersSectionProps {
   isVisible: boolean;
   canInvite: boolean;
@@ -159,7 +156,10 @@ function ProjectInviteMembersSection({
 
   if (!canInvite) {
     return (
-      <View className="items-center justify-center gap-2 py-6">
+      <View
+        testID="membership-only-owners"
+        className="items-center justify-center gap-2 py-6"
+      >
         <Icon as={CrownIcon} size={24} className="text-muted-foreground" />
         <Text className="text-center leading-5 text-muted-foreground">
           {t('onlyOwnersCanInvite')}
@@ -187,6 +187,7 @@ function ProjectInviteMembersSection({
         keyboardType="email-address"
         autoCapitalize="none"
         className="mb-2"
+        testID="membership-invite-email"
       />
       <View className="mb-2 flex-row items-center justify-between">
         <Pressable
@@ -217,6 +218,7 @@ function ProjectInviteMembersSection({
         onPress={() => void handleSend()}
         disabled={!isInviteButtonEnabled || isSubmitting}
         loading={isSubmitting}
+        testID="membership-invite-send"
       >
         <Text>{isSubmitting ? t('sending') : t('sendInvitation')}</Text>
       </Button>
@@ -233,7 +235,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
   const { t } = useLocalization();
   const { currentUser } = useAuth();
   const isOnline = useNetworkStatus();
-  const queryClient = useQueryClient();
+  const { db } = system;
 
   // Get comprehensive user permissions for this project
   const managePermissions = useUserPermissions(projectId, 'manage');
@@ -266,15 +268,14 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
 
   // All operations on invites, requests, and notifications go through synced tables or Supabase
   // Query for project details to check if it's private
-  const { data: projectData, isLoading: projectLoading } = useHybridData<
+  const { data: projectData, isLoading: projectLoading } = useHybridQuery<
     typeof projectTable.$inferSelect
   >({
-    dataType: 'project-membership',
-    queryKeyParams: [projectId],
+    queryKey: ['project-membership', projectId],
 
     // Only offline query - no cloud query needed
     offlineQuery: toCompilableQuery(
-      db.query.project.findMany({
+      system.db.query.project.findMany({
         where: eq(projectTable.id, projectId),
         limit: 1
       })
@@ -284,15 +285,14 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
   const project = projectData[0];
 
   // Query for active project members - get links first
-  const { data: memberLinks } = useHybridData<
-    typeof profile_project_link_synced.$inferSelect
+  const { data: memberLinks } = useHybridQuery<
+    typeof profile_project_link.$inferSelect
   >({
-    dataType: 'project-member-links',
-    queryKeyParams: [projectId],
+    queryKey: ['project-member-links', projectId],
 
     // Only offline query - no cloud query needed
     offlineQuery: toCompilableQuery(
-      db.query.profile_project_link.findMany({
+      system.db.query.profile_project_link.findMany({
         where: (table) =>
           and(eq(table.project_id, projectId), eq(table.active, true))
       })
@@ -305,15 +305,14 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
   }, [memberLinks]);
 
   // Query for profiles separately
-  const { data: profiles } = useHybridData<typeof profile.$inferSelect>({
-    dataType: 'member-profiles',
-    queryKeyParams: [...profileIds],
+  const { data: profiles } = useHybridQuery<typeof profile.$inferSelect>({
+    queryKey: ['member-profiles', ...profileIds],
 
     // Only offline query - no cloud query needed
     offlineQuery:
       profileIds.length > 0
         ? toCompilableQuery(
-            db.query.profile.findMany({
+            system.db.query.profile.findMany({
               where: (profile, { inArray }) => inArray(profile.id, profileIds)
             })
           )
@@ -368,13 +367,12 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
   // console.log('members', members);
 
   // Query for invited users - get invites first
-  const { data: invites } = useHybridData<typeof invite.$inferSelect>({
-    dataType: 'project-invites',
-    queryKeyParams: [projectId],
+  const { data: invites } = useHybridQuery<typeof invite.$inferSelect>({
+    queryKey: ['project-invites', projectId],
 
     // Only offline query - no cloud query needed
     offlineQuery: toCompilableQuery(
-      db.query.invite.findMany({
+      system.db.query.invite.findMany({
         where: eq(invite.project_id, projectId)
       })
     )
@@ -392,23 +390,22 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
   }, [invites]);
 
   // Query for receiver profiles separately
-  const { data: receiverProfiles } = useHybridData<typeof profile.$inferSelect>(
-    {
-      dataType: 'receiver-profiles',
-      queryKeyParams: [...receiverProfileIds],
+  const { data: receiverProfiles } = useHybridQuery<
+    typeof profile.$inferSelect
+  >({
+    queryKey: ['receiver-profiles', ...receiverProfileIds],
 
-      // Only offline query - no cloud query needed
-      offlineQuery:
-        receiverProfileIds.length > 0
-          ? toCompilableQuery(
-              db.query.profile.findMany({
-                where: (profile, { inArray }) =>
-                  inArray(profile.id, receiverProfileIds)
-              })
-            )
-          : 'SELECT * FROM profile WHERE 1=0' // Empty query when no receiver IDs
-    }
-  );
+    // Only offline query - no cloud query needed
+    offlineQuery:
+      receiverProfileIds.length > 0
+        ? toCompilableQuery(
+            system.db.query.profile.findMany({
+              where: (profile, { inArray }) =>
+                inArray(profile.id, receiverProfileIds)
+            })
+          )
+        : 'SELECT * FROM profile WHERE 1=0' // Empty query when no receiver IDs
+  });
 
   const invitations: Invitation[] = React.useMemo(() => {
     return invites
@@ -454,12 +451,11 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
 
   const enableSenderProfileQuery = senderProfileIds.length > 0;
 
-  const { data: senderProfiles } = useHybridData<typeof profile.$inferSelect>({
-    dataType: 'invite-sender-profiles',
-    queryKeyParams: [...senderProfileIds],
+  const { data: senderProfiles } = useHybridQuery<typeof profile.$inferSelect>({
+    queryKey: ['invite-sender-profiles', ...senderProfileIds],
 
     offlineQuery: toCompilableQuery(
-      db.query.profile.findMany({
+      system.db.query.profile.findMany({
         where: (profile, { inArray }) => inArray(profile.id, senderProfileIds)
       })
     ),
@@ -530,12 +526,11 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
   ]);
 
   // Query for pending membership requests (owners only)
-  const { data: requestsData = [] } = useHybridData({
-    dataType: 'project-requests',
-    queryKeyParams: [projectId],
+  const { data: requestsData = [] } = useHybridQuery({
+    queryKey: ['project-requests', projectId],
 
     offlineQuery: toCompilableQuery(
-      db.query.request.findMany({
+      system.db.query.request.findMany({
         where: (table) =>
           and(
             eq(table.project_id, projectId),
@@ -553,21 +548,34 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
     return [...new Set(requestsData.map((r) => r.sender_profile_id))];
   }, [requestsData]);
 
-  // Query for requester profiles
-  const { data: requesterProfiles = [] } = useHybridData<
+  // Requester profiles are not PowerSync co-members, so local SQLite is
+  // empty until we pull them. RLS allows project members to read pending
+  // requester profiles (same pattern as NotificationsView).
+  const { data: requesterProfiles = [] } = useHybridQuery<
     typeof profile.$inferSelect
   >({
-    dataType: 'requester-profiles',
-    queryKeyParams: [...requesterIds],
-
+    queryKey: ['requester-profiles', ...requesterIds],
     offlineQuery:
       requesterIds.length > 0
         ? toCompilableQuery(
-            db.query.profile.findMany({
-              where: (profile, { inArray }) => inArray(profile.id, requesterIds)
+            system.db.query.profile.findMany({
+              where: (profileTable, { inArray }) =>
+                inArray(profileTable.id, requesterIds)
             })
           )
-        : 'SELECT * FROM profile WHERE 1=0'
+        : 'SELECT * FROM profile WHERE 1=0',
+    cloudQueryFn: async () => {
+      if (requesterIds.length === 0) return [];
+      const { data, error } = await system.supabaseConnector.client
+        .from('profile')
+        .select('*')
+        .in('id', requesterIds)
+        .overrideTypes<(typeof profile.$inferSelect)[]>();
+      if (error) throw error;
+      return data;
+    },
+    enableOfflineQuery: requesterIds.length > 0,
+    enableCloudQuery: requesterIds.length > 0
   });
 
   // Create requester profile map
@@ -596,7 +604,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
             void (async () => {
               try {
                 await db
-                  .update(profile_project_link_synced)
+                  .update(profile_project_link)
                   .set({
                     active: false,
                     membership: 'member', // Demote to member when removed
@@ -604,8 +612,8 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                   })
                   .where(
                     and(
-                      eq(profile_project_link_synced.profile_id, memberId),
-                      eq(profile_project_link_synced.project_id, projectId)
+                      eq(profile_project_link.profile_id, memberId),
+                      eq(profile_project_link.project_id, projectId)
                     )
                   );
                 // void refetchMembers(); // Removed refetch
@@ -633,15 +641,15 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
             void (async () => {
               try {
                 await db
-                  .update(profile_project_link_synced)
+                  .update(profile_project_link)
                   .set({
                     membership: 'owner',
                     last_updated: new Date().toISOString()
                   })
                   .where(
                     and(
-                      eq(profile_project_link_synced.profile_id, memberId),
-                      eq(profile_project_link_synced.project_id, projectId)
+                      eq(profile_project_link.profile_id, memberId),
+                      eq(profile_project_link.project_id, projectId)
                     )
                   );
                 // void refetchMembers(); // Removed refetch
@@ -676,7 +684,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
           void (async () => {
             try {
               await db
-                .update(profile_project_link_synced)
+                .update(profile_project_link)
                 .set({
                   active: false,
                   membership: 'member', // Demote to member when leaving
@@ -684,8 +692,8 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                 })
                 .where(
                   and(
-                    eq(profile_project_link_synced.profile_id, currentUser.id),
-                    eq(profile_project_link_synced.project_id, projectId)
+                    eq(profile_project_link.profile_id, currentUser.id),
+                    eq(profile_project_link.project_id, projectId)
                   )
                 );
               onClose();
@@ -715,9 +723,9 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
 
     try {
       await db
-        .update(invite_synced)
+        .update(invite)
         .set({ status: 'withdrawn', last_updated: new Date().toISOString() })
-        .where(eq(invite_synced.id, inviteId));
+        .where(eq(invite.id, inviteId));
       // void refetchInvitations(); // Removed refetch
     } catch (error) {
       reportWithdrawError(error);
@@ -730,12 +738,12 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
 
     try {
       await db
-        .update(profile_project_link_synced)
+        .update(profile_project_link)
         .set({ active: false, last_updated: new Date().toISOString() })
         .where(
           and(
-            eq(profile_project_link_synced.profile_id, receiverProfileId),
-            eq(profile_project_link_synced.project_id, projectId)
+            eq(profile_project_link.profile_id, receiverProfileId),
+            eq(profile_project_link.project_id, projectId)
           )
         );
     } catch (error) {
@@ -806,7 +814,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
 
     try {
       await db
-        .update(invite_synced)
+        .update(invite)
         .set({
           status: 'pending',
           count: inviteCount + 1,
@@ -821,7 +829,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
           bounce_reason: null,
           bounce_notice_dismissed_at: null
         })
-        .where(eq(invite_synced.id, inviteId));
+        .where(eq(invite.id, inviteId));
       // void refetchInvitations(); // Removed refetch
     } catch (error) {
       console.error('Error resending invitation:', error);
@@ -850,23 +858,12 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
 
     try {
       await db
-        .update(invite_synced)
+        .update(invite)
         .set({
           bounce_notice_dismissed_at: new Date().toISOString(),
           last_updated: new Date().toISOString()
         })
-        .where(eq(invite_synced.id, invitation.id));
-
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: ['invite-sent-delivery-failures'],
-          exact: false
-        }),
-        queryClient.invalidateQueries({
-          queryKey: ['invite-sent-delivery-failures-count'],
-          exact: false
-        })
-      ]);
+        .where(eq(invite.id, invitation.id));
     } catch (error) {
       console.error(
         '[ProjectMembershipModal] Dismiss delivery notice failed:',
@@ -895,27 +892,27 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
               try {
                 // Update request status to accepted
                 await db
-                  .update(request_synced)
+                  .update(request)
                   .set({
                     status: 'accepted',
                     last_updated: new Date().toISOString()
                   })
-                  .where(eq(request_synced.id, requestId));
+                  .where(eq(request.id, requestId));
 
-                // Create or update profile_project_link_synced
+                // Create or update profile_project_link
                 const existingLink = await db
                   .select()
-                  .from(profile_project_link_synced)
+                  .from(profile_project_link)
                   .where(
                     and(
-                      eq(profile_project_link_synced.profile_id, senderId),
-                      eq(profile_project_link_synced.project_id, projectId)
+                      eq(profile_project_link.profile_id, senderId),
+                      eq(profile_project_link.project_id, projectId)
                     )
                   );
 
                 if (existingLink.length > 0) {
                   await db
-                    .update(profile_project_link_synced)
+                    .update(profile_project_link)
                     .set({
                       active: true,
                       membership: 'member',
@@ -923,12 +920,12 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                     })
                     .where(
                       and(
-                        eq(profile_project_link_synced.profile_id, senderId),
-                        eq(profile_project_link_synced.project_id, projectId)
+                        eq(profile_project_link.profile_id, senderId),
+                        eq(profile_project_link.project_id, projectId)
                       )
                     );
                 } else {
-                  await db.insert(profile_project_link_synced).values({
+                  await system.db.insert(profile_project_link).values({
                     id: `${senderId}_${projectId}`,
                     profile_id: senderId,
                     project_id: projectId,
@@ -966,12 +963,12 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
               setIsSubmitting(true);
               try {
                 await db
-                  .update(request_synced)
+                  .update(request)
                   .set({
                     status: 'declined',
                     last_updated: new Date().toISOString()
                   })
-                  .where(eq(request_synced.id, requestId));
+                  .where(eq(request.id, requestId));
 
                 RNAlert.alert(t('success'), t('requestDenied'));
               } catch (error) {
@@ -1024,11 +1021,11 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
       const normalizedInput = inviteEmail.trim().toLowerCase();
 
       type InviteQueryRow = Awaited<
-        ReturnType<typeof db.query.invite.findMany>
+        ReturnType<typeof system.db.query.invite.findMany>
       >[number];
       let existingInvite: InviteQueryRow | undefined;
       try {
-        const existingInvites = await db.query.invite.findMany({
+        const existingInvites = await system.db.query.invite.findMany({
           where: and(
             eq(invite.email, inviteEmail.trim()),
             eq(invite.project_id, projectId)
@@ -1081,10 +1078,10 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
         const receiverProfileId = existingInvite.receiver_profile_id;
         if (receiverProfileId) {
           let profileLinks: Awaited<
-            ReturnType<typeof db.query.profile_project_link.findMany>
+            ReturnType<typeof system.db.query.profile_project_link.findMany>
           >;
           try {
-            profileLinks = await db.query.profile_project_link.findMany({
+            profileLinks = await system.db.query.profile_project_link.findMany({
               where: (table) =>
                 and(
                   eq(table.profile_id, receiverProfileId),
@@ -1147,7 +1144,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
 
           try {
             await db
-              .update(invite_synced)
+              .update(invite)
               .set({
                 status: 'pending',
                 as_owner: inviteAsOwner,
@@ -1163,7 +1160,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                 bounce_reason: null,
                 bounce_notice_dismissed_at: null
               })
-              .where(eq(invite_synced.id, existingInvite.id));
+              .where(eq(invite.id, existingInvite.id));
           } catch (error) {
             reportSendInvitationError(error);
             return false;
@@ -1211,7 +1208,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
       }
 
       try {
-        await db.insert(invite_synced).values({
+        await system.db.insert(invite).values({
           sender_profile_id: currentUser.id,
           email: inviteEmail,
           project_id: projectId,
@@ -1292,6 +1289,8 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                   onPress={() =>
                     handleRemoveMember(member.id, member.name || member.email)
                   }
+                  testID="membership-remove-member"
+                  accessibilityLabel="membership-remove-member"
                 >
                   <Icon
                     as={Trash2Icon}
@@ -1458,7 +1457,7 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
 
   const renderRequest = (req: typeof request.$inferSelect) => {
     const requester = requesterProfileMap[req.sender_profile_id];
-    if (!requester) return null;
+    const displayName = requester?.username || requester?.email || t('unknown');
 
     return (
       <View
@@ -1468,16 +1467,14 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
         <View className="flex-1 flex-row items-center">
           <View className="mr-3 h-10 w-10 items-center justify-center rounded-full bg-primary">
             <Text className="font-semibold text-primary-foreground">
-              {(requester.username || requester.email || '?')
-                .charAt(0)
-                .toUpperCase()}
+              {displayName.charAt(0).toUpperCase()}
             </Text>
           </View>
           <View className="flex-1">
             <Text variant="large" className="font-semibold">
-              {requester.username || requester.email}
+              {displayName}
             </Text>
-            {requester.email && (
+            {requester?.email && (
               <Text variant="small" className="mt-0.5 text-muted-foreground">
                 {requester.email}
               </Text>
@@ -1491,24 +1488,19 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
               variant="outline"
               size="icon-sm"
               onPress={() =>
-                handleApproveRequest(
-                  req.id,
-                  req.sender_profile_id,
-                  requester.username || requester.email || ''
-                )
+                handleApproveRequest(req.id, req.sender_profile_id, displayName)
               }
+              testID={`membership-request-approve-${req.sender_profile_id}`}
+              accessibilityLabel="membership-request-approve"
             >
               <Icon as={CircleCheckIcon} size={20} className="text-green-600" />
             </Button>
             <Button
               variant="outline"
               size="icon-sm"
-              onPress={() =>
-                handleDenyRequest(
-                  req.id,
-                  requester.username || requester.email || ''
-                )
-              }
+              onPress={() => handleDenyRequest(req.id, displayName)}
+              testID={`membership-request-deny-${req.sender_profile_id}`}
+              accessibilityLabel="membership-request-deny"
             >
               <Icon as={CircleXIcon} size={20} className="text-destructive" />
             </Button>
@@ -1557,7 +1549,11 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                 className="flex-1"
               >
                 <TabsList className="mb-4 w-full">
-                  <TabsTrigger value="members" className="min-w-0 flex-1">
+                  <TabsTrigger
+                    value="members"
+                    className="min-w-0 flex-1"
+                    testID="membership-tab-members"
+                  >
                     <Text
                       variant="small"
                       numberOfLines={1}
@@ -1566,7 +1562,11 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                       {t('members')} ({sortedMembers.length})
                     </Text>
                   </TabsTrigger>
-                  <TabsTrigger value="invited" className="min-w-0 flex-1">
+                  <TabsTrigger
+                    value="invited"
+                    className="min-w-0 flex-1"
+                    testID="membership-tab-invited"
+                  >
                     <Text
                       variant="small"
                       numberOfLines={1}
@@ -1576,7 +1576,11 @@ export const ProjectMembershipModal: React.FC<ProjectMembershipModalProps> = ({
                     </Text>
                   </TabsTrigger>
                   {sendInvitePermissions.hasAccess && (
-                    <TabsTrigger value="requests" className="min-w-0 flex-1">
+                    <TabsTrigger
+                      value="requests"
+                      className="min-w-0 flex-1"
+                      testID="membership-tab-requests"
+                    >
                       <Text
                         variant="small"
                         numberOfLines={1}

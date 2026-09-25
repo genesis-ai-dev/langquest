@@ -15,12 +15,10 @@ import {
   UserPlusIcon,
   XIcon
 } from 'lucide-react-native';
-import React, { useState } from 'react';
-import { Modal, Pressable, View } from 'react-native';
-import {
-  KeyboardAwareScrollView,
-  KeyboardToolbar
-} from 'react-native-keyboard-controller';
+import React, { useCallback, useState } from 'react';
+import { Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
+import { FullWindowOverlay } from 'react-native-screens';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AnimatedOnboardingIcon } from './onboarding/AnimatedOnboardingIcon';
 import { AnimatedStepContent } from './onboarding/AnimatedStepContent';
@@ -58,7 +56,23 @@ export function SimpleOnboardingFlow({
   );
   const [showBibleChapters, setShowBibleChapters] = useState(false);
 
-  // Reset step when modal opens - always start with vision
+  const setOnboardingCompleted = useLocalStore(
+    (state) => state.setOnboardingCompleted
+  );
+  const setOnboardingIsOpen = useLocalStore(
+    (state) => state.setOnboardingIsOpen
+  );
+
+  const handleClose = useCallback(() => {
+    setStep('vision');
+    setProjectType(null);
+    setShowBibleChapters(false);
+    setOnboardingCompleted(true);
+    setOnboardingIsOpen(false);
+    onClose();
+  }, [onClose, setOnboardingCompleted, setOnboardingIsOpen]);
+
+  // Reset step when the overlay opens - always start with vision
   React.useEffect(() => {
     if (visible) {
       setStep('vision');
@@ -116,13 +130,6 @@ export function SimpleOnboardingFlow({
     }
   };
 
-  const setOnboardingCompleted = useLocalStore(
-    (state) => state.setOnboardingCompleted
-  );
-  const setOnboardingIsOpen = useLocalStore(
-    (state) => state.setOnboardingIsOpen
-  );
-
   // Mark as open when this instance becomes visible
   // The parent component already prevents multiple instances by checking onboardingIsOpen
   // before setting showSimpleOnboarding to true
@@ -133,23 +140,6 @@ export function SimpleOnboardingFlow({
       setOnboardingIsOpen(false);
     }
   }, [visible, setOnboardingIsOpen]);
-
-  const handleClose = () => {
-    // Reset to initial step (vision)
-    setStep('vision');
-    setProjectType(null);
-    setShowBibleChapters(false);
-    // Mark onboarding as completed so it doesn't show again
-    setOnboardingCompleted(true);
-    // Mark as closed in store
-    setOnboardingIsOpen(false);
-    onClose();
-  };
-
-  // Guard: Don't render if not visible
-  if (!visible) {
-    return null;
-  }
 
   const handleAction = () => {
     // Just continue to next step - buttons are informational, not action buttons
@@ -167,14 +157,9 @@ export function SimpleOnboardingFlow({
   };
 
   return (
-    <Modal
-      visible={visible}
-      transparent={false}
-      animationType="slide"
-      onRequestClose={handleClose}
-    >
+    <OnboardingHost visible={visible} onRequestClose={handleClose}>
       <View className="flex-1 bg-background" style={{ paddingTop: insets.top }}>
-        {/* PortalHost for Select dropdowns inside Modal */}
+        {/* PortalHost for Select dropdowns inside the overlay */}
         <PortalHost />
 
         {/* Progress Indicator */}
@@ -539,7 +524,48 @@ export function SimpleOnboardingFlow({
           </View>
         )}
       </View>
-      <KeyboardToolbar />
+    </OnboardingHost>
+  );
+}
+
+/**
+ * Must sit above the native stack or Maestro/user taps hit the Screen
+ * underneath. iOS: FullWindowOverlay. Android: keep a Modal mounted and
+ * hide it with visible={false} and no animation so the Dialog cannot leak.
+ */
+function OnboardingHost({
+  visible,
+  onRequestClose,
+  children
+}: {
+  visible: boolean;
+  onRequestClose: () => void;
+  children: React.ReactNode;
+}) {
+  if (Platform.OS === 'ios') {
+    if (!visible) return null;
+    return (
+      <FullWindowOverlay>
+        <View
+          accessibilityViewIsModal
+          className="flex-1 bg-background"
+          style={StyleSheet.absoluteFill}
+        >
+          {children}
+        </View>
+      </FullWindowOverlay>
+    );
+  }
+
+  return (
+    <Modal
+      visible={visible}
+      animationType="none"
+      transparent={false}
+      presentationStyle="overFullScreen"
+      onRequestClose={onRequestClose}
+    >
+      {visible ? children : null}
     </Modal>
   );
 }

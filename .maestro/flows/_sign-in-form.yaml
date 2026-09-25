@@ -1,0 +1,33 @@
+appId: ${MAESTRO_APP_ID}
+---
+- tapOn:
+    id: projects-tab-my
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: home-sign-in
+    timeout: 30000
+- tapOn:
+    id: home-sign-in
+    waitToSettleTimeoutMs: 0
+- tapOn:
+    id: sign-in-email
+    waitToSettleTimeoutMs: 0
+- eraseText
+- inputText: ${output.signInEmail}
+- runFlow: _hide-keyboard.yaml
+- tapOn:
+    id: sign-in-password
+    waitToSettleTimeoutMs: 0
+- eraseText
+- inputText: ${output.signInPassword}
+- runFlow: _hide-keyboard.yaml
+- tapOn:
+    text: Sign In
+    below: I forgot my password
+    waitToSettleTimeoutMs: 0
+- runFlow: _ios-dismiss-save-password.yaml
+- extendedWaitUntil:
+    visible:
+      id: projects-create-button
+    timeout: 30000
