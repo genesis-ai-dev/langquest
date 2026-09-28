@@ -14325,6 +14325,92 @@ export const localizations = {
     burmese: 'မူကြမ်း',
     thai: 'ฉบับร่าง',
     mandarin: '草稿'
+  },
+  hideQuestTitle: {
+    english: 'Hide quest',
+    french: 'Masquer la quête',
+    spanish: 'Ocultar misión',
+    brazilian_portuguese: 'Ocultar missão',
+    tok_pisin: 'Haitim quest',
+    indonesian: 'Sembunyikan quest',
+    nepali: 'क्वेस्ट लुकाउनुहोस्',
+    hindi: 'क्वेस्ट छिपाएँ',
+    burmese: 'အလုပ်တာဝန် ဝှက်ပါ',
+    thai: 'ซ่อนควสต์',
+    mandarin: '隐藏任务'
+  },
+  hideQuestDescription: {
+    english: 'This quest will be invisible to all users.',
+    french: 'Cette quête sera invisible pour tous les utilisateurs.',
+    spanish: 'Esta misión será invisible para todos los usuarios.',
+    brazilian_portuguese: 'Esta missão ficará invisível para todos os usuários.',
+    tok_pisin: 'Dispela quest bai hait long olgeta user.',
+    indonesian: 'Quest ini akan tidak terlihat oleh semua pengguna.',
+    nepali: 'यो क्वेस्ट सबै प्रयोगकर्ताहरूलाई अदृश्य हुनेछ।',
+    hindi: 'यह क्वेस्ट सभी उपयोगकर्ताओं के लिए अदृश्य हो जाएगी।',
+    burmese: 'ဤအလုပ်တာဝန်သည် အသုံးပြုသူအားလုံးအတွက် မမြင်ရတော့ပါ။',
+    thai: 'ควสต์นี้จะมองไม่เห็นสำหรับผู้ใช้ทุกคน',
+    mandarin: '此任务将对所有用户不可见。'
+  },
+  unhideQuestTitle: {
+    english: 'Unhide quest',
+    french: 'Afficher la quête',
+    spanish: 'Mostrar misión',
+    brazilian_portuguese: 'Reexibir missão',
+    tok_pisin: 'Soim quest',
+    indonesian: 'Tampilkan quest',
+    nepali: 'क्वेस्ट देखाउनुहोस्',
+    hindi: 'क्वेस्ट दिखाएँ',
+    burmese: 'အလုပ်တာဝန် ပြပါ',
+    thai: 'แสดงควสต์',
+    mandarin: '取消隐藏任务'
+  },
+  unhideQuestDescription: {
+    english: 'This quest will be visible to all users.',
+    french: 'Cette quête sera visible pour tous les utilisateurs.',
+    spanish: 'Esta misión será visible para todos los usuarios.',
+    brazilian_portuguese: 'Esta missão ficará visível para todos os usuários.',
+    tok_pisin: 'Dispela quest bai save long olgeta user.',
+    indonesian: 'Quest ini akan terlihat oleh semua pengguna.',
+    nepali: 'यो क्वेस्ट सबै प्रयोगकर्ताहरूलाई देखिनेछ।',
+    hindi: 'यह क्वेस्ट सभी उपयोगकर्ताओं को दिखाई देगी।',
+    burmese: 'ဤအလုပ်တာဝန်သည် အသုံးပြုသူအားလုံးအတွက် မြင်ရပါမည်။',
+    thai: 'ควสต์นี้จะมองเห็นได้สำหรับผู้ใช้ทุกคน',
+    mandarin: '此任务将对所有用户可见。'
+  },
+  deleteQuestTitle: {
+    english: 'Delete quest',
+    french: 'Supprimer la quête',
+    spanish: 'Eliminar misión',
+    brazilian_portuguese: 'Excluir missão',
+    tok_pisin: 'Rausim quest',
+    indonesian: 'Hapus quest',
+    nepali: 'क्वेस्ट मेटाउनुहोस्',
+    hindi: 'क्वेस्ट हटाएँ',
+    burmese: 'အလုပ်တာဝန် ဖျက်ပါ',
+    thai: 'ลบควสต์',
+    mandarin: '删除任务'
+  },
+  deleteQuestDescription: {
+    english: 'This will permanently delete the quest. This action cannot be undone.',
+    french:
+      'Cela supprimera définitivement la quête. Cette action est irréversible.',
+    spanish:
+      'Esto eliminará la misión de forma permanente. Esta acción es irreversible.',
+    brazilian_portuguese:
+      'Isso excluirá a missão de forma permanente. Esta ação é irreversível.',
+    tok_pisin:
+      'Dispela bai rausim quest olgeta. Yu no inap senisim bek dispela action.',
+    indonesian:
+      'Ini akan menghapus quest secara permanen. Tindakan ini tidak dapat dibatalkan.',
+    nepali:
+      'यसले क्वेस्ट स्थायी रूपमा मेटाउनेछ। यो कार्य उल्ट्याउन सकिँदैन।',
+    hindi:
+      'यह क्वेस्ट को स्थायी रूप से हटा देगा। यह कार्रवाई पूर्ववत नहीं की जा सकती।',
+    burmese:
+      'ဤအလုပ်တာဝန်ကို အပြီးအပိုင် ဖျက်ပါမည်။ ဤလုပ်ဆောင်ချက်ကို ပြန်လည်ပြုပြင်မရပါ။',
+    thai: 'การดำเนินการนี้จะลบควสต์อย่างถาวร และไม่สามารถยกเลิกได้',
+    mandarin: '这将永久删除该任务。此操作无法撤消。'
   }
 } as const;
 

@@ -58,12 +58,14 @@ import { ActivityIndicator, Pressable, View } from 'react-native';
 function VersionCard({
   version,
   isCurrentUser,
+  canManage,
   onPress,
   onDownloadClick,
   isDownloading
 }: {
   version: FiaPericopeQuest;
   isCurrentUser: boolean;
+  canManage: boolean;
   onPress: () => void;
   onDownloadClick: (questId: string) => void;
   isDownloading: boolean;
@@ -71,10 +73,11 @@ function VersionCard({
   const isLocal = version.source === 'local';
   const isCloud = version.source === 'cloud';
   const isDownloaded = useQuestDownloadStatusLive(isLocal ? null : version.id);
-  const needsDownload = isCloud && !isDownloaded;
+  // const needsDownload = isCloud && !isDownloaded;
 
   return (
     <QuestVersionPickerCard
+      questId={version.id}
       versionLabel={version.versionLabel}
       creatorName={version.creatorName}
       isCurrentUser={isCurrentUser}
@@ -84,6 +87,7 @@ function VersionCard({
       isDownloaded={isDownloaded}
       isDownloading={isDownloading}
       visible={version.visible}
+      canManage={canManage}
       onPress={onPress}
       onDownloadClick={() => onDownloadClick(version.id)}
     />
@@ -681,6 +685,7 @@ export function FiaPericopeList({
                 key={version.id}
                 version={version}
                 isCurrentUser={version.creator_id === currentUser?.id}
+                canManage={membership === 'owner'}
                 onPress={() => navigateToVersion(version)}
                 onDownloadClick={handleDownloadClick}
                 isDownloading={downloadingQuestIds.has(version.id)}

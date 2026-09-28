@@ -1,6 +1,7 @@
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 // import { db } from '../db/database';
 import type { QuestMetadata } from '@/db/drizzleSchemaColumns';
+import { isImportedAsset } from '@/utils/assetProvenance';
 import { resolveTable } from '@/utils/dbUtils';
 import { withQuestVersionLabel } from '@/utils/questVersionLabel';
 import uuid from 'react-native-uuid';
@@ -132,6 +133,114 @@ export async function createQuestRecordingSession(
     return recordingSessionId;
   } catch (error) {
     console.error('Failed to create quest recording session:', error);
+    throw error;
+  }
+}
+
+/**
+ * Permanently deletes a local-only (unpublished) quest.
+ * Throws if the quest is missing or already exists in the synced table.
+ * Imported assets are kept; only their quest_asset_link is removed.
+ */
+export async function deleteUnpublishedQuest(questId: string): Promise<void> {
+  if (!questId) {
+    throw new Error('Quest id is required');
+  }
+
+  const questLocalTable = resolveTable('quest', { localOverride: true });
+  const questSyncedTable = resolveTable('quest', { localOverride: false });
+  const questAssetLinkLocal = resolveTable('quest_asset_link', {
+    localOverride: true
+  });
+  const questTagLinkLocal = resolveTable('quest_tag_link', {
+    localOverride: true
+  });
+  const assetLocal = resolveTable('asset', { localOverride: true });
+  const assetContentLocal = resolveTable('asset_content_link', {
+    localOverride: true
+  });
+  const assetTagLinkLocal = resolveTable('asset_tag_link', {
+    localOverride: true
+  });
+  const voteLocal = resolveTable('vote', { localOverride: true });
+
+  try {
+    const [localQuest] = await system.db
+      .select({ id: questLocalTable.id })
+      .from(questLocalTable)
+      .where(eq(questLocalTable.id, questId))
+      .limit(1);
+
+    if (!localQuest) {
+      throw new Error('Quest not found');
+    }
+
+    const [publishedQuest] = await system.db
+      .select({ id: questSyncedTable.id })
+      .from(questSyncedTable)
+      .where(eq(questSyncedTable.id, questId))
+      .limit(1);
+
+    if (publishedQuest) {
+      throw new Error('Cannot delete a published quest');
+    }
+
+    const links = await system.db
+      .select({
+        asset_id: questAssetLinkLocal.asset_id,
+        metadata: questAssetLinkLocal.metadata
+      })
+      .from(questAssetLinkLocal)
+      .where(eq(questAssetLinkLocal.quest_id, questId));
+
+    const deletableAssetIds = links
+      .filter((link) => !isImportedAsset(link.metadata))
+      .map((link) => link.asset_id);
+
+    await system.db.transaction(async (tx) => {
+      await tx
+        .delete(questAssetLinkLocal)
+        .where(eq(questAssetLinkLocal.quest_id, questId));
+
+      if (deletableAssetIds.length > 0) {
+        const childAssets = await tx
+          .select({ id: assetLocal.id })
+          .from(assetLocal)
+          .where(inArray(assetLocal.source_asset_id, deletableAssetIds));
+
+        const uniqueAssetIds = Array.from(
+          new Set([
+            ...childAssets.map((child) => child.id),
+            ...deletableAssetIds
+          ])
+        );
+
+        await tx
+          .delete(voteLocal)
+          .where(inArray(voteLocal.asset_id, uniqueAssetIds));
+        await tx
+          .delete(assetTagLinkLocal)
+          .where(inArray(assetTagLinkLocal.asset_id, uniqueAssetIds));
+        await tx
+          .delete(questAssetLinkLocal)
+          .where(inArray(questAssetLinkLocal.asset_id, uniqueAssetIds));
+        await tx
+          .delete(assetContentLocal)
+          .where(inArray(assetContentLocal.asset_id, uniqueAssetIds));
+        await tx
+          .delete(assetLocal)
+          .where(inArray(assetLocal.id, uniqueAssetIds));
+      }
+
+      await tx
+        .delete(questTagLinkLocal)
+        .where(eq(questTagLinkLocal.quest_id, questId));
+      await tx
+        .delete(questLocalTable)
+        .where(eq(questLocalTable.id, questId));
+    });
+  } catch (error) {
+    console.error('Failed to delete unpublished quest:', error);
     throw error;
   }
 }
