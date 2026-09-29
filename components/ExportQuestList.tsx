@@ -69,7 +69,7 @@ export function ExportQuestList({
       const existing = assetMap.get(asset.id);
       if (!existing) {
         assetMap.set(asset.id, asset);
-      } else if (asset.source === 'synced' && existing.source !== 'synced') {
+      } else if (asset.source !== 'cloud' && existing.source === 'cloud') {
         assetMap.set(asset.id, asset);
       }
     }

@@ -26,7 +26,7 @@ const PERSISTED_ROOT_KEYS = new Set<string>([
   'fia-pericope-quests'
 ]);
 
-export function isFiaBibleApiPersistedQueryKey(queryKey: QueryKey): boolean {
+function isFiaBibleApiPersistedQueryKey(queryKey: QueryKey): boolean {
   const root = queryKey[0];
   return typeof root === 'string' && PERSISTED_ROOT_KEYS.has(root);
 }

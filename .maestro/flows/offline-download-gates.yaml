@@ -1,0 +1,71 @@
+appId: ${MAESTRO_APP_ID}
+onFlowStart:
+  - runScript: ../api.js
+onFlowComplete:
+  - runFlow: _recover-after-airplane.yaml
+---
+# The quest header's Download is disabled for cloud-only quests while
+# offline. Android only.
+- evalScript: ${output.ownerEmail = output.api.uniqueEmail("offgateowner")}
+- evalScript: ${output.ownerPassword = output.api.uniquePassword("offgateowner")}
+- evalScript: ${output.projectName = "maestro-offgate-" + Date.now()}
+- evalScript: ${output.questName = "maestro-offgate-q-" + Date.now()}
+- evalScript: ${output.assetName = "maestro-offgate-a-" + Date.now()}
+- evalScript: ${output.skipSignInCleanup = true}
+- evalScript: ${output.api.createConfirmedUser(output.ownerEmail, output.ownerPassword)}
+- evalScript: ${output.api.seedProject(output.projectName, output.ownerEmail, false)}
+- evalScript: ${output.api.seedQuest(output.projectName, output.questName, output.ownerEmail, true)}
+- evalScript: ${output.api.seedSourceAsset(output.projectName, output.questName, output.ownerEmail, output.assetName, "Gate source")}
+- runFlow: _start-signed-in.yaml
+- tapOn:
+    id: projects-tab-all
+- tapOn:
+    id: projects-search
+- inputText: ${output.projectName}
+- runFlow: _hide-keyboard.yaml
+- extendedWaitUntil:
+    visible: ${output.projectName}
+    timeout: 45000
+- tapOn:
+    text: ${output.projectName}
+    below:
+      id: projects-search
+# Non-members open the cloud quest online without downloading it.
+- extendedWaitUntil:
+    visible:
+      id: quest-list-item
+    timeout: 45000
+- tapOn:
+    id: quest-list-item
+- runFlow:
+    when:
+      visible:
+        id: quest-list-item
+      notVisible:
+        id: assets-refresh-button
+    commands:
+      - tapOn:
+          id: quest-list-item
+- extendedWaitUntil:
+    visible:
+      id: quest-header-download
+    timeout: 45000
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - setAirplaneMode: enabled
+      - extendedWaitUntil:
+          visible:
+            id: quest-header-download
+            enabled: false
+          timeout: 15000
+      - setAirplaneMode: disabled
+      - extendedWaitUntil:
+          visible:
+            id: quest-header-download
+            enabled: true
+          timeout: 30000
+- evalScript: ${output.api.deleteProject(output.projectName)}
+- evalScript: ${output.api.deleteUserIfExists(output.signInEmail)}
+- evalScript: ${output.api.deleteUserIfExists(output.ownerEmail)}

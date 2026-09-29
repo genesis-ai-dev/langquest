@@ -1,0 +1,47 @@
+appId: ${MAESTRO_APP_ID}
+onFlowStart:
+  - runScript: ../api.js
+---
+- evalScript: ${output.ownerEmail = output.api.uniqueEmail("privowner")}
+- evalScript: ${output.ownerPassword = output.api.uniquePassword("privowner")}
+- evalScript: ${output.projectName = "maestro-private-" + Date.now()}
+- evalScript: ${output.questName = "maestro-priv-quest-" + Date.now()}
+- evalScript: ${output.skipSignInCleanup = true}
+- evalScript: ${output.api.createConfirmedUser(output.ownerEmail, output.ownerPassword)}
+- evalScript: ${output.api.seedProject(output.projectName, output.ownerEmail, true)}
+- evalScript: ${output.api.seedQuest(output.projectName, output.questName, output.ownerEmail)}
+- runFlow: _start-signed-in.yaml
+- tapOn:
+    id: projects-tab-all
+    waitToSettleTimeoutMs: 0
+- tapOn:
+    id: projects-search
+- inputText: ${output.projectName}
+- runFlow: _hide-keyboard.yaml
+- extendedWaitUntil:
+    visible: ${output.projectName}
+    timeout: 45000
+- tapOn:
+    text: ${output.projectName}
+    below:
+      id: projects-search
+- extendedWaitUntil:
+    visible:
+      id: project-request-access
+    timeout: 30000
+- tapOn:
+    id: project-request-access
+    waitToSettleTimeoutMs: 0
+- runFlow:
+    when:
+      notVisible: Request Membership
+    commands:
+      - tapOn:
+          id: project-request-access
+          waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible: Request Membership
+    timeout: 15000
+- evalScript: ${output.api.deleteProject(output.projectName)}
+- evalScript: ${output.api.deleteUserIfExists(output.signInEmail)}
+- evalScript: ${output.api.deleteUserIfExists(output.ownerEmail)}

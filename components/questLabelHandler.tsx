@@ -14,8 +14,10 @@ import {
   parseQuestMetadata,
   updateQuestVersionLabel
 } from '@/database_services/questService';
+import { invalidateOfflineChapterLists } from '@/hooks/hybridCache';
 import { getQuestVersionLabel } from '@/utils/questVersionLabel';
 import { cn } from '@/utils/styleUtils';
+import { useQueryClient } from '@tanstack/react-query';
 import React from 'react';
 import type { TextInput } from 'react-native';
 import { View } from 'react-native';
@@ -39,6 +41,7 @@ export function QuestLabelHandler({
   onOpenChange,
   onSaved
 }: QuestLabelHandlerProps) {
+  const queryClient = useQueryClient();
   const displayQuestName = questName?.trim() || 'Quest';
   const currentLabel = getQuestVersionLabel(metadata) ?? '';
   const [label, setLabel] = React.useState(currentLabel);
@@ -92,6 +95,10 @@ export function QuestLabelHandler({
     try {
       parseQuestMetadata(metadata);
       await updateQuestVersionLabel(questId, trimmedLabel, metadata);
+      // Chapter/pericope lists are unmounted here, so their PowerSync watch
+      // missed this write. Mark the create-time snapshot stale so remount
+      // rereads SQLite.
+      await invalidateOfflineChapterLists(queryClient);
       onSaved?.(trimmedLabel);
       handleOpenChange(false);
     } catch (saveError) {
@@ -110,6 +117,7 @@ export function QuestLabelHandler({
     label,
     metadata,
     onSaved,
+    queryClient,
     questId
   ]);
 
@@ -148,6 +156,8 @@ export function QuestLabelHandler({
                     onSubmitEditing={() => void handleSave()}
                     returnKeyType="done"
                     editable={!isSaving}
+                    testID="quest-version-label-input"
+                    accessibilityLabel="quest-version-label-input"
                   />
                 </View>
               </View>
@@ -166,6 +176,8 @@ export function QuestLabelHandler({
                 onPress={() => void handleSave()}
                 className="flex-1"
                 disabled={isSaving}
+                testID="quest-version-label-save"
+                accessibilityLabel="quest-version-label-save"
               >
                 <Text>{isSaving ? 'Saving...' : 'Save'}</Text>
               </Button>

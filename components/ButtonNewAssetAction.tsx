@@ -12,6 +12,7 @@ interface ButtonNewAssetActionProps {
   showText?: boolean;
   selected?: boolean;
   className?: string;
+  testID?: string;
 }
 
 const ButtonNewAssetActionComponent = ({
@@ -20,7 +21,8 @@ const ButtonNewAssetActionComponent = ({
   direction,
   showText = false,
   selected = false,
-  className
+  className,
+  testID
 }: ButtonNewAssetActionProps) => {
   const primaryColor = useThemeColor('primary');
   const destructiveColor = useThemeColor('destructive');
@@ -68,7 +70,12 @@ const ButtonNewAssetActionComponent = ({
   );
 
   return (
-    <Pressable onPress={onPress} className={cn('active:opacity-80', className)}>
+    <Pressable
+      onPress={onPress}
+      className={cn('active:opacity-80', className)}
+      testID={testID}
+      accessibilityLabel={testID}
+    >
       <View
         style={{
           backgroundColor: buttonConfig.backgroundColor,

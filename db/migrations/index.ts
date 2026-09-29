@@ -25,6 +25,11 @@ import { migration_2_1_to_2_2 } from './2.1-to-2.2';
 import { migration_2_2_to_2_3 } from './2.2-to-2.3';
 import { migration_2_3_to_2_4 } from './2.3-to-2.4';
 import { migration_2_4_to_2_5 } from './2.4-to-2.5';
+import { migration_2_5_to_2_6 } from './2.5-to-2.6';
+import {
+  needsSingleTableUpgrade,
+  SINGLE_TABLE_NAMES
+} from './upgradeToSingleTable';
 import { updateMetadataVersion } from './utils';
 
 // Type for database instance used in migrations
@@ -90,7 +95,9 @@ export const migrations: Migration[] = [
   // Backfill quest-specific asset placement fields
   migration_2_3_to_2_4,
   // Version bump only: audio_uploaded_at reads NULL on existing rows (no-op)
-  migration_2_4_to_2_5
+  migration_2_4_to_2_5,
+  // Version bump only: single-table layout is upgradeToSingleTable.ts
+  migration_2_5_to_2_6
   // Add future migrations here:
 ];
 
@@ -119,23 +126,20 @@ function compareVersions(a: string, b: string): number {
 }
 
 /**
- * Get the minimum version found in any _metadata field across LOCAL-ONLY tables
- * Returns null if no records found (empty database)
- * Returns '0.0' if records exist but have no schema_version (unversioned legacy data)
- * Returns minimum version string if all records have versions
+ * Get the oldest _metadata.schema_version on this device.
  *
- * CRITICAL: This checks ALL records, not just one per table, because:
- * - Tables can have mixed versions (e.g., 99 records at v1.1, 1 at v1.0)
- * - We need to find the OLDEST version to determine if migration is needed
- * - Missing even one outdated record would leave data un-migrated
- * - Records with NULL or missing _metadata.schema_version are treated as version 0.0
+ * Scan order / meaning of missing schema_version:
+ * - `*_local` (pre-2.6 drafts, until the one-shot layout upgrade drops them):
+ *   unversioned → 0.0
+ * - unsuffixed `ps_data__*` (2.6+): unversioned rows are PowerSync downloads
+ *   and are ignored; only stamped client rows (updateMetadataVersion / writes)
+ *   count. That is how 2.6 → 2.7 is detected after _local/_synced are gone.
  *
- * NOTE: We only check *_local tables because:
- * - Synced tables are migrated server-side via RPC
- * - Local tables contain data that has never been uploaded
- * - This is the only data that needs client-side migration
+ * Leftover triplicate layout is not a version signal — see
+ * needsSingleTableUpgrade() in upgradeToSingleTable.ts.
  *
- * JSON-FIRST: Always queries raw PowerSync tables directly, never views
+ * Returns null when there is no migratable client version (empty DB, or
+ * downloads only).
  */
 export async function getMinimumSchemaVersion(
   db: DrizzleDB
@@ -143,79 +147,60 @@ export async function getMinimumSchemaVersion(
   try {
     const { getRawTableName } = await import('./utils');
 
-    // Always query raw PowerSync tables directly, never views
-    const tables = [
-      'profile_local',
-      'language_local',
-      'project_local',
-      'quest_local',
-      'asset_local',
-      'tag_local',
-      'quest_asset_link_local',
-      'quest_tag_link_local',
-      'asset_tag_link_local',
-      'asset_content_link_local',
-      'vote_local',
-      'reports_local',
-      'invite_local',
-      'request_local',
-      'notification_local',
-      'profile_project_link_local',
-      'project_language_link_local',
-      'subscription_local',
-      'blocked_users_local',
-      'blocked_content_local',
-      // Languoid/region tables (v1.1+)
-      'languoid_local',
-      'languoid_alias_local',
-      'languoid_source_local',
-      'languoid_property_local',
-      'region_local',
-      'region_alias_local',
-      'region_source_local',
-      'region_property_local',
-      'languoid_region_local'
+    const tablesToScan: {
+      table: string;
+      /** null = ignore unversioned rows (synced downloads in single tables) */
+      unversionedMeans: '0.0' | null;
+    }[] = [
+      ...SINGLE_TABLE_NAMES.map((table) => ({
+        table: `${table}_local`,
+        unversionedMeans: '0.0' as const
+      })),
+      ...SINGLE_TABLE_NAMES.map((table) => ({
+        table,
+        unversionedMeans: null
+      }))
     ];
 
     let minVersion: string | null = null;
-    let foundAnyData = false; // Track if we found any records at all
+    let foundAnyData = false;
+    let presentTables = 0;
 
-    for (const table of tables) {
+    for (const { table, unversionedMeans } of tablesToScan) {
       try {
         const rawTableName = getRawTableName(table);
 
-        // Check if raw table exists
         const result = await db.getAll(
           `SELECT COUNT(*) as count FROM sqlite_master WHERE type='table' AND name=?`,
           [rawTableName]
         );
-        const rawTableExists = (result[0] as { count?: number }) || null;
+        const existsCount = Number(
+          (result[0] as { count?: number | string | bigint })?.count ?? 0
+        );
 
-        if (!rawTableExists || rawTableExists.count === 0) {
-          console.log(
-            `[Migration] Raw table ${rawTableName} does not exist, skipping`
-          );
+        if (existsCount === 0) {
           continue;
         }
 
-        // Check if raw table has any data
+        presentTables += 1;
+
         const rowCountResult = await db.getAll(
           `SELECT COUNT(*) as count FROM ${rawTableName}`,
           []
         );
-        const rowCount = (rowCountResult[0] as { count?: number }) || null;
-
-        console.log(
-          `[Migration] Raw table ${rawTableName}: ${rowCount?.count ?? 0} records`
+        const rowCount = Number(
+          (rowCountResult[0] as { count?: number | string | bigint })?.count ??
+            0
         );
 
-        if (!rowCount || rowCount.count === 0) {
+        console.log(
+          `[Migration] Raw table ${rawTableName}: ${rowCount} records`
+        );
+
+        if (rowCount === 0) {
           continue;
         }
 
-        foundAnyData = true;
-
-        // Check for unversioned records in raw JSON
         const unversionedResult = await db.getAll(
           `SELECT COUNT(*) as count 
            FROM ${rawTableName} 
@@ -223,20 +208,23 @@ export async function getMinimumSchemaVersion(
               OR json_extract(json(json_extract(data, '$._metadata')), '$.schema_version') IS NULL`,
           []
         );
-        const unversionedCount =
-          (unversionedResult[0] as { count?: number }) || null;
-
-        const unversionedCountValue = unversionedCount?.count ?? 0;
-        if (unversionedCountValue > 0) {
+        const unversionedCountValue = Number(
+          (unversionedResult[0] as { count?: number | string | bigint })
+            ?.count ?? 0
+        );
+        if (unversionedCountValue > 0 && unversionedMeans !== null) {
           console.log(
-            `[Migration] Found ${unversionedCountValue} unversioned records in ${rawTableName} - needs migration from 0.0`
+            `[Migration] Found ${unversionedCountValue} unversioned records in ${rawTableName} — treating as ${unversionedMeans}`
           );
-          minVersion = '0.0';
-          // Don't break - we want to log all tables with unversioned data
-          continue;
+          foundAnyData = true;
+          if (
+            !minVersion ||
+            compareVersions(unversionedMeans, minVersion) < 0
+          ) {
+            minVersion = unversionedMeans;
+          }
         }
 
-        // Find minimum version from raw JSON
         const versionResult = await db.getAll(
           `SELECT MIN(json_extract(json(json_extract(data, '$._metadata')), '$.schema_version')) as min_version 
            FROM ${rawTableName} 
@@ -248,6 +236,7 @@ export async function getMinimumSchemaVersion(
 
         if (versionData?.min_version) {
           const version = versionData.min_version;
+          foundAnyData = true;
           if (!minVersion || compareVersions(version, minVersion) < 0) {
             minVersion = version;
             console.log(
@@ -256,19 +245,18 @@ export async function getMinimumSchemaVersion(
           }
         }
       } catch (err) {
-        // Table might not exist or have _metadata column yet - skip it
         console.log(`[Migration] Skipping table ${table}:`, err);
       }
     }
 
-    // Return results:
-    // - If no data found at all: return null (caller will treat as "no migration needed")
-    // - If data found but no versions: return '0.0' (needs migration)
-    // - If data found with versions: return the minimum version
-    if (!foundAnyData) {
-      return null; // Signal: empty database, no migration needed
+    if (presentTables === 0) {
+      console.log('[Migration] No local or single-table data tables present');
     }
-    return minVersion || '0.0'; // Data exists, return version (or 0.0 if unversioned)
+
+    if (!foundAnyData) {
+      return null;
+    }
+    return minVersion || '0.0';
   } catch (error) {
     console.error('[Migration] Error getting minimum schema version:', error);
     return '0.0';
@@ -323,6 +311,18 @@ export async function checkNeedsMigration(
   }
 
   return needsMigration;
+}
+
+/**
+ * True when a version hop and/or the one-shot single-table layout upgrade
+ * still needs to run. Layout leftover is independent of _metadata versions.
+ */
+export async function checkNeedsAnyUpgrade(
+  db: DrizzleDB,
+  targetVersion: string
+): Promise<boolean> {
+  if (await checkNeedsMigration(db, targetVersion)) return true;
+  return needsSingleTableUpgrade(db);
 }
 
 // ============================================================================

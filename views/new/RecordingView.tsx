@@ -20,15 +20,18 @@ import { useAudio } from '@/contexts/AudioContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { run as runAssetGarbageCollector } from '@/database_services/assetGarbageCollectorService';
 import {
-  normalizeOrderIndexForVerses,
+  normalizeOrderIndexForVersesDirect,
   renameAsset,
+  snapshotCreatedAsset,
   softDeleteAssetsFromQuest,
+  softDeleteAssetsFromQuestDirect,
   softMergeAssetsInQuest
 } from '@/database_services/assetService';
 import {
   redo as redoAssetOperation,
   undo as undoAssetOperation
 } from '@/database_services/assetUndoService';
+import { enqueueAssetWrite } from '@/database_services/assetWriteQueue';
 import type {
   AssetOperationDataItem,
   AssetOperationTypes
@@ -40,7 +43,6 @@ import {
 } from '@/db/drizzleSchema';
 import type { FiaMetadata } from '@/db/drizzleSchemaColumns';
 import { system } from '@/db/powersync/system';
-import type { Project } from '@/hooks/db/useProjects';
 import { useAudioPlaybackCheckpoint } from '@/hooks/useAudioPlaybackCheckpoint';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNavigationHelpers } from '@/hooks/useNavigation';
@@ -49,12 +51,13 @@ import { useSingleAudioController } from '@/hooks/useSingleAudioController';
 import { useUndoHistory } from '@/hooks/useUndoHistory';
 import { useLocalStore } from '@/store/localStore';
 import { resolveExistingAudioUri } from '@/utils/attachmentPaths';
+import { getAssetAudioUris as getPlayableAssetAudioUris } from '@/utils/getAssetAudioUris';
 import { resolveTable } from '@/utils/dbUtils';
-import { saveAudioLocally } from '@/utils/fileUtils';
+import { storeRecordedAudio } from '@/services/attachments/storeRecordedAudio';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useProjectById } from '@/hooks/db/useProjects';
 import { and, asc, eq, inArray } from 'drizzle-orm';
 import { createAudioPlayer } from 'expo-audio';
 import { useKeepAwake } from 'expo-keep-awake';
@@ -87,7 +90,7 @@ import { VADSettingsDrawer } from './recording/components/VADSettingsDrawer';
 import { useSelectionMode } from './recording/hooks/useSelectionMode';
 import { useVADRecording } from './recording/hooks/useVADRecording';
 import { saveRecording } from './recording/services/recordingService';
-import { useHybridData } from './useHybridData';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
 
 function extractFiaMetadata(metadata: unknown): FiaMetadata | null {
   try {
@@ -260,17 +263,6 @@ const AssetListRow = React.memo(function AssetListRow({
 // The extra *1000 leaves space for future insertions between assets
 const DEFAULT_ORDER_INDEX = 999001000;
 
-// Verse metadata type
-interface VerseRange {
-  from: number;
-  to: number;
-}
-
-// Asset metadata type (prefixed with _ to allow unused)
-interface _AssetMetadata {
-  verse?: VerseRange;
-}
-
 const RecordingView = () => {
   // Guard ref to prevent post-unmount state updates (memory leak prevention)
   const mountedRef = React.useRef(true);
@@ -313,32 +305,18 @@ const RecordingView = () => {
     [pericopeSequence, bookShortName, bookChapterLabel]
   );
 
-  const queryClient = useQueryClient();
   const { currentUser } = useAuth();
 
-  // Static project fetch – data doesn't change during recording, no PowerSync listener needed
-  const { data: currentProject = null } = useQuery({
-    queryKey: ['project', 'static', projectId],
-    queryFn: async () => {
-      if (!projectId) return null;
-      const result = await system.db.query.project.findFirst({
-        where: (fields, { eq }) => eq(fields.id, projectId)
-      });
-      return (result as Project) ?? null;
-    },
-    enabled: !!projectId,
-    staleTime: Infinity
-  });
+  const { project: currentProject = null } = useProjectById(projectId);
 
   const audioContext = useAudio();
   const insets = useSafeAreaInsets();
 
   // NEEDS TO GO TO THE CLOUD WHEN PROJECT IS NOT CREATED IN THE SAME DEVICE
-  const { data: targetLanguoidLink = [] } = useHybridData<{
+  const { data: targetLanguoidLink = [] } = useHybridQuery<{
     languoid_id: string | null;
   }>({
-    dataType: 'project-target-languoid-id',
-    queryKeyParams: [projectId || ''],
+    queryKey: ['project-target-languoid-id', projectId || ''],
     offlineQuery: toCompilableQuery(
       system.db
         .select({ languoid_id: project_language_link.languoid_id })
@@ -372,9 +350,8 @@ const RecordingView = () => {
 
   // Fetch quest metadata for FIA drawer support
   type Quest = typeof questTable.$inferSelect;
-  const { data: questDataForFia } = useHybridData<Quest>({
-    dataType: 'current-quest',
-    queryKeyParams: [questId || ''],
+  const { data: questDataForFia } = useHybridQuery<Quest>({
+    queryKey: ['current-quest', questId || ''],
     offlineQuery: toCompilableQuery(
       system.db
         .select()
@@ -449,7 +426,6 @@ const RecordingView = () => {
   // Track asset to replace (when replace mode is active)
   const assetToReplaceRef = React.useRef<string | null>(null);
   const vadCounterRef = React.useRef<number | null>(null);
-  const dbWriteQueueRef = React.useRef<Promise<void>>(Promise.resolve());
 
   // Tracks the last order_index successfully committed inside the serial write queue.
   // Updated synchronously after each save so the next queued item reads the correct
@@ -1168,8 +1144,14 @@ const RecordingView = () => {
     const previousCount = previousItemCountRef.current;
     const currentInsertionIndex = insertionIndexRef.current;
 
-    // Undo can change list length, but we preserve scroll manually in handleUndoAction.
+    // Undo/redo change list length, but we preserve scroll manually in
+    // handleUndoAction / handleRedoAction. Still keep the insertion marker at
+    // the end if it was already at the end — otherwise redo leaves it sitting
+    // on a restored card in the middle.
     if (pendingUndoScrollOffsetRef.current !== null) {
+      if (currentInsertionIndex >= previousCount) {
+        setInsertionIndex(currentCount);
+      }
       previousItemCountRef.current = currentCount;
       return;
     }
@@ -1240,89 +1222,8 @@ const RecordingView = () => {
   // AUDIO PLAYBACK
   // ============================================================================
 
-  // Fetch audio URIs for an asset
-  // Includes fallback logic for local-only files when server records are removed
   const getAssetAudioUris = React.useCallback(
-    async (assetId: string): Promise<string[]> => {
-      try {
-        // Get content links from both synced and local tables
-        const assetContentLinkSynced = resolveTable('asset_content_link', {
-          localOverride: false
-        });
-        const contentLinksSynced = await system.db
-          .select()
-          .from(assetContentLinkSynced)
-          .where(eq(assetContentLinkSynced.asset_id, assetId));
-
-        const assetContentLinkLocal = resolveTable('asset_content_link', {
-          localOverride: true
-        });
-        const contentLinksLocal = await system.db
-          .select()
-          .from(assetContentLinkLocal)
-          .where(eq(assetContentLinkLocal.asset_id, assetId));
-
-        // Prefer synced links, but merge with local for fallback
-        const allContentLinks = [...contentLinksSynced, ...contentLinksLocal];
-
-        // Deduplicate by ID (prefer synced over local)
-        const seenIds = new Set<string>();
-        const uniqueLinks = allContentLinks.filter((link) => {
-          if (seenIds.has(link.id)) {
-            return false;
-          }
-          seenIds.add(link.id);
-          return true;
-        });
-
-        debugLog(
-          `📀 Found ${uniqueLinks.length} content link(s) for asset ${assetId.slice(0, 8)} (${contentLinksSynced.length} synced, ${contentLinksLocal.length} local)`
-        );
-
-        if (uniqueLinks.length === 0) {
-          debugLog('No content links found for asset:', assetId);
-          return [];
-        }
-
-        // Get audio values from content links (can be URIs or attachment IDs)
-        const audioValues = uniqueLinks
-          .flatMap((link) => {
-            const audioArray = link.audio ?? [];
-            debugLog(
-              `  📎 Content link has ${audioArray.length} audio file(s):`,
-              audioArray
-            );
-            return audioArray;
-          })
-          .filter((value): value is string => !!value);
-
-        debugLog(`📊 Total audio files for asset: ${audioValues.length}`);
-
-        if (audioValues.length === 0) {
-          debugLog('No audio values found in content links');
-          return [];
-        }
-
-        // Resolve each audio value to its deterministic on-device location
-        const uris: string[] = [];
-        for (const audioValue of audioValues) {
-          const resolvedUri = await resolveExistingAudioUri(audioValue);
-          if (resolvedUri) {
-            uris.push(resolvedUri);
-            debugLog('✅ Resolved audio URI:', resolvedUri.slice(0, 80));
-          } else {
-            console.warn(
-              `⚠️ Audio not found on device: ${audioValue.slice(0, 40)}`
-            );
-          }
-        }
-
-        return uris;
-      } catch (error) {
-        console.error('Failed to fetch audio URIs:', error);
-        return [];
-      }
-    },
+    (assetId: string) => getPlayableAssetAudioUris(assetId),
     []
   );
 
@@ -1706,7 +1607,9 @@ const RecordingView = () => {
             (item) => isAsset(item) && item.id === assetIdToReplace
           );
           replacePreviousData = [
-            {
+            (questId
+              ? await snapshotCreatedAsset(questId, assetIdToReplace)
+              : null) ?? {
               id: assetIdToReplace,
               name:
                 replacedItem && isAsset(replacedItem) ? replacedItem.name : null
@@ -1724,15 +1627,11 @@ const RecordingView = () => {
             if (!questId) {
               throw new Error('Missing questId for replace soft delete');
             }
-            await softDeleteAssetsFromQuest(questId, [assetIdToReplace]);
+            await softDeleteAssetsFromQuestDirect(questId, [assetIdToReplace]);
             // Remove from session assets list
             setSessionItems((prev) =>
               prev.filter((a) => a.id !== assetIdToReplace)
             );
-            await queryClient.invalidateQueries({
-              queryKey: ['assets', 'by-quest', questId],
-              exact: false
-            });
             didReplaceDeleteSucceed = true;
             console.log(`✅ REPLACE: Asset deleted successfully`);
           } catch (e) {
@@ -1779,10 +1678,12 @@ const RecordingView = () => {
           // Native module flushes the file before sending onSegmentComplete event.
           // File should be ready, but iOS Simulator may need a moment (handled by retry logic in saveAudioLocally).
 
-          // Save audio file locally (with retry logic for timing issues)
+          // Save audio file locally (with retry logic for timing issues).
+          // The returned name is the storage object name; the uploader picks
+          // it up as soon as the acl row below exists.
           const saveResult = await (async () => {
             try {
-              const savedUri = await saveAudioLocally(uri);
+              const savedUri = await storeRecordedAudio(uri);
               return { success: true as const, uri: savedUri };
             } catch (error) {
               // Release the reserved name on error
@@ -1837,12 +1738,14 @@ const RecordingView = () => {
             verse: verseToUse,
             duration: recordingDuration > 0 ? recordingDuration : undefined
           });
+          const snapshot = await snapshotCreatedAsset(questId, newAssetId);
+          const newData = [snapshot ?? { id: newAssetId }];
           if (didReplaceDeleteSucceed && replacePreviousData.length > 0) {
             pushUndoHistory({
               domain: 'asset',
               action: 'replace',
               previousData: replacePreviousData,
-              newData: [{ id: newAssetId }],
+              newData,
               canUndo: true
             });
           } else {
@@ -1850,7 +1753,7 @@ const RecordingView = () => {
               domain: 'asset',
               action: 'create',
               previousData: [],
-              newData: [{ id: newAssetId }],
+              newData,
               canUndo: true
             });
           }
@@ -1892,13 +1795,6 @@ const RecordingView = () => {
           // correct next value without reading potentially stale React state.
           lastCommittedOrderIndexRef.current = targetOrder;
 
-          // Invalidate queries to sync order_index after insertions in the middle
-          // This is needed because recordingService shifts order_index values
-          await queryClient.invalidateQueries({
-            queryKey: ['assets', 'by-quest', questId],
-            exact: false
-          });
-
           debugLog('🏁 Recording saved');
           setIsRecording(false);
         } catch (error) {
@@ -1907,20 +1803,13 @@ const RecordingView = () => {
         }
       };
 
-      // Serialize full recording completion flow to avoid order_index race conditions.
-      const queuedOperation = dbWriteQueueRef.current.then(
-        runRecordingComplete,
-        runRecordingComplete
-      );
-      dbWriteQueueRef.current = queuedOperation.catch(() => undefined);
-      await queuedOperation;
+      await enqueueAssetWrite(questId, runRecordingComplete);
     },
     [
       projectId,
       questId,
       currentProject,
       currentUser,
-      queryClient,
       targetLanguoidId,
       recordingSessionId,
       addSessionAsset,
@@ -1986,22 +1875,6 @@ const RecordingView = () => {
     onSegmentComplete: handleVADSegmentComplete,
     isManualRecording: isRecording
   });
-
-  // Invalidate queries when VAD mode transitions from active → inactive
-  // Use a ref to track if VAD was previously active, so we only invalidate
-  // on actual transitions (not on initial mount when isVADActive is false)
-  const wasVADActiveRef = React.useRef(false);
-  React.useEffect(() => {
-    if (isVADActive) {
-      wasVADActiveRef.current = true;
-    } else if (wasVADActiveRef.current) {
-      wasVADActiveRef.current = false;
-      void queryClient.invalidateQueries({
-        queryKey: ['assets', 'by-quest', questId],
-        exact: false
-      });
-    }
-  }, [isVADActive, questId, queryClient]);
 
   // ============================================================================
   // LAZY LOAD SEGMENT COUNTS
@@ -2344,16 +2217,11 @@ const RecordingView = () => {
           newData: [],
           canUndo: true
         });
-
-        await queryClient.invalidateQueries({
-          queryKey: ['assets', 'by-quest', questId],
-          exact: false
-        });
       } catch (e) {
         console.error('Failed to delete local asset', e);
       }
     },
-    [pushUndoHistory, queryClient, questId]
+    [pushUndoHistory, questId]
   );
 
   const handleMergeDownLocal = React.useCallback(
@@ -2406,8 +2274,8 @@ const RecordingView = () => {
         pushUndoHistory({
           domain: 'asset',
           action: 'merge',
-          previousData: [{ id: first.id }, { id: second.id }],
-          newData: [{ id: mergeResult.newAssetId }],
+          previousData: mergeResult.previousData,
+          newData: mergeResult.newData,
           canUndo: true
         });
 
@@ -2430,16 +2298,11 @@ const RecordingView = () => {
           next.delete(mergeResult.newAssetId);
           return next;
         });
-
-        await queryClient.invalidateQueries({
-          queryKey: ['assets', 'by-quest', questId],
-          exact: false
-        });
       } catch (e) {
         console.error('Failed to merge local assets', e);
       }
     },
-    [assets, currentUser?.id, projectId, pushUndoHistory, queryClient, questId]
+    [assets, currentUser?.id, projectId, pushUndoHistory, questId]
   );
 
   const handleBatchMergeSelected = React.useCallback(() => {
@@ -2504,10 +2367,8 @@ const RecordingView = () => {
           pushUndoHistory({
             domain: 'asset',
             action: 'merge',
-            previousData: selectedOrdered.map((asset) => ({
-              id: asset.id
-            })),
-            newData: [{ id: mergeResult.newAssetId }],
+            previousData: mergeResult.previousData,
+            newData: mergeResult.newData,
             canUndo: true
           });
         }
@@ -2531,10 +2392,6 @@ const RecordingView = () => {
         });
 
         cancelSelection();
-        await queryClient.invalidateQueries({
-          queryKey: ['assets', 'by-quest', questId],
-          exact: false
-        });
 
         debugLog('✅ Batch merge completed');
       } catch (e) {
@@ -2576,7 +2433,6 @@ const RecordingView = () => {
     currentUser?.id,
     projectId,
     pushUndoHistory,
-    queryClient,
     questId,
     t
   ]);
@@ -2616,10 +2472,6 @@ const RecordingView = () => {
         }
 
         cancelSelection();
-        await queryClient.invalidateQueries({
-          queryKey: ['assets', 'by-quest', questId],
-          exact: false
-        });
 
         debugLog(`✅ Batch delete completed: ${selectedOrdered.length} assets`);
       } catch (e) {
@@ -2659,7 +2511,6 @@ const RecordingView = () => {
     cancelSelection,
     clearUndoHistory,
     pushUndoHistory,
-    queryClient,
     questId,
     t
   ]);
@@ -2727,12 +2578,6 @@ const RecordingView = () => {
           canUndo: true
         });
 
-        // Invalidate queries to refresh the list in parent view
-        await queryClient.invalidateQueries({
-          queryKey: ['assets', 'by-quest', questId],
-          exact: false
-        });
-
         debugLog('✅ Asset renamed successfully');
       } catch (error) {
         console.error('❌ Failed to rename asset:', error);
@@ -2742,7 +2587,7 @@ const RecordingView = () => {
         }
       }
     },
-    [renameAssetId, renameAssetName, pushUndoHistory, queryClient, questId]
+    [renameAssetId, renameAssetName, pushUndoHistory, questId]
   );
 
   // ============================================================================
@@ -2758,36 +2603,34 @@ const RecordingView = () => {
     const timeoutIds = timeoutIdsRef.current;
 
     return () => {
-      // Normalize order_index for any recorded verses before leaving.
-      // Assets must be invalidated again once normalization finishes: otherwise
-      // the cached order_index values stay on the pre-normalization scale and
-      // the next session derives its insertion point from stale numbers.
       const recordedVerses = Array.from(recordedVersesRef.current);
-      const invalidateAssets = () => {
-        void queryClient.invalidateQueries({ queryKey: ['assets'] });
-      };
-      if (recordedVerses.length > 0 && questId) {
-        void normalizeOrderIndexForVerses(questId, recordedVerses)
-          .catch((error) =>
-            console.error('Failed to normalize order_index:', error)
-          )
-          .finally(invalidateAssets);
-      }
-      invalidateAssets();
-      if (questId) {
-        void queryClient.invalidateQueries({
-          queryKey: ['current-quest', 'offline', questId]
-        });
-        void queryClient.invalidateQueries({
-          queryKey: ['current-quest', 'cloud', questId]
-        });
-        void queryClient.invalidateQueries({
-          queryKey: ['quest-detail', 'offline', questId]
-        });
-        void queryClient.invalidateQueries({
-          queryKey: ['quest-detail', 'cloud', questId]
-        });
-      }
+      const questIdOnExit = questId;
+      void (async () => {
+        // Normalize first while undone IDs are still in the GC queue so
+        // those rows are skipped. Then collect. GC-first dequeues
+        // not-found IDs, after which a checkpoint-restored link can be
+        // PATCHed back onto the server.
+        if (recordedVerses.length > 0 && questIdOnExit) {
+          await enqueueAssetWrite(questIdOnExit, async () => {
+            await normalizeOrderIndexForVersesDirect(
+              questIdOnExit,
+              recordedVerses
+            );
+            await runAssetGarbageCollector();
+          });
+        } else if (questIdOnExit) {
+          await enqueueAssetWrite(questIdOnExit, () =>
+            runAssetGarbageCollector()
+          );
+        } else {
+          await runAssetGarbageCollector();
+        }
+      })().catch((error) =>
+        console.error(
+          'Failed to collect assets / normalize order_index:',
+          error
+        )
+      );
 
       // Stop audio playback if playing (access via ref for latest state)
       if (audioContextCurrentRef.current.isPlaying) {
@@ -2821,13 +2664,7 @@ const RecordingView = () => {
 
       debugLog('🧹 Cleaned up BibleRecordingView on unmount');
     };
-  }, [
-    isPlayAllRunningRef,
-    playbackCheckpoint,
-    stopPlayAll,
-    questId,
-    queryClient
-  ]);
+  }, [isPlayAllRunningRef, playbackCheckpoint, stopPlayAll, questId]);
 
   // ============================================================================
   // RENDER HELPERS
@@ -2895,12 +2732,10 @@ const RecordingView = () => {
         if (isSelectionModeRef.current) {
           toggleSelectRef.current(assetId);
         } else {
-          // Toggle highlight: if clicking on already highlighted card, move to end
           if (insertionIndexRef.current === index) {
-            setInsertionIndex(sessionItemsRef.current.length);
-          } else {
-            setInsertionIndex(index);
+            return;
           }
+          setInsertionIndex(index);
         }
       },
       onLongPress: () => {
@@ -2923,12 +2758,10 @@ const RecordingView = () => {
   const createPillCallbacks = React.useCallback(
     (index: number) => ({
       onPress: () => {
-        // Toggle highlight: if clicking on already highlighted pill, move to end
         if (insertionIndexRef.current === index) {
-          setInsertionIndex(sessionItemsRef.current.length);
-        } else {
-          setInsertionIndex(index);
+          return;
         }
+        setInsertionIndex(index);
       }
     }),
     [] // Zero dependencies - all values read from refs
@@ -3163,6 +2996,10 @@ const RecordingView = () => {
       if (isSelectionModeRef.current && item && isAsset(item)) {
         debugLog(`📋 List onChange (selection mode): toggling ${item.name}`);
         toggleSelectRef.current(item.id);
+        return;
+      }
+
+      if (insertionIndexRef.current === newIndex) {
         return;
       }
 
@@ -3525,10 +3362,6 @@ const RecordingView = () => {
         description: t(message.key).replace('{count}', String(message.count))
       });
       await updateSessionItemsAfterUndo(operation);
-      await queryClient.invalidateQueries({
-        queryKey: ['assets', 'by-quest', questId],
-        exact: false
-      });
       InteractionManager.runAfterInteractions(() => {
         requestAnimationFrame(() => {
           const restoreOffset =
@@ -3544,7 +3377,6 @@ const RecordingView = () => {
   }, [
     currentUndoOperation,
     projectId,
-    queryClient,
     questId,
     t,
     undoHistory,
@@ -3573,10 +3405,6 @@ const RecordingView = () => {
         description: t(message.key).replace('{count}', String(message.count))
       });
       await updateSessionItemsAfterRedo(operation);
-      await queryClient.invalidateQueries({
-        queryKey: ['assets', 'by-quest', questId],
-        exact: false
-      });
       InteractionManager.runAfterInteractions(() => {
         requestAnimationFrame(() => {
           const restoreOffset =
@@ -3592,24 +3420,14 @@ const RecordingView = () => {
   }, [
     currentRedoOperation,
     projectId,
-    queryClient,
     questId,
     redoHistory,
     t,
     updateSessionItemsAfterRedo
   ]);
 
-  React.useEffect(() => {
-    return () => {
-      void runAssetGarbageCollector();
-      // .then((entries) => {
-      //   console.log('[AssetGC] run on exit result:', entries);
-      // });
-    };
-  }, []);
-
   return (
-    <View className="flex-1 bg-background">
+    <View className="flex-1 bg-background" testID="recording-screen">
       {bookChapterLabelFull && (
         <Stack.Screen options={{ title: bookChapterLabelFull }} />
       )}
@@ -3673,6 +3491,8 @@ const RecordingView = () => {
               !currentUndoOperation?.canUndo
             }
             onPress={handleUndoAction}
+            testID="recording-undo"
+            accessibilityLabel="recording-undo"
           >
             {/* <Icon as={Undo2} size={20} className="text-primary" /> */}
             <Icon as={Undo2} size={20} className="text-primary" />
@@ -3688,6 +3508,8 @@ const RecordingView = () => {
               !currentRedoOperation?.canUndo
             }
             onPress={handleRedoAction}
+            testID="recording-redo"
+            accessibilityLabel="recording-redo"
           >
             <Icon as={Redo2} size={20} className="text-primary" />
           </Button>
@@ -3764,7 +3586,10 @@ const RecordingView = () => {
       </View>
 
       {/* Bottom controls - absolutely positioned */}
-      <View className="absolute bottom-0 left-0 right-0 z-40">
+      <View
+        className="absolute bottom-0 left-0 right-0 z-40"
+        testID="recording-controls"
+      >
         {isSelectionMode ? (
           <View style={{ paddingBottom: insets.bottom }}>
             <RecordSelectionControls

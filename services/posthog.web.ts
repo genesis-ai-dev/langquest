@@ -42,7 +42,7 @@ function createPostHogInstance(optIn = false) {
 // Initialize immediately with conservative defaults; we'll wire consent via store below
 createPostHogInstance(false);
 
-let pendingPostHogUserId: string | null = null;
+const pendingPostHogUserId: string | null = null;
 let lastIdentifiedPostHogUserId: string | null = null;
 
 function getAnalyticsOptIn() {

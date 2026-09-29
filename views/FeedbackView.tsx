@@ -14,7 +14,7 @@ import { Text } from '@/components/ui/text';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/contexts/AuthContext';
 import { requestTypeOptions } from '@/db/constants';
-import { feedback_synced } from '@/db/drizzleSchemaSynced';
+import { feedback } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNavigationHelpers } from '@/hooks/useNavigation';
@@ -77,9 +77,9 @@ export default function FeedbackView({ onClose }: FeedbackViewProps) {
     mode: 'onBlur'
   });
 
-  const { mutateAsync: submitFeedback, isPending } = useMutation({
+  const { mutateAsync: submitFeedback } = useMutation({
     mutationFn: async (data: FormData) =>
-      await system.db.insert(feedback_synced).values({
+      await system.db.insert(feedback).values({
         profile_id: currentUser!.id,
         organization_name: data.organization_name || null,
         title: data.title,
@@ -161,6 +161,8 @@ export default function FeedbackView({ onClose }: FeedbackViewProps) {
                   type="next"
                   placeholder={t('feedbackTitlePlaceholder')}
                   placeholderTextColor={colors.textSecondary}
+                  testID="feedback-title"
+                  accessibilityLabel="feedback-title"
                 />
               </FormControl>
               <FormMessage />
@@ -212,6 +214,8 @@ export default function FeedbackView({ onClose }: FeedbackViewProps) {
                   drawerInput={false}
                   numberOfLines={6}
                   maxLength={2000}
+                  testID="feedback-description"
+                  accessibilityLabel="feedback-description"
                 />
               </FormControl>
               <FormMessage />
@@ -236,7 +240,11 @@ export default function FeedbackView({ onClose }: FeedbackViewProps) {
         )}
 
         {/* Submit Button */}
-        <FormSubmit onPress={handleFormSubmit}>
+        <FormSubmit
+          onPress={handleFormSubmit}
+          testID="feedback-submit"
+          accessibilityLabel="feedback-submit"
+        >
           <Text>{t('submit')}</Text>
         </FormSubmit>
       </KeyboardAwareScrollView>

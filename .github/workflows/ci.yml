@@ -84,3 +84,23 @@ jobs:
         uses: vercel/repository-dispatch/actions/status@v1
         with:
           name: "Vercel - langquest: typecheck"
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup
+        uses: ./tooling/github/setup-ci
+
+      - name: Install dependencies
+        shell: bash
+        run: npm ci
+
+      - name: Unit tests
+        run: npm run test:ci
+
+      - name: Notify Vercel
+        uses: vercel/repository-dispatch/actions/status@v1
+        with:
+          name: "Vercel - langquest: test"

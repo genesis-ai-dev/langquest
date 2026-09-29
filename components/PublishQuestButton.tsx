@@ -1,13 +1,14 @@
 import { QuestUploadDetailsDrawer } from '@/components/QuestUploadDetailsDrawer';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
-import { Text } from '@/components/ui/text';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useQuestUploadProgress } from '@/hooks/useQuestUploadProgress';
+import { Text } from '@/components/ui/text';
 import { cn } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { CloudUpload, ListChecks } from 'lucide-react-native';
 import React from 'react';
+import { View } from 'react-native';
 
 interface PublishQuestButtonProps {
   questId?: string | null;
@@ -33,9 +34,28 @@ export function PublishQuestButton({
   const { t } = useLocalization();
   const progress = useQuestUploadProgress(questId);
   const [isDrawerOpen, setIsDrawerOpen] = React.useState(false);
+  const pendingPublishAlertRef = React.useRef(false);
 
-  // Tapping the toolbar button opens the details drawer; the actual publish
-  // action (with its confirmation alert) lives in the drawer footer.
+  const showPublishAlert = React.useCallback(() => {
+    const displayQuestName = questName || 'this chapter';
+    RNAlert.alert(
+      t('publishChapter'),
+      t('publishChapterMessage').replace('{questName}', displayQuestName),
+      [
+        { text: t('cancel'), style: 'cancel' },
+        {
+          text: t('publish'),
+          style: 'default',
+          isPreferred: true,
+          onPress: () => {
+            onPublish();
+          }
+        }
+      ]
+    );
+  }, [onPublish, questName, t]);
+
+  // Close the upload drawer first so its Save is not under the system alert.
   const handlePublishPress = () => {
     if (!isOnline) {
       RNAlert.alert(t('error'), t('cannotPublishWhileOffline'));
@@ -47,24 +67,16 @@ export function PublishQuestButton({
       return;
     }
 
-    const displayQuestName = questName || 'this chapter';
+    pendingPublishAlertRef.current = true;
+    setIsDrawerOpen(false);
+  };
 
-    RNAlert.alert(
-      t('publishChapter'),
-      t('publishChapterMessage').replace('{questName}', displayQuestName),
-      [
-        { text: t('cancel'), style: 'cancel' },
-        {
-          text: t('publish'),
-          style: 'default',
-          isPreferred: true,
-          onPress: () => {
-            setIsDrawerOpen(false);
-            onPublish();
-          }
-        }
-      ]
-    );
+  const handleDrawerOpenChange = (open: boolean) => {
+    setIsDrawerOpen(open);
+    if (!open && pendingPublishAlertRef.current) {
+      pendingPublishAlertRef.current = false;
+      showPublishAlert();
+    }
   };
 
   const isHighlighted = hasLocalAssets;
@@ -72,44 +84,46 @@ export function PublishQuestButton({
     ? 'text-primary-foreground'
     : 'text-foreground';
 
-  // Show queued upload progress whenever there are published records or audio
-  // files still awaiting server confirmation. The button remains the publish
-  // trigger throughout; the percent is purely indicative.
-  const showProgress = !isPublishing && progress.isPending;
-
+  // Draft rows and audio upload as soon as they are created, so a draft has
+  // real backup progress to show. Mirror QuestSyncedBadge (which replaces
+  // this button once published_at is set): icon only when everything is
+  // confirmed, queue icon + percent while something is still in flight.
+  const showPercent = !isPublishing && progress.isPending;
   return (
     <>
       <Button
         variant={isHighlighted ? 'default' : 'outline'}
-        size={showProgress ? 'auto' : 'icon'}
-        className={cn(
-          showProgress && 'h-10 flex-row items-center gap-1 px-2.5'
-        )}
+        size={showPercent ? 'sm' : 'icon'}
+        className={cn(showPercent && 'py-0')}
         disabled={disabled}
         loading={isPublishing}
         onPress={() => setIsDrawerOpen(true)}
+        testID="quest-publish"
       >
-        {!isPublishing && showProgress && (
-          <>
-            <Icon as={ListChecks} size={16} className={foregroundClass} />
-            <Text
-              className={cn(
-                'native:text-xs text-xs font-semibold',
-                foregroundClass
-              )}
-            >
-              {progress.percent}%
-            </Text>
-          </>
-        )}
-        {!isPublishing && !showProgress && (
-          <Icon as={CloudUpload} size={18} className={foregroundClass} />
+        {!isPublishing && (
+          <View pointerEvents="none" className="flex-row items-center gap-0.5">
+            <Icon as={CloudUpload} size={18} className={foregroundClass} />
+            {showPercent && (
+              <>
+                <Icon as={ListChecks} size={14} className={foregroundClass} />
+                <Text
+                  className={cn(
+                    'native:text-xs text-xs font-semibold',
+                    foregroundClass
+                  )}
+                  testID="quest-publish-percent"
+                >
+                  {progress.percent}%
+                </Text>
+              </>
+            )}
+          </View>
         )}
       </Button>
 
       <QuestUploadDetailsDrawer
         isOpen={isDrawerOpen}
-        onOpenChange={setIsDrawerOpen}
+        onOpenChange={handleDrawerOpenChange}
         questName={questName}
         progress={progress}
         canPublish={!disabled && !isPublishing}

@@ -7,7 +7,7 @@
 import { languoid } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { SUPPORTED_LANGUAGE_NAMES } from '@/services/localizations';
-import { useHybridData } from '@/views/new/useHybridData';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { InferSelectModel } from 'drizzle-orm';
 import { and, eq, sql } from 'drizzle-orm';
@@ -22,15 +22,12 @@ export type Languoid = InferSelectModel<typeof languoid>;
  * showing languages from newer DB versions that the app can't render.
  */
 export function useUIReadyLanguoids() {
-  const { db, supabaseConnector } = system;
-
   const {
     data: rawLanguoids,
     isLoading: isLanguoidsLoading,
     ...rest
-  } = useHybridData({
-    dataType: 'languoids-ui-ready',
-    queryKeyParams: ['ui-ready'],
+  } = useHybridQuery({
+    queryKey: ['languoids-ui-ready', 'ui-ready'],
 
     // PowerSync query using Drizzle
     offlineQuery: toCompilableQuery(
@@ -79,9 +76,8 @@ export function useLanguoids() {
     data: languoids,
     isLoading: isLanguoidsLoading,
     ...rest
-  } = useHybridData({
-    dataType: 'languoids',
-    queryKeyParams: [],
+  } = useHybridQuery({
+    queryKey: ['languoids'],
     offlineQuery: toCompilableQuery(
       db.query.languoid.findMany({
         where: eq(languoid.active, true)
@@ -117,9 +113,8 @@ export function useLanguoidNames(languoidIds: string[] | string) {
     data: languoids,
     isLoading: isLanguoidsLoading,
     ...rest
-  } = useHybridData({
-    dataType: 'languoid-names',
-    queryKeyParams: [languoidIdsArray.join(',')],
+  } = useHybridQuery({
+    queryKey: ['languoid-names', languoidIdsArray.join(',')],
     offlineQuery: toCompilableQuery(
       db.query.languoid.findMany({
         columns: { id: true, name: true },
@@ -147,15 +142,14 @@ export function useLanguoidNames(languoidIds: string[] | string) {
  * Fetches a single languoid by ID from Supabase (online) or local Drizzle DB (offline)
  */
 export function useLanguoidById(languoid_id?: string) {
-  const { db, supabaseConnector } = system;
+  const { db } = system;
 
   const {
     data: languoidArray,
     isLoading: isLanguoidLoading,
     ...rest
-  } = useHybridData({
-    dataType: 'languoid-by-id',
-    queryKeyParams: [languoid_id || ''],
+  } = useHybridQuery({
+    queryKey: ['languoid-by-id', languoid_id || ''],
     offlineQuery: toCompilableQuery(
       db.query.languoid.findMany({
         where: eq(languoid.id, languoid_id!)
@@ -192,9 +186,8 @@ export function useLanguoidEndonyms(languoidIds: string[]) {
     data: aliases,
     isLoading: isEndonymsLoading,
     ...rest
-  } = useHybridData({
-    dataType: 'languoid-endonyms',
-    queryKeyParams: [languoidIds.sort().join(',')],
+  } = useHybridQuery({
+    queryKey: ['languoid-endonyms', languoidIds.sort().join(',')],
     enabled: languoidIds.length > 0,
     offlineQuery: toCompilableQuery(
       db.query.languoid_alias.findMany({
@@ -303,9 +296,13 @@ export function useLanguoidSearch(
     data: results,
     isLoading,
     ...rest
-  } = useHybridData<LanguoidSearchResult>({
-    dataType: 'languoid-search',
-    queryKeyParams: [normalizedQuery, String(limit), String(uiReadyOnly)],
+  } = useHybridQuery<LanguoidSearchResult>({
+    queryKey: [
+      'languoid-search',
+      normalizedQuery,
+      String(limit),
+      String(uiReadyOnly)
+    ],
 
     // Offline query using local LIKE
     offlineQuery: toCompilableQuery(
@@ -371,32 +368,4 @@ export function useLanguoidSearch(
     isQueryValid,
     ...rest
   };
-}
-
-// Standalone function for use outside React components (like Zustand stores)
-export async function getLanguoidById(
-  languoid_id: string
-): Promise<Languoid | null> {
-  try {
-    // Try online first
-    const { data, error } = await system.supabaseConnector.client
-      .from('languoid')
-      .select('*')
-      .eq('id', languoid_id)
-      .single<Languoid>();
-
-    if (!error) {
-      return data;
-    }
-
-    // Fallback to offline
-    const offlineResult = await system.db.query.languoid.findFirst({
-      where: eq(languoid.id, languoid_id)
-    });
-
-    return offlineResult || null;
-  } catch (error) {
-    console.error('Error fetching languoid by ID:', error);
-    return null;
-  }
 }

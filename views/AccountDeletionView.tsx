@@ -12,12 +12,9 @@ import { Link } from '@/components/ui/link';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
 import { profileService } from '@/database_services/profileService';
-import { system } from '@/db/powersync/system';
 import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { getNetworkStatus, useNetworkStatus } from '@/hooks/useNetworkStatus';
-import { useLocalStore } from '@/store/localStore';
-import { resetDatabase } from '@/utils/dbUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { useMutation } from '@tanstack/react-query';
 import {
@@ -36,7 +33,6 @@ export default function AccountDeletionView() {
   const { goToProjects, router } = useNavigationHelpers();
   const isOnline = useNetworkStatus();
   const [step, setStep] = useState<1 | 2>(1);
-  const setSystemReady = useLocalStore((state) => state.setSystemReady);
 
   const { mutateAsync: deleteAccount, isPending } = useMutation({
     mutationFn: async () => {
@@ -49,26 +45,6 @@ export default function AccountDeletionView() {
       }
 
       await profileService.deleteAccount(currentUser.id);
-
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      // Cleanup and reinitialize system before signing out
-      console.log(
-        '[AccountDeletionView] Cleaning up system before sign out...'
-      );
-      setSystemReady(false);
-      try {
-        await system.cleanup();
-        await resetDatabase();
-        console.log(
-          '[AccountDeletionView] System cleanup and database reset complete'
-        );
-      } catch (error) {
-        console.error('[AccountDeletionView] Error during cleanup:', error);
-      }
-
-      // 4. Sign out user (this will trigger final cleanup via AuthContext)
-      await signOut();
     },
     onSuccess: () => {
       RNAlert.alert(
@@ -78,7 +54,8 @@ export default function AccountDeletionView() {
           {
             text: t('done'),
             onPress: () => {
-              // Navigate will happen automatically via auth state change
+              goToProjects();
+              void signOut();
             }
           }
         ],
@@ -223,6 +200,7 @@ export default function AccountDeletionView() {
                 onPress={handleContinue}
                 disabled={!isOnline}
                 className="flex-1"
+                testID="account-deletion-continue"
               >
                 <Text>{t('continue')}</Text>
               </Button>
@@ -242,6 +220,7 @@ export default function AccountDeletionView() {
                 disabled={!isOnline || isPending}
                 loading={isPending}
                 className="flex-1"
+                testID="account-deletion-confirm"
               >
                 {!isPending && (
                   <Icon

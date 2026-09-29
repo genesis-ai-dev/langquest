@@ -37,7 +37,7 @@ fi
 # Map variant to bundle ID suffix
 case "$APP_VARIANT" in
     development)
-        BUNDLE_ID_SUFFIX=".dev"
+        BUNDLE_ID_SUFFIX=".development"
         ;;
     preview)
         BUNDLE_ID_SUFFIX=".preview"

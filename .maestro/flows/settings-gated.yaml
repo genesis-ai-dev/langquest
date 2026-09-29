@@ -1,0 +1,85 @@
+appId: ${MAESTRO_APP_ID}
+onFlowStart:
+  - runScript: ../api.js
+---
+# Settings flags that gate UI: show hidden content and asset import.
+# Import wizard lives on Bible chapter assets (assets-import / import-wizard);
+# this smoke asserts the toggles persist after relaunch.
+- evalScript: ${output.skipSignInCleanup = true}
+- runFlow: _start-signed-in.yaml
+- runFlow: _open-app-drawer.yaml
+- tapOn:
+    id: drawer-settings
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: settings-screen
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: settings-showHiddenContent
+    direction: DOWN
+    centerElement: true
+    timeout: 20000
+- runFlow:
+    when:
+      visible:
+        id: settings-showHiddenContent
+        checked: false
+    commands:
+      - tapOn:
+          id: settings-showHiddenContent
+          waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: settings-showHiddenContent
+      checked: true
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: settings-assetImport
+    direction: DOWN
+    centerElement: true
+    timeout: 20000
+- runFlow:
+    when:
+      visible:
+        id: settings-assetImport
+        checked: false
+    commands:
+      - tapOn:
+          id: settings-assetImport
+          waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: settings-assetImport
+      checked: true
+    timeout: 10000
+- runFlow: _relaunch-keep-state.yaml
+- runFlow: _open-app-drawer.yaml
+- tapOn:
+    id: drawer-settings
+    waitToSettleTimeoutMs: 0
+- scrollUntilVisible:
+    element:
+      id: settings-showHiddenContent
+    direction: DOWN
+    centerElement: true
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      id: settings-showHiddenContent
+      checked: true
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: settings-assetImport
+    direction: DOWN
+    centerElement: true
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      id: settings-assetImport
+      checked: true
+    timeout: 10000
+- evalScript: ${output.api.deleteUserIfExists(output.signInEmail)}

@@ -1,0 +1,18 @@
+appId: ${MAESTRO_APP_ID}
+---
+- runFlow:
+    when:
+      visible:
+        id: language-search
+    commands:
+      - extendedWaitUntil:
+          notVisible:
+            id: language-search
+          timeout: 15000
+- runFlow:
+    when:
+      visible: '(?i)Search languages.*'
+    commands:
+      - extendedWaitUntil:
+          notVisible: '(?i)Search languages.*'
+          timeout: 15000

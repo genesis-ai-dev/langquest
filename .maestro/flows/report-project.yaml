@@ -1,0 +1,64 @@
+appId: ${MAESTRO_APP_ID}
+onFlowStart:
+  - runScript: ../api.js
+---
+# 7.1 non-owner reports a public project. Owners get Settings on the dial,
+# not Flag. Seed owner is API-only; the device user browses All.
+- evalScript: ${output.ownerEmail = output.api.uniqueEmail("rptowner")}
+- evalScript: ${output.ownerPassword = output.api.uniquePassword("rptowner")}
+- evalScript: ${output.projectName = "maestro-report-" + Date.now()}
+- evalScript: ${output.reportDetails = "maestro-report-body-" + Date.now()}
+- evalScript: ${output.skipSignInCleanup = true}
+- evalScript: ${output.api.createConfirmedUser(output.ownerEmail, output.ownerPassword)}
+- evalScript: ${output.api.seedProject(output.projectName, output.ownerEmail, false)}
+- runFlow: _start-signed-in.yaml
+- tapOn:
+    id: projects-tab-all
+- tapOn:
+    id: projects-search
+- inputText: ${output.projectName}
+- runFlow: _hide-keyboard.yaml
+- extendedWaitUntil:
+    visible: ${output.projectName}
+    timeout: 45000
+- tapOn:
+    text: ${output.projectName}
+    below:
+      id: projects-search
+- extendedWaitUntil:
+    visible:
+      id: project-speed-dial
+    timeout: 45000
+- tapOn:
+    id: project-speed-dial
+- extendedWaitUntil:
+    visible:
+      id: project-report
+    timeout: 15000
+- tapOn:
+    id: project-report
+- extendedWaitUntil:
+    visible:
+      id: report-reason-spam
+    timeout: 15000
+- tapOn:
+    id: report-reason-spam
+- tapOn:
+    id: report-details
+- inputText: ${output.reportDetails}
+# Back dismisses the IME, not the report sheet. Submit stays on screen.
+- runFlow: _hide-keyboard.yaml
+- extendedWaitUntil:
+    visible:
+      id: report-submit
+    timeout: 15000
+- tapOn:
+    id: report-submit
+- extendedWaitUntil:
+    visible: Success
+    timeout: 30000
+- tapOn: OK
+- evalScript: ${output.api.waitForReport(output.reportDetails, 45000)}
+- evalScript: ${output.api.deleteProject(output.projectName)}
+- evalScript: ${output.api.deleteUserIfExists(output.signInEmail)}
+- evalScript: ${output.api.deleteUserIfExists(output.ownerEmail)}

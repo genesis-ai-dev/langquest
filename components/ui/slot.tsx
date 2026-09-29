@@ -288,7 +288,7 @@ function combineStyles(slotStyle?: Style, childValue?: Style) {
   return StyleSheet.flatten([slotStyle, childValue].filter(Boolean));
 }
 
-export function isTextChildren(
+function isTextChildren(
   children:
     | React.ReactNode
     | ((state: PressableStateCallbackType) => React.ReactNode)

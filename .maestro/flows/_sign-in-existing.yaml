@@ -1,0 +1,6 @@
+appId: ${MAESTRO_APP_ID}
+---
+# Sign in as output.signInEmail / output.signInPassword. The user must
+# already exist; this path is for the second account on one device.
+- runFlow: _launch-and-onboard.yaml
+- runFlow: _sign-in-form.yaml

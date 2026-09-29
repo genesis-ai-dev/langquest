@@ -72,9 +72,6 @@ function sanitizeFiaAttachmentQueue(queue: unknown): FiaAttachmentQueueItem[] {
   );
 }
 
-// AsyncStorage keys for user preferences
-export const OFFLINE_UNDOWNLOAD_WARNING_KEY = '@offline_undownload_warning';
-
 // VAD (Voice Activity Detection) constants - single source of truth
 export const VAD_THRESHOLD_MIN = 0.001;
 export const VAD_THRESHOLD_MAX = 1.0;
@@ -155,8 +152,6 @@ export interface LocalState {
   setDebugMode: (enabled: boolean) => void;
   showHiddenContent: boolean;
   setShowHiddenContent: (show: boolean) => void;
-  offlineUndownloadWarningEnabled: boolean;
-  setOfflineUndownloadWarningEnabled: (enabled: boolean) => void;
 
   // Experimental features
   enableAiSuggestions: boolean;
@@ -177,6 +172,8 @@ export interface LocalState {
   setEnableMerge: (enabled: boolean) => void;
   enableAssetImport: boolean;
   setEnableAssetImport: (enabled: boolean) => void;
+  enableAssetDetails: boolean;
+  setEnableAssetDetails: (enabled: boolean) => void;
   enableFia: boolean;
   setEnableFia: (enabled: boolean) => void;
 
@@ -370,7 +367,6 @@ export const useLocalStore = create<LocalState>()(
       autoBackup: false,
       debugMode: false,
       showHiddenContent: false,
-      offlineUndownloadWarningEnabled: true, // Default to showing warning
 
       // Experimental features (defaults)
       enableAiSuggestions: false,
@@ -382,6 +378,7 @@ export const useLocalStore = create<LocalState>()(
       enableProjectLanguageSuggestions: false,
       enableMerge: false,
       enableAssetImport: false,
+      enableAssetDetails: false,
       enableFia: false,
 
       // VAD settings (defaults)
@@ -483,8 +480,6 @@ export const useLocalStore = create<LocalState>()(
       setAutoBackup: (enabled) => set({ autoBackup: enabled }),
       setDebugMode: (enabled) => set({ debugMode: enabled }),
       setShowHiddenContent: (show) => set({ showHiddenContent: show }),
-      setOfflineUndownloadWarningEnabled: (enabled) =>
-        set({ offlineUndownloadWarningEnabled: enabled }),
 
       // Experimental features setters
       setEnableAiSuggestions: (enabled) =>
@@ -500,6 +495,7 @@ export const useLocalStore = create<LocalState>()(
         set({ enableProjectLanguageSuggestions: enabled }),
       setEnableMerge: (enabled) => set({ enableMerge: enabled }),
       setEnableAssetImport: (enabled) => set({ enableAssetImport: enabled }),
+      setEnableAssetDetails: (enabled) => set({ enableAssetDetails: enabled }),
       setEnableFia: (enabled) => set({ enableFia: enabled }),
 
       // VAD settings setters
@@ -801,29 +797,7 @@ export const useLocalStore = create<LocalState>()(
             console.warn(
               `Invalid VAD threshold ${state.vadThreshold} detected, resetting to default ${VAD_THRESHOLD_DEFAULT}`
             );
-            state.vadThreshold = VAD_THRESHOLD_DEFAULT;
-          }
-
-          // Migrate offline undownload warning preference from old AsyncStorage key
-          if (!state.offlineUndownloadWarningEnabled) {
-            try {
-              const oldValue = await AsyncStorage.getItem(
-                OFFLINE_UNDOWNLOAD_WARNING_KEY
-              );
-              if (oldValue !== null) {
-                const migratedValue = oldValue === 'true';
-                state.offlineUndownloadWarningEnabled = migratedValue;
-                await AsyncStorage.removeItem(OFFLINE_UNDOWNLOAD_WARNING_KEY);
-                console.log(
-                  `[LocalStore] Migrated offline undownload warning preference: ${migratedValue}`
-                );
-              }
-            } catch (error) {
-              console.error(
-                '[LocalStore] Error migrating offline undownload warning preference:',
-                error
-              );
-            }
+            useLocalStore.setState({ vadThreshold: VAD_THRESHOLD_DEFAULT });
           }
         }
         useLocalStore.setState({ _hasHydrated: true });

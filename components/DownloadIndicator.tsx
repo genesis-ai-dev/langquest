@@ -1,17 +1,15 @@
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
-import { storage } from '@/utils/storage';
 import { cn, useThemeColor } from '@/utils/styleUtils';
-import { CircleArrowDownIcon, CircleCheckIcon } from 'lucide-react-native';
+import { CircleArrowDownIcon } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { ActivityIndicator } from 'react-native';
+import { resolveDownloadPressAction } from './downloadPressAction';
 import { DownloadConfirmationModal } from './DownloadConfirmationModal';
-import { OfflineUndownloadWarning } from './OfflineUndownloadWarning';
 import { Icon } from './ui/icon';
 
 interface DownloadIndicatorProps {
-  isFlaggedForDownload: boolean;
   isLoading: boolean;
   onPress: () => void;
   size?: number;
@@ -28,10 +26,10 @@ interface DownloadIndicatorProps {
   className?: string;
   // Override default icon color logic
   iconColor?: string;
+  testID?: string;
 }
 
 export const DownloadIndicator: React.FC<DownloadIndicatorProps> = ({
-  isFlaggedForDownload,
   isLoading,
   onPress,
   size = 20,
@@ -40,12 +38,12 @@ export const DownloadIndicator: React.FC<DownloadIndicatorProps> = ({
   downloadType,
   stats,
   className,
-  iconColor
+  iconColor,
+  testID
 }) => {
   const { isAuthenticated } = useAuth();
   const isConnected = useNetworkStatus();
-  const isDisabled = !isConnected && !isFlaggedForDownload;
-  const [showWarning, setShowWarning] = useState(false);
+  const isDisabled = !isConnected;
   const [showConfirmation, setShowConfirmation] = useState(false);
   const primaryColor = useThemeColor('primary');
 
@@ -54,22 +52,16 @@ export const DownloadIndicator: React.FC<DownloadIndicatorProps> = ({
     return null;
   }
 
-  const handlePress = async () => {
-    if (!isConnected && isFlaggedForDownload) {
-      const showWarning = await storage.getOfflineUndownloadWarningEnabled();
-      if (showWarning) {
-        setShowWarning(true);
-        return;
-      }
-    }
+  const handlePress = () => {
+    const action = resolveDownloadPressAction({
+      hasDownloadConfirmation: Boolean(downloadType && stats)
+    });
 
-    // Show confirmation modal for project/quest downloads (not already downloaded)
-    if (downloadType && stats && !isFlaggedForDownload) {
+    if (action === 'download-confirm') {
       setShowConfirmation(true);
       return;
     }
 
-    // Direct download for assets or already downloaded items
     onPress();
   };
 
@@ -82,38 +74,13 @@ export const DownloadIndicator: React.FC<DownloadIndicatorProps> = ({
     setShowConfirmation(false);
   };
 
-  const handleConfirmUndownload = () => {
-    setShowWarning(false);
-    onPress();
-  };
-
-  const handleCancelUndownload = () => {
-    setShowWarning(false);
-  };
-
-  // Determine icon and color based on state
-  const getIconAndColor = () => {
-    if (isFlaggedForDownload) {
-      return {
-        Icon: CircleCheckIcon,
-        className: iconColor || 'text-primary'
-      };
-    }
-
-    if (showProgress && progressPercentage > 0) {
-      return {
-        Icon: CircleArrowDownIcon,
-        className: iconColor || 'text-accent'
-      };
-    }
-
-    return {
-      Icon: CircleArrowDownIcon,
-      className: iconColor || (isDisabled ? 'text-muted' : 'text-foreground')
-    };
-  };
-
-  const { Icon: IconComponent, className: iconClassName } = getIconAndColor();
+  const iconClassName =
+    iconColor ||
+    (showProgress && progressPercentage > 0
+      ? 'text-accent'
+      : isDisabled
+        ? 'text-muted'
+        : 'text-foreground');
 
   return (
     <>
@@ -124,15 +91,20 @@ export const DownloadIndicator: React.FC<DownloadIndicatorProps> = ({
         className={cn(isDisabled && 'opacity-50', className)}
         hitSlop={10}
         disabled={isDisabled || isLoading}
+        testID={testID}
+        accessibilityLabel={testID}
       >
         {isLoading ? (
           <ActivityIndicator size={size} color={primaryColor} />
         ) : (
-          <Icon as={IconComponent} size={size} className={iconClassName} />
+          <Icon
+            as={CircleArrowDownIcon}
+            size={size}
+            className={iconClassName}
+          />
         )}
       </Button>
 
-      {/* Download confirmation modal */}
       {downloadType && stats && (
         <DownloadConfirmationModal
           visible={showConfirmation}
@@ -142,13 +114,6 @@ export const DownloadIndicator: React.FC<DownloadIndicatorProps> = ({
           stats={stats}
         />
       )}
-
-      {/* Offline undownload warning */}
-      <OfflineUndownloadWarning
-        visible={showWarning}
-        onConfirm={handleConfirmUndownload}
-        onCancel={handleCancelUndownload}
-      />
     </>
   );
 };

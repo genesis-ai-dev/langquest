@@ -31,13 +31,17 @@ export function QuestSyncedBadge({
         variant="outline"
         className="h-10 border-border/50 px-4 py-0"
         onPress={() => setIsDrawerOpen(true)}
+        testID="quest-synced-badge"
       >
         <View className="flex-row items-center gap-0.5">
           <Icon as={CloudUpload} size={18} />
           {progress.isPending ? (
             <>
               <Icon as={ListChecks} size={14} />
-              <Text className="native:text-xs text-xs font-semibold">
+              <Text
+                className="native:text-xs text-xs font-semibold"
+                testID="quest-synced-percent"
+              >
                 {progress.percent}%
               </Text>
             </>

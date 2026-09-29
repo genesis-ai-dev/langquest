@@ -22,11 +22,6 @@ import {
   project,
   request
 } from '@/db/drizzleSchema';
-import {
-  invite_synced,
-  profile_project_link_synced,
-  request_synced
-} from '@/db/drizzleSchemaSynced';
 import { system } from '@/db/powersync/system';
 import type { LanguoidLinkSuggestionWithDetails } from '@/hooks/db/useLanguoidLinkSuggestions';
 import {
@@ -44,7 +39,8 @@ import {
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useLocalStore } from '@/store/localStore';
-import { useHybridData } from '@/views/new/useHybridData';
+import { invalidateCloud } from '@/hooks/hybridCache';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useQueryClient } from '@tanstack/react-query';
@@ -389,9 +385,12 @@ export default function NotificationsView() {
   }, [userMemberships]);
 
   // Query for invite notifications (where user's email or profile_id matches) - without project relation
-  const { data: inviteData = [] } = useHybridData({
-    dataType: 'invite-notifications',
-    queryKeyParams: [currentUser?.id || '', currentUser?.email || ''],
+  const { data: inviteData = [] } = useHybridQuery({
+    queryKey: [
+      'invite-notifications',
+      currentUser?.id || '',
+      currentUser?.email || ''
+    ],
 
     // PowerSync query using Drizzle - filter expired invites (7 days expiry)
     offlineQuery: toCompilableQuery(
@@ -407,21 +406,38 @@ export default function NotificationsView() {
                   currentUser.email && eq(invite.email, currentUser.email)
                 ].filter(Boolean)
               ),
-            eq(invite.status, 'pending'),
             eq(invite.active, true)
           ].filter(Boolean)
         )
       })
     ),
-    enableOfflineQuery: !!(currentUser?.id || currentUser?.email)
+    enableOfflineQuery: !!(currentUser?.id || currentUser?.email),
+    cloudQueryFn: async () => {
+      if (!currentUser?.id && !currentUser?.email) return [];
+      const match = [
+        currentUser.id && `receiver_profile_id.eq.${currentUser.id}`,
+        currentUser.email && `email.eq.${currentUser.email}`
+      ]
+        .filter(Boolean)
+        .join(',');
+      let query = system.supabaseConnector.client
+        .from('invite')
+        .select('*')
+        .eq('status', 'pending')
+        .eq('active', true);
+      if (match) query = query.or(match);
+      const { data, error } =
+        await query.overrideTypes<(typeof invite.$inferSelect)[]>();
+      if (error) throw error;
+      return data;
+    }
   });
 
   // Pending invites you sent whose email bounced or was complained about (notify inviter)
-  const { data: sentInviteDeliveryIssues = [] } = useHybridData<
+  const { data: sentInviteDeliveryIssues = [] } = useHybridQuery<
     typeof invite.$inferSelect
   >({
-    dataType: 'invite-sent-delivery-failures',
-    queryKeyParams: [currentUser?.id || ''],
+    queryKey: ['invite-sent-delivery-failures', currentUser?.id || ''],
     offlineQuery: toCompilableQuery(
       system.db.query.invite.findMany({
         where: and(
@@ -435,41 +451,67 @@ export default function NotificationsView() {
         )
       })
     ),
-    enableOfflineQuery: !!currentUser?.id
+    enableOfflineQuery: !!currentUser?.id,
+    cloudQueryFn: async () => {
+      if (!currentUser?.id) return [];
+      const { data, error } = await system.supabaseConnector.client
+        .from('invite')
+        .select('*')
+        .eq('sender_profile_id', currentUser.id)
+        .in('status', ['pending', 'withdrawn'])
+        .eq('active', true)
+        .in('email_status', ['bounced', 'complained'])
+        .is('bounce_notice_dismissed_at', null)
+        .overrideTypes<(typeof invite.$inferSelect)[]>();
+      if (error) throw error;
+      return data;
+    }
   });
 
   // Get pending requests for owner projects - without project relation
-  const { data: requestData = [] } = useHybridData({
-    dataType: 'request-notifications',
-    queryKeyParams: [...ownerProjectIds],
+  const { data: requestData = [] } = useHybridQuery({
+    queryKey: ['request-notifications', ...ownerProjectIds],
 
     // PowerSync query using Drizzle - filter expired requests (7 days expiry)
     offlineQuery: toCompilableQuery(
       system.db.query.request.findMany({
-        where: and(eq(request.status, 'pending'), eq(request.active, true))
+        where: eq(request.active, true)
       })
-    )
+    ),
+    cloudQueryFn: async () => {
+      const { data, error } = await system.supabaseConnector.client
+        .from('request')
+        .select('*')
+        .eq('status', 'pending')
+        .eq('active', true)
+        .overrideTypes<(typeof request.$inferSelect)[]>();
+      if (error) throw error;
+      return data;
+    }
   });
 
-  // Filter to only include requests for projects where the user is an owner
-  const filteredRequestData = requestData.filter((item) =>
-    ownerProjectIds.includes(item.project_id)
+  // Resolved rows stay in SQLite so they win over a stale pending cloud snapshot.
+  const pendingInvites = inviteData.filter((item) => item.status === 'pending');
+
+  // Filter to only include pending requests for projects where the user is an owner
+  const filteredRequestData = requestData.filter(
+    (item) =>
+      item.status === 'pending' && ownerProjectIds.includes(item.project_id)
   );
 
   // Get unique project IDs from both invites and requests
   const projectIds = React.useMemo(() => {
     const ids = [
-      ...inviteData.map((invite) => invite.project_id),
+      ...pendingInvites.map((invite) => invite.project_id),
       ...filteredRequestData.map((request) => request.project_id),
       ...sentInviteDeliveryIssues.map((row) => row.project_id)
     ];
     return [...new Set(ids)]; // Remove duplicates
-  }, [inviteData, filteredRequestData, sentInviteDeliveryIssues]);
+  }, [pendingInvites, filteredRequestData, sentInviteDeliveryIssues]);
 
   // Query for projects separately
-  const { data: projects } = useHybridData({
-    dataType: 'notification-projects',
-    queryKeyParams: [...projectIds],
+  const { data: projects } = useHybridQuery({
+    queryKey: ['notification-projects', ...projectIds],
 
     // PowerSync query using Drizzle
     offlineQuery: toCompilableQuery(
@@ -504,16 +546,15 @@ export default function NotificationsView() {
   // Get unique sender profile IDs from both invites and requests
   const senderProfileIds = React.useMemo(() => {
     const ids = [
-      ...inviteData.map((invite) => invite.sender_profile_id),
+      ...pendingInvites.map((invite) => invite.sender_profile_id),
       ...filteredRequestData.map((request) => request.sender_profile_id)
     ];
     return [...new Set(ids)]; // Remove duplicates
-  }, [inviteData, filteredRequestData]);
+  }, [pendingInvites, filteredRequestData]);
 
   // Query for sender profiles from local database
-  const { data: senderProfiles } = useHybridData({
-    dataType: 'sender-profiles',
-    queryKeyParams: [...senderProfileIds],
+  const { data: senderProfiles } = useHybridQuery({
+    queryKey: ['sender-profiles', ...senderProfileIds],
 
     // PowerSync query using Drizzle
     offlineQuery: toCompilableQuery(
@@ -545,7 +586,7 @@ export default function NotificationsView() {
     return map;
   }, [senderProfiles]);
 
-  const inviteNotifications: NotificationItem[] = inviteData.map((item) => {
+  const inviteNotifications: NotificationItem[] = pendingInvites.map((item) => {
     const senderProfile = senderProfileMap[item.sender_profile_id];
     const projectData = projectMap[item.project_id];
     return {
@@ -641,14 +682,14 @@ export default function NotificationsView() {
 
           // Update invite via synced table - PowerSync will sync changes to Supabase
           await system.db
-            .update(invite_synced)
+            .update(invite)
             .set({
               status: 'accepted',
               count: 1,
               receiver_profile_id: receiverProfileId,
               last_updated: new Date().toISOString()
             })
-            .where(eq(invite_synced.id, notificationId));
+            .where(eq(invite.id, notificationId));
 
           console.log(
             '[handleAccept] Invite updated via synced table with receiver_profile_id:',
@@ -675,13 +716,13 @@ export default function NotificationsView() {
 
               // Update request via synced table
               await system.db
-                .update(request_synced)
+                .update(request)
                 .set({
                   status: 'accepted',
                   count: 1,
                   last_updated: new Date().toISOString()
                 })
-                .where(eq(request_synced.id, req.id));
+                .where(eq(request.id, req.id));
 
               console.log(
                 '[handleAccept] Corresponding request updated via synced table'
@@ -705,7 +746,7 @@ export default function NotificationsView() {
         if (existingLink.length > 0) {
           // Update existing link via synced table
           await system.db
-            .update(profile_project_link_synced)
+            .update(profile_project_link)
             .set({
               active: true,
               membership: asOwner ? 'owner' : 'member',
@@ -713,8 +754,8 @@ export default function NotificationsView() {
             })
             .where(
               and(
-                eq(profile_project_link_synced.profile_id, currentUser!.id),
-                eq(profile_project_link_synced.project_id, projectId)
+                eq(profile_project_link.profile_id, currentUser!.id),
+                eq(profile_project_link.project_id, projectId)
               )
             );
           console.log(
@@ -722,7 +763,7 @@ export default function NotificationsView() {
           );
         } else {
           // Create new link via synced table
-          await system.db.insert(profile_project_link_synced).values({
+          await system.db.insert(profile_project_link).values({
             profile_id: currentUser!.id,
             project_id: projectId,
             membership: asOwner ? 'owner' : 'member',
@@ -752,13 +793,13 @@ export default function NotificationsView() {
 
           // Update request via synced table - PowerSync will sync changes to Supabase
           await system.db
-            .update(request_synced)
+            .update(request)
             .set({
               status: 'accepted',
               count: 1,
               last_updated: new Date().toISOString()
             })
-            .where(eq(request_synced.id, notificationId));
+            .where(eq(request.id, notificationId));
 
           console.log('[handleAccept] Request updated via synced table');
 
@@ -787,12 +828,12 @@ export default function NotificationsView() {
 
             // Update corresponding invite via synced table
             await system.db
-              .update(invite_synced)
+              .update(invite)
               .set({
                 count: 1,
                 last_updated: new Date().toISOString()
               })
-              .where(eq(invite_synced.id, inv.id));
+              .where(eq(invite.id, inv.id));
 
             console.log(
               '[handleAccept] Corresponding invite updated via synced table'
@@ -814,7 +855,7 @@ export default function NotificationsView() {
           if (existingRequesterLink.length > 0) {
             // Update existing link via synced table
             await system.db
-              .update(profile_project_link_synced)
+              .update(profile_project_link)
               .set({
                 active: true,
                 membership: asOwner ? 'owner' : 'member',
@@ -822,8 +863,8 @@ export default function NotificationsView() {
               })
               .where(
                 and(
-                  eq(profile_project_link_synced.profile_id, senderProfileId),
-                  eq(profile_project_link_synced.project_id, projectId)
+                  eq(profile_project_link.profile_id, senderProfileId),
+                  eq(profile_project_link.project_id, projectId)
                 )
               );
             console.log(
@@ -831,7 +872,7 @@ export default function NotificationsView() {
             );
           } else {
             // Create new link via synced table
-            await system.db.insert(profile_project_link_synced).values({
+            await system.db.insert(profile_project_link).values({
               profile_id: senderProfileId,
               project_id: projectId,
               membership: asOwner ? 'owner' : 'member',
@@ -845,36 +886,6 @@ export default function NotificationsView() {
         }
       }
 
-      // Wait for PowerSync to sync changes to local database before invalidating
-      // This ensures queries refetch with the updated data
-      console.log('[handleAccept] Waiting for PowerSync to sync...');
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-
-      // Invalidate project queries to refresh the projects list
-      // Use exact: false to match all queries starting with these keys
-      console.log('[handleAccept] Invalidating queries...');
-
-      await queryClient.invalidateQueries({
-        queryKey: ['my-projects'],
-        exact: false
-      });
-
-      await queryClient.invalidateQueries({
-        queryKey: ['all-projects'],
-        exact: false
-      });
-      // Also invalidate user-memberships since that drives what projects show up
-      await queryClient.invalidateQueries({
-        queryKey: ['user-memberships'],
-        exact: false
-      });
-
-      await queryClient.invalidateQueries({
-        queryKey: ['invited-invites'],
-        exact: false
-      });
-
-      console.log('[handleAccept] Queries invalidated and refetched');
       RNAlert.alert(t('success'), t('invitationAcceptedSuccessfully'));
       console.log('[handleAccept] Success - operation completed');
     } catch (error) {
@@ -914,12 +925,12 @@ export default function NotificationsView() {
         if (existingInvite.length > 0 && existingInvite[0]) {
           // Update invite via synced table - PowerSync will sync changes to Supabase
           await system.db
-            .update(invite_synced)
+            .update(invite)
             .set({
               status: 'declined',
               last_updated: new Date().toISOString()
             })
-            .where(eq(invite_synced.id, notificationId));
+            .where(eq(invite.id, notificationId));
 
           console.log('[handleDecline] Invite declined via synced table');
         }
@@ -943,26 +954,17 @@ export default function NotificationsView() {
 
           // Update request via synced table - PowerSync will sync changes to Supabase
           await system.db
-            .update(request_synced)
+            .update(request)
             .set({
               status: 'declined',
               count: newCount,
               last_updated: new Date().toISOString()
             })
-            .where(eq(request_synced.id, notificationId));
+            .where(eq(request.id, notificationId));
 
           console.log('[handleDecline] Request declined via synced table');
         }
       }
-
-      // Wait for PowerSync to sync the changes
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-
-      // Invalidate queries to refresh the UI
-      await queryClient.invalidateQueries({
-        queryKey: ['invited-invites'],
-        exact: false
-      });
 
       RNAlert.alert(t('success'), t('invitationDeclinedSuccessfully'));
     } catch (error) {
@@ -989,23 +991,12 @@ export default function NotificationsView() {
     setProcessingDeliveryDismissIds((prev) => new Set(prev).add(inviteId));
     try {
       await system.db
-        .update(invite_synced)
+        .update(invite)
         .set({
           bounce_notice_dismissed_at: new Date().toISOString(),
           last_updated: new Date().toISOString()
         })
-        .where(eq(invite_synced.id, inviteId));
-
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: ['invite-sent-delivery-failures'],
-          exact: false
-        }),
-        queryClient.invalidateQueries({
-          queryKey: ['invite-sent-delivery-failures-count'],
-          exact: false
-        })
-      ]);
+        .where(eq(invite.id, inviteId));
       return true;
     } catch (error) {
       console.error(
@@ -1176,6 +1167,7 @@ export default function NotificationsView() {
                   )
                 }
                 loading={isProcessing}
+                testID={`notification-${item.type}-accept`}
               >
                 <Icon as={CheckIcon} />
                 <Text>{t('accept')}</Text>
@@ -1187,6 +1179,7 @@ export default function NotificationsView() {
                 className="flex-1"
                 onPress={() => handleDecline(item.id, item.type)}
                 loading={isProcessing}
+                testID={`notification-${item.type}-decline`}
               >
                 <Icon as={XIcon} />
                 <Text>{t('decline')}</Text>
@@ -1313,56 +1306,21 @@ export default function NotificationsView() {
     setRefreshing(true);
     try {
       // Invalidate all notification-related queries
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: ['invite-sent-delivery-failures-count'],
-          exact: false
-        }),
-        queryClient.invalidateQueries({
-          queryKey: ['invite-sent-delivery-failures'],
-          exact: false
-        }),
-        queryClient.invalidateQueries({
-          queryKey: ['invite-notifications'],
-          exact: false
-        }),
-        queryClient.invalidateQueries({
-          queryKey: ['request-notifications'],
-          exact: false
-        }),
-        queryClient.invalidateQueries({
-          queryKey: ['notification-projects'],
-          exact: false
-        }),
-        queryClient.invalidateQueries({
-          queryKey: ['sender-profiles'],
-          exact: false
-        }),
-        queryClient.invalidateQueries({
-          queryKey: ['languoid-link-suggestions'],
-          exact: false
-        }),
-        queryClient.invalidateQueries({
-          queryKey: ['languoid-link-suggestion-details'],
-          exact: false
-        }),
-        queryClient.invalidateQueries({
-          queryKey: ['project-languoid-suggestions'],
-          exact: false
-        }),
-        queryClient.invalidateQueries({
-          queryKey: ['project-languoid-suggestion-project-details'],
-          exact: false
-        }),
-        queryClient.invalidateQueries({
-          queryKey: ['project-languoid-suggestion-languoid-details'],
-          exact: false
-        }),
-        queryClient.invalidateQueries({
-          queryKey: ['user-memberships'],
-          exact: false
-        })
-      ]);
+      await invalidateCloud(
+        queryClient,
+        'invite-sent-delivery-failures-count',
+        'invite-sent-delivery-failures',
+        'invite-notifications',
+        'request-notifications',
+        'notification-projects',
+        'sender-profiles',
+        'languoid-link-suggestions',
+        'languoid-link-suggestion-details',
+        'project-languoid-suggestions',
+        'project-languoid-suggestion-project-details',
+        'project-languoid-suggestion-languoid-details',
+        'user-memberships'
+      );
     } catch (error) {
       console.error('Error refreshing notifications:', error);
     } finally {
@@ -1380,10 +1338,12 @@ export default function NotificationsView() {
 
   return (
     <View className="flex-1 gap-4 px-4 pt-4">
-      <Text className="text-2xl font-bold">{t('notifications')}</Text>
+      <Text className="text-2xl font-bold" testID="notifications-screen">
+        {t('notifications')}
+      </Text>
 
       {!isOnline && (
-        <Alert icon={WifiIcon}>
+        <Alert icon={WifiIcon} testID="notifications-offline">
           <AlertTitle>{t('offlineNotificationMessage')}</AlertTitle>
         </Alert>
       )}

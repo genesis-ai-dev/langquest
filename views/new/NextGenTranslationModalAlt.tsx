@@ -20,15 +20,13 @@ import { useLocalization } from '@/hooks/useLocalization';
 import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useHasUserReported } from '@/hooks/useReports';
-import { useTranscription } from '@/hooks/useTranscription';
 import { resolveExistingAudioUri } from '@/utils/attachmentPaths';
 import { resolveTable } from '@/utils/dbUtils';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
-import { fileExists } from '@/utils/fileUtils';
 import { cn, getThemeColor } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { eq } from 'drizzle-orm';
 import { useRouter } from 'expo-router';
 import {
@@ -53,7 +51,7 @@ import {
   KeyboardAwareScrollView,
   KeyboardToolbar
 } from 'react-native-keyboard-controller';
-import { useHybridData } from './useHybridData';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
 
 interface NextGenTranslationModalProps {
   open: boolean;
@@ -86,9 +84,8 @@ function useNextGenTranslation(assetId: string) {
     );
   }, [assetId, isAuthenticated]);
 
-  return useHybridData<
-    Omit<typeof asset.$inferSelect, 'images'> & {
-      images: string[];
+  return useHybridQuery<
+    typeof asset.$inferSelect & {
       content: (typeof asset_content_link.$inferSelect)[];
       votes: {
         id: string;
@@ -100,8 +97,7 @@ function useNextGenTranslation(assetId: string) {
       }[];
     }
   >({
-    dataType: 'translation',
-    queryKeyParams: [assetId],
+    queryKey: ['translation', assetId],
     offlineQuery,
     cloudQueryFn: async () => {
       if (!assetId) return [];
@@ -123,8 +119,7 @@ function useNextGenTranslation(assetId: string) {
         .eq('id', assetId)
         .limit(1)
         .overrideTypes<
-          (Omit<typeof asset.$inferSelect, 'images'> & {
-            images: string;
+          (typeof asset.$inferSelect & {
             content?: (typeof asset_content_link.$inferSelect)[];
             votes?: {
               id: string;
@@ -139,19 +134,11 @@ function useNextGenTranslation(assetId: string) {
 
       if (error) throw error;
 
-      // Parse images JSON
-      return data.map((item) => {
-        const parsedImages = item.images
-          ? (JSON.parse(item.images) as string[])
-          : [];
-
-        return {
-          ...item,
-          images: parsedImages,
-          content: item.content || [],
-          votes: item.votes || []
-        };
-      });
+      return data.map((item) => ({
+        ...item,
+        content: item.content || [],
+        votes: item.votes || []
+      }));
     },
     enabled: !!assetId,
     enableCloudQuery: !!assetId,
@@ -175,7 +162,6 @@ export default function NextGenTranslationModal({
   const { currentUser, isAuthenticated } = useAuth();
   const router = useRouter();
   const isOnline = useNetworkStatus();
-  const queryClient = useQueryClient();
   const [pendingVoteType, setPendingVoteType] = useState<'up' | 'down' | null>(
     null
   );
@@ -183,9 +169,6 @@ export default function NextGenTranslationModal({
   const [editedText, setEditedText] = useState('');
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
-
-  const { mutateAsync: transcribeAudio, isPending: isTranscribing } =
-    useTranscription();
 
   const { data: translationData, isLoading } = useNextGenTranslation(assetId);
 
@@ -225,10 +208,6 @@ export default function NextGenTranslationModal({
           polarity: voteType
         });
       }
-
-      await queryClient.invalidateQueries({
-        queryKey: ['translation', 'nextgen', assetId]
-      });
     },
     onSuccess: () => {
       // Call the parent callback to refresh data
@@ -440,44 +419,6 @@ export default function NextGenTranslationModal({
 
   const { stopCurrentSound, isPlaying } = useAudio();
 
-  const handleTranscribe = async (uri: string) => {
-    if (!isAuthenticated) {
-      RNAlert.alert(t('error'), t('pleaseLogInToTranscribe'));
-      return;
-    }
-
-    // Validate the audio file exists before attempting transcription
-    if (!uri) {
-      RNAlert.alert(t('error'), t('audioNotAvailable'));
-      return;
-    }
-
-    const exists = await fileExists(uri);
-    if (!exists) {
-      console.log('[Transcription] Audio file not found at URI:', uri);
-      RNAlert.alert(t('error'), t('audioNotAvailable'));
-      return;
-    }
-
-    console.log('[Transcription] Starting transcription for URI:', uri);
-
-    try {
-      const result = await transcribeAudio({ uri, mimeType: 'audio/wav' });
-      if (result.text) {
-        setEditedText(result.text);
-        setIsEditing(true);
-      }
-    } catch (error) {
-      console.error('Transcription error:', error);
-      const errorMessage =
-        error instanceof Error ? error.message : 'Unknown error';
-      RNAlert.alert(
-        t('error'),
-        `${t('transcriptionFailed')}\n\n${errorMessage}`
-      );
-    }
-  };
-
   const handleClose = async () => {
     onOpenChange(false);
     setShowReportModal(false);
@@ -495,10 +436,19 @@ export default function NextGenTranslationModal({
       animationType="slide"
       onRequestClose={handleClose}
     >
-      <TouchableWithoutFeedback onPress={handleClose}>
-        <View className="flex-1 items-center justify-center bg-black/50">
-          <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
-            <View className="h-[85%] max-h-[700px] w-[90%] rounded-lg bg-background">
+      <TouchableWithoutFeedback onPress={handleClose} accessible={false}>
+        <View
+          className="flex-1 items-center justify-center bg-black/50"
+          accessible={false}
+        >
+          <TouchableWithoutFeedback
+            onPress={(e) => e.stopPropagation()}
+            accessible={false}
+          >
+            <View
+              className="h-[85%] max-h-[700px] w-[90%] rounded-lg bg-background"
+              accessible={false}
+            >
               {/* Header */}
               <View className="flex-row items-center justify-between border-b border-border p-4">
                 <Text variant="h4">
@@ -567,7 +517,11 @@ export default function NextGenTranslationModal({
                       />
                     </Button>
                   )}
-                  <Pressable onPress={handleClose} className="p-2">
+                  <Pressable
+                    onPress={handleClose}
+                    className="p-2"
+                    testID="translation-modal-close"
+                  >
                     <Icon as={XIcon} size={24} className="text-foreground" />
                   </Pressable>
                 </View>
@@ -677,6 +631,7 @@ export default function NextGenTranslationModal({
                                 onPress={() => handleVote({ voteType: 'up' })}
                                 disabled={isVotePending}
                                 className="flex-row items-center justify-center bg-green-500 px-6 py-3"
+                                testID="vote-up"
                               >
                                 {pendingVoteType === 'up' ? (
                                   <ActivityIndicator
@@ -717,6 +672,7 @@ export default function NextGenTranslationModal({
                                 onPress={() => handleVote({ voteType: 'down' })}
                                 disabled={isVotePending}
                                 className="flex-row items-center justify-center bg-red-600 px-6 py-3"
+                                testID="vote-down"
                               >
                                 {pendingVoteType === 'down' ? (
                                   <ActivityIndicator

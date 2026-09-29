@@ -1,3 +1,4 @@
+import { AuthSheetCloseButton } from '@/components/AuthSheetCloseButton';
 import { LanguageCombobox } from '@/components/language-combobox';
 import { OfflineAlert } from '@/components/offline-alert';
 import { Button } from '@/components/ui/button';
@@ -13,6 +14,8 @@ import {
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 import { system } from '@/db/powersync/system';
+import { createSignInSchema, requireOnline } from '@/features/auth/validation';
+import type { SignInFormValues } from '@/features/auth/validation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import RNAlert from '@blazejkustra/react-native-alert';
@@ -24,7 +27,6 @@ import React, { useEffect } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { View } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
-import { z } from 'zod';
 
 const { supabaseConnector } = system;
 
@@ -33,21 +35,15 @@ export default function SignInView() {
   const { t } = useLocalization();
   const router = useRouter();
   const isOnline = useNetworkStatus();
-  const formSchema = z.object({
-    email: z
-      .email(t('enterValidEmail'))
-      .nonempty(t('emailRequired'))
-      .toLowerCase()
-      .trim(),
-    // No password min length for sign in
-    password: z.string(t('passwordRequired')).nonempty(t('passwordRequired'))
+  const formSchema = createSignInSchema({
+    enterValidEmail: t('enterValidEmail'),
+    emailRequired: t('emailRequired'),
+    passwordRequired: t('passwordRequired')
   });
 
   const { mutateAsync: login, isPending } = useMutation({
-    mutationFn: async (data: z.infer<typeof formSchema>) => {
-      if (!isOnline) {
-        throw new Error(t('internetConnectionRequired'));
-      }
+    mutationFn: async (data: SignInFormValues) => {
+      requireOnline(isOnline, t('internetConnectionRequired'));
       await supabaseConnector.login(
         data.email.toLowerCase().trim(),
         data.password.trim()
@@ -73,7 +69,7 @@ export default function SignInView() {
     }
   });
 
-  const form = useForm<z.infer<typeof formSchema>>({
+  const form = useForm<SignInFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       email: initialEmail || '',
@@ -99,12 +95,18 @@ export default function SignInView() {
       bottomOffset={96}
       extraKeyboardSpace={20}
     >
+      <AuthSheetCloseButton />
       <Form {...form}>
         <View className="mb-8 flex flex-col items-center justify-center text-center">
           <Text className="text-6xl font-semibold text-primary">LangQuest</Text>
           <Text>{t('welcome')}</Text>
         </View>
-        <LanguageCombobox uiReadyOnly toggleUILocalization />
+        <LanguageCombobox
+          uiReadyOnly
+          toggleUILocalization
+          testID="auth-language"
+          searchTestID="language-search"
+        />
         <FormField
           control={form.control}
           name="email"
@@ -161,12 +163,17 @@ export default function SignInView() {
           }
           size="auto"
           className="self-start"
+          testID="sign-in-forgot-password"
         >
           <Text className="text-left">{t('forgotPassword')}</Text>
         </Button>
         <OfflineAlert />
         <View className="flex flex-col gap-2">
-          <FormSubmit onPress={handleFormSubmit} disabled={!isOnline}>
+          <FormSubmit
+            onPress={handleFormSubmit}
+            disabled={!isOnline}
+            testID="sign-in-submit"
+          >
             <Text>{t('signIn')}</Text>
           </FormSubmit>
           <Button

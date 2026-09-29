@@ -1,0 +1,32 @@
+appId: ${MAESTRO_APP_ID}
+onFlowStart:
+  - runScript: ../api.js
+---
+- evalScript: ${output.ownerEmail = output.api.uniqueEmail("declowner")}
+- evalScript: ${output.ownerPassword = output.api.uniquePassword("declowner")}
+- evalScript: ${output.inviteeEmail = output.api.uniqueEmail("declinee")}
+- evalScript: ${output.inviteePassword = output.api.uniquePassword("declinee")}
+- evalScript: ${output.projectName = "maestro-decline-" + Date.now()}
+- evalScript: ${output.api.createConfirmedUser(output.ownerEmail, output.ownerPassword)}
+- evalScript: ${output.api.createConfirmedUser(output.inviteeEmail, output.inviteePassword)}
+- evalScript: ${output.api.seedProject(output.projectName, output.ownerEmail, false)}
+- evalScript: ${output.api.seedInvite(output.projectName, output.ownerEmail, output.inviteeEmail)}
+- evalScript: ${output.signInEmail = output.inviteeEmail}
+- evalScript: ${output.signInPassword = output.inviteePassword}
+- runFlow: _sign-in-existing.yaml
+- runFlow: _open-app-drawer.yaml
+- tapOn:
+    id: drawer-notifications
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: notification-invite-decline
+    timeout: 45000
+- tapOn:
+    id: notification-invite-decline
+    waitToSettleTimeoutMs: 0
+- tapOn: OK
+- evalScript: ${output.api.waitForInvite(output.projectName, output.inviteeEmail, "declined")}
+- evalScript: ${output.api.deleteProject(output.projectName)}
+- evalScript: ${output.api.deleteUserIfExists(output.ownerEmail)}
+- evalScript: ${output.api.deleteUserIfExists(output.inviteeEmail)}

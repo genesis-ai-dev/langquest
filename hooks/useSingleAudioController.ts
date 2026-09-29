@@ -1,6 +1,6 @@
 import React from 'react';
 
-type AudioContextLike = {
+interface AudioContextLike {
   isPlaying: boolean;
   isPaused: boolean;
   currentAudioId: string | null;
@@ -12,9 +12,9 @@ type AudioContextLike = {
   resumeSound: () => Promise<void>;
   stopCurrentSound: () => Promise<void>;
   setPosition: (position: number) => Promise<void>;
-};
+}
 
-type AssetCheckpointStore = {
+interface AssetCheckpointStore {
   saveAssetCheckpoint: (
     assetId: string,
     positionMs: number,
@@ -22,9 +22,9 @@ type AssetCheckpointStore = {
   ) => void;
   getAssetCheckpoint: (assetId: string) => number;
   clearAssetCheckpoint?: (assetId: string) => void;
-};
+}
 
-type UseSingleAudioControllerOptions = {
+interface UseSingleAudioControllerOptions {
   audioContext: AudioContextLike;
   checkpointStore: AssetCheckpointStore;
   getAssetAudioUris: (assetId: string) => Promise<string[]>;
@@ -33,7 +33,7 @@ type UseSingleAudioControllerOptions = {
   onNoAudioFound?: (assetId: string) => void;
   onError?: (error: unknown, assetId: string) => void;
   log?: (message: string, assetId: string) => void;
-};
+}
 
 const SINGLE_SEEK_STEP_MS = 5000;
 const SINGLE_SEEK_DEBOUNCE_MS = 500;

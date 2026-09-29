@@ -1,0 +1,246 @@
+appId: ${MAESTRO_APP_ID}
+onFlowStart:
+  - runScript: ../api.js
+---
+# Recording-session operations on local takes, each checked against the
+# server: merge (rows re-reference both objects), batch delete, selection
+# cancel, replace (new object, old one dropped), rename (asset.name, not
+# just the quest link), and undo/redo around each. Leaving the session runs
+# the garbage collector; the dropped objects must then be queued for
+# deletion while the live one is not. Nothing here is published.
+- evalScript: ${output.projectName = "maestro-batch-" + Date.now()}
+- evalScript: ${output.questName = "maestro-batchq-" + Date.now()}
+# Rename types one character and reads the field back, so the final name
+# (renamedTake) is only known at that point. See the rename step.
+- evalScript: ${output.renamedTake = null}
+- evalScript: ${output.skipSignInCleanup = true}
+- runFlow: _start-signed-in.yaml
+- runFlow: _enable-merge-setting.yaml
+- runFlow: _create-project-quest.yaml
+- extendedWaitUntil:
+    visible:
+      id: asset-record-button
+    timeout: 30000
+- runFlow: _open-recording-screen.yaml
+- evalScript: ${output.expectTake = "001"}
+- runFlow: _record-take.yaml
+- evalScript: ${output.expectTake = "002"}
+- runFlow: _record-take.yaml
+- evalScript: ${output.expectTake = "003"}
+- runFlow: _record-take.yaml
+- evalScript: ${output.o1 = output.api.waitForAudioUploaded(output.questName, 90000, "001").audio[0]}
+- evalScript: ${output.o2 = output.api.waitForAudioUploaded(output.questName, 90000, "002").audio[0]}
+- evalScript: ${output.o3 = output.api.waitForAudioUploaded(output.questName, 90000, "003").audio[0]}
+- evalScript: ${output.api.waitForQuestAssetOrder(output.questName, ["001", "002", "003"], 30000)}
+# --- Merge 002 + 003 → "002" holding both objects; undo; redo -------------
+- longPressOn:
+    id: recording-asset-card
+    index: 1
+- extendedWaitUntil:
+    visible:
+      id: assets-batch-delete
+    timeout: 10000
+- tapOn:
+    id: recording-asset-select
+    index: 2
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: assets-merge
+      enabled: true
+    timeout: 10000
+# Under 30 assets there is no confirmation alert for merge or delete.
+- tapOn:
+    id: assets-merge
+    enabled: true
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    notVisible: '003'
+    timeout: 30000
+- assertVisible: '002'
+- evalScript: ${output.api.waitForAudioCount(output.questName, "002", 2, 60000)}
+- evalScript: ${output.api.waitForStorageObject(output.o2, 5000)}
+- evalScript: ${output.api.waitForStorageObject(output.o3, 5000)}
+- extendedWaitUntil:
+    visible:
+      id: recording-undo
+      enabled: true
+    timeout: 15000
+- tapOn:
+    id: recording-undo
+    enabled: true
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible: '003'
+    timeout: 30000
+- evalScript: ${output.api.waitForAudioCount(output.questName, "002", 1, 60000)}
+- evalScript: ${output.api.waitForAudioCount(output.questName, "003", 1, 60000)}
+- tapOn:
+    id: recording-redo
+    enabled: true
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    notVisible: '003'
+    timeout: 30000
+- evalScript: ${output.api.waitForAudioCount(output.questName, "002", 2, 60000)}
+# --- Delete 001; undo; redo ------------------------------------------------
+- longPressOn:
+    id: recording-asset-card
+    index: 0
+- extendedWaitUntil:
+    visible:
+      id: assets-batch-delete
+    timeout: 10000
+- tapOn:
+    id: assets-batch-delete
+    point: '20%,50%'
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    notVisible: '001'
+    timeout: 30000
+- evalScript: ${output.api.waitForQuestAssetOrder(output.questName, ["002"], 45000)}
+- tapOn:
+    id: recording-undo
+    enabled: true
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible: '001'
+    timeout: 30000
+- evalScript: ${output.api.waitForQuestAssetOrder(output.questName, ["001", "002"], 45000)}
+- tapOn:
+    id: recording-redo
+    enabled: true
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    notVisible: '001'
+    timeout: 30000
+- evalScript: ${output.api.waitForQuestAssetOrder(output.questName, ["002"], 45000)}
+# --- Selection cancel leaves the batch controls -------------------------
+- longPressOn:
+    id: recording-asset-card
+    index: 0
+- extendedWaitUntil:
+    visible:
+      id: assets-selection-cancel
+    timeout: 10000
+- tapOn:
+    id: assets-selection-cancel
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    notVisible:
+      id: assets-batch-delete
+    timeout: 10000
+- assertVisible: '002'
+# --- Replace "002" with a fresh take → "004" with a new object -----------
+# One tap highlights the card and shows Add / Replace. A second tap on the
+# same card must not move the insertion point.
+- tapOn:
+    id: recording-asset-card
+    index: 0
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: recording-action-replace
+    timeout: 10000
+- tapOn:
+    id: recording-asset-card
+    index: 0
+    waitToSettleTimeoutMs: 0
+- assertVisible:
+    id: recording-action-replace
+- tapOn:
+    id: recording-action-replace
+    waitToSettleTimeoutMs: 0
+- evalScript: ${output.expectTake = "004"}
+- runFlow: _record-take.yaml
+- extendedWaitUntil:
+    notVisible: '002'
+    timeout: 30000
+- evalScript: ${output.o4 = output.api.waitForAudioUploaded(output.questName, 90000, "004").audio[0]}
+- evalScript: ${output.api.assertNotEqual(output.o4, output.o2, "replace records a new object")}
+- evalScript: ${output.api.assertNotEqual(output.o4, output.o3, "replace records a new object")}
+- evalScript: ${output.api.waitForQuestAssetOrder(output.questName, ["004"], 45000)}
+- extendedWaitUntil:
+    visible:
+      id: recording-undo
+      enabled: true
+    timeout: 15000
+- tapOn:
+    id: recording-undo
+    enabled: true
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible: '002'
+    timeout: 30000
+- extendedWaitUntil:
+    notVisible: '004'
+    timeout: 30000
+- evalScript: ${output.api.waitForQuestAssetOrder(output.questName, ["002"], 45000)}
+- tapOn:
+    id: recording-redo
+    enabled: true
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible: '004'
+    timeout: 30000
+- evalScript: ${output.api.waitForQuestAssetOrder(output.questName, ["004"], 45000)}
+# --- Rename from the session card: asset.name changes too ---------------
+- tapOn:
+    text: '004'
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: asset-rename-input
+    timeout: 10000
+# The input is visible while the drawer is still sliding in; a tap then
+# misses and inputText goes nowhere. Wait, then tap the left end of the
+# field (the right end is off limits: the Expo dev-client Tools button
+# drifts there and opens the dev menu). A single character is all the
+# controlled input takes reliably from ADB, and where Android drops the
+# caret varies, so read the result back instead of predicting it.
+- waitForAnimationToEnd:
+    timeout: 3000
+- evalScript: ${output.renameOriginal = "004"}
+- runFlow: _insert-rename-char.yaml
+- evalScript: ${output.renamedTake = output.renamedTyped}
+# The IME covers the drawer footer on this screen and hideKeyboard cannot
+# dismiss it. The input submits on Done, so press Enter; fall back to Save.
+- pressKey: Enter
+- runFlow:
+    when:
+      visible:
+        id: asset-rename-save
+    commands:
+      - tapOn:
+          id: asset-rename-save
+          waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    notVisible:
+      id: asset-rename-input
+    timeout: 10000
+- extendedWaitUntil:
+    visible: ${output.renamedTake}
+    timeout: 30000
+- evalScript: ${output.api.waitForQuestAssetName(output.questName, output.renamedTake, 45000)}
+- evalScript: ${output.api.waitForAsset(output.renamedTake, 45000)}
+# --- Leave: garbage collection drops the dead rows ------------------------
+- runFlow: _leave-recording-refresh.yaml
+- extendedWaitUntil:
+    visible: ${output.renamedTake}
+    timeout: 20000
+# 001 (deleted), 002 + 003 (merged, then replaced) are queued; 004 lives on.
+# Undoing the replace deleted 004's row (queueing its object) and redo
+# re-referenced it, so a queue row for 004 may exist: the sweep must keep
+# the object either way.
+- evalScript: ${output.api.waitForDeletionQueued(output.o1, 60000)}
+- evalScript: ${output.api.waitForDeletionQueued(output.o2, 60000)}
+- evalScript: ${output.api.waitForDeletionQueued(output.o3, 60000)}
+- evalScript: ${output.api.expectSweepAction(output.o4, "kept_referenced,not_processed")}
+# Grace period: nothing is removed from storage yet.
+- evalScript: ${output.api.waitForStorageObject(output.o1, 5000)}
+- evalScript: ${output.api.waitForStorageObject(output.o2, 5000)}
+- evalScript: ${output.api.waitForStorageObject(output.o3, 5000)}
+- evalScript: ${output.api.waitForStorageObject(output.o4, 5000)}
+- evalScript: ${output.api.deleteProject(output.projectName)}
+- evalScript: ${output.api.cleanupStorageObjects([output.o1, output.o2, output.o3, output.o4])}
+- evalScript: ${output.api.deleteUserIfExists(output.signInEmail)}

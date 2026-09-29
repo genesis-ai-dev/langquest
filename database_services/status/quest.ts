@@ -2,8 +2,8 @@ import { quest } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { localSourceOverrideOptions, resolveTable } from '@/utils/dbUtils';
-import type { HybridDataSource } from '@/views/new/useHybridData';
-import { useHybridData } from '@/views/new/useHybridData';
+import type { HybridDataSource } from '@/hooks/useHybridQuery';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { eq } from 'drizzle-orm';
 import type { LayerStatus } from '../types';
@@ -27,15 +27,14 @@ export function useQuestStatuses(
     isLoading,
     isError,
     refetch
-  } = useHybridData({
-    dataType: 'quest-settings',
-    queryKeyParams: [questId],
+  } = useHybridQuery({
+    queryKey: ['quest-settings', questId],
     offlineQuery: toCompilableQuery(
       db.query.quest.findMany({
         columns: {
           active: true,
           visible: true,
-          source: true
+          published_at: true
         },
         where: eq(quest.id, questId)
       })

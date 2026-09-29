@@ -6,14 +6,20 @@
  */
 
 import { cn } from '@/utils/styleUtils';
+import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { Stack } from 'expo-router';
 import { View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { DEFAULT_STACK_OPTIONS } from '../_layout';
 
 export default function AuthLayout() {
   return (
     <View className={cn('flex-1 bg-background')}>
-      <Stack screenOptions={DEFAULT_STACK_OPTIONS} />
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <BottomSheetModalProvider>
+          <Stack screenOptions={DEFAULT_STACK_OPTIONS} />
+        </BottomSheetModalProvider>
+      </GestureHandlerRootView>
     </View>
   );
 }

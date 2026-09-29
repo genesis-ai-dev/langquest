@@ -30,8 +30,19 @@ import { eq } from 'drizzle-orm';
 import * as schema from '../drizzleSchema';
 import { profile } from '../drizzleSchema';
 import type { OpMetadata } from '../powersync/opMetadata';
+import { getDefaultOpMetadata } from '../powersync/opMetadata';
 import type { System } from '../powersync/system';
 import { AppConfig } from './AppConfig';
+
+function scheduleTombstonePrune(): void {
+  // Loaded on demand so the collector does not cycle through System, which
+  // constructs this connector.
+  void import('@/database_services/assetGarbageCollectorService')
+    .then((module) => module.pruneUploadedTombstones())
+    .catch((error) => {
+      console.error('[AssetGC] Failed to prune tombstones:', error);
+    });
+}
 
 /// Postgres Response codes that we cannot recover from by retrying.
 const FATAL_RESPONSE_CODES = [
@@ -263,6 +274,17 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
 
   async signOut() {
     await this.client.auth.signOut();
+    // Write checkpoint ids are per-user counters on the sync service, so they
+    // run backwards on an account switch. The next user's checkpoints would
+    // lower $local.last_op below the target_op this user left behind, and
+    // nothing can raise it again until that user happens to make a local
+    // write — until then every checkpoint is refused as "local data".
+    // Clearing resets the $local bucket. clearLocal keeps local-only tables.
+    try {
+      await this.system.powersync.disconnectAndClear({ clearLocal: false });
+    } catch (error) {
+      console.error('[SupabaseConnector] Failed to clear PowerSync:', error);
+    }
     const supabaseAuthKey = await getSupabaseAuthKey();
     if (supabaseAuthKey) await AsyncStorage.removeItem(supabaseAuthKey);
     await Updates.reloadAsync();
@@ -360,7 +382,7 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
           if (typeof rawMetadata === 'string') {
             try {
               recordMetadata = JSON.parse(rawMetadata) as OpMetadata;
-            } catch (e) {
+            } catch {
               console.warn(
                 `[uploadData] ${op.table} op has invalid _metadata JSON:`,
                 rawMetadata
@@ -372,20 +394,26 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
           }
         }
 
-        if (!recordMetadata) {
+        // DELETE never SET _metadata, so PowerSync leaves CrudEntry.metadata empty.
+        // PUT/PATCH without a stamp are real legacy rows and must stay on v0
+        // transforms. Deletes only send keys, so use the current schema version.
+        const isDelete = op.op === UpdateType.DELETE;
+        if (!recordMetadata && !isDelete) {
           console.warn(
             `[uploadData] ${op.table} op has no _metadata - treating as legacy v0 data. ` +
               `This may indicate the publish operation isn't stamping metadata correctly.`
           );
         }
 
-        // NEVER use current app version as default - old ops must be transformed
-        // Use '0' to ensure v0_to_v1 + v1_to_v2 transforms run for legacy data
-        const metadata: OpMetadata = recordMetadata ?? { schema_version: '0' };
+        const metadata: OpMetadata =
+          recordMetadata ??
+          (isDelete ? getDefaultOpMetadata() : { schema_version: '0' });
 
-        console.log(
-          `[uploadData] ${op.table} op using schema_version: ${metadata.schema_version}${recordMetadata ? ' (from record)' : ' (legacy fallback)'}`
-        );
+        if (!isDelete) {
+          console.log(
+            `[uploadData] ${op.table} op using schema_version: ${metadata.schema_version}${recordMetadata ? ' (from record)' : ' (legacy fallback)'}`
+          );
+        }
 
         // Find composite key config for this table
         const compositeConfig = this.compositeKeyTables.find(
@@ -427,7 +455,6 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
           // List of known array fields in the schema
           const arrayFields = [
             'download_profiles',
-            'images',
             'audio',
             'asset_ids',
             'translation_ids',
@@ -595,6 +622,7 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
 
       if (response.status === '2xx') {
         await transaction.complete();
+        scheduleTombstonePrune();
         return;
       }
 
@@ -618,6 +646,7 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
         }
         // Clear the local queue for this transaction and proceed
         await transaction.complete();
+        scheduleTombstonePrune();
 
         return;
       }
@@ -662,7 +691,11 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
          * elsewhere instead of discarding, and/or notify the user.
          */
         console.error('Data upload error - discarding:', lastOp, ex);
-        // await transaction.complete();
+        // The transaction MUST be completed. Returning without completing leaves
+        // the ops in ps_crud and pins $local.target_op at MAX_OP_ID, which blocks
+        // every future checkpoint from being applied — sync appears to download
+        // forever with nothing pending.
+        await transaction.complete();
       } else {
         // Error may be retryable - e.g. network error or temporary server error.
         // Throwing an error here causes this call to be retried after a delay.

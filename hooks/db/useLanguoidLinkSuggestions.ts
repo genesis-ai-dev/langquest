@@ -7,7 +7,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { languoid, languoid_link_suggestion } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { useLocalStore } from '@/store/localStore';
-import { useHybridData } from '@/views/new/useHybridData';
+import { invalidateCloud } from '@/hooks/hybridCache';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { InferSelectModel } from 'drizzle-orm';
@@ -51,9 +52,8 @@ export function useLanguoidLinkSuggestions() {
     data: rawSuggestions = [],
     isLoading: isSuggestionsLoading,
     ...rest
-  } = useHybridData<LanguoidLinkSuggestion>({
-    dataType: 'languoid-link-suggestions',
-    queryKeyParams: [userId],
+  } = useHybridQuery<LanguoidLinkSuggestion>({
+    queryKey: ['languoid-link-suggestions', userId],
     enabled: enableProjectLanguageSuggestions && !!userId,
 
     // PowerSync query using Drizzle
@@ -102,9 +102,8 @@ export function useLanguoidLinkSuggestions() {
   }, [rawSuggestions]);
 
   // Fetch languoid details
-  const { data: languoidDetails = [] } = useHybridData<LanguoidDetail>({
-    dataType: 'languoid-link-suggestion-details',
-    queryKeyParams: [languoidIds.join(',')],
+  const { data: languoidDetails = [] } = useHybridQuery<LanguoidDetail>({
+    queryKey: ['languoid-link-suggestion-details', languoidIds.join(',')],
     enabled: enableProjectLanguageSuggestions && languoidIds.length > 0,
 
     offlineQuery: toCompilableQuery(
@@ -220,15 +219,12 @@ export function useAcceptLanguoidLinkSuggestion() {
       return true;
     },
     onSuccess: async () => {
-      // Invalidate related queries
-      await queryClient.invalidateQueries({
-        queryKey: ['languoid-link-suggestions']
-      });
-      await queryClient.invalidateQueries({ queryKey: ['languoids'] });
-      await queryClient.invalidateQueries({ queryKey: ['my-projects'] });
-      await queryClient.invalidateQueries({
-        queryKey: ['project-language-link']
-      });
+      await invalidateCloud(
+        queryClient,
+        'languoid-link-suggestions',
+        'languoids',
+        'my-projects'
+      );
     }
   });
 }
@@ -251,9 +247,7 @@ export function useKeepCustomLanguoid() {
       return true;
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: ['languoid-link-suggestions']
-      });
+      await invalidateCloud(queryClient, 'languoid-link-suggestions');
     }
   });
 }

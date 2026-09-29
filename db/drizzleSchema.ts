@@ -45,7 +45,7 @@ import {
 
 export { APP_SCHEMA_VERSION };
 
-export const profile = createProfileTable('merged');
+export const profile = createProfileTable();
 
 export const userRelations = relations(profile, ({ many, one }) => ({
   created_languages: many(language, { relationName: 'creator' }),
@@ -65,7 +65,7 @@ export const userRelations = relations(profile, ({ many, one }) => ({
   feedback: many(feedback, { relationName: 'feedback' })
 }));
 
-export const language = createLanguageTable('merged', { profile });
+export const language = createLanguageTable({ profile });
 
 export const languageRelations = relations(language, ({ one, many }) => ({
   creator: one(profile, {
@@ -79,7 +79,7 @@ export const languageRelations = relations(language, ({ one, many }) => ({
 }));
 
 // Languoid tables
-export const languoid = createLanguoidTable('merged', { profile });
+export const languoid = createLanguoidTable({ profile });
 
 export const languoidRelations = relations(languoid, ({ one, many }) => ({
   creator: one(profile, {
@@ -100,7 +100,7 @@ export const languoidRelations = relations(languoid, ({ one, many }) => ({
   regions: many(languoid_region)
 }));
 
-export const languoid_alias = createLanguoidAliasTable('merged', {
+export const languoid_alias = createLanguoidAliasTable({
   languoid,
   profile
 });
@@ -123,7 +123,7 @@ export const languoid_aliasRelations = relations(languoid_alias, ({ one }) => ({
   })
 }));
 
-export const languoid_source = createLanguoidSourceTable('merged', {
+export const languoid_source = createLanguoidSourceTable({
   languoid,
   profile
 });
@@ -143,7 +143,7 @@ export const languoid_sourceRelations = relations(
   })
 );
 
-export const languoid_property = createLanguoidPropertyTable('merged', {
+export const languoid_property = createLanguoidPropertyTable({
   languoid,
   profile
 });
@@ -163,7 +163,7 @@ export const languoid_propertyRelations = relations(
   })
 );
 
-export const region = createRegionTable('merged', { profile });
+export const region = createRegionTable({ profile });
 
 export const regionRelations = relations(region, ({ one, many }) => ({
   creator: one(profile, {
@@ -183,7 +183,7 @@ export const regionRelations = relations(region, ({ one, many }) => ({
   languoids: many(languoid_region)
 }));
 
-export const region_alias = createRegionAliasTable('merged', {
+export const region_alias = createRegionAliasTable({
   region,
   languoid,
   profile
@@ -205,7 +205,7 @@ export const region_aliasRelations = relations(region_alias, ({ one }) => ({
   })
 }));
 
-export const region_source = createRegionSourceTable('merged', {
+export const region_source = createRegionSourceTable({
   region,
   profile
 });
@@ -222,7 +222,7 @@ export const region_sourceRelations = relations(region_source, ({ one }) => ({
   })
 }));
 
-export const region_property = createRegionPropertyTable('merged', {
+export const region_property = createRegionPropertyTable({
   region,
   profile
 });
@@ -242,7 +242,7 @@ export const region_propertyRelations = relations(
   })
 );
 
-export const languoid_region = createLanguoidRegionTable('merged', {
+export const languoid_region = createLanguoidRegionTable({
   languoid,
   region,
   profile
@@ -267,7 +267,7 @@ export const languoid_regionRelations = relations(
   })
 );
 
-export const project = createProjectTable('merged', { language, profile });
+export const project = createProjectTable({ language, profile });
 
 export const projectRelations = relations(project, ({ one, many }) => ({
   target_language: one(language, {
@@ -283,7 +283,7 @@ export const projectRelations = relations(project, ({ one, many }) => ({
 }));
 
 // (removed duplicate early definition of project_language_link)
-export const quest = createQuestTable('merged', {
+export const quest = createQuestTable({
   project,
   profile
 });
@@ -303,14 +303,14 @@ export const questRelations = relations(quest, ({ one, many }) => ({
   assets: many(quest_asset_link)
 }));
 
-export const tag = createTagTable('merged');
+export const tag = createTagTable();
 
 export const tagRelations = relations(tag, ({ many }) => ({
   quests: many(quest_tag_link),
   assets: many(asset_tag_link)
 }));
 
-export const quest_tag_link = createQuestTagLinkTable('merged', {
+export const quest_tag_link = createQuestTagLinkTable({
   quest,
   tag
 });
@@ -326,7 +326,7 @@ export const quest_tag_linkRelations = relations(quest_tag_link, ({ one }) => ({
   })
 }));
 
-export const asset = createAssetTable('merged', {
+export const asset = createAssetTable({
   language,
   project,
   profile
@@ -353,7 +353,7 @@ export const assetRelations = relations(asset, ({ one, many }) => ({
   votes: many(vote)
 }));
 
-export const asset_tag_link = createAssetTagLinkTable('merged', {
+export const asset_tag_link = createAssetTagLinkTable({
   asset,
   tag
 });
@@ -369,7 +369,7 @@ export const asset_tag_linkRelations = relations(asset_tag_link, ({ one }) => ({
   })
 }));
 
-export const quest_asset_link = createQuestAssetLinkTable('merged', {
+export const quest_asset_link = createQuestAssetLinkTable({
   quest,
   asset
 });
@@ -389,7 +389,7 @@ export const quest_asset_linkRelations = relations(
 );
 
 // Project-language link with explicit type separation (source/target)
-export const project_language_link = createProjectLanguageLinkTable('merged', {
+export const project_language_link = createProjectLanguageLinkTable({
   project,
   language
 });
@@ -413,9 +413,9 @@ export const project_language_linkRelations = relations(
   })
 );
 
-export const reports = createReportsTable('merged', { profile });
+export const reports = createReportsTable({ profile });
 
-export const feedback = createFeedbackTable('merged', { profile });
+export const feedback = createFeedbackTable({ profile });
 
 export const feedbackRelations = relations(feedback, ({ one }) => ({
   profile: one(profile, {
@@ -425,7 +425,7 @@ export const feedbackRelations = relations(feedback, ({ one }) => ({
   })
 }));
 
-export const blocked_users = createBlockedUsersTable('merged', { profile });
+export const blocked_users = createBlockedUsersTable({ profile });
 
 export const blocked_usersRelations = relations(blocked_users, ({ one }) => ({
   blocker: one(profile, {
@@ -440,7 +440,7 @@ export const blocked_usersRelations = relations(blocked_users, ({ one }) => ({
   })
 }));
 
-export const blocked_content = createBlockedContentTable('merged', { profile });
+export const blocked_content = createBlockedContentTable({ profile });
 
 export const blocked_contentRelations = relations(
   blocked_content,
@@ -464,7 +464,7 @@ export const reportRelations = relations(reports, ({ one }) => ({
   })
 }));
 
-export const vote = createVoteTable('merged', { asset, profile });
+export const vote = createVoteTable({ asset, profile });
 
 export const voteRelations = relations(vote, ({ one }) => ({
   asset: one(asset, {
@@ -477,7 +477,7 @@ export const voteRelations = relations(vote, ({ one }) => ({
   })
 }));
 
-export const asset_content_link = createAssetContentLinkTable('merged', {
+export const asset_content_link = createAssetContentLinkTable({
   asset,
   language
 });
@@ -501,7 +501,7 @@ export const asset_content_linkRelations = relations(
   })
 );
 
-export const invite = createInviteTable('merged', {
+export const invite = createInviteTable({
   senderProfile: profile,
   receiverProfile: profile,
   project
@@ -524,7 +524,7 @@ export const inviteRelations = relations(invite, ({ one }) => ({
   })
 }));
 
-export const request = createRequestTable('merged', {
+export const request = createRequestTable({
   senderProfile: profile,
   project
 });
@@ -541,7 +541,7 @@ export const requestRelations = relations(request, ({ one }) => ({
   })
 }));
 
-export const notification = createNotificationTable('merged', { profile });
+export const notification = createNotificationTable({ profile });
 
 export const notificationRelations = relations(notification, ({ one }) => ({
   profile: one(profile, {
@@ -551,13 +551,10 @@ export const notificationRelations = relations(notification, ({ one }) => ({
 }));
 
 // Languoid link suggestion table - for linking user-created languoids to existing ones
-export const languoid_link_suggestion = createLanguoidLinkSuggestionTable(
-  'merged',
-  {
-    languoid,
-    profile
-  }
-);
+export const languoid_link_suggestion = createLanguoidLinkSuggestionTable({
+  languoid,
+  profile
+});
 
 export const languoid_link_suggestionRelations = relations(
   languoid_link_suggestion,
@@ -583,7 +580,6 @@ export const languoid_link_suggestionRelations = relations(
 // Project languoid suggestion table - for suggesting a different languoid when a
 // project's name strongly matches a different language than the one currently linked.
 export const project_languoid_suggestion = createProjectLanguoidSuggestionTable(
-  'merged',
   {
     project,
     languoid
@@ -610,7 +606,7 @@ export const project_languoid_suggestionRelations = relations(
   })
 );
 
-export const profile_project_link = createProfileProjectLinkTable('merged', {
+export const profile_project_link = createProfileProjectLinkTable({
   profile,
   project
 });
@@ -629,7 +625,7 @@ export const profileProjectLinkRelations = relations(
   })
 );
 
-export const subscription = createSubscriptionTable('merged', { profile });
+export const subscription = createSubscriptionTable({ profile });
 
 export const subscriptionRelations = relations(subscription, ({ one }) => ({
   profile: one(profile, {
@@ -681,7 +677,7 @@ export const quest_tag_categories = sqliteView('quest_tag_categories', {
 // CLOSURE AND AGGREGATE TABLES
 // ====================================
 
-export const quest_closure = createQuestClosureTable('merged', {
+export const quest_closure = createQuestClosureTable({
   quest,
   project
 });
@@ -697,7 +693,7 @@ export const quest_closureRelations = relations(quest_closure, ({ one }) => ({
   })
 }));
 
-export const project_closure = createProjectClosureTable('merged', {
+export const project_closure = createProjectClosureTable({
   project
 });
 

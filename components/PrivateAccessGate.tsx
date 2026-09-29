@@ -7,14 +7,12 @@ import {
   project as projectTable,
   request
 } from '@/db/drizzleSchema';
-import { request_synced } from '@/db/drizzleSchemaSynced';
 import { system } from '@/db/powersync/system';
+import { membershipRequestUiStatus } from '@/features/access/requestStatus';
 import { useLocalization } from '@/hooks/useLocalization';
 import type { PrivateAccessAction } from '@/hooks/useUserPermissions';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
-
-import { isExpiredByLastUpdated } from '@/utils/dateUtils';
-import { useHybridData } from '@/views/new/useHybridData';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import type { InferSelectModel } from 'drizzle-orm';
@@ -103,11 +101,15 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
   // Determine if we should watch for request updates (when modal is visible)
   const shouldWatchRequests = modal ? isVisible : true;
 
-  // Query for existing membership request using useHybridData
+  // Query for existing membership request using useHybridQuery
   // Watch for updates when modal is visible to catch newly created requests
-  const { data: existingRequests } = useHybridData({
-    dataType: 'membership-request',
-    queryKeyParams: [projectId, currentUser?.id || '', refreshKey],
+  const { data: existingRequests } = useHybridQuery({
+    queryKey: [
+      'membership-request',
+      projectId,
+      currentUser?.id || '',
+      refreshKey
+    ],
 
     // PowerSync query using Drizzle
     offlineQuery: toCompilableQuery(
@@ -149,22 +151,7 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
   });
 
   const existingRequest = existingRequests[0];
-
-  // Determine the current status
-  const getRequestStatus = () => {
-    if (!existingRequest) return null;
-
-    if (
-      existingRequest.status === 'pending' &&
-      isExpiredByLastUpdated(existingRequest.last_updated)
-    ) {
-      return 'expired';
-    }
-
-    return existingRequest.status;
-  };
-
-  const currentStatus = getRequestStatus();
+  const currentStatus = membershipRequestUiStatus(existingRequest);
   const hasPendingRequest = currentStatus === 'pending';
 
   // Determine if we should actively watch for membership changes
@@ -175,11 +162,10 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
   const shouldWatchMembership = modal ? isVisible || hasPendingRequest : true;
   const isWatchingMembership = shouldWatchMembership;
 
-  // Query for membership status (for modal mode) using useHybridData
+  // Query for membership status (for modal mode) using useHybridQuery
   // Watch profile_project_link table live while modal is open or request is pending
-  const { data: membershipLinks } = useHybridData({
-    dataType: 'membership-status',
-    queryKeyParams: [projectId, currentUser?.id || ''],
+  const { data: membershipLinks } = useHybridQuery({
+    queryKey: ['membership-status', projectId, currentUser?.id || ''],
 
     // PowerSync query using Drizzle - automatically reactive to local DB changes
     offlineQuery: toCompilableQuery(
@@ -234,11 +220,10 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
 
   const isMember = membershipLinks.length > 0;
 
-  // Query for project download status using useHybridData
+  // Query for project download status using useHybridQuery
   // This checks if the project has been downloaded (possibly through other actions)
-  const { data: downloadStatusData } = useHybridData({
-    dataType: 'download-status',
-    queryKeyParams: ['project', projectId, currentUser?.id || ''],
+  const { data: downloadStatusData } = useHybridQuery({
+    queryKey: ['download-status', 'project', projectId, currentUser?.id || ''],
 
     // PowerSync query using Drizzle
     offlineQuery: toCompilableQuery(
@@ -287,16 +272,16 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
       if (existingRequest) {
         // Update existing request via synced table - PowerSync will sync to Supabase
         await db
-          .update(request_synced)
+          .update(request)
           .set({
             status: 'pending',
             count: (existingRequest.count || 0) + 1,
             last_updated: new Date().toISOString()
           })
-          .where(eq(request_synced.id, existingRequest.id));
+          .where(eq(request.id, existingRequest.id));
       } else {
         // Create new request via synced table - PowerSync will sync to Supabase
-        await db.insert(request_synced).values({
+        await db.insert(request).values({
           sender_profile_id: currentUser.id,
           project_id: projectId,
           status: 'pending',
@@ -307,7 +292,15 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
       // Trigger refresh by updating the refresh key (changes query key, triggers refetch)
       setRefreshKey((prev) => prev + 1);
 
-      RNAlert.alert(t('success'), t('membershipRequestSent'));
+      RNAlert.alert(t('success'), t('membershipRequestSent'), [
+        {
+          text: t('ok'),
+          isPreferred: true,
+          onPress: () => {
+            onClose?.();
+          }
+        }
+      ]);
     } catch (error) {
       console.error('Error requesting membership:', error);
       RNAlert.alert(t('error'), t('failedToRequestMembership'));
@@ -331,12 +324,12 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
             try {
               // Update request via synced table - PowerSync will sync to Supabase
               await db
-                .update(request_synced)
+                .update(request)
                 .set({
                   status: 'withdrawn',
                   last_updated: new Date().toISOString()
                 })
-                .where(eq(request_synced.id, existingRequest.id));
+                .where(eq(request.id, existingRequest.id));
 
               // Trigger refresh
               setRefreshKey((prev) => prev + 1);
@@ -536,6 +529,7 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
                 disabled={isSubmitting}
                 loading={isSubmitting}
                 className={!modal ? 'mt-4' : ''}
+                testID="project-request-access"
               >
                 <Text>
                   {isSubmitting ? t('requesting') : t('requestAgain')}
@@ -585,6 +579,7 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
                 disabled={isSubmitting}
                 loading={isSubmitting}
                 className={!modal ? 'mt-4' : ''}
+                testID="project-request-access"
               >
                 <Text>
                   {isSubmitting ? t('requesting') : t('requestAgain')}
@@ -629,6 +624,7 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
               disabled={isSubmitting}
               loading={isSubmitting}
               className={!modal ? 'mt-4' : ''}
+              testID="project-request-access"
             >
               <Text>
                 {isSubmitting ? t('requesting') : t('requestMembership')}
@@ -688,6 +684,10 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
               disabled={isSubmitting}
               loading={isSubmitting}
               className={!modal ? 'mt-4' : ''}
+              testID="project-request-access"
+              accessibilityLabel={
+                isSubmitting ? t('requesting') : t('requestMembership')
+              }
             >
               <Text>
                 {isSubmitting ? t('requesting') : t('requestMembership')}
@@ -707,12 +707,16 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
         animationType="fade"
         onRequestClose={onClose}
       >
-        <TouchableWithoutFeedback onPress={onClose}>
+        <TouchableWithoutFeedback onPress={onClose} accessible={false}>
           <Pressable
             className="flex-1 items-center justify-center bg-black/50"
             onPress={onClose}
+            accessible={false}
           >
-            <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
+            <TouchableWithoutFeedback
+              onPress={(e) => e.stopPropagation()}
+              accessible={false}
+            >
               <View className="w-[90%] max-w-md rounded-lg bg-background p-6">
                 <View className="mb-4 flex-row items-center justify-between">
                   <Text variant="h3">{t('privateProject')}</Text>
@@ -770,12 +774,19 @@ export const PrivateAccessGate: React.FC<PrivateAccessGateProps> = ({
             animationType="fade"
             onRequestClose={() => setShowModal(false)}
           >
-            <TouchableWithoutFeedback onPress={() => setShowModal(false)}>
+            <TouchableWithoutFeedback
+              onPress={() => setShowModal(false)}
+              accessible={false}
+            >
               <Pressable
                 className="flex-1 items-center justify-center bg-black/50"
                 onPress={() => setShowModal(false)}
+                accessible={false}
               >
-                <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
+                <TouchableWithoutFeedback
+                  onPress={(e) => e.stopPropagation()}
+                  accessible={false}
+                >
                   <View className="w-[90%] max-w-md rounded-lg bg-background p-6">
                     <View className="mb-4 flex-row items-center justify-between">
                       <Text variant="h3">{t('privateProject')}</Text>

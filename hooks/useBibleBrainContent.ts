@@ -15,7 +15,7 @@ export interface BibleBrainAudioChapter {
   chapter: number;
   url: string;
   duration: number;
-  timestamps?: Array<{ verseStart: number; timestamp: number }>;
+  timestamps?: { verseStart: number; timestamp: number }[];
 }
 
 export interface BibleBrainCopyrightOrg {
@@ -45,7 +45,7 @@ function parseFiaVerseRange(verseRange: string): {
   endChapter: number;
   endVerse: number;
 } | null {
-  const match = verseRange.match(/^(\d+):(\d+)[a-z]?-(?:(\d+):)?(\d+)[a-z]?$/);
+  const match = /^(\d+):(\d+)[a-z]?-(?:(\d+):)?(\d+)[a-z]?$/.exec(verseRange);
   if (!match) return null;
   const startChapter = parseInt(match[1]!, 10);
   const startVerse = parseInt(match[2]!, 10);

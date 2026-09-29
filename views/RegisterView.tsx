@@ -1,3 +1,4 @@
+import { AuthSheetCloseButton } from '@/components/AuthSheetCloseButton';
 import { LanguageCombobox } from '@/components/language-combobox';
 import { OfflineAlert } from '@/components/offline-alert';
 import { Button } from '@/components/ui/button';
@@ -13,12 +14,16 @@ import {
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 import { system } from '@/db/powersync/system';
+import {
+  createRegisterSchema,
+  requireOnline
+} from '@/features/auth/validation';
+import type { RegisterFormValues } from '@/features/auth/validation';
 import type { Languoid } from '@/hooks/db/useLanguoids';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import type { Language } from '@/store/localStore';
 import { useLocalStore } from '@/store/localStore';
-
 import RNAlert from '@blazejkustra/react-native-alert';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
@@ -28,7 +33,6 @@ import React, { useEffect } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { View } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
-import { z } from 'zod';
 
 const { supabaseConnector } = system;
 
@@ -39,35 +43,18 @@ export default function RegisterView() {
   const isOnline = useNetworkStatus();
   const currentLanguage = useLocalStore((state) => state.uiLanguage);
   const dateTermsAccepted = useLocalStore((state) => state.dateTermsAccepted);
-  const formSchema = z
-    .object({
-      email: z
-        .email(t('enterValidEmail'))
-        .nonempty(t('emailRequired'))
-        .toLowerCase()
-        .trim(),
-      password: z
-        .string(t('passwordRequired'))
-        .nonempty(t('passwordRequired'))
-        .min(6, t('passwordMinLength')),
-      confirmPassword: z
-        .string(t('passwordRequired'))
-        .nonempty(t('passwordRequired')),
-      username: z
-        .string(t('usernameRequired'))
-        .nonempty(t('usernameRequired'))
-        .min(3, t('usernameRequired'))
-    })
-    .refine((data) => data.password === data.confirmPassword, {
-      message: t('passwordsNoMatch'),
-      path: ['confirmPassword']
-    });
+  const formSchema = createRegisterSchema({
+    enterValidEmail: t('enterValidEmail'),
+    emailRequired: t('emailRequired'),
+    passwordRequired: t('passwordRequired'),
+    passwordMinLength: t('passwordMinLength'),
+    usernameRequired: t('usernameRequired'),
+    passwordsNoMatch: t('passwordsNoMatch')
+  });
 
   const { mutateAsync: register, isPending } = useMutation({
-    mutationFn: async (data: z.infer<typeof formSchema>) => {
-      if (!isOnline) {
-        throw new Error(t('internetConnectionRequired'));
-      }
+    mutationFn: async (data: RegisterFormValues) => {
+      requireOnline(isOnline, t('internetConnectionRequired'));
       // Get languoid name - handle both Languoid (name) and old Language (english_name) types
       const languoidName =
         (currentLanguage as unknown as Languoid | undefined)?.name ||
@@ -107,7 +94,7 @@ export default function RegisterView() {
     }
   });
 
-  const form = useForm<z.infer<typeof formSchema>>({
+  const form = useForm<RegisterFormValues>({
     resolver: zodResolver(formSchema),
     mode: 'onChange',
     defaultValues: {
@@ -137,6 +124,7 @@ export default function RegisterView() {
         extraKeyboardSpace={20}
         showsVerticalScrollIndicator={false}
       >
+        <AuthSheetCloseButton />
         <Form {...form}>
           <View className="flex flex-col items-center justify-center gap-4 text-center">
             <Text className="text-6xl font-semibold text-primary">
@@ -144,7 +132,12 @@ export default function RegisterView() {
             </Text>
             <Text>{t('newUserRegistration')}</Text>
           </View>
-          <LanguageCombobox uiReadyOnly toggleUILocalization />
+          <LanguageCombobox
+            uiReadyOnly
+            toggleUILocalization
+            testID="auth-language"
+            searchTestID="language-search"
+          />
           <FormField
             control={form.control}
             name="username"
@@ -153,6 +146,7 @@ export default function RegisterView() {
                 <FormControl>
                   <Input
                     {...transformInputProps(field)}
+                    testID="register-username"
                     type="next"
                     mask
                     autoComplete="username-new"
@@ -176,6 +170,7 @@ export default function RegisterView() {
                 <FormControl>
                   <Input
                     {...transformInputProps(field)}
+                    testID="register-email"
                     mask
                     type="next"
                     submitBehavior="submit"
@@ -198,11 +193,12 @@ export default function RegisterView() {
                 <FormControl>
                   <Input
                     {...transformInputProps(field)}
+                    testID="register-password"
                     type="next"
                     submitBehavior="submit"
                     autoCapitalize="none"
                     autoCorrect={false}
-                    autoComplete="password"
+                    autoComplete="new-password"
                     prefix={LockIcon}
                     prefixStyling={false}
                     placeholder={t('password')}
@@ -221,11 +217,12 @@ export default function RegisterView() {
                 <FormControl>
                   <Input
                     {...transformInputProps(field)}
+                    testID="register-confirm-password"
                     type="next"
                     submitBehavior="blurAndSubmit"
                     autoCapitalize="none"
                     autoCorrect={false}
-                    autoComplete="password"
+                    autoComplete="new-password"
                     prefix={LockIcon}
                     prefixStyling={false}
                     placeholder={t('confirmPassword')}
@@ -238,7 +235,12 @@ export default function RegisterView() {
           />
           <OfflineAlert />
           <View className="flex flex-col gap-2">
-            <FormSubmit onPress={handleFormSubmit} disabled={!isOnline}>
+            <FormSubmit
+              testID="register-submit"
+              accessibilityLabel="register-submit"
+              onPress={handleFormSubmit}
+              disabled={!isOnline}
+            >
               <Text>{t('register')}</Text>
             </FormSubmit>
             <Button

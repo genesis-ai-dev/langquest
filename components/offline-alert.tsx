@@ -17,7 +17,7 @@ export function OfflineAlert() {
   }
 
   return (
-    <Alert icon={WifiOffIcon} variant="destructive">
+    <Alert icon={WifiOffIcon} variant="destructive" testID="offline-alert">
       <AlertTitle>{t('internetConnectionRequired')}</AlertTitle>
     </Alert>
   );

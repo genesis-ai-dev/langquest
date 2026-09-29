@@ -1,0 +1,163 @@
+appId: ${MAESTRO_APP_ID}
+onFlowStart:
+  - runScript: ../api.js
+onFlowComplete:
+  - runFlow: _recover-after-airplane.yaml
+---
+# One launch, one sign-in, one project. Covers create / empty quest / offline
+# publish / translate+vote / recording / publish without repeating onboarding.
+- evalScript: ${output.projectName = "maestro-project-" + Date.now()}
+- evalScript: ${output.questName = "maestro-quest-" + Date.now()}
+- evalScript: ${output.assetName = "maestro-asset-" + Date.now()}
+- evalScript: ${output.translationText = "maestro-translation-" + Date.now()}
+- evalScript: ${output.otherTranslation = "other-translation-" + Date.now()}
+- evalScript: ${output.voterEmail = output.api.uniqueEmail("voter")}
+- evalScript: ${output.voterPassword = output.api.uniquePassword("voter")}
+- evalScript: ${output.skipSignInCleanup = true}
+- runFlow: _start-signed-in.yaml
+- runFlow: _enable-asset-details-setting.yaml
+- runFlow: _create-project-quest.yaml
+- extendedWaitUntil:
+    visible:
+      id: asset-record-button
+    timeout: 30000
+- evalScript: ${output.api.seedSourceAsset(output.projectName, output.questName, output.signInEmail, output.assetName, "Hello source")}
+- tapOn:
+    id: assets-refresh-button
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible: ${output.assetName}
+    timeout: 45000
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - setAirplaneMode: enabled
+      - extendedWaitUntil:
+          visible:
+            id: quest-publish
+            enabled: false
+          timeout: 15000
+      - setAirplaneMode: disabled
+      - extendedWaitUntil:
+          visible:
+            id: quest-publish
+            enabled: true
+          timeout: 20000
+- tapOn:
+    id: asset-open-details
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible: Hello source
+    timeout: 30000
+- assertVisible:
+    id: asset-translate-button
+- evalScript: ${output.api.createConfirmedUser(output.voterEmail, output.voterPassword)}
+- evalScript: ${output.api.seedTranslation(output.assetName, output.voterEmail, output.otherTranslation, output.otherTranslation)}
+- extendedWaitUntil:
+    visible: ${output.otherTranslation}
+    timeout: 45000
+- tapOn:
+    text: ${output.otherTranslation}
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: vote-up
+    timeout: 15000
+- tapOn:
+    id: vote-up
+    waitToSettleTimeoutMs: 0
+- tapOn:
+    id: vote-down
+    waitToSettleTimeoutMs: 0
+- runFlow: _dismiss-dev-menu.yaml
+# The Expo Tools FAB overlaps the modal X. 5% is the modal's left
+# edge (90% width); 2% hits the dimmed backdrop and closes it.
+- runFlow:
+    when:
+      visible:
+        id: translation-modal-close
+    commands:
+      - tapOn:
+          point: 2%,50%
+          waitToSettleTimeoutMs: 0
+- runFlow:
+    when:
+      platform: Android
+      notVisible:
+        id: asset-translate-button
+    commands:
+      - pressKey: back
+- runFlow: _dismiss-dev-menu.yaml
+- extendedWaitUntil:
+    visible:
+      id: asset-translate-button
+    timeout: 15000
+- tapOn:
+    id: asset-translate-button
+    waitToSettleTimeoutMs: 0
+- tapOn:
+    id: translation-text
+    waitToSettleTimeoutMs: 0
+- inputText: ${output.translationText}
+- runFlow: _hide-keyboard.yaml
+- tapOn:
+    id: translation-submit
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible: ${output.translationText}
+    timeout: 30000
+- tapOn:
+    id: nav-back
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: asset-record-button
+    timeout: 20000
+# One recorded take so publish has audio to account for.
+- runFlow: _open-recording-screen.yaml
+- evalScript: ${output.expectTake = "001"}
+- runFlow: _record-take.yaml
+- evalScript: ${output.recorded = output.api.waitForRecordedAudio(output.questName, 45000, "001")}
+- tapOn:
+    id: nav-back
+    waitToSettleTimeoutMs: 0
+# New takes appear on the assets list without a manual refresh.
+- extendedWaitUntil:
+    visible: '001'
+    timeout: 45000
+# The publish control shows a percent while audio is still confirming.
+# That label disappearing resizes the button and drops a tap in flight,
+# so wait until it is gone before opening the drawer.
+- extendedWaitUntil:
+    notVisible:
+      id: quest-publish-percent
+    timeout: 60000
+- tapOn:
+    id: quest-publish
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: quest-publish-confirm
+    timeout: 15000
+- tapOn:
+    id: quest-publish-confirm
+    waitToSettleTimeoutMs: 0
+- runFlow: _confirm-cloud-save.yaml
+- evalScript: ${output.api.waitForQuestPublished(output.questName, 45000)}
+# Publish keeps the object reference and the upload confirmation; the synced
+# badge replaces the publish button and ends without a pending percent.
+- evalScript: ${output.published = output.api.waitForAudioUploaded(output.questName, 90000)}
+- evalScript: ${output.api.assertEqual(output.published.audio[0], output.recorded.audio[0], "audio[0] unchanged by publish")}
+- extendedWaitUntil:
+    visible:
+      id: quest-synced-badge
+    timeout: 45000
+- extendedWaitUntil:
+    notVisible:
+      id: quest-synced-percent
+    timeout: 60000
+- evalScript: ${output.api.deleteProject(output.projectName)}
+- evalScript: ${output.api.cleanupStorageObjects([output.recorded && output.recorded.audio && output.recorded.audio[0]])}
+- evalScript: ${output.api.deleteUserIfExists(output.signInEmail)}
+- evalScript: ${output.api.deleteUserIfExists(output.voterEmail)}

@@ -65,7 +65,7 @@ export default function QuestRoute() {
     questId: string;
   }>();
   const { project } = useProjectById(projectId);
-  const { quest, isQuestLoading } = useQuestById(questId);
+  const { quest } = useQuestById(questId);
 
   const resolvedTemplate = project?.template;
   const lockedTemplateRef = useRef(resolvedTemplate);
@@ -95,7 +95,7 @@ export default function QuestRoute() {
   if (!isFocused) return null;
 
   if (template === 'bible' || template === 'fia') {
-    if (isQuestLoading && !quest) {
+    if (!quest) {
       return (
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator color={primaryColor} />
@@ -103,11 +103,17 @@ export default function QuestRoute() {
       );
     }
 
-    if (isBookQuest && bookId && projectId) {
+    if (isBookQuest && bookId && projectId && questId) {
       if (template === 'fia') {
         return <FiaBookRoute projectId={projectId} bookId={bookId} />;
       }
-      return <BibleChapterList projectId={projectId} bookId={bookId} />;
+      return (
+        <BibleChapterList
+          projectId={projectId}
+          bookId={bookId}
+          bookQuestId={questId}
+        />
+      );
     }
 
     return <BibleAssetsView />;

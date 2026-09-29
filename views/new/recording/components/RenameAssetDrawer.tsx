@@ -87,6 +87,8 @@ export function RenameAssetDrawer({
               onSubmitEditing={handleSave}
               returnKeyType="done"
               drawerInput
+              testID="asset-rename-input"
+              accessibilityLabel="asset-rename-input"
             />
           </View>
 
@@ -94,7 +96,12 @@ export function RenameAssetDrawer({
             <DrawerClose className="flex-1">
               <Text>Cancel</Text>
             </DrawerClose>
-            <Button onPress={handleSave} className="flex-1">
+            <Button
+              onPress={handleSave}
+              className="flex-1"
+              testID="asset-rename-save"
+              accessibilityLabel="asset-rename-save"
+            >
               <Text>Save</Text>
             </Button>
           </DrawerFooter>

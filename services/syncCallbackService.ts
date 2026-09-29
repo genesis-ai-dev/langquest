@@ -4,7 +4,7 @@ type SyncCallback = () => void | Promise<void>;
 
 /**
  * Service to register callbacks that fire after PowerSync sync completion.
- * Used to invalidate queries and clear loading states after downloads/offloads complete.
+ * Used to invalidate queries and clear loading states after downloads complete.
  */
 class SyncCallbackService {
   private callbacks = new Map<string, SyncCallback>();
@@ -128,20 +128,6 @@ class SyncCallbackService {
         }
       })
     );
-  }
-
-  /**
-   * Get count of pending callbacks
-   */
-  getPendingCount(): number {
-    return this.callbacks.size;
-  }
-
-  /**
-   * Check if a specific quest has a pending callback
-   */
-  hasCallback(questId: string): boolean {
-    return this.callbacks.has(questId);
   }
 }
 

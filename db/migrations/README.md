@@ -1,374 +1,162 @@
 # Client-Side Schema Migrations
 
-This directory contains client-side schema migrations for the LangQuest app. When users update the app with a new schema version, migrations automatically run on their local SQLite database to transform existing data.
+When `APP_SCHEMA_VERSION` changes, the app transforms on-device SQLite before it becomes interactive. A fullscreen `MigrationScreen` runs the hops and reports progress.
 
-## Overview
+Offline drafts never hit the server until they are published. Those rows have to be migrated on the device.
 
-### Why Client-Side Migrations?
+## Current layout (2.6+)
 
-- **Local-only data**: Users can create data offline that never hits the server
-- **Schema evolution**: As the app evolves, local data structures need to change
-- **Zero data loss**: Migrations ensure existing data is preserved and transformed correctly
-- **Automatic**: Users don't need to manually update their data
+Each entity is one PowerSync table (`quest`, `asset`, …). Raw storage is `ps_data__quest`. Unpublished drafts live in that same table with `quest.published_at` null.
 
-### How It Works
+Pre-2.6 databases used a triplicate: `*_local` / `*_synced` / a union view. That layout is gone. Collapsing it is a one-shot in `upgradeToSingleTable.ts`, not a normal version hop.
 
-1. **Version Detection**: Each record has `_metadata.schema_version` field
-2. **Startup Check**: App checks if any `*_local` table records have outdated versions
-3. **Migration UI**: If needed, shows fullscreen migration screen with progress
-4. **Sequential Execution**: Runs migrations in order (1.0 → 1.1 → 1.2)
-5. **Metadata Update**: Updates all `_metadata` in `*_local` tables to current version
-6. **Continue**: App proceeds normally after successful migration
+## Two mechanisms
 
-### Important: Local Tables Only
+### Version hops (`2.4-to-2.5.ts`, `2.5-to-2.6.ts`, …)
 
-**We only migrate `*_local` tables, NOT synced tables!**
+Registered in `index.ts`. `findMigrationPath()` requires a hop for **every** `APP_SCHEMA_VERSION` bump, even when `migrate()` is a no-op. Without one, users with existing rows land on the migration screen and fail with "No migration path found".
 
-- **Synced tables** are migrated server-side via RPC (`ps_transform_v1_to_v2` in Supabase)
-- When local data is uploaded, the server automatically transforms it
-- **Local tables** contain unpublished data that needs client-side migration
-- Migrating synced tables would create conflicts with server-side migrations
+After each hop, the framework stamps `_metadata.schema_version` via `updateMetadataVersion()`.
 
-**Migration targets:**
-- ✅ `asset_local`, `quest_local`, `project_local`, etc.
-- ❌ `asset`, `quest`, `project`, etc. (synced - handled by server)
+`APP_SCHEMA_VERSION` lives in `db/constants.ts`. It must move together with `get_schema_info()` on the server. See `.cursor/rules/app-database-migration.mdc`.
 
-## Creating a Migration
+### One-shot layout upgrade (`upgradeToSingleTable.ts`)
 
-### Step-by-Step Process
+PowerSync's constructor calls `powersync_replace_schema` immediately. That drops leftover 2.5 `*_local` tables that are not in the current schema.
 
-#### 1. Update Schema
+So the one-shot runs on a raw SQLite handle **before** PowerSync is constructed:
 
-Make your changes to the Drizzle schema in `db/drizzleSchemaColumns.ts`:
+1. Copy `ps_data__{table}_synced` → `ps_data__{table}` (offline cache of already-downloaded rows).
+2. Write unpublished `*_local` rows to `ps_upgrade_2_6_drafts.json` (survives `replace_schema`).
+3. Stamp `published_at` only on quests that came from `*_synced`. Do not stamp live 2.6 drafts.
+4. Drop leftover `_local` / `_synced` tables and union views.
 
-```typescript
-// Example: Add a new field
-export function createAssetTable(source: TableSource, refs: {...}) {
-  return tableCreator(source)('asset', {
-    ...getBaseColumns(source),
-    // ... existing fields ...
-    new_field: text(), // NEW FIELD
-  });
-}
-```
+After `powersync.init()`, `reinsertUnpublishedDrafts()` inserts those JSON rows through Drizzle so they enter `ps_crud` and upload. The insert always sets `id` from the raw PowerSync PK (`data` does not contain it). Without that, Drizzle mints a new UUID and children keep the old `parent_id`.
 
-#### 2. Bump Schema Version
+`2.5-to-2.6.ts` is a no-op version hop so `findMigrationPath()` can step 2.5 → 2.6. The layout work is not in that file.
 
-Update `APP_SCHEMA_VERSION` in `db/drizzleSchema.ts`:
+System calls three functions from `upgradeToSingleTable.ts`:
 
-```typescript
-export const APP_SCHEMA_VERSION = '1.1'; // Changed from '1.0'
-```
+- `prepareSingleTableLayout(rawDb)` — before constructing PowerSync
+- `schemaVersionForMigration(rawDb, minVersion)` — leftover 2.5 layout with no versioned rows is 2.5, not 0.0
+- `reinsertUnpublishedDrafts({ getAll, insert })` — after `powersync.init()`
 
-#### 3. Create Migration File
+## What gets scanned for version
 
-Create a new migration file (e.g., `1.0-to-1.1.ts`):
+`getMinimumSchemaVersion()`:
 
-```typescript
-import type { DrizzleDB } from '@powersync/drizzle-driver';
-import type { Migration } from './index';
-import { addColumn } from './utils';
+- Leftover `*_local` tables (until the one-shot drops them): unversioned → `0.0`
+- Unsuffixed `ps_data__*`: unversioned rows are PowerSync downloads and are **ignored**. Only client-stamped rows count. That is how 2.6 → 2.7 is detected.
 
-export const migration_1_0_to_1_1: Migration = {
-  fromVersion: '1.0',
-  toVersion: '1.1',
-  description: 'Add new_field to assets',
+Leftover triplicate objects are a layout signal (`needsSingleTableUpgrade()`), not a version signal.
 
-  async migrate(db, onProgress) {
-    onProgress?.(1, 2, 'Adding new column');
-    
-    // ONLY add to local table - server handles synced tables
-    await addColumn(db, 'asset_local', 'new_field TEXT DEFAULT NULL');
-    // DO NOT migrate 'asset' table - server RPC handles this
-    
-    onProgress?.(2, 2, 'Migration complete');
-  }
-};
-```
+## Creating a version hop
 
-#### 4. Register Migration
+### 1. Change the Drizzle schema
 
-Add your migration to the registry in `db/migrations/index.ts`:
+Edit `db/drizzleSchemaColumns.ts`. PowerSync stores JSON; adding a nullable column the app reads as `undefined` usually needs **no** data transform. Register a no-op hop anyway if you bump the version.
+
+### 2. Bump `APP_SCHEMA_VERSION` and `get_schema_info()`
+
+Same release. Format: `MAJOR.MINOR`.
+
+- Minor (`2.6` → `2.7`): additive
+- Major (`2.6` → `3.0`): destructive
+
+### 3. Add `db/migrations/X.X-to-Y.Y.ts`
+
+No-op (see `2.4-to-2.5.ts`) when PowerSync JSON already projects the new field as null.
+
+Data transform when existing rows need a backfill or a rename. Operate on raw tables through `utils.ts` (`getRawTableName('asset')` → `ps_data__asset`). Do not use `addColumn()` for columns already in the Drizzle schema — PowerSync already created them.
+
+Hops that still run on a pre-2.6 database may see leftover `asset_local` names. `getRawTableName('asset_local')` maps those.
+
+### 4. Register it
 
 ```typescript
-import { migration_1_0_to_1_1 } from './1.0-to-1.1';
+import { migration_2_6_to_2_7 } from './2.6-to-2.7';
 
 export const migrations: Migration[] = [
-  migration_1_0_to_1_1,
-  // Future migrations go here...
+  // …
+  migration_2_5_to_2_6,
+  migration_2_6_to_2_7
 ];
 ```
 
-#### 5. Test Migration
+### 5. Test
 
-**Critical**: Test with real data before deploying!
+Test with real on-device data. Test the chain (`2.4` → `2.5` → `2.6`) and a direct hop. Confirm `_metadata.schema_version` after the run.
+
+## Helpers (`utils.ts`)
 
 ```typescript
-// Create test data with old version
-const testDb = ...;
-await testDb.insert(asset_local).values({
-  id: uuid.v4(),
-  _metadata: { schema_version: '1.0' },
-  // ... other fields
-});
-
-// Run migration
-const result = await runMigrations(testDb, '1.0', '1.1');
-console.log(result); // Check for success
-
-// Verify transformed data
-const records = await testDb.select().from(asset_local);
-console.log(records[0]._metadata); // Should be { schema_version: '1.1' }
-console.log(records[0].new_field); // Should have value
+await addColumn(db, 'asset', 'dynamic_col TEXT DEFAULT NULL');
+await renameColumn(db, 'asset', 'old_name', 'new_name');
+await dropColumn(db, 'asset', 'column_name');
+await copyColumn(db, 'asset', 'source_col', 'dest_col');
+await transformColumn(db, 'asset', 'status', "CASE WHEN status = 'old' THEN 'new' ELSE status END");
+await updateMetadataVersion(db, '2.7'); // also called automatically after each hop
 ```
 
-#### 6. Deploy
+`updateMetadataVersion` stamps leftover `*_local` raw tables (if still on disk) and unsuffixed `ps_data__*` tables.
 
-Once tested:
-1. Merge PR with schema changes + migration
-2. Build and release new app version
-3. Users automatically migrate on next app start
+## Rules
 
-## Migration Utilities
+Do:
 
-The `utils.ts` file provides helper functions for common tasks:
+- Keep hops idempotent
+- Report progress for long work
+- Transform in place; do not delete user rows
+- Register a hop for every version bump
 
-### Schema Operations
+Do not:
 
-```typescript
-// Add a column
-await addColumn(db, 'table_name', 'new_column TEXT DEFAULT NULL');
+- Skip a registered hop when bumping `APP_SCHEMA_VERSION`
+- Treat PowerSync downloads as unversioned `0.0` (they are ignored on unsuffixed tables)
+- Stamp `published_at` on every `ps_data__quest` row during 2.5 → 2.6 (that would publish live drafts)
+- Call `addColumn()` for a column already in `drizzleSchemaColumns.ts`
 
-// Rename a column
-await renameColumn(db, 'table_name', 'old_name', 'new_name');
+## Startup flow
 
-// Drop a column (SQLite 3.35.0+)
-await dropColumn(db, 'table_name', 'column_name');
 ```
-
-### Data Operations
-
-```typescript
-// Copy data between columns
-await copyColumn(db, 'table_name', 'source_col', 'dest_col');
-
-// Transform data with SQL expression
-await transformColumn(
-  db,
-  'table_name',
-  'column_name',
-  'UPPER(column_name)', // SQL expression
-  'column_name IS NOT NULL' // Optional WHERE clause
-);
-
-// Batch updates for large datasets
-await updateInBatches(
-  db,
-  'table_name',
-  'UPDATE table_name SET processed = 1',
-  'processed IS NULL',
-  1000, // batch size
-  (current, total) => console.log(`Progress: ${current}/${total}`)
-);
-```
-
-### Metadata Operations
-
-```typescript
-// Update version on all tables (called automatically after each migration)
-await updateMetadataVersion(db, '1.1');
-
-// Check how many records need migration
-const count = await getOutdatedRecordCount(db, 'asset_local', '1.0');
-```
-
-## Best Practices
-
-### ✅ DO
-
-- **Test with real data** before deploying
-- **Keep migrations idempotent** - safe to run multiple times
-- **Only migrate `*_local` tables** - synced tables are handled by server
-- **Provide progress updates** for long-running operations
-- **Use transactions** for atomic operations
-- **Log all operations** for debugging
-- **Document why** the migration is needed (link to PR/ticket)
-
-### ❌ DON'T
-
-- **Never delete user data** - transform in-place instead
-- **Don't assume column order** - SQLite doesn't preserve it
-- **Don't skip version testing** - test migration chains (1.0→1.1→1.2)
-- **Don't migrate synced tables** - server handles those via RPC
-- **Don't make breaking changes** without migration path
-- **Don't deploy untested migrations** - always test on real data first
-
-## Common Patterns
-
-### Adding a Column
-
-```typescript
-async migrate(db) {
-  // ONLY local table - server handles synced table
-  await addColumn(db, 'asset_local', 'new_field TEXT DEFAULT "default"');
-  // DO NOT add to 'asset' table - server RPC handles this
-}
-```
-
-### Renaming a Column
-
-```typescript
-async migrate(db) {
-  // SQLite limitation: Create new, copy, update schema
-  await addColumn(db, 'asset_local', 'new_name TEXT');
-  await copyColumn(db, 'asset_local', 'old_name', 'new_name');
-  
-  // Update Drizzle schema to use new_name
-  // Drop old_name in future migration if needed
-}
-```
-
-### Transforming Data
-
-```typescript
-async migrate(db) {
-  // Transform with SQL expression
-  await transformColumn(
-    db,
-    'asset_local',
-    'status',
-    "CASE WHEN status = 'old_value' THEN 'new_value' ELSE status END"
-  );
-}
-```
-
-### Adding a Required Field
-
-```typescript
-async migrate(db) {
-  // Add as nullable first
-  await addColumn(db, 'asset_local', 'required_field TEXT');
-  
-  // Fill in values
-  await db.execute(sql`
-    UPDATE asset_local
-    SET required_field = 'default'
-    WHERE required_field IS NULL
-  `);
-  
-  // Update Drizzle schema to mark notNull()
-}
+App start
+  → PreAuthMigrationCheck (raw SQLite, PowerSync not constructed yet)
+  → checkNeedsAnyUpgrade()  (version hop and/or leftover 2.5 layout)
+        ↓ needed                    ↓ not needed
+  MigrationScreen              prepareSingleTableLayout() (no-op)
+  runMigrations() (version hops)
+  prepareSingleTableLayout()
+  ensurePowerSyncCreated()
+        ↓
+  Auth / system.init()
+  powersync.init()
+  reinsertUnpublishedDrafts()
+  continue
 ```
 
 ## Troubleshooting
 
-### Migration Fails During Development
+**Stuck on MigrationScreen** — missing hop in `index.ts`, or a hop that throws. Check logs. Hops must be idempotent.
 
-1. Check logs for specific error
-2. Verify SQL syntax (use raw SQLite if needed)
-3. Check that tables/columns exist
-4. Ensure Drizzle schema matches database state
+**Drafts missing after 2.6** — PowerSync was constructed before `prepareSingleTableLayout()`. Unpublished `*_local` rows are gone. The JSON file is the only durable staging.
 
-### Users Stuck on Migration Screen
+**"Empty database" with rows present** — unsuffixed unversioned rows are downloads. That is expected. Leftover layout is detected separately.
 
-1. Check error logs from MigrationScreen
-2. Verify migration is idempotent
-3. Add more granular try/catch blocks
-4. Consider splitting large migration into smaller steps
+**Schema mismatch after a hop** — confirm `APP_SCHEMA_VERSION` and `get_schema_info()` match, and that `_metadata` was stamped on unsuffixed tables.
 
-### Migration Runs But Data is Wrong
+## Version numbering
 
-1. Test migration with real production-like data
-2. Check WHERE clauses - might be missing records
-3. Verify ONLY `*_local` tables were migrated (not synced tables)
-4. Remember synced tables are handled by server RPC
-5. Check for race conditions with PowerSync sync
+- **Major** (`2.6` → `3.0`): destructive client change
+- **Minor** (`2.6` → `2.7`): additive client change
 
-### Schema Mismatch After Migration
-
-1. Ensure APP_SCHEMA_VERSION was bumped
-2. Verify migration updated _metadata on all `*_local` records only
-3. Remember synced tables get schema updates from server
-4. Check that createUnionViews() ran after migration
-5. Restart app to ensure fresh schema load
-
-## Version Numbering
-
-We use semantic versioning for schema versions:
-
-- **Major** (1.0 → 2.0): Breaking changes, major restructuring
-- **Minor** (1.0 → 1.1): New features, additive changes
-- **Patch** (1.0.0 → 1.0.1): Bug fixes, data corrections
-
-Examples:
-- Adding a column: `1.0` → `1.1` (minor)
-- Renaming a table: `1.0` → `2.0` (major)
-- Fixing data format: `1.0.0` → `1.0.1` (patch)
-
-## Migration Execution Flow
-
-```
-App Startup
-    ↓
-System.init()
-    ↓
-PowerSync.init()
-    ↓
-checkNeedsMigration()
-    ↓
-┌───────────────────────┐
-│ Needs Migration?      │
-└───────────────────────┘
-         ↓ Yes              ↓ No
-┌─────────────────┐    Continue
-│ Throw           │    Normal Init
-│ MigrationNeeded │
-│ Error           │
-└─────────────────┘
-         ↓
-┌─────────────────┐
-│ AuthContext     │
-│ catches error   │
-│ Sets migration  │
-│ Needed flag     │
-└─────────────────┘
-         ↓
-┌─────────────────┐
-│ App.tsx shows   │
-│ MigrationScreen │
-└─────────────────┘
-         ↓
-┌─────────────────┐
-│ runMigrations() │
-│ • Find path     │
-│ • Run in order  │
-│ • Update meta   │
-│ • Show progress │
-└─────────────────┘
-         ↓
-┌─────────────────┐
-│ Reload app      │
-│ Continue normal │
-└─────────────────┘
-```
-
-## Future Enhancements
-
-Ideas for improving the migration system:
-
-- [ ] Migration rollback support
-- [ ] Dry-run mode for testing
-- [ ] Migration statistics/analytics
-- [ ] Automatic backups before migration
-- [ ] Migration versioning per table (instead of global)
-- [ ] Migration queue for gradual background processing
-- [ ] Migration verification/checksum system
+Patch versions are not used for `APP_SCHEMA_VERSION`.
 
 ## References
 
-- [SQLite ALTER TABLE docs](https://www.sqlite.org/lang_altertable.html)
-- [Drizzle ORM docs](https://orm.drizzle.team/)
-- [PowerSync docs](https://docs.powersync.com/)
-- Example migration: `1.0-to-1.1.ts`
-
-
+- Schema version: `db/constants.ts`
+- Hop registry: `db/migrations/index.ts`
+- Layout upgrade: `db/migrations/upgradeToSingleTable.ts`
+- No-op hop: `db/migrations/2.4-to-2.5.ts`
+- Cursor rule: `.cursor/rules/app-database-migration.mdc`
+- [PowerSync schema changes](https://docs.powersync.com/usage/lifecycle-maintenance/implementing-schema-changes)
+- [SQLite ALTER TABLE](https://www.sqlite.org/lang_altertable.html)

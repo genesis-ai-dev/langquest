@@ -11,11 +11,9 @@ import { useUserRestrictions } from '@/hooks/db/useBlocks';
 
 import { useLocalization } from '@/hooks/useLocalization';
 import { useLocalStore } from '@/store/localStore';
+import type { WithSource } from '@/utils/dbUtils';
 import { cn, getThemeColor } from '@/utils/styleUtils';
-import {
-  useHybridData,
-  useSimpleHybridInfiniteData
-} from '@/views/new/useHybridData';
+import { useHybridInfiniteQuery, useHybridQuery } from '@/hooks/useHybridQuery';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { LegendList } from '@/components/ui/legend-list';
 import {
@@ -23,6 +21,7 @@ import {
   desc,
   eq,
   getTableColumns,
+  getTableName,
   like,
   notExists,
   notInArray,
@@ -79,13 +78,16 @@ import {
 } from '@/utils/languoidUtils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
+import uuid from 'react-native-uuid';
 import { z } from 'zod';
 
 type TabType = 'my' | 'all';
 
 type Project = typeof project.$inferSelect;
+
+const CREATE_DRAWER_SNAP_POINTS = [700];
 
 export default function NextGenProjectsView() {
   // Access db inside component to avoid module-level access before PowerSync is ready
@@ -93,7 +95,6 @@ export default function NextGenProjectsView() {
   const { t } = useLocalization();
   const { currentUser, isAuthenticated } = useAuth();
   const router = useRouter();
-  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = React.useState('');
   const [activeTab, setActiveTab] = React.useState<TabType>('my');
 
@@ -130,103 +131,21 @@ export default function NextGenProjectsView() {
 
   type FormData = z.infer<typeof formSchema>;
 
-  const { mutateAsync: createProject, isPending: isCreatingProject } =
-    useMutation({
-      mutationFn: async (values: FormData) => {
-        // Guard against anonymous users
-        if (!currentUser?.id) {
-          throw new Error('Must be logged in to create projects');
-        }
+  const defaultValues = {
+    private: true,
+    visible: true,
+    template: 'unstructured',
+    name: ''
+  } as const;
 
-        // Ensure the languoid has this user in download_profiles so it syncs offline
-        // This is critical for existing languoids the user didn't create
-        await ensureLanguoidDownloadProfile(
-          values.target_languoid_id,
-          currentUser.id
-        );
-
-        // Also ensure source languoid syncs for FIA projects
-        if (values.source_languoid_id) {
-          await ensureLanguoidDownloadProfile(
-            values.source_languoid_id,
-            currentUser.id
-          );
-        }
-
-        // Insert into synced tables (project is published immediately for invites)
-        await db.transaction(async (tx) => {
-          // Create project (target_language_id is deprecated but still required by schema)
-          const { target_languoid_id, source_languoid_id, ...projectValues } =
-            values;
-          const [newProject] = await tx
-            .insert(resolveTable('project', { localOverride: false }))
-            .values({
-              ...projectValues,
-              template: projectValues.template,
-              target_language_id: target_languoid_id, // Deprecated field, kept for backward compatibility
-              creator_id: currentUser.id,
-              download_profiles: [currentUser.id]
-            })
-            .returning();
-          if (!newProject) throw new Error('Failed to create project');
-
-          // Create profile_project_link
-          await tx
-            .insert(
-              resolveTable('profile_project_link', { localOverride: false })
-            )
-            .values({
-              id: `${currentUser.id}_${newProject.id}`,
-              project_id: newProject.id,
-              profile_id: currentUser.id,
-              membership: 'owner'
-              // download_profiles will be set by database trigger
-            });
-
-          // Create project_language_link with languoid_id
-          // PK is (project_id, languoid_id, language_type) - language_id is optional
-          const projectLanguageLinkSynced = resolveTable(
-            'project_language_link',
-            {
-              localOverride: false
-            }
-          );
-          await tx.insert(projectLanguageLinkSynced).values({
-            project_id: newProject.id,
-            language_id: null, // Optional - for backward compatibility
-            languoid_id: target_languoid_id, // Required - part of PK
-            language_type: 'target',
-            active: true,
-            download_profiles: [currentUser.id]
-          });
-
-          // For FIA projects, also create source language link
-          if (source_languoid_id) {
-            await tx.insert(projectLanguageLinkSynced).values({
-              project_id: newProject.id,
-              language_id: null,
-              languoid_id: source_languoid_id,
-              language_type: 'source',
-              active: true,
-              download_profiles: [currentUser.id]
-            });
-          }
-        });
-      },
-      onSuccess: () => {
-        setIsCreateOpen(false);
-        if (activeTab === 'my') {
-          void myProjectsQuery.refetch();
-        } else {
-          void allProjects.refetch();
-        }
-      },
-      onError: (error) => {
-        console.error('Failed to create project', error);
-      }
-    });
+  const form = useForm<FormData>({
+    defaultValues,
+    resolver: zodResolver(formSchema),
+    disabled: !currentUser?.id
+  });
 
   const savedLanguage = useLocalStore((state) => state.savedLanguage);
+  const uiLanguage = useLocalStore((state) => state.uiLanguage);
   const setSavedLanguage = useLocalStore((state) => state.setSavedLanguage);
 
   const resetForm = () => {
@@ -253,21 +172,111 @@ export default function NextGenProjectsView() {
           );
         }
       }
+    } else if (uiLanguage?.id) {
+      form.setValue('target_languoid_id', uiLanguage.id);
     }
   };
 
-  const defaultValues = {
-    private: true,
-    visible: true,
-    template: 'unstructured',
-    name: ''
-  } as const;
+  const closeCreateDrawer = () => {
+    setIsCreateOpen(false);
+    resetForm();
+  };
 
-  const form = useForm<FormData>({
-    defaultValues,
-    resolver: zodResolver(formSchema),
-    disabled: !currentUser?.id
-  });
+  const { mutateAsync: createProject, isPending: isCreatingProject } =
+    useMutation({
+      mutationFn: async (values: FormData) => {
+        // Guard against anonymous users
+        if (!currentUser?.id) {
+          throw new Error('Must be logged in to create projects');
+        }
+
+        // Ensure the languoid has this user in download_profiles so it syncs offline
+        // This is critical for existing languoids the user didn't create
+        await ensureLanguoidDownloadProfile(
+          values.target_languoid_id,
+          currentUser.id
+        );
+
+        // Also ensure source languoid syncs for FIA projects
+        if (values.source_languoid_id) {
+          await ensureLanguoidDownloadProfile(
+            values.source_languoid_id,
+            currentUser.id
+          );
+        }
+
+        const projectId = String(uuid.v4());
+
+        // Insert into synced tables (project is published immediately for invites)
+        await db.transaction(async (tx) => {
+          // Create project (target_language_id is deprecated but still required by schema)
+          const { target_languoid_id, source_languoid_id, ...projectValues } =
+            values;
+          await tx
+            .insert(resolveTable('project', { localOverride: false }))
+            .values({
+              id: projectId,
+              ...projectValues,
+              template: projectValues.template,
+              target_language_id: target_languoid_id, // Deprecated field, kept for backward compatibility
+              creator_id: currentUser.id,
+              download_profiles: [currentUser.id]
+            });
+
+          // Create profile_project_link
+          await tx
+            .insert(
+              resolveTable('profile_project_link', { localOverride: false })
+            )
+            .values({
+              id: `${currentUser.id}_${projectId}`,
+              project_id: projectId,
+              profile_id: currentUser.id,
+              membership: 'owner'
+              // download_profiles will be set by database trigger
+            });
+
+          // Create project_language_link with languoid_id
+          // PK is (project_id, languoid_id, language_type) - language_id is optional
+          const projectLanguageLinkSynced = resolveTable(
+            'project_language_link',
+            {
+              localOverride: false
+            }
+          );
+          await tx.insert(projectLanguageLinkSynced).values({
+            project_id: projectId,
+            language_id: null, // Optional - for backward compatibility
+            languoid_id: target_languoid_id, // Required - part of PK
+            language_type: 'target',
+            active: true,
+            download_profiles: [currentUser.id]
+          });
+
+          // For FIA projects, also create source language link
+          if (source_languoid_id) {
+            await tx.insert(projectLanguageLinkSynced).values({
+              project_id: projectId,
+              language_id: null,
+              languoid_id: source_languoid_id,
+              language_type: 'source',
+              active: true,
+              download_profiles: [currentUser.id]
+            });
+          }
+        });
+      },
+      onSuccess: () => {
+        closeCreateDrawer();
+      },
+      onError: (error) => {
+        console.error('Failed to create project', error);
+        RNAlert.alert(
+          t('error'),
+          error instanceof Error ? error.message : t('error')
+        );
+      }
+    });
 
   const watchedTemplate = form.watch('template');
   const isFiaTemplate = watchedTemplate === 'fia';
@@ -295,8 +304,10 @@ export default function NextGenProjectsView() {
           );
         }
       }
+    } else if (uiLanguage?.id && !form.getValues('target_languoid_id')) {
+      form.setValue('target_languoid_id', uiLanguage.id);
     }
-  }, [form, savedLanguage, currentUser?.id]);
+  }, [form, savedLanguage, uiLanguage, currentUser?.id]);
 
   const enableFia = useLocalStore((state) => state.enableFia);
   const setEnableFia = useLocalStore((state) => state.setEnableFia);
@@ -324,9 +335,8 @@ export default function NextGenProjectsView() {
 
   // Query for projects where user is owner or member
   // Disable for anonymous users (no "My Projects" when not logged in)
-  const myProjectsQuery = useHybridData({
-    dataType: 'my-projects',
-    queryKeyParams: [userId || '', searchQuery],
+  const myProjectsQuery = useHybridQuery({
+    queryKey: ['my-projects', userId || '', searchQuery],
     enabled: !!userId, // Only enable if user is logged in
     offlineQuery: toCompilableQuery(
       system.db
@@ -359,18 +369,27 @@ export default function NextGenProjectsView() {
     cloudQueryFn: async () => {
       if (!userId) return [];
 
-      // Query projects where user is creator or member
+      const { data: links, error: linksError } =
+        await system.supabaseConnector.client
+          .from('profile_project_link')
+          .select('project_id')
+          .eq('profile_id', userId)
+          .eq('active', true);
+      if (linksError) throw linksError;
+
+      const projectIds = [
+        ...new Set((links ?? []).map((link) => link.project_id))
+      ];
+      if (projectIds.length === 0) return [];
+
       let query = system.supabaseConnector.client
         .from('project')
-        .select(
-          `
-          *,
-          profile_project_link!inner(profile_id)
-        `
-        )
-        .eq('profile_project_link.profile_id', userId);
+        .select('*')
+        .in('id', projectIds);
 
-      if (!showInvisibleContent) query = query.eq('visible', true);
+      // Match the local watch: visible projects, plus the user's own hidden ones.
+      if (!showInvisibleContent)
+        query = query.or(`visible.eq.true,creator_id.eq.${userId}`);
       if (searchQuery.trim())
         query = query.or(
           `name.ilike.%${searchQuery.trim()}%,description.ilike.%${searchQuery.trim()}%`
@@ -385,101 +404,16 @@ export default function NextGenProjectsView() {
     enableOfflineQuery: !!userId
   });
 
-  // Watch for invite changes and membership changes to invalidate queries
-  // We watch both invites and profile_project_link because:
-  // 1. Watching invites detects when new invites arrive
-  // 2. Watching memberships detects when invites are accepted (creates membership)
-  // 3. Watching invites with any status detects when pending invites change to accepted/declined
-  React.useEffect(() => {
-    if (!userId && !userEmail) return;
-
-    // Use AbortController for cleanup
-    const abortController = new AbortController();
-    let isMounted = true;
-
-    const shouldProceed = () => !abortController.signal.aborted && isMounted;
-
-    // Helper to invalidate and refetch relevant queries
-    const invalidateProjectQueries = async () => {
-      if (!shouldProceed()) return;
-
-      // Invalidate queries (triggers automatic refetch in TanStack Query)
-      await queryClient.invalidateQueries({
-        queryKey: ['invited-projects'],
-        exact: false
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ['my-projects'],
-        exact: false
-      });
-
-      // Explicitly refetch to ensure immediate update
-      await queryClient.refetchQueries({
-        queryKey: ['invited-projects'],
-        exact: false
-      });
-      await queryClient.refetchQueries({
-        queryKey: ['my-projects'],
-        exact: false
-      });
-    };
-
-    // Watch 1: Watch all invites (not just pending) to detect status changes
-    // This will fire when an invite changes from pending to accepted/declined
-    const _watch1 = system.powersync.watch(
-      `SELECT id, status, active, email, receiver_profile_id, project_id, last_updated FROM invite WHERE (email = ? OR receiver_profile_id = ?)`,
-      [userEmail || '', userId || ''],
-      {
-        onResult: () => {
-          // Fire and forget - don't block the watch callback
-          void invalidateProjectQueries();
-        },
-        onError: (error) => {
-          if (!shouldProceed()) return;
-          console.error('Error watching invites:', error);
-        }
-      },
-      { signal: abortController.signal }
-    );
-
-    // Watch 2: Watch memberships to detect when invites are accepted (creates membership)
-    const _watch2 = userId
-      ? system.powersync.watch(
-          `SELECT id, profile_id, project_id, active, membership, last_updated FROM profile_project_link WHERE profile_id = ?`,
-          [userId],
-          {
-            onResult: () => {
-              // Fire and forget - don't block the watch callback
-              void invalidateProjectQueries();
-            },
-            onError: (error) => {
-              if (!shouldProceed()) return;
-              console.error('Error watching memberships:', error);
-            }
-          },
-          { signal: abortController.signal }
-        )
-      : null;
-
-    // Cleanup: abort all watches and mark as unmounted
-    return () => {
-      isMounted = false;
-      abortController.abort();
-      // All watches will stop calling callbacks due to abort signal
-    };
-  }, [userId, userEmail, queryClient]);
-
   // Query for invites where user has pending invites but is not yet a member
-  // Offline-only: PowerSync syncs invite table (via user_profile and project_memberships buckets)
-  // When an invite is withdrawn/expired, PowerSync removes it from local DB, and the query
-  // automatically updates due to PowerSync watches being reactive
-
-  const invitedInvitesQuery = useHybridData({
-    dataType: 'invited-invites',
-    queryKeyParams: [userId || '', userEmail || '', searchQuery],
+  const invitedInvitesQuery = useHybridQuery({
+    queryKey: ['invited-invites', userId || '', userEmail || '', searchQuery],
     offlineQuery: toCompilableQuery(
       system.db
-        .select({ project_id: invite.project_id, status: invite.status })
+        .select({
+          id: invite.id,
+          project_id: invite.project_id,
+          status: invite.status
+        })
         .from(invite)
         .where(
           and(
@@ -513,21 +447,49 @@ export default function NextGenProjectsView() {
           )
         )
     ),
-    enableCloudQuery: false, // Disabled: rely on offline query + PowerSync sync
+    cloudQueryFn: async () => {
+      if (!userId && !userEmail) return [];
+      const match = [
+        userId && `receiver_profile_id.eq.${userId}`,
+        userEmail && `email.eq.${userEmail}`
+      ]
+        .filter(Boolean)
+        .join(',');
+      let query = system.supabaseConnector.client
+        .from('invite')
+        .select('id, project_id, status')
+        .eq('status', 'pending')
+        .eq('active', true);
+      if (match) query = query.or(match);
+      const { data, error } =
+        await query.overrideTypes<
+          { id: string; project_id: string; status: string }[]
+        >();
+      if (error) throw error;
+      if (!userId) return data;
+      const { data: memberships, error: membershipError } =
+        await system.supabaseConnector.client
+          .from('profile_project_link')
+          .select('project_id')
+          .eq('profile_id', userId)
+          .eq('active', true);
+      if (membershipError) throw membershipError;
+      const memberProjectIds = new Set(
+        (memberships ?? []).map((row) => row.project_id)
+      );
+      return data.filter((row) => !memberProjectIds.has(row.project_id));
+    },
     enableOfflineQuery: !!(userId || userEmail),
-    enabled: isAuthenticated && !!(userId || userEmail) // Ensure query runs when user is authenticated
-    // No realtime subscription needed: PowerSync watches are reactive to local DB changes
+    enabled: isAuthenticated && !!(userId || userEmail)
   });
 
   const { data: invitedInvitesData = [] } = invitedInvitesQuery;
 
   // Query for All Projects (excluding user's projects)
   // For anonymous users, this shows all public projects
-  const allProjects = useSimpleHybridInfiniteData<Project>(
-    'all-projects',
-    [userId || 'anonymous', searchQuery], // Include userId and searchQuery in query key
-    // Offline query function
-    async ({ pageParam, pageSize }) => {
+  const allProjects = useHybridInfiniteQuery<Project>({
+    queryKey: ['all-projects', userId || 'anonymous', searchQuery],
+    offlineQueryFn: async ({ pageParam, pageSize }) => {
       const offset = pageParam * pageSize;
 
       // Get projects where user is a member (only if logged in)
@@ -567,8 +529,7 @@ export default function NextGenProjectsView() {
 
       return projects;
     },
-    // Cloud query function
-    async ({ pageParam, pageSize }) => {
+    cloudQueryFn: async ({ pageParam, pageSize }) => {
       const from = pageParam * pageSize;
       const to = from + pageSize - 1;
 
@@ -612,22 +573,15 @@ export default function NextGenProjectsView() {
       if (error) throw error;
       return data;
     },
-    20 // pageSize
-  );
+    pageSize: 20,
+    watchTables: [getTableName(project), getTableName(profile_project_link)]
+  });
 
   // For anonymous users, always use allProjects query (no "my projects")
   // For authenticated users, use the appropriate query based on active tab
   const currentQuery =
     !isAuthenticated || activeTab === 'all' ? allProjects : myProjectsQuery;
   const { data: projectData, isLoading } = currentQuery;
-
-  // Get the first project for onboarding navigation
-  const firstProject = React.useMemo(() => {
-    if (Array.isArray(projectData) && projectData.length > 0) {
-      return projectData[0];
-    }
-    return null;
-  }, [projectData]);
 
   // Get fetching state for search indicator
   const isFetchingProjects = React.useMemo(() => {
@@ -665,17 +619,15 @@ export default function NextGenProjectsView() {
     ''
   );
 
-  // Get project IDs from invites for filtering
-  const invitedProjectIds = React.useMemo(() => {
-    if (activeTab !== 'my' || !Array.isArray(invitedInvitesData)) {
-      return new Set<string>();
-    }
-    return new Set(invitedInvitesData.map((inv) => inv.project_id));
-  }, [invitedInvitesData, activeTab]);
+  const myProjectIds = React.useMemo(
+    () =>
+      new Set(myProjectsQuery.data.map((memberProject) => memberProject.id)),
+    [myProjectsQuery.data]
+  );
 
   // Process regular projects data
   const data = React.useMemo(() => {
-    let projects: Project[] = [];
+    let projects: WithSource<Project>[] = [];
 
     // Handle paginated data (with pages property)
     if ('pages' in projectData && Array.isArray(projectData.pages)) {
@@ -693,27 +645,26 @@ export default function NextGenProjectsView() {
       projects = projectData;
     }
 
-    // Filter out projects that have invites (invites will be rendered separately)
-    return projects.filter((p) => !invitedProjectIds.has(p.id));
-  }, [projectData, invitedProjectIds]);
+    return projects;
+  }, [projectData]);
 
-  // Filter invites based on search query - we'll filter by project_id only
-  // The actual project name/description filtering happens in InvitedProjectListItem
+  // Pending invites for projects this user is not already a member of.
+  // Membership (local or cloud) wins: a stale local invite must not hide a
+  // project after the user has joined.
   const filteredInvites = React.useMemo(() => {
     if (activeTab !== 'my' || !Array.isArray(invitedInvitesData)) {
       return [];
     }
-    // Return all invites - filtering by project name/description will happen
-    // after project data is fetched in InvitedProjectListItem
-    // Note: SQL query already excludes projects where user is already a member
-    return invitedInvitesData;
-  }, [invitedInvitesData, activeTab]);
+    return invitedInvitesData.filter(
+      (inv) => !myProjectIds.has(inv.project_id)
+    );
+  }, [invitedInvitesData, activeTab, myProjectIds]);
 
   // Combine invites and regular projects for rendering
   const allItems = React.useMemo(() => {
     const items: (
       | { type: 'invite'; projectId: string }
-      | { type: 'project'; project: Project }
+      | { type: 'project'; project: WithSource<Project> }
     )[] = [];
 
     // Add invites first
@@ -724,47 +675,21 @@ export default function NextGenProjectsView() {
     }
 
     // Add regular projects
+    const term = searchQuery.trim().toLowerCase();
     for (const proj of data) {
+      if (term) {
+        const name = (proj.name ?? '').toLowerCase();
+        const description = (proj.description ?? '').toLowerCase();
+        if (!name.includes(term) && !description.includes(term)) continue;
+      }
       items.push({ type: 'project', project: proj });
     }
 
     return items;
-  }, [filteredInvites, data, activeTab]);
+  }, [filteredInvites, data, activeTab, searchQuery]);
 
   const dimensions = useWindowDimensions();
   const { bottom } = useSafeAreaInsets();
-
-  // Handlers for onboarding flow (kept for potential future use)
-  const _handleOnboardingCreateProject = () => {
-    if (currentUser) {
-      setIsCreateOpen(true);
-    } else {
-      // For anonymous users, just advance to next step
-      // They can see the flow but can't actually create projects
-    }
-  };
-
-  const _handleOnboardingCreateQuest = () => {
-    if (firstProject) {
-      router.push(`/(app)/project/${firstProject.id}`);
-      // The onboarding will close and user can create quest in ProjectDirectoryView
-    }
-  };
-
-  const _handleOnboardingStartRecording = () => {
-    if (firstProject) {
-      // Navigate to project - user can then navigate to a quest and start recording
-      router.push(`/(app)/project/${firstProject.id}`);
-      // The recording view will be shown when user navigates to a quest
-    }
-  };
-
-  const _handleOnboardingInviteCollaborators = () => {
-    if (firstProject) {
-      router.push(`/(app)/project/${firstProject.id}`);
-      // User can access project membership modal from project settings
-    }
-  };
 
   return (
     <>
@@ -772,10 +697,12 @@ export default function NextGenProjectsView() {
         open={isCreateOpen}
         onOpenChange={(open) => {
           setIsCreateOpen(open);
-          resetForm();
+          if (!open) {
+            resetForm();
+          }
         }}
         dismissible={!isCreatingProject}
-        snapPoints={[700]}
+        snapPoints={CREATE_DRAWER_SNAP_POINTS}
         enableDynamicSizing={false}
       >
         <KeyboardAvoidingView
@@ -793,19 +720,19 @@ export default function NextGenProjectsView() {
                 <TabsList className="w-full">
                   {isAuthenticated ? (
                     <>
-                      <TabsTrigger value="my">
+                      <TabsTrigger value="my" testID="projects-tab-my">
                         <Text>{t('myProjects')}</Text>
                       </TabsTrigger>
-                      <TabsTrigger value="all">
+                      <TabsTrigger value="all" testID="projects-tab-all">
                         <Text>{t('allProjects')}</Text>
                       </TabsTrigger>
                     </>
                   ) : (
                     <>
-                      <TabsTrigger value="my">
+                      <TabsTrigger value="my" testID="projects-tab-my">
                         <Text>{t('signIn')}</Text>
                       </TabsTrigger>
-                      <TabsTrigger value="all">
+                      <TabsTrigger value="all" testID="projects-tab-all">
                         <Text>{t('allProjects')}</Text>
                       </TabsTrigger>
                     </>
@@ -828,6 +755,7 @@ export default function NextGenProjectsView() {
                       size="lg"
                       onPress={() => router.push('/(auth)/sign-in')}
                       className="w-full"
+                      testID="home-sign-in"
                     >
                       <Text className="font-semibold">{t('signIn')}</Text>
                     </Button>
@@ -865,6 +793,8 @@ export default function NextGenProjectsView() {
                       placeholder={t('searchProjects')}
                       value={searchQuery}
                       onChangeText={setSearchQuery}
+                      testID="projects-search"
+                      selectTextOnFocus
                       prefix={SearchIcon}
                       prefixStyling={false}
                       size="sm"
@@ -881,7 +811,11 @@ export default function NextGenProjectsView() {
                       hitSlop={12}
                     />
                     {currentUser && (
-                      <DrawerTrigger size="icon-lg">
+                      <DrawerTrigger
+                        size="icon-lg"
+                        testID="projects-create-button"
+                        accessibilityLabel="projects-create-button"
+                      >
                         <Icon
                           as={PlusIcon}
                           className="text-primary-foreground"
@@ -899,7 +833,7 @@ export default function NextGenProjectsView() {
               <ProjectListSkeleton />
             ) : (
               <LegendList
-                key={`${activeTab}-${dimensions.width}-${allItems.length}`}
+                key={`${activeTab}-${dimensions.width > 768 ? 'wide' : 'narrow'}`}
                 data={allItems}
                 columnWrapperStyle={{ gap: 12 }}
                 numColumns={
@@ -910,8 +844,8 @@ export default function NextGenProjectsView() {
                     ? `invite-${item.projectId}-${activeTab}`
                     : `project-${item.project.id}-${activeTab}`
                 }
+                extraData={searchQuery}
                 bottomExtra={32}
-                recycleItems
                 estimatedItemSize={175}
                 maintainVisibleContentPosition
                 renderItem={({ item }) => {
@@ -963,6 +897,8 @@ export default function NextGenProjectsView() {
                       {activeTab === 'my' && !searchQuery && (
                         <Button
                           variant="default"
+                          testID="projects-create-button"
+                          accessibilityLabel="projects-create-button"
                           onPress={() => setIsCreateOpen(true)}
                           className="mt-2"
                         >
@@ -992,6 +928,7 @@ export default function NextGenProjectsView() {
                     <FormControl>
                       <Input
                         {...transformInputProps(field)}
+                        testID="project-create-name"
                         placeholder={t('projectName')}
                         size="sm"
                         prefix={FolderPenIcon}
@@ -1011,6 +948,8 @@ export default function NextGenProjectsView() {
                     <FormItem>
                       <FormControl>
                         <LanguageCombobox
+                          testID="project-create-language"
+                          searchTestID="language-search"
                           value={field.value}
                           onChange={(languoid) => {
                             field.onChange(languoid.id);
@@ -1086,6 +1025,7 @@ export default function NextGenProjectsView() {
                             key={option}
                             value={option}
                             label={t(option)}
+                            testID={`project-template-${option}`}
                           >
                             <Text className="capitalize">{t(option)}</Text>
                           </RadioGroupItem>
@@ -1173,6 +1113,9 @@ export default function NextGenProjectsView() {
             </View>
             <DrawerFooter>
               <FormSubmit
+                testID="project-create-submit"
+                accessibilityLabel="project-create-submit"
+                disabled={isCreatingProject}
                 onPress={form.handleSubmit((data) => createProject(data))}
                 className="flex-row items-center gap-2"
               >

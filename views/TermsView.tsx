@@ -96,7 +96,7 @@ function TermsViewInner({
   }, [onDismiss]);
 
   return (
-    <View className="flex-1 bg-background">
+    <View className="flex-1 bg-background" testID="terms-screen">
       <View className="shrink-0 gap-4 bg-background px-4 pt-8">
         <View className="w-full flex-row items-center justify-between">
           <Text variant="h4" className="flex-1">
@@ -108,6 +108,7 @@ function TermsViewInner({
               className="-mr-2 h-10 w-10 items-center justify-center"
               accessibilityRole="button"
               accessibilityLabel={t('close')}
+              testID="terms-close"
             >
               <Icon as={X} size={24} className="text-foreground" />
             </OpacityPressable>
@@ -126,7 +127,7 @@ function TermsViewInner({
           {(() => {
             const rawText = t('termsContributionInfo');
             const placeholderRegex = /\{ *iAgree *\}/;
-            const match = rawText.match(placeholderRegex);
+            const match = placeholderRegex.exec(rawText);
             if (match) {
               const parts = rawText.split(placeholderRegex);
               const iAgreeText = t('iAgree');

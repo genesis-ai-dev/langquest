@@ -56,7 +56,7 @@ export function useThemeColor(color: RemoveFirstTwoChars<TokenName>) {
 
 // Map font weight to Noto Sans font variants
 // Always returns a Noto Sans variant (never undefined on native)
-export function getNotoSansFontFamily(
+function getNotoSansFontFamily(
   className?: string,
   style?: StyleProp<TextStyle> | { fontWeight?: string | number }
 ): string | undefined {

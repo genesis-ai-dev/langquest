@@ -77,6 +77,20 @@ adb logcat --pid=$(adb shell pidof -s com.etengenesis.langquest)
 
 > **Tip**: Before running `npm run android`, especially when pulling changes into your branch or checking out to `dev`, consider running `npx expo prebuild --clean` first to avoid any unnecessary issues. This ensures the native folders are regenerated from scratch, reflecting your current JS configuration accurately.
 
+## Testing
+
+Map of runners, setup, and device helpers: [`testing/README.md`](testing/README.md). Specs stay with Jest, Maestro, and pgTAP.
+
+```bash
+npm run test:ci
+npm run test:rls
+npm run maestro:local
+```
+
+- `test:ci` — Jest (permissions, auth Zod, private-request status, localStore persist, appearance). Runs in GitHub CI.
+- `test:rls` — pgTAP against local Postgres. Requires `npm run env:start`.
+- `maestro:local` — local device flows pointed at Docker (signed-in suite, register, public browse, private gate, invite/membership, auth/account, search/settings, download/offline create, bible/FIA templates, project report). See [`.maestro/README.md`](.maestro/README.md).
+
 ## Local Development Environment
 
 > To disable the local environment and use the cloud environment instead, delete your `.env.local` file.

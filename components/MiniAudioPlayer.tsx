@@ -60,6 +60,8 @@ export default function MiniAudioPlayer({
         variant="plain"
         onPress={handlePlayPause}
         style={[styles.playButton, { backgroundColor: primaryColor }]}
+        testID="asset-audio-play"
+        accessibilityLabel="asset-audio-play"
       >
         <Icon
           as={isThisAudioPlaying ? Pause : Play}

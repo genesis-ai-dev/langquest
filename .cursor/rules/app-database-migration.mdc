@@ -41,19 +41,26 @@ Run this check on every migration diff:
 
 **Path A — server-only:** Postgres changes the client doesn't see. Examples: nullable columns the app never reads, RLS, triggers, indexes, server functions, backfills, invite bounce-tracking columns. Only output: a Supabase SQL migration. Do **not** edit `db/constants.ts`, the Drizzle schemas, or `db/migrations/`.
 
-**Path B — client schema change:** App code or the client sync contract changes. Examples: client reads/writes a new column, required field, rename/drop a column the client uses, sync-rules change old clients can't satisfy. Coordinate steps 1–6 below.
+**Path B — client schema change:** App code or the client sync contract changes. Examples: client reads/writes a new column, required field, rename/drop a column the client uses, sync-rules change old clients can't satisfy. Coordinate the Path B steps below.
+
+## Client SQLite layout (2.6+)
+
+Each entity is one PowerSync table (`quest`, `asset`, …). Raw storage is `ps_data__quest`. Unpublished drafts live in that same table with `quest.published_at` null.
+
+There is no `drizzleSchemaLocal.ts` and no live `*_local` / `*_synced` / union-view triplicate.
+
+Pre-2.6 databases still on disk are collapsed by `db/migrations/upgradeToSingleTable.ts` **before** PowerSync is constructed. That is not a normal version hop: PowerSync's constructor calls `powersync_replace_schema` and would drop leftover `*_local` tables. Unpublished drafts are staged to JSON, then re-inserted through Drizzle after `powersync.init()` so they enter `ps_crud`. `2.5-to-2.6.ts` is a no-op so `findMigrationPath()` can hop; the layout work is in `upgradeToSingleTable.ts`. See `db/migrations/README.md`.
 
 ## PowerSync is schemaless
 
-PowerSync stores synced data as schemaless JSON; the client Drizzle schema is just a view on top.
+PowerSync stores rows as schemaless JSON; the client Drizzle schema is a view on top.
 
 > "Updating this client-side schema is immediate when the new version of the app runs, with no client-side migrations required." — [PowerSync: Implementing Schema Changes](https://docs.powersync.com/usage/lifecycle-maintenance/implementing-schema-changes)
 
 Practical consequences:
 
-- **Adding a nullable column** to a synced table does not need a local SQLite migration. Existing records read `undefined`, equivalent to `NULL`.
-- **Local migrations are needed** only when client code actively reads/writes a column with non-null semantics, when removing/renaming a column the client uses, or when existing local data needs transformation/backfill.
-- Both synced tables and `*_local` tables use the same JSON-storage architecture — the difference is sync scope, not storage mechanism.
+- **Adding a nullable column** does not need a local SQLite data transform. Existing records read `undefined`, equivalent to `NULL`. You still need a registered no-op hop if `APP_SCHEMA_VERSION` bumps.
+- **A data hop is needed** when client code reads/writes a column with non-null semantics, when removing/renaming a column the client uses, or when existing rows need transformation/backfill.
 
 ## Path A: Server-only Supabase migration
 
@@ -71,14 +78,14 @@ Do **not** include `create or replace function public.get_schema_info()` in this
 
 ## Path B: Step-by-step (client schema change)
 
-### 1. Modify shared schema definitions
+### 1. Modify schema definitions
 
-Edit `db/drizzleSchemaColumns.ts` — its functions are reused by both `drizzleSchema.ts` (synced tables) and `drizzleSchemaLocal.ts` (`*_local` tables).
+Edit `db/drizzleSchemaColumns.ts` and the corresponding export in `db/drizzleSchema.ts`.
 
 ```typescript
-export function createAssetTable(source: TableSource, refs: {...}) {
-  return tableCreator(source)('asset', {
-    ...getBaseColumns(source),
+export function createAssetTable({ language, project, profile }: {...}) {
+  return sqliteTable('asset', {
+    ...getTableColumns(),
     new_field: text(),
   });
 }
@@ -88,12 +95,12 @@ export function createAssetTable(source: TableSource, refs: {...}) {
 
 These two move together (see hard rule). Format: `MAJOR.MINOR`.
 
-- **Minor bump** (`2.0 → 2.1`): additive client changes (new columns/tables the app uses).
-- **Major bump** (`2.0 → 3.0`): destructive client changes (removed/renamed columns, type changes, dropped tables).
+- **Minor bump** (`2.6 → 2.7`): additive client changes (new columns/tables the app uses).
+- **Major bump** (`2.6 → 3.0`): destructive client changes (removed/renamed columns, type changes, dropped tables).
 
 ```typescript
 // db/constants.ts
-export const APP_SCHEMA_VERSION = '2.1';
+export const APP_SCHEMA_VERSION = '2.7';
 ```
 
 ```sql
@@ -105,49 +112,22 @@ security invoker
 set search_path = public
 as $$
   select jsonb_build_object(
-    'schema_version', '2.1',
-    'min_required_schema_version', '2.0',
-    'notes', 'Clients must be at least 2.0 to sync.'
+    'schema_version', '2.7',
+    'min_required_schema_version', '2.6',
+    'notes', 'Clients must be at least 2.6 to sync.'
   );
 $$;
 ```
 
 `min_required_schema_version` lets you ship the DB migration before the app update is approved: clients with `schema_version >= min_required_schema_version` keep syncing. After app adoption, raise the minimum to phase out older versions. If unset, falls back to exact-match. See `db/schemaVersionService.ts`.
 
-### 3. Update `db/drizzleSchemaLocal.ts`
-
-`drizzleSchemaLocal.ts` is hand-maintained. When `drizzleSchemaColumns.ts` changes, update the corresponding `*_local` table:
-
-```typescript
-export const asset_local = createAssetTable('local', {
-  language: language_local,
-  project: project_local,
-  profile: profile_local
-});
-```
-
-The third argument adds **local-only columns** (not synced to cloud, no Supabase migration needed):
-
-```typescript
-export const asset_local = createAssetTable(
-  'local',
-  { language: language_local, project: project_local, profile: profile_local },
-  {
-    local_cache_flag: text().default('false'),
-    offline_metadata: text({ mode: 'json' }).$type<Record<string, unknown>>()
-  }
-);
-```
-
-For local-only columns: skip the Supabase migration, but still create a local migration if you're adding the column to an existing table. Make sure the name doesn't collide with cloud schema columns.
-
-### 4. Create the Supabase migration
+### 3. Create the Supabase migration
 
 File: `supabase/migrations/YYYYMMDDHHmmss_short_description.sql`. See `.cursor/rules/supabase/create-migration.mdc`.
 
 ```sql
--- Migration: Add new_field to asset table
--- Path B client change — bumps APP_SCHEMA_VERSION 2.0 → 2.1 in same release
+-- Migration: Add new_field to asset
+-- Path B client change — bumps APP_SCHEMA_VERSION 2.6 → 2.7 in same release
 
 alter table asset add column new_field text;
 comment on column asset.new_field is 'Description of the new field';
@@ -163,47 +143,55 @@ update asset set new_field = deprecated_field where deprecated_field is not null
 alter table asset drop column deprecated_field;
 ```
 
-### 5. Create the local migration (always, when the version bumps)
+### 4. Create the local hop (always, when the version bumps)
 
-A registered migration file is **always required when `APP_SCHEMA_VERSION` bumps** (see hard rule above) — the only question is whether it transforms data or is a no-op.
+A registered file in `db/migrations/` is **always required when `APP_SCHEMA_VERSION` bumps** — the only question is whether it transforms data or is a no-op.
 
-Data transformation needed for: local-only columns on existing tables; synced columns the client actively reads/writes with non-nullable semantics; data backfills/transformations on existing local records. A no-op migration suffices for nullable columns the client doesn't actively use or schema-only changes (PowerSync handles those automatically; see `db/migrations/2.4-to-2.5.ts`).
+A no-op suffices for nullable columns the client doesn't actively use, or schema-only changes PowerSync already projects as null. See `db/migrations/2.4-to-2.5.ts`.
 
-File: `db/migrations/MAJOR_MINOR-to-MAJOR_MINOR.ts` (e.g., `2.0-to-2.1.ts`).
+A data transform is needed for backfills, renames, or non-null semantics on existing rows.
+
+File: `db/migrations/MAJOR_MINOR-to-MAJOR_MINOR.ts` (e.g. `2.6-to-2.7.ts`).
 
 ```typescript
 import type { Migration } from './index';
-import { addColumn } from './utils';
 
-export const migration_2_0_to_2_1: Migration = {
-  fromVersion: '2.0',
-  toVersion: '2.1',
-  description: 'Add new_field to asset_local table',
+export const migration_2_6_to_2_7: Migration = {
+  fromVersion: '2.6',
+  toVersion: '2.7',
+  description: 'Backfill asset.new_field on existing rows',
 
   async migrate(db, onProgress) {
-    onProgress?.(1, 1, 'Adding new_field column');
-    await addColumn(db, 'asset_local', 'new_field TEXT DEFAULT NULL');
+    onProgress?.(1, 1, 'Backfilling new_field');
+    await db.execute(`
+      UPDATE ps_data__asset
+      SET data = json_set(data, '$.new_field', 'default_value')
+      WHERE json_extract(data, '$.new_field') IS NULL
+    `);
   }
 };
 ```
 
-Rules for local migrations:
+Do **not** use `addColumn()` for columns already defined in `drizzleSchemaColumns.ts`. PowerSync already created them on the raw table.
 
-- **Only touch `*_local` tables.** Synced tables are transformed server-side via RPC when local data uploads — see "Server-side RPC transforms" below.
-- **Idempotent** — safe to re-run.
-- **Destructive pattern:** add new column → copy/transform data → drop old column. Use `addColumn`, `copyColumn`, `transformColumn`, `dropColumn` from `db/migrations/utils.ts`.
-- **Never delete user data** — transform in place.
+Rules:
 
-### 6. Register the local migration
+- Operate on unsuffixed raw tables (`ps_data__asset`). Hops that still run on a pre-2.6 database may also see leftover `asset_local` names; `getRawTableName('asset_local')` maps those.
+- Idempotent — safe to re-run.
+- Destructive pattern: add → copy/transform → drop. Use helpers in `db/migrations/utils.ts` when they fit.
+- Never delete user data — transform in place.
+- Do not stamp `quest.published_at` on every null row (that would publish live drafts).
+
+### 5. Register the hop
 
 ```typescript
 // db/migrations/index.ts
-import { migration_2_0_to_2_1 } from './2.0-to-2.1';
+import { migration_2_6_to_2_7 } from './2.6-to-2.7';
 
 export const migrations: Migration[] = [
-  migration_0_0_to_1_0,
-  migration_1_0_to_2_0,
-  migration_2_0_to_2_1,
+  // …
+  migration_2_5_to_2_6,
+  migration_2_6_to_2_7,
 ];
 ```
 
@@ -221,37 +209,40 @@ comment on column invite.bounce_reason is 'Set by Resend webhook; server-only.';
 
 ```typescript
 // ❌ WRONG: bumped APP_SCHEMA_VERSION for a column the app doesn't read/write
-export const APP_SCHEMA_VERSION = '2.4';
+export const APP_SCHEMA_VERSION = '2.7';
 
 // ✅ RIGHT: leave it alone; only the Postgres migration changes
-export const APP_SCHEMA_VERSION = '2.3';
+export const APP_SCHEMA_VERSION = '2.6';
 ```
 
 ## Migration utilities
 
 From `db/migrations/utils.ts`:
 
-- `addColumn(db, table, definition)` — add a column
+- `addColumn(db, table, definition)` — add a column (not for schema-defined columns)
 - `renameColumn(db, table, oldName, newName)` — SQLite-safe rename
 - `dropColumn(db, table, column)` — SQLite 3.35+
 - `copyColumn(db, table, src, dest)` — copy data between columns
 - `transformColumn(db, table, column, expr, where?)` — SQL-expression transform
-- `updateInBatches(db, table, query, where, batchSize, progress?)` — batched updates for large datasets
-- `updateMetadataVersion(db, version)` — updates `_metadata.schema_version` (called automatically)
+- `updateInBatches(db, table, query, where, batchSize, progress?)` — batched updates
+- `updateMetadataVersion(db, version)` — stamps leftover `*_local` raw tables and unsuffixed `ps_data__*` (called automatically after each hop)
+- `getRawTableName(view)` — `asset` → `ps_data__asset`; leftover `asset_local` → `ps_data_local__asset_local`
+
+Layout upgrade (not a version hop): `prepareSingleTableLayout`, `schemaVersionForMigration`, `reinsertUnpublishedDrafts` in `db/migrations/upgradeToSingleTable.ts`.
 
 ## Testing checklist
 
 - [ ] Confirmed Path A vs Path B — server-only migrations don't touch `get_schema_info()` or `APP_SCHEMA_VERSION`
 - [ ] Tested with realistic data
-- [ ] Tested migration chain (`1.0→1.1→1.2`) and direct (`1.0→1.2`) — Path B only
-- [ ] Verified `_metadata.schema_version` is correct — Path B only
-- [ ] Verified only `*_local` tables were touched (synced tables go through server RPC)
+- [ ] Tested migration chain and a direct hop — Path B only
+- [ ] Verified `_metadata.schema_version` on unsuffixed tables — Path B only
+- [ ] If the path includes 2.5 → 2.6: leftover `*_local` / `*_synced` are gone; unpublished drafts re-entered `ps_data__*` with `published_at` null
 - [ ] Checked performance with large datasets
 - [ ] Tested on iOS and Android if relevant
 
 ## Server-side RPC transforms (uploads from older clients)
 
-Separate concern from the schema-migration steps above. Use these when synced tables need data **transformed at upload time** so older clients can keep writing — e.g., enriching records with fields the new schema requires, splitting one table into many, or backfilling derived values from an older field.
+Separate from the hops above. Use these when rows need transforming **at upload time** so older clients can keep writing — e.g. enriching records with fields the new schema requires.
 
 Pattern: a `vN_to_vN+1(p_ops mutation_op[], p_meta jsonb)` function rewrites operations missing the new field, then `apply_table_mutation` / `apply_table_mutation_transaction` chain transforms based on the client's `schema_version`.
 
@@ -307,9 +298,9 @@ Key principles:
 
 - Only transform older versions; passthrough current. Don't transform v2 data with `v1_to_v2`.
 - Don't modify ops in place — emit new `mutation_op` rows.
-- Use lookup tables (e.g., `language_languoid_map`) to cache expensive derivations; back them with `SECURITY DEFINER` helpers like `get_or_create_languoid_for_language(uuid)`.
+- Use lookup tables (e.g. `language_languoid_map`) to cache expensive derivations; back them with `SECURITY DEFINER` helpers like `get_or_create_languoid_for_language(uuid)`.
 - `raise log` aggressively for debugging.
-- Don't use RPC transforms for local-only changes — those are client-side only.
+- Don't use RPC transforms for client-only unpublished data — those stay on device until publish.
 - Transforms only run if you wire them into the mutation handlers above.
 
 ## References
@@ -317,9 +308,10 @@ Key principles:
 - Example transform: `supabase/migrations/20251128120000_add_v1_to_v2_transform.sql`
 - Mutation handlers: `apply_table_mutation`, `apply_table_mutation_transaction`
 - Mutation op type: `public.mutation_op` (`table_name`, `op`, `record`)
-- Local migration helpers: `db/migrations/utils.ts`
+- Local hop helpers: `db/migrations/utils.ts`
 - Local migration README: `db/migrations/README.md`
-- Example local migration: `db/migrations/EXAMPLE_1.0-to-1.1.ts`
+- No-op hop: `db/migrations/2.4-to-2.5.ts`
+- 2.5 → 2.6 layout: `db/migrations/upgradeToSingleTable.ts`
 - Schema version constant: `db/constants.ts` (`APP_SCHEMA_VERSION`)
-- Client-side schema version service: `db/schemaVersionService.ts`
+- Client schema version service: `db/schemaVersionService.ts`
 - Supabase migration rules: `.cursor/rules/supabase/create-migration.mdc`

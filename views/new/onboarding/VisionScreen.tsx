@@ -2,7 +2,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useColorScheme } from 'nativewind';
-import { Image, type ImageSource } from 'expo-image';
+import { Image } from 'expo-image';
+import type { ImageSource } from 'expo-image';
 import React, { useEffect } from 'react';
 import { View } from 'react-native';
 import Animated, {

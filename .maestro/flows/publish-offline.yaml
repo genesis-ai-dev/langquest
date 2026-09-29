@@ -1,0 +1,39 @@
+appId: ${MAESTRO_APP_ID}
+onFlowStart:
+  - runScript: ../api.js
+# Always restore radios. Airplane mode cuts Metro and Docker; leaving it
+# on would fail every flow after this one.
+onFlowComplete:
+  - runFlow: _recover-after-airplane.yaml
+---
+- evalScript: ${output.projectName = "maestro-project-" + Date.now()}
+- evalScript: ${output.questName = "maestro-quest-" + Date.now()}
+- evalScript: ${output.assetName = "maestro-asset-" + Date.now()}
+- evalScript: ${output.skipSignInCleanup = true}
+- runFlow: _start-signed-in.yaml
+- runFlow: _create-project-quest.yaml
+- evalScript: ${output.api.seedSourceAsset(output.projectName, output.questName, output.signInEmail, output.assetName, "Hello source")}
+- tapOn:
+    id: assets-refresh-button
+- extendedWaitUntil:
+    visible: ${output.assetName}
+    timeout: 45000
+# Android only. iOS Simulator has no airplane mode; the command no-ops there.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - setAirplaneMode: enabled
+      - extendedWaitUntil:
+          visible:
+            id: quest-publish
+            enabled: false
+          timeout: 15000
+      - setAirplaneMode: disabled
+      - extendedWaitUntil:
+          visible:
+            id: quest-publish
+            enabled: true
+          timeout: 20000
+- evalScript: ${output.api.deleteProject(output.projectName)}
+- evalScript: ${output.api.deleteUserIfExists(output.signInEmail)}

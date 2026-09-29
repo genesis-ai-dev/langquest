@@ -1,0 +1,60 @@
+appId: ${MAESTRO_APP_ID}
+---
+# From a quest list with one quest: open it, download it from the assets
+# header, then go back to the list. Quest rows only show status. Only for
+# non-members, who open cloud quests without downloading first.
+- extendedWaitUntil:
+    visible:
+      id: quest-list-item
+    timeout: 45000
+- tapOn:
+    id: quest-list-item
+    waitToSettleTimeoutMs: 0
+- runFlow:
+    when:
+      visible:
+        id: quest-list-item
+      notVisible:
+        id: assets-refresh-button
+    commands:
+      - tapOn:
+          id: quest-list-item
+- extendedWaitUntil:
+    visible:
+      id: quest-header-download
+      enabled: true
+    timeout: 45000
+- tapOn:
+    id: quest-header-download
+- extendedWaitUntil:
+    visible: Continue to Download
+    timeout: 45000
+- tapOn:
+    id: quest-download-continue
+- extendedWaitUntil:
+    visible:
+      id: quest-download-confirm
+    timeout: 20000
+- tapOn:
+    id: quest-download-confirm
+# Confirmation must dismiss discovery. If Continue to Download is still
+# on screen, the sheets stacked (Cancel would be a no-op).
+- extendedWaitUntil:
+    notVisible:
+      id: quest-download-confirm
+    timeout: 15000
+- extendedWaitUntil:
+    notVisible:
+      id: quest-download-continue
+    timeout: 15000
+- extendedWaitUntil:
+    notVisible:
+      id: quest-header-download
+    timeout: 45000
+- tapOn:
+    id: nav-back
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: quest-list-item
+    timeout: 20000

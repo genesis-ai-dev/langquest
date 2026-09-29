@@ -1,0 +1,41 @@
+appId: ${MAESTRO_APP_ID}
+---
+# Merge is behind Settings → "Merge assets" (enableMerge, off after
+# clearState). Turn it on and return to Projects. Idempotent: only taps
+# the switch while it is unchecked.
+- runFlow: _open-app-drawer.yaml
+- tapOn:
+    id: drawer-settings
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: settings-screen
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: settings-merge
+    direction: DOWN
+    centerElement: true
+    timeout: 20000
+- runFlow:
+    when:
+      visible:
+        id: settings-merge
+        checked: false
+    commands:
+      - tapOn:
+          id: settings-merge
+          waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: settings-merge
+      checked: true
+    timeout: 10000
+- runFlow: _open-app-drawer.yaml
+- tapOn:
+    id: drawer-projects
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: projects-create-button
+    timeout: 15000

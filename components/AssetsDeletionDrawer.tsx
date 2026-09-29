@@ -88,7 +88,12 @@ export const AssetsDeletionDrawer: React.FC<AssetsDeletionDrawerProps> = ({
             placeholder={confirmationString}
             autoCapitalize="none"
             autoCorrect={false}
+            autoComplete="off"
+            textContentType="none"
+            returnKeyType="done"
+            drawerInput
             editable={!isExecuting}
+            onSubmitEditing={() => void handleConfirm()}
           />
         </View>
 

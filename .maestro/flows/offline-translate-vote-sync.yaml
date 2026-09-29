@@ -1,0 +1,72 @@
+appId: ${MAESTRO_APP_ID}
+onFlowStart:
+  - runScript: ../api.js
+onFlowComplete:
+  - runFlow: _recover-after-airplane.yaml
+---
+# Translate and vote while radios are down. Text submit and votes write
+# locally; AI predict is the only gated path. Radios on → content + vote
+# rows appear. Android only — iOS Simulator has no airplane mode.
+- evalScript: ${output.projectName = "maestro-offtv-" + Date.now()}
+- evalScript: ${output.questName = "maestro-offtv-q-" + Date.now()}
+- evalScript: ${output.assetName = "maestro-offtv-a-" + Date.now()}
+- evalScript: ${output.translationText = "maestro-off-tr-" + Date.now()}
+- evalScript: ${output.otherTranslation = "maestro-off-other-" + Date.now()}
+- evalScript: ${output.voterEmail = output.api.uniqueEmail("offvoter")}
+- evalScript: ${output.voterPassword = output.api.uniquePassword("offvoter")}
+- evalScript: ${output.skipSignInCleanup = true}
+- runFlow: _start-signed-in.yaml
+- runFlow: _enable-asset-details-setting.yaml
+- runFlow: _create-project-quest.yaml
+- evalScript: ${output.api.seedSourceAsset(output.projectName, output.questName, output.signInEmail, output.assetName, "Hello source")}
+- evalScript: ${output.api.createConfirmedUser(output.voterEmail, output.voterPassword)}
+- evalScript: ${output.seededTranslation = output.api.seedTranslation(output.assetName, output.voterEmail, output.otherTranslation, output.otherTranslation)}
+- tapOn:
+    id: assets-refresh-button
+- extendedWaitUntil:
+    visible: ${output.assetName}
+    timeout: 45000
+- tapOn:
+    id: asset-open-details
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible: Hello source
+    timeout: 30000
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - setAirplaneMode: enabled
+      - tapOn:
+          id: asset-translate-button
+          waitToSettleTimeoutMs: 0
+      - tapOn:
+          id: translation-text
+          waitToSettleTimeoutMs: 0
+      - inputText: ${output.translationText}
+      - runFlow: _hide-keyboard.yaml
+      - tapOn:
+          id: translation-submit
+          waitToSettleTimeoutMs: 0
+      - extendedWaitUntil:
+          visible: ${output.translationText}
+          timeout: 30000
+      - extendedWaitUntil:
+          visible: ${output.otherTranslation}
+          timeout: 20000
+      - tapOn: ${output.otherTranslation}
+      - extendedWaitUntil:
+          visible:
+            id: vote-up
+          timeout: 15000
+      - tapOn:
+          id: vote-up
+          waitToSettleTimeoutMs: 0
+      - evalScript: ${output.api.waitForNoContentText(output.translationText, 5000)}
+      - evalScript: ${output.api.waitForNoVote(output.seededTranslation.id, output.signInEmail, 1000)}
+      - setAirplaneMode: disabled
+      - evalScript: ${output.api.waitForContentText(output.translationText, 45000)}
+      - evalScript: ${output.api.waitForVote(output.seededTranslation.id, output.signInEmail, "up", 45000)}
+- evalScript: ${output.api.deleteProject(output.projectName)}
+- evalScript: ${output.api.deleteUserIfExists(output.signInEmail)}
+- evalScript: ${output.api.deleteUserIfExists(output.voterEmail)}

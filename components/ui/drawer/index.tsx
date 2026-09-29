@@ -17,7 +17,7 @@ import {
 } from '@gorhom/bottom-sheet';
 import { cssInterop } from 'nativewind';
 import * as React from 'react';
-import { Platform, View } from 'react-native';
+import { Keyboard, Platform, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../button';
 import { Text } from '../text';
@@ -62,54 +62,53 @@ function Drawer({
 } & DrawerProps) {
   const ref = React.useRef<BSModalType | null>(null);
   const [isOpen, setIsOpen] = React.useState(open);
+  const isOpenRef = React.useRef(open);
+  // iOS fires onDismiss if present() runs in the same turn the portal mounts.
+  const suppressDismissUntilRef = React.useRef(0);
 
-  React.useEffect(() => {
-    setIsOpen(open);
-  }, [open]);
-
-  // Use a separate effect to handle presenting/dismissing to ensure ref is ready
-  React.useEffect(() => {
-    if (isOpen) {
-      const presentModal = () => {
-        if (ref.current) {
-          ref.current.present();
-        } else {
-          setTimeout(presentModal, 50);
-        }
-      };
-      presentModal();
-    } else if (ref.current) {
-      // Use close() instead of dismiss() to avoid double-dismiss bug in
-      // @gorhom/bottom-sheet v5 (#2492). enableDismissOnClose handles the
-      // actual dismiss when the close animation completes.
-      ref.current.close();
-    }
-  }, [isOpen]);
-
-  // Use ref to store onOpenChange to avoid recreating handleSetOpen when it changes
   const onOpenChangeRef = React.useRef(onOpenChange);
   React.useEffect(() => {
     onOpenChangeRef.current = onOpenChange;
   }, [onOpenChange]);
 
-  const handleSetOpen = React.useCallback(
-    (newOpen: boolean) => {
-      setIsOpen(newOpen);
-      onOpenChangeRef.current?.(newOpen);
-      if (newOpen) {
-        ref.current?.present();
-      } else {
-        ref.current?.dismiss();
-      }
-    },
-    [] // Empty deps - use ref to access latest onOpenChange
-  );
+  const syncOpen = React.useCallback((nextOpen: boolean) => {
+    if (nextOpen === false && Date.now() < suppressDismissUntilRef.current) {
+      return;
+    }
+    if (isOpenRef.current === nextOpen) return;
+    isOpenRef.current = nextOpen;
+    if (!nextOpen) {
+      Keyboard.dismiss();
+    }
+    setIsOpen(nextOpen);
+    onOpenChangeRef.current?.(nextOpen);
+  }, []);
+
+  React.useEffect(() => {
+    syncOpen(open);
+  }, [open, syncOpen]);
+
+  React.useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    suppressDismissUntilRef.current = Date.now() + 500;
+    const timer = setTimeout(() => {
+      ref.current?.present();
+    }, 50);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [isOpen]);
 
   // Extract only stable props we need from drawerProps
   // Don't spread drawerProps directly as it's a new object reference on every render
   const stableSnapPoints = drawerProps.snapPoints;
   const stableEnableDynamicSizing = drawerProps.enableDynamicSizing;
   const stableGestureEventsHandlersHook = drawerProps.gestureEventsHandlersHook;
+  const stableAndroidKeyboardInputMode = drawerProps.android_keyboardInputMode;
+  const stableStackBehavior = drawerProps.stackBehavior;
 
   // Memoize snapPoints array to prevent unnecessary re-renders
   const memoizedSnapPoints = React.useMemo(() => {
@@ -123,20 +122,24 @@ function Drawer({
     return {
       ref,
       open: isOpen,
-      setOpen: handleSetOpen,
+      setOpen: syncOpen,
       snapPoints: memoizedSnapPoints,
       enableDynamicSizing: stableEnableDynamicSizing,
       gestureEventsHandlersHook: stableGestureEventsHandlersHook,
-      dismissible
+      dismissible,
+      android_keyboardInputMode: stableAndroidKeyboardInputMode,
+      stackBehavior: stableStackBehavior
     };
   }, [
     ref,
     isOpen,
-    handleSetOpen,
+    syncOpen,
     memoizedSnapPoints,
     stableEnableDynamicSizing,
     stableGestureEventsHandlersHook,
-    dismissible
+    dismissible,
+    stableAndroidKeyboardInputMode,
+    stableStackBehavior
   ]);
 
   return (
@@ -157,7 +160,13 @@ function DrawerTrigger({
   const context = React.useContext(DrawerContext);
 
   return (
-    <Button variant={variant} onPress={() => context?.setOpen(true)} {...props}>
+    <Button
+      variant={variant}
+      onPress={() => {
+        context?.setOpen(true);
+      }}
+      {...props}
+    >
       {children}
     </Button>
   );
@@ -201,29 +210,26 @@ const DrawerContent = React.forwardRef<
   const context = React.useContext(DrawerContext);
 
   const {
-    open: _open,
-    setOpen: _setOpen,
+    open,
+    setOpen,
     ref: _ref,
     snapPoints: _snapPoints,
     gestureEventsHandlersHook,
     dismissible,
     ...modalProps
   } = context ?? {};
-  // Extract setOpen to avoid depending on entire context object (which changes on every render)
-  const setOpen = context?.setOpen;
 
-  const handleSheetChanges = React.useCallback(
-    (index: number) => {
-      if (index === -1) {
-        setOpen?.(false);
-      }
-    },
-    [setOpen]
-  );
+  const handleDismiss = React.useCallback(() => {
+    setOpen?.(false);
+  }, [setOpen]);
 
   const backgroundColor = useThemeColor('background');
 
   const { top, bottom } = useSafeAreaInsets();
+
+  if (!open) {
+    return null;
+  }
 
   const Component = asChild
     ? Slot.Generic<React.ComponentPropsWithoutRef<typeof DrawerView>>
@@ -236,7 +242,7 @@ const DrawerContent = React.forwardRef<
         // setting it to false on Android seems to cause issues with TalkBack instead
         ios: false
       })}
-      onChange={handleSheetChanges}
+      onDismiss={handleDismiss}
       backdropComponent={({ animatedIndex, animatedPosition }) => (
         <BottomSheetBackdrop
           appearsOnIndex={0}
@@ -284,6 +290,9 @@ const DrawerContent = React.forwardRef<
             'z-[5000]',
             className
           )}
+          {...(!asChild
+            ? { keyboardShouldPersistTaps: 'handled' as const }
+            : {})}
           {...props}
           bottomOffset={16}
         >
@@ -330,10 +339,17 @@ function DrawerFooter({
 function DrawerTitle({
   className,
   children,
+  testID = 'drawer-title',
   ...props
 }: React.ComponentProps<typeof Text> & { className?: string }) {
   return (
-    <Text className={className} variant="h4" {...props}>
+    <Text
+      className={className}
+      variant="h4"
+      testID={testID}
+      accessibilityLabel={testID}
+      {...props}
+    >
       {children}
     </Text>
   );

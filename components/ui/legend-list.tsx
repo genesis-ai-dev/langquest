@@ -1,8 +1,5 @@
-import {
-  LegendList as LegendListBase,
-  type LegendListProps,
-  type LegendListRef
-} from '@legendapp/list';
+import { LegendList as LegendListBase } from '@legendapp/list';
+import type { LegendListProps, LegendListRef } from '@legendapp/list';
 import React from 'react';
 import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -32,6 +29,7 @@ function LegendListInner<T>(
     bottomExtra = 0,
     ignoreSafeBottom = false,
     ListFooterComponent,
+    keyboardShouldPersistTaps = 'handled',
     ...rest
   }: AppLegendListProps<T>,
   ref: React.Ref<LegendListRef>
@@ -42,6 +40,7 @@ function LegendListInner<T>(
   return (
     <LegendListBase
       ref={ref}
+      keyboardShouldPersistTaps={keyboardShouldPersistTaps}
       {...rest}
       ListFooterComponent={() => (
         <View>

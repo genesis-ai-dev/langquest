@@ -4,14 +4,17 @@
  *
  * The work list is derived on every pass:
  *
- *   asset_content_link_synced rows where
+ *   asset_content_link rows where
  *     audio IS NOT NULL AND audio_uploaded_at IS NULL
  *   → flattened to filenames
- *   → minus 'local/…' values (pre-publish recordings never upload)
  *   → intersected with the files actually on this device (LocalFileIndex)
  *
- * Only the synced view is consulted: local (pre-publish) rows always carry
- * 'local/…' audio values, and nothing uploads until the user publishes.
+ * audio[] holds the storage object name (`{uuid}.{ext}`), which is also the
+ * on-disk filename under shared_attachments/. Uploads start as soon as the
+ * row exists — drafts included. Publishing changes visibility only; the
+ * bytes are already backed up. (Legacy `local/{uuid}.{ext}` object names on
+ * old published rows upload under that exact name so the server's stamp
+ * trigger still matches; the file itself is read from the flat directory.)
  *
  * Completion is never declared here: the server's storage trigger stamps
  * asset_content_link.audio_uploaded_at, PowerSync syncs it down, and the row
@@ -31,9 +34,12 @@
  */
 
 import type * as drizzleSchema from '@/db/drizzleSchema';
-import { asset_content_link_synced } from '@/db/drizzleSchemaSynced';
+import { asset_content_link } from '@/db/drizzleSchema';
 import type { SupabaseStorageAdapter } from '@/db/supabase/SupabaseStorageAdapter';
-import { isInvalidAudioValue, isLocalOnlyAudio } from '@/utils/attachmentPaths';
+import {
+  isRemoteAudioObject,
+  localAudioFileName
+} from '@/utils/attachmentPaths';
 import { getLocalAttachmentUri } from '@/utils/fileUtils';
 import type { PowerSyncSQLiteDatabase } from '@powersync/drizzle-driver';
 import { and, isNotNull, isNull } from 'drizzle-orm';
@@ -105,7 +111,15 @@ export interface AudioUploaderOptions {
   isSyncingDown: () => boolean;
 }
 
+interface UploadItem {
+  /** Storage object name exactly as stored in audio[]. */
+  objectName: string;
+  /** Bare on-disk filename under shared_attachments/. */
+  filename: string;
+}
+
 export class AudioUploader {
+  /** Keyed by storage object name. */
   private attempts = new Map<string, FileAttemptState>();
   private draining = false;
   private dirty = false;
@@ -180,14 +194,15 @@ export class AudioUploader {
     this.started = false;
   }
 
+  /** Every row whose audio the server has not confirmed — published or not. */
   private pendingSyncedQuery() {
     return this.options.db
-      .select({ audio: asset_content_link_synced.audio })
-      .from(asset_content_link_synced)
+      .select({ audio: asset_content_link.audio })
+      .from(asset_content_link)
       .where(
         and(
-          isNotNull(asset_content_link_synced.audio),
-          isNull(asset_content_link_synced.audio_uploaded_at)
+          isNotNull(asset_content_link.audio),
+          isNull(asset_content_link.audio_uploaded_at)
         )
       );
   }
@@ -224,19 +239,22 @@ export class AudioUploader {
    * All unconfirmed, uploadable filenames present on this device —
    * including ones currently backing off.
    */
-  private async getWorkList(): Promise<string[]> {
+  private async getWorkList(): Promise<UploadItem[]> {
     const syncedRows = await this.pendingSyncedQuery();
 
-    const names = new Set<string>();
+    const byObjectName = new Map<string, UploadItem>();
     for (const row of syncedRows) {
       for (const value of row.audio ?? []) {
-        if (!value || isInvalidAudioValue(value) || isLocalOnlyAudio(value)) {
+        if (!value || !isRemoteAudioObject(value)) {
           continue;
         }
-        names.add(value);
+        if (byObjectName.has(value)) continue;
+        const filename = localAudioFileName(value);
+        if (!this.options.fileIndex.has(filename)) continue;
+        byObjectName.set(value, { objectName: value, filename });
       }
     }
-    return [...names].filter((name) => this.options.fileIndex.has(name));
+    return [...byObjectName.values()];
   }
 
   private async drainOnce(): Promise<void> {
@@ -245,7 +263,7 @@ export class AudioUploader {
     const workList = await this.getWorkList();
 
     // Drop attempt records for files that got confirmed or disappeared.
-    const workSet = new Set(workList);
+    const workSet = new Set(workList.map((item) => item.objectName));
     for (const name of this.attempts.keys()) {
       if (!workSet.has(name)) this.attempts.delete(name);
     }
@@ -279,7 +297,7 @@ export class AudioUploader {
 
     const now = Date.now();
     const ready = workList.filter(
-      (name) => (this.attempts.get(name)?.nextAttemptAt ?? 0) <= now
+      (item) => (this.attempts.get(item.objectName)?.nextAttemptAt ?? 0) <= now
     );
     if (ready.length === 0) {
       this.publishWorkStatus(workList, 0);
@@ -313,8 +331,8 @@ export class AudioUploader {
         queue.length = 0;
         return;
       }
-      const filename = queue.shift();
-      if (filename === undefined) return;
+      const item = queue.shift();
+      if (item === undefined) return;
       active++;
       this.publishWorkStatus(
         workList,
@@ -324,7 +342,7 @@ export class AudioUploader {
         succeeded
       );
       try {
-        if (await this.uploadOne(filename)) succeeded++;
+        if (await this.uploadOne(item)) succeeded++;
       } finally {
         active--;
         completed++;
@@ -351,34 +369,37 @@ export class AudioUploader {
   }
 
   /** @returns true if the file was accepted by storage. */
-  private async uploadOne(filename: string): Promise<boolean> {
+  private async uploadOne({
+    objectName,
+    filename
+  }: UploadItem): Promise<boolean> {
     try {
       const localUri = getLocalAttachmentUri(filename);
       const buffer = await this.options.storage.readFile(localUri);
-      await this.options.storage.uploadFile(filename, buffer, {
+      await this.options.storage.uploadFile(objectName, buffer, {
         mediaType: mediaTypeForFilename(filename)
       });
       // Uploaded, but only the synced-down audio_uploaded_at confirms it.
       // Grace period prevents hammering while the confirmation round-trips.
-      this.attempts.set(filename, {
+      this.attempts.set(objectName, {
         failures: 0,
         nextAttemptAt: Date.now() + CONFIRMATION_GRACE_MS
       });
-      console.log(`[AudioUploader] Uploaded ${filename}`);
+      console.log(`[AudioUploader] Uploaded ${objectName}`);
       return true;
     } catch (error) {
-      const previous = this.attempts.get(filename);
+      const previous = this.attempts.get(objectName);
       const failures = (previous?.failures ?? 0) + 1;
       const backoff =
         BACKOFF_STEPS_MS[Math.min(failures, BACKOFF_STEPS_MS.length) - 1] ??
         BACKOFF_STEPS_MS[BACKOFF_STEPS_MS.length - 1]!;
-      this.attempts.set(filename, {
+      this.attempts.set(objectName, {
         failures,
         nextAttemptAt: Date.now() + backoff,
         lastError: error instanceof Error ? error.message : String(error)
       });
       console.warn(
-        `[AudioUploader] Upload failed for ${filename} (attempt ${failures}, retry in ${Math.round(backoff / 1000)}s):`,
+        `[AudioUploader] Upload failed for ${objectName} (attempt ${failures}, retry in ${Math.round(backoff / 1000)}s):`,
         error
       );
       return false;
@@ -386,14 +407,14 @@ export class AudioUploader {
   }
 
   private publishWorkStatus(
-    workList: string[],
+    workList: UploadItem[],
     active: number,
     batchTotal = 0,
     batchDone = 0,
     batchSucceeded = 0
   ): void {
     const failing = workList.filter(
-      (name) => (this.attempts.get(name)?.failures ?? 0) > 0
+      (item) => (this.attempts.get(item.objectName)?.failures ?? 0) > 0
     ).length;
     this.updateStatus({
       // The work list is derived once per pass, so subtract this pass's

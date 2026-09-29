@@ -2,12 +2,10 @@ import { eq } from 'drizzle-orm';
 // import { db } from '../db/database';
 import type { QuestMetadata } from '@/db/drizzleSchemaColumns';
 import { resolveTable } from '@/utils/dbUtils';
-import { withQuestVersionLabel } from '@/utils/questVersionLabel';
+import { parseQuestMetadata } from '@/utils/questMetadata';
 import uuid from 'react-native-uuid';
 import { quest } from '../db/drizzleSchema';
 import { system } from '../db/powersync/system';
-
-const { db } = system;
 
 // export type QuestWithRelations = typeof quest.$inferSelect & {
 //   tags: (typeof tag.$inferSelect)[];
@@ -15,21 +13,21 @@ const { db } = system;
 
 const MAX_RECORDING_SESSIONS = 10;
 
-export type Quest = typeof quest.$inferSelect;
-
 export class QuestService {
-  async getQuestsByProjectId(project_id: string): Promise<Quest[]> {
-    return db.select().from(quest).where(eq(quest.project_id, project_id));
-  }
-
   async getQuestById(quest_id: string) {
     return (
-      await db.select().from(quest).where(eq(quest.id, quest_id)).limit(1)
+      await system.db
+        .select()
+        .from(quest)
+        .where(eq(quest.id, quest_id))
+        .limit(1)
     )[0];
   }
 }
 
 export const questService = new QuestService();
+
+export { parseQuestMetadata } from '@/utils/questMetadata';
 
 export async function updateQuestVersionLabel(
   quest_id: string,
@@ -42,10 +40,13 @@ export async function updateQuestVersionLabel(
   }
 
   const parsed = parseQuestMetadata(existingMetadata);
-  await updateQuestMetadata(quest_id, withQuestVersionLabel(parsed, trimmed));
+  await updateQuestMetadata(quest_id, {
+    ...parsed,
+    versionLabel: trimmed
+  });
 }
 
-export async function updateQuestMetadata(
+async function updateQuestMetadata(
   quest_id: string,
   metadata: QuestMetadata
 ): Promise<void> {
@@ -63,21 +64,6 @@ export async function updateQuestMetadata(
     console.error('Failed to update quest metadata:', error);
     throw error;
   }
-}
-
-export function parseQuestMetadata(rawMetadata: unknown): QuestMetadata {
-  if (!rawMetadata) return {};
-  if (typeof rawMetadata === 'string') {
-    try {
-      const parsed = JSON.parse(rawMetadata);
-      return parsed && typeof parsed === 'object'
-        ? (parsed as QuestMetadata)
-        : {};
-    } catch {
-      return {};
-    }
-  }
-  return typeof rawMetadata === 'object' ? (rawMetadata as QuestMetadata) : {};
 }
 
 /**

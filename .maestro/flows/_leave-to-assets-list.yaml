@@ -1,0 +1,34 @@
+appId: ${MAESTRO_APP_ID}
+---
+# Close an asset settings (or other) drawer and land on the quest assets
+# list. Android Back dismisses the sheet. iOS pressKey back is a no-op,
+# and nav-back sits behind the gorhom portal — tapping its id hits the
+# sheet, not the header. Swipe down from the 12% band: backdrop on an
+# 80% sheet, handle on a taller one. Then nav-back pops the detail.
+# Repeat until assets-search is up — do not assert after a single back.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - pressKey: back
+- runFlow:
+    when:
+      platform: iOS
+      visible:
+        id: drawer-title
+    commands:
+      - swipe:
+          start: 50%, 12%
+          end: 50%, 80%
+          duration: 400
+      - waitForAnimationToEnd:
+          timeout: 2000
+- repeat:
+    times: 5
+    while:
+      notVisible:
+        id: assets-search
+    commands:
+      - tapOn:
+          id: nav-back
+          waitToSettleTimeoutMs: 0

@@ -1,0 +1,91 @@
+appId: ${MAESTRO_APP_ID}
+onFlowStart:
+  - runScript: ../api.js
+onFlowComplete:
+  - runFlow: _recover-after-airplane.yaml
+---
+# Invite accept is blocked offline. Request access writes locally and
+# lands after radios return. Stay on the private-project screen when
+# cutting radios so the gate does not depend on a cloud refetch.
+# Non-member public projects are not kept on device for offline browse.
+# Android only — iOS Simulator has no airplane mode.
+- evalScript: ${output.ownerEmail = output.api.uniqueEmail("offmemowner")}
+- evalScript: ${output.ownerPassword = output.api.uniquePassword("offmemowner")}
+- evalScript: ${output.privateName = "maestro-offpriv-" + Date.now()}
+- evalScript: ${output.inviteProject = "maestro-offinv-" + Date.now()}
+- evalScript: ${output.skipSignInCleanup = true}
+- evalScript: ${output.api.createConfirmedUser(output.ownerEmail, output.ownerPassword)}
+- evalScript: ${output.api.seedProject(output.privateName, output.ownerEmail, true)}
+- evalScript: ${output.api.seedProject(output.inviteProject, output.ownerEmail, false)}
+- runFlow: _start-signed-in.yaml
+- evalScript: ${output.api.seedInvite(output.inviteProject, output.ownerEmail, output.signInEmail)}
+- runFlow: _open-app-drawer.yaml
+- tapOn:
+    id: drawer-notifications
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: notification-invite-accept
+    timeout: 45000
+- runFlow: _open-app-drawer.yaml
+- tapOn:
+    id: drawer-projects
+    waitToSettleTimeoutMs: 0
+- tapOn:
+    id: projects-tab-all
+- tapOn:
+    id: projects-search
+- inputText: ${output.privateName}
+- runFlow: _hide-keyboard.yaml
+- extendedWaitUntil:
+    visible: ${output.privateName}
+    timeout: 45000
+- tapOn:
+    text: ${output.privateName}
+    below:
+      id: projects-search
+- extendedWaitUntil:
+    visible:
+      id: project-request-access
+    timeout: 30000
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - setAirplaneMode: enabled
+      - tapOn:
+          id: project-request-access
+      - extendedWaitUntil:
+          visible: Request Membership
+          timeout: 15000
+      - tapOn: Request Membership
+      - extendedWaitUntil:
+          visible: Success
+          timeout: 20000
+      - tapOn: OK
+      # Success closes the private-access sheet. Go Back must not remain.
+      - extendedWaitUntil:
+          notVisible: Go Back
+          timeout: 10000
+      - runFlow: _open-app-drawer.yaml
+      - tapOn:
+          id: drawer-notifications
+          waitToSettleTimeoutMs: 0
+      - extendedWaitUntil:
+          visible:
+            id: notifications-offline
+          timeout: 15000
+      - tapOn:
+          id: notification-invite-accept
+          waitToSettleTimeoutMs: 0
+      - extendedWaitUntil:
+          visible: You must be online to accept an invitation
+          timeout: 15000
+      - tapOn: OK
+      - setAirplaneMode: disabled
+      - evalScript: ${output.api.waitForRequest(output.privateName, output.signInEmail, "pending", 45000)}
+      - evalScript: ${output.api.waitForInvite(output.inviteProject, output.signInEmail, "pending", 15000)}
+- evalScript: ${output.api.deleteProject(output.privateName)}
+- evalScript: ${output.api.deleteProject(output.inviteProject)}
+- evalScript: ${output.api.deleteUserIfExists(output.signInEmail)}
+- evalScript: ${output.api.deleteUserIfExists(output.ownerEmail)}

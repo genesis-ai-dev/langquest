@@ -1,4 +1,4 @@
-import { LanguageSelect } from '@/components/language-select';
+import { LanguageCombobox } from '@/components/language-combobox';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Alert, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -301,6 +301,8 @@ export default function ProfileView() {
             posthog?.capture('feedback button pressed');
             router.push('/(app)/feedback');
           }}
+          testID="profile-feedback"
+          accessibilityLabel={t('submitFeedback')}
         >
           <Text>{t('submitFeedback')}</Text>
         </Button>
@@ -359,6 +361,7 @@ export default function ProfileView() {
                         placeholder={t('currentPassword')}
                         placeholderTextColor={colors.textSecondary}
                         secureTextEntry
+                        testID="profile-current-password"
                       />
                     </FormControl>
                     <FormMessage />
@@ -379,6 +382,7 @@ export default function ProfileView() {
                       placeholder={t('newPassword')}
                       placeholderTextColor={colors.textSecondary}
                       secureTextEntry
+                      testID="profile-new-password"
                     />
                   </FormControl>
                   <FormMessage />
@@ -399,6 +403,7 @@ export default function ProfileView() {
                       placeholder={t('confirmPassword')}
                       placeholderTextColor={colors.textSecondary}
                       secureTextEntry
+                      testID="profile-confirm-password"
                     />
                   </FormControl>
                   <FormMessage />
@@ -412,7 +417,11 @@ export default function ProfileView() {
           </Alert>
         )}
         {/* Save Button */}
-        <FormSubmit onPress={handleFormSubmit} disabled={!isOnline}>
+        <FormSubmit
+          onPress={handleFormSubmit}
+          disabled={!isOnline}
+          testID="profile-submit"
+        >
           <Text>{t('submit')}</Text>
         </FormSubmit>
 
@@ -422,10 +431,13 @@ export default function ProfileView() {
           name="selectedLanguoidId"
           render={({ field }) => (
             <FormItem>
-              <LanguageSelect
-                {...field}
-                uiReadyOnly
+              <LanguageCombobox
+                value={field.value}
                 onChange={(languoid) => field.onChange(languoid.id)}
+                uiReadyOnly
+                toggleUILocalization
+                testID="profile-language"
+                searchTestID="language-search"
               />
               <FormMessage />
             </FormItem>
@@ -440,6 +452,7 @@ export default function ProfileView() {
               variant="ghost"
               onPress={() => setShowAdvancedOptions(!showAdvancedOptions)}
               className="h-auto justify-between p-4"
+              testID="profile-advanced"
             >
               <View className="flex flex-row items-center gap-2">
                 <Icon
@@ -480,6 +493,7 @@ export default function ProfileView() {
                         router.push('/(app)/account-deletion');
                       }}
                       className="mt-2"
+                      testID="profile-delete-account"
                     >
                       <Text>{t('deleteAccount')}</Text>
                     </Button>

@@ -57,6 +57,7 @@ interface RadioGroupItemProps {
   disabled?: boolean;
   className?: string;
   children?: React.ReactNode;
+  testID?: string;
 }
 
 const RadioGroupItem = ({
@@ -64,7 +65,8 @@ const RadioGroupItem = ({
   value,
   label,
   disabled: itemDisabled,
-  children
+  children,
+  testID
 }: RadioGroupItemProps) => {
   const {
     value: selectedValue,
@@ -78,6 +80,8 @@ const RadioGroupItem = ({
     <ButtonPressable
       disabled={isDisabled}
       onPress={() => !isDisabled && onValueChange(value)}
+      testID={testID}
+      accessibilityLabel={testID}
       className={cn(
         'flex-row items-center gap-3 rounded-lg border border-input bg-background px-4 py-3 active:bg-accent web:ring-offset-background web:focus-visible:outline-none web:focus-visible:ring-2 web:focus-visible:ring-ring web:focus-visible:ring-offset-2',
         isSelected && 'border-primary bg-accent',

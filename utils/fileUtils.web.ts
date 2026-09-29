@@ -226,7 +226,13 @@ export function getLocalAttachmentUri(filePath: string) {
   return getLocalUri(getLocalFilePathSuffix(filePath));
 }
 
-// save the file in the browser locally
+/**
+ * Save a recorded blob into OPFS shared_attachments/ under its final
+ * filename (also the storage object name). Prefer `storeRecordedAudio`
+ * (services/attachments), which also registers it in the LocalFileIndex.
+ *
+ * @returns the bare filename
+ */
 export async function saveAudioLocally(uri: string) {
   // Validate that we received a blob URL (expected on web)
   if (!uri.startsWith('blob:')) {
@@ -256,7 +262,7 @@ export async function saveAudioLocally(uri: string) {
       throw new Error('Failed to get file name');
     }
 
-    const localUri = `local/${fileName}`;
+    const localUri = fileName;
     console.log('writing blob to OPFS', localUri);
 
     const fileHandle = await getOPFSHandle(

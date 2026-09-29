@@ -1,0 +1,78 @@
+appId: ${MAESTRO_APP_ID}
+---
+- evalScript: ${output.projectName = output.projectName || ("maestro-project-" + Date.now())}
+- evalScript: ${output.questName = output.questName || ("maestro-quest-" + Date.now())}
+- evalScript: ${output.projectLanguage = output.projectLanguage || ("maestro-lang-" + Date.now())}
+- runFlow:
+    when:
+      visible:
+        id: projects-create-button
+    commands:
+      - tapOn:
+          id: projects-create-button
+          waitToSettleTimeoutMs: 0
+- runFlow:
+    when:
+      notVisible:
+        id: project-create-name
+    commands:
+      - runFlow: _open-app-drawer.yaml
+      - tapOn:
+          id: drawer-projects
+          waitToSettleTimeoutMs: 0
+      - tapOn:
+          id: projects-create-button
+          waitToSettleTimeoutMs: 0
+- tapOn:
+    id: project-create-name
+    waitToSettleTimeoutMs: 0
+- inputText: ${output.projectName}
+- runFlow: _hide-keyboard.yaml
+- tapOn:
+    id: project-create-language
+    waitToSettleTimeoutMs: 0
+- runFlow: _tap-language-search.yaml
+- inputText: ${output.projectLanguage}
+- runFlow: _tap-language-create-new.yaml
+# Closing the language modal dismisses the IME. Android hideKeyboard is
+# Back and will pop the New Project sheet once language-search is gone.
+- runFlow: _wait-language-search-gone.yaml
+- extendedWaitUntil:
+    visible:
+      id: project-create-submit
+    timeout: 15000
+- tapOn:
+    id: project-create-submit
+    waitToSettleTimeoutMs: 0
+- evalScript: ${output.api.waitForProject(output.projectName)}
+- extendedWaitUntil:
+    notVisible:
+      id: project-create-name
+    timeout: 15000
+- extendedWaitUntil:
+    visible: ${output.projectName}
+    timeout: 20000
+- tapOn:
+    text: ${output.projectName}
+    waitToSettleTimeoutMs: 0
+- tapOn:
+    id: quest-create-button
+    waitToSettleTimeoutMs: 0
+- tapOn:
+    id: quest-create-name
+    waitToSettleTimeoutMs: 0
+- inputText: ${output.questName}
+- runFlow: _hide-keyboard.yaml
+- tapOn:
+    id: quest-create-submit
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: quest-list-item
+    timeout: 20000
+- extendedWaitUntil:
+    notVisible:
+      id: quest-create-name
+    timeout: 15000
+- runFlow: _open-quest.yaml
+- evalScript: ${output.api.waitForQuest(output.questName)}

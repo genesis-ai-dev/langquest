@@ -9,9 +9,9 @@ import { quest } from '@/db/drizzleSchema';
 import type { QuestMetadata } from '@/db/drizzleSchemaColumns';
 import { system } from '@/db/powersync/system';
 import { resolveTable } from '@/utils/dbUtils';
-import { useHybridData } from '@/views/new/useHybridData';
+import { useHybridQuery } from '@/hooks/useHybridQuery';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 
 interface CreateBookParams {
@@ -31,7 +31,6 @@ interface BookQuest {
  */
 export function useBibleBookCreation() {
   const { currentUser } = useAuth();
-  const queryClient = useQueryClient();
 
   /**
    * Find existing book quest or create it if it doesn't exist
@@ -62,14 +61,16 @@ export function useBibleBookCreation() {
         // Query using JSON metadata - SQLite json_extract
         // Note: Using raw SQL for JSON operations since Drizzle doesn't have type-safe json_extract yet
         const booksWithMetadata = await tx.run(
-          sql.raw(`
-                        SELECT id, name, project_id, metadata
-                        FROM quest
-                        WHERE REPLACE(project_id, '-', '') = REPLACE('${projectId}', '-', '')
-                          AND parent_id IS NULL
-                          AND json_extract(metadata, '$.bible.book') = '${bookId}'
-                        LIMIT 1
-                    `)
+          sql`
+            SELECT id, name, project_id, metadata
+            FROM quest
+            WHERE REPLACE(project_id, '-', '') = REPLACE(${projectId}, '-', '')
+              AND parent_id IS NULL
+              AND json_extract(json(metadata), '$.bible.book') = ${bookId}
+            ORDER BY CASE WHEN published_at IS NULL THEN 0 ELSE 1 END,
+                     created_at DESC
+            LIMIT 1
+          `
         );
 
         if (
@@ -173,7 +174,8 @@ export function useBibleBookCreation() {
             parent_id: null, // Books have no parent
             creator_id: currentUser.id,
             download_profiles: [currentUser.id],
-            metadata: metadata // Store Bible book in metadata
+            metadata: metadata, // Store Bible book in metadata
+            published_at: null
           })
           .returning();
 
@@ -188,12 +190,6 @@ export function useBibleBookCreation() {
           name: newBook.name,
           project_id: newBook.project_id
         };
-      });
-    },
-    onSuccess: (result) => {
-      // Invalidate queries to update UI
-      void queryClient.invalidateQueries({
-        queryKey: ['bible-books', result.project_id]
       });
     }
   });
@@ -295,8 +291,7 @@ async function fetchCloudBooks(
  * Filters by metadata.bible.book and excludes quests with metadata.bible.chapter
  */
 export function useBibleBooks(projectId: string) {
-  // Use Drizzle ORM to query the merged quest view (includes quest_local + quest_synced)
-  // This ensures local-only books created offline are included
+  // Unpublished books live in the same quest table (published_at IS NULL) as published books.
   const offlineQueryBuilder = system.db
     .select()
     .from(quest)
@@ -309,9 +304,8 @@ export function useBibleBooks(projectId: string) {
       )
     );
 
-  const { data: books = [], ...rest } = useHybridData({
-    dataType: 'bible-books',
-    queryKeyParams: [projectId],
+  const { data: books = [], ...rest } = useHybridQuery({
+    queryKey: ['bible-books', projectId],
     offlineQuery: toCompilableQuery(offlineQueryBuilder),
     cloudQueryFn: () => fetchCloudBooks(projectId),
     transformCloudData: (cloudBook) => {

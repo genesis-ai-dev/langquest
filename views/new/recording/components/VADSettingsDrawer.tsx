@@ -889,7 +889,12 @@ function VADSettingsDrawerInternal({
   return (
     <Drawer open={isOpen} onOpenChange={onOpenChange} snapPoints={['100%']}>
       <DrawerContent asChild>
-        <View style={{ flex: 1 }} className="px-6">
+        <View
+          style={{ flex: 1 }}
+          className="px-6"
+          testID="recording-vad-settings-drawer"
+          accessibilityLabel="recording-vad-settings-drawer"
+        >
           <DrawerScrollView
             style={{ flex: 1 }}
             contentContainerStyle={{ paddingBottom: 16 }}
@@ -1471,7 +1476,11 @@ function VADSettingsDrawerInternal({
 
           {/* Footer pinned to bottom, outside scroll view */}
           <View className="border-t border-border bg-background pb-6 pt-2">
-            <DrawerClose variant="default">
+            <DrawerClose
+              variant="default"
+              testID="recording-vad-done"
+              accessibilityLabel="recording-vad-done"
+            >
               <Text>{t('done')}</Text>
             </DrawerClose>
           </View>

@@ -12,8 +12,6 @@ function Drawer({
   snapPoints: _snapPoints,
   ...props
 }: React.ComponentProps<typeof DrawerPrimitive.Root>) {
-  // const convertedSnapPoints = convertSnapPoints(snapPoints ?? []);
-  // console.log('convertedSnapPoints', convertedSnapPoints);
   return <DrawerPrimitive.Root data-slot="drawer" snapPoints={[]} {...props} />;
 }
 

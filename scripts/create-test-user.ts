@@ -227,7 +227,7 @@ async function createQuests(projectId: string, userId: string) {
 }
 
 async function createAssetsWithContent(
-  quests: Array<{ id: string }>,
+  quests: { id: string }[],
   projectId: string,
   userId: string
 ) {
@@ -265,7 +265,6 @@ async function createAssetsWithContent(
         creator_id: userId,
         active: true,
         visible: true,
-        images: [],
         created_at: now,
         last_updated: now
       });

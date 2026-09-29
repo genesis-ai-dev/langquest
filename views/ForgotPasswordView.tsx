@@ -1,3 +1,4 @@
+import { AuthSheetCloseButton } from '@/components/AuthSheetCloseButton';
 import { OfflineAlert } from '@/components/offline-alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -13,6 +14,11 @@ import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 import { system } from '@/db/powersync/system';
+import {
+  createForgotPasswordSchema,
+  requireOnline
+} from '@/features/auth/validation';
+import type { ForgotPasswordFormValues } from '@/features/auth/validation';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import RNAlert from '@blazejkustra/react-native-alert';
@@ -24,7 +30,6 @@ import React from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { Linking, View } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
-import { z } from 'zod';
 
 const { supabaseConnector } = system;
 
@@ -33,38 +38,25 @@ export default function ForgotPasswordView() {
   const router = useRouter();
   const { t } = useLocalization();
   const isOnline = useNetworkStatus();
-  const formSchema = z.object({
-    email: z
-      .email(t('enterValidEmail'))
-      .nonempty(t('emailRequired'))
-      .toLowerCase()
-      .trim()
+  const formSchema = createForgotPasswordSchema({
+    enterValidEmail: t('enterValidEmail'),
+    emailRequired: t('emailRequired')
   });
 
-  const { mutateAsync: resetPassword, isPending } = useMutation({
-    mutationFn: async (data: z.infer<typeof formSchema>) => {
-      if (!isOnline) {
-        throw new Error(t('internetConnectionRequired'));
-      }
+  const {
+    mutateAsync: resetPassword,
+    isPending,
+    isSuccess
+  } = useMutation({
+    mutationFn: async (data: ForgotPasswordFormValues) => {
+      requireOnline(isOnline, t('internetConnectionRequired'));
       const { error } =
         await supabaseConnector.client.auth.resetPasswordForEmail(data.email);
       if (error) throw error;
     },
     onSuccess: () => {
       if (__DEV__ && process.env.NODE_ENV === 'development')
-        Linking.openURL(process.env.EXPO_PUBLIC_RESEND_LOCAL_INBOX_URL!);
-      RNAlert.alert(t('success'), t('checkEmailForResetLink'), [
-        {
-          text: t('ok'),
-          isPreferred: true,
-          onPress: () => {
-            router.dismissTo({
-              pathname: '/(auth)/sign-in',
-              params: { email }
-            });
-          }
-        }
-      ]);
+        void Linking.openURL(process.env.EXPO_PUBLIC_RESEND_LOCAL_INBOX_URL!);
     },
     onError: (error) => {
       RNAlert.alert(
@@ -74,7 +66,7 @@ export default function ForgotPasswordView() {
     }
   });
 
-  const form = useForm<z.infer<typeof formSchema>>({
+  const form = useForm<ForgotPasswordFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       email: initialEmail || ''
@@ -82,8 +74,35 @@ export default function ForgotPasswordView() {
   });
 
   const email = useWatch({ control: form.control, name: 'email' });
+  const submittedEmail = React.useRef(initialEmail || '');
 
-  const handleFormSubmit = form.handleSubmit((data) => resetPassword(data));
+  const goToSignIn = React.useCallback(() => {
+    const nextEmail = submittedEmail.current || email;
+    router.replace({
+      pathname: '/(auth)/sign-in',
+      params: { email: nextEmail }
+    });
+  }, [email, router]);
+
+  const handleFormSubmit = form.handleSubmit((data) => {
+    submittedEmail.current = data.email;
+    return resetPassword(data);
+  });
+
+  if (isSuccess) {
+    return (
+      <View className="m-safe flex flex-1 flex-col gap-4 p-6">
+        <AuthSheetCloseButton />
+        <View className="flex flex-1 flex-col items-center justify-center gap-4">
+          <Text className="text-6xl font-semibold text-primary">LangQuest</Text>
+          <Text className="text-center">{t('checkEmailForResetLink')}</Text>
+          <Button testID="forgot-password-ok" onPress={goToSignIn}>
+            <Text>{t('ok')}</Text>
+          </Button>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <Form {...form}>
@@ -93,6 +112,7 @@ export default function ForgotPasswordView() {
         bottomOffset={96}
         extraKeyboardSpace={20}
       >
+        <AuthSheetCloseButton />
         <View className="flex flex-col items-center justify-center gap-4 text-center">
           <Text className="text-6xl font-semibold text-primary">LangQuest</Text>
           <Text>{t('resetPassword')}</Text>
@@ -116,6 +136,7 @@ export default function ForgotPasswordView() {
                     returnKeyType="done"
                     onSubmitEditing={handleFormSubmit}
                     mask
+                    testID="forgot-password-email"
                   />
                 </FormControl>
                 <FormMessage />
@@ -125,20 +146,15 @@ export default function ForgotPasswordView() {
 
           <OfflineAlert />
           <View className="flex w-full flex-col">
-            <FormSubmit onPress={handleFormSubmit} disabled={!isOnline}>
+            <FormSubmit
+              onPress={handleFormSubmit}
+              disabled={!isOnline}
+              testID="forgot-password-submit"
+            >
               <Text>{t('sendResetEmail')}</Text>
             </FormSubmit>
 
-            <Button
-              onPress={() =>
-                router.dismissTo({
-                  pathname: '/(auth)/sign-in',
-                  params: { email }
-                })
-              }
-              disabled={isPending}
-              variant="plain"
-            >
+            <Button onPress={goToSignIn} disabled={isPending} variant="plain">
               <Text>{t('backToLogin')}</Text>
             </Button>
           </View>

@@ -1,6 +1,8 @@
 import { system } from '@/db/powersync/system';
+import { initializeFiaQueue } from '@/services/FiaAttachmentQueue';
 import { setPostHogUserId } from '@/services/posthog';
 import { useLocalStore } from '@/store/localStore';
+import { consumePendingPasswordRecovery } from '@/utils/deepLinkHandler';
 import { getSupabaseAuthKey } from '@/utils/supabaseUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -138,15 +140,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     reason: string;
   } | null>(null);
 
-  // Initialize system when we have an authenticated session
-  const initializeSystem = async () => {
+  // Initialize system when we have an authenticated session.
+  // keepNavigators: do not flip isSystemReady false — that unmounts RootNavigator
+  // / Stack.Protected while (auth) may be presenting and corrupts nested stack
+  // state (`Cannot read property 'stale' of undefined`).
+  const initializeSystem = async (options?: { keepNavigators?: boolean }) => {
     try {
       console.log('[AuthContext] Initializing system...');
-      setIsSystemReady(false);
+      if (!options?.keepNavigators) {
+        setIsSystemReady(false);
+      }
       setMigrationNeeded(false);
       setAppUpgradeNeeded(false);
       setUpgradeError(null);
       await system.init();
+      initializeFiaQueue();
       setIsSystemReady(true);
       console.log('[AuthContext] System initialized successfully');
     } catch (error) {
@@ -207,6 +215,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Track whether auth has been initialized (to prevent double init from race)
   const hasInitializedRef = useRef(false);
+  const recoveryPendingRef = useRef(false);
 
   useEffect(() => {
     console.log('[AuthContext] Setting up auth listener...');
@@ -425,20 +434,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
 
           case 'SIGNED_IN': {
-            // Update session for sign in events
-            setSession(session);
-            system.supabaseConnector.updateSession(session);
-            setPostHogUserId(session?.user.id ?? null);
+            const detectedSessionType = getSessionType(session);
+            const isRecovery =
+              detectedSessionType === 'password-reset' ||
+              consumePendingPasswordRecovery();
 
             console.log('[AuthContext] User signed in');
-            const detectedSessionType = getSessionType(session);
             console.log(
               '[AuthContext] Detected session type:',
               detectedSessionType
             );
+
+            // setSession() on a recovery link emits SIGNED_IN, not
+            // PASSWORD_RECOVERY. Flipping isSystemReady unmounts the tree
+            // and Expo Router then presents reset-password on a dead stack.
+            if (isRecovery) {
+              recoveryPendingRef.current = true;
+              setSession(session);
+              system.supabaseConnector.updateSession(session);
+              setPostHogUserId(session?.user.id ?? null);
+              setSessionType('password-reset');
+              console.log(
+                '[AuthContext] Password recovery session; skip system init'
+              );
+              break;
+            }
+
+            setIsLoading(true);
+            setIsSystemReady(false);
+            setSession(session);
+            system.supabaseConnector.updateSession(session);
+            setPostHogUserId(session?.user.id ?? null);
             setSessionType(detectedSessionType);
 
-            // Always initialize system when signed in
             console.log(
               '[AuthContext] Starting system initialization from SIGNED_IN event'
             );
@@ -451,14 +479,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
 
           case 'PASSWORD_RECOVERY':
-            // Update session for password recovery
+            recoveryPendingRef.current = true;
             setSession(session);
             system.supabaseConnector.updateSession(session);
             setPostHogUserId(session?.user.id ?? null);
-
-            console.log('[AuthContext] Password recovery session');
             setSessionType('password-reset');
-            // Don't initialize system for password reset
+            console.log('[AuthContext] Password recovery session');
             break;
 
           case 'SIGNED_OUT':
@@ -494,10 +520,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             break;
 
           case 'USER_UPDATED':
-            // Update session for user updates
             if (session) {
               setSession(session);
               system.supabaseConnector.updateSession(session);
+              if (recoveryPendingRef.current) {
+                recoveryPendingRef.current = false;
+                setSessionType('normal');
+                console.log(
+                  '[AuthContext] Starting system initialization after password update'
+                );
+                await initializeSystem({ keepNavigators: true });
+              }
             }
             console.log('[AuthContext] User updated');
             break;

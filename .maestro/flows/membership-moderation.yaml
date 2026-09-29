@@ -1,0 +1,56 @@
+appId: ${MAESTRO_APP_ID}
+onFlowStart:
+  - runScript: ../api.js
+---
+# Owner approves one join request and denies another from the membership drawer.
+- evalScript: ${output.approveEmail = output.api.uniqueEmail("reqok")}
+- evalScript: ${output.approvePassword = output.api.uniquePassword("reqok")}
+- evalScript: ${output.denyEmail = output.api.uniqueEmail("reqno")}
+- evalScript: ${output.denyPassword = output.api.uniquePassword("reqno")}
+- evalScript: ${output.projectName = "maestro-moderation-" + Date.now()}
+- evalScript: ${output.skipSignInCleanup = true}
+- evalScript: ${output.approveUserId = output.api.createConfirmedUser(output.approveEmail, output.approvePassword).id}
+- evalScript: ${output.denyUserId = output.api.createConfirmedUser(output.denyEmail, output.denyPassword).id}
+- runFlow: _start-signed-in.yaml
+- evalScript: ${output.api.seedProject(output.projectName, output.signInEmail, true)}
+- evalScript: ${output.api.seedRequest(output.projectName, output.approveEmail)}
+- evalScript: ${output.api.seedRequest(output.projectName, output.denyEmail)}
+- runFlow: _open-named-project.yaml
+- extendedWaitUntil:
+    visible:
+      id: project-invite-banner
+    timeout: 30000
+- tapOn:
+    id: project-invite-banner
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: membership-tab-requests
+    timeout: 15000
+- tapOn:
+    id: membership-tab-requests
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible:
+      id: membership-request-approve-${output.approveUserId}
+    timeout: 45000
+- tapOn:
+    id: membership-request-approve-${output.approveUserId}
+    waitToSettleTimeoutMs: 0
+- tapOn: Confirm
+- tapOn: OK
+- evalScript: ${output.api.waitForRequest(output.projectName, output.approveEmail, "accepted")}
+- extendedWaitUntil:
+    visible:
+      id: membership-request-deny-${output.denyUserId}
+    timeout: 20000
+- tapOn:
+    id: membership-request-deny-${output.denyUserId}
+    waitToSettleTimeoutMs: 0
+- tapOn: Confirm
+- tapOn: OK
+- evalScript: ${output.api.waitForRequest(output.projectName, output.denyEmail, "declined")}
+- evalScript: ${output.api.deleteProject(output.projectName)}
+- evalScript: ${output.api.deleteUserIfExists(output.signInEmail)}
+- evalScript: ${output.api.deleteUserIfExists(output.approveEmail)}
+- evalScript: ${output.api.deleteUserIfExists(output.denyEmail)}

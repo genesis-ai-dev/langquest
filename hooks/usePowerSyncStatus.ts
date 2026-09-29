@@ -1,4 +1,5 @@
 import { system } from '@/db/powersync/system';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 export interface PowerSyncStatus {
@@ -50,6 +51,7 @@ function getCurrentPowerSyncStatus(): PowerSyncStatus {
  * Excludes timestamps from dependency comparisons to avoid cascading updates.
  */
 export function usePowerSyncStatus(): PowerSyncStatus {
+  const isOnline = useNetworkStatus();
   const [status, setStatus] = useState(() => getCurrentPowerSyncStatus());
 
   // Track previous meaningful values (excluding timestamps) to prevent unnecessary updates
@@ -108,10 +110,17 @@ export function usePowerSyncStatus(): PowerSyncStatus {
     return unsubscribe;
   }, [updateStatus]);
 
-  // Memoize the returned status to ensure stable reference when values don't change
+  // Device offline is disconnected, even if PowerSync is still retrying.
   return useMemo(
-    () => status,
+    () => ({
+      ...status,
+      connected: isOnline && status.connected,
+      connecting: isOnline && status.connecting,
+      downloadError: isOnline ? status.downloadError : undefined,
+      uploadError: isOnline ? status.uploadError : undefined
+    }),
     [
+      isOnline,
       status.connected,
       status.connecting,
       status.downloading,

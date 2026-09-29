@@ -1,44 +1,16 @@
 import { compareVersions } from '@/db/schemaVersionService';
 import { system } from '@/db/powersync/system';
+import {
+  STORE_UPDATE_DISMISSAL_MS,
+  getLatestStoreVersion,
+  getStoreUrl,
+  shouldShowStoreUpdateBanner
+} from '@/hooks/storeUpdateAvailability';
+import type { SystemInfoRow } from '@/hooks/storeUpdateAvailability';
 import { useLocalStore } from '@/store/localStore';
 import { getInstalledAppVersion } from '@/utils/appVersion';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef } from 'react';
-import { Platform } from 'react-native';
-
-const DISMISSAL_DURATION = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
-
-type SystemInfoRow = {
-  ios_latest_version: string;
-  android_latest_version: string;
-  ios_store_url: string | null;
-  android_store_url: string | null;
-  banner_enabled: boolean;
-};
-
-function getLatestStoreVersion(info: SystemInfoRow): string | null {
-  if (Platform.OS === 'ios') {
-    return info.ios_latest_version;
-  }
-
-  if (Platform.OS === 'android') {
-    return info.android_latest_version;
-  }
-
-  return null;
-}
-
-function getStoreUrl(info: SystemInfoRow): string | null {
-  if (Platform.OS === 'ios') {
-    return info.ios_store_url;
-  }
-
-  if (Platform.OS === 'android') {
-    return info.android_store_url;
-  }
-
-  return null;
-}
 
 export function useStoreUpdate() {
   const queryClient = useQueryClient();
@@ -63,7 +35,7 @@ export function useStoreUpdate() {
 
     if (dismissedStoreUpdateTimestamp) {
       const timeSinceDismissal = Date.now() - dismissedStoreUpdateTimestamp;
-      const timeRemaining = DISMISSAL_DURATION - timeSinceDismissal;
+      const timeRemaining = STORE_UPDATE_DISMISSAL_MS - timeSinceDismissal;
 
       if (timeRemaining > 0) {
         timerRef.current = setTimeout(() => {
@@ -156,29 +128,6 @@ export function useStoreUpdate() {
     retry: false
   });
 
-  const shouldShowBanner = () => {
-    if (!updateInfo?.bannerEnabled) {
-      return false;
-    }
-
-    if (!updateInfo.isUpdateAvailable || !updateInfo.latestVersion) {
-      return false;
-    }
-
-    const currentVersion = updateInfo.latestVersion;
-
-    if (!dismissedStoreUpdateTimestamp || !dismissedStoreUpdateVersion) {
-      return true;
-    }
-
-    if (currentVersion !== dismissedStoreUpdateVersion) {
-      return true;
-    }
-
-    const timeSinceDismissal = Date.now() - dismissedStoreUpdateTimestamp;
-    return timeSinceDismissal >= DISMISSAL_DURATION;
-  };
-
   const handleDismiss = () => {
     if (updateInfo?.latestVersion) {
       dismissStoreUpdate(updateInfo.latestVersion);
@@ -189,7 +138,13 @@ export function useStoreUpdate() {
     updateInfo: {
       storeUrl: null,
       ...updateInfo,
-      isUpdateAvailable: shouldShowBanner()
+      isUpdateAvailable: shouldShowStoreUpdateBanner({
+        bannerEnabled: updateInfo?.bannerEnabled ?? false,
+        isUpdateAvailable: updateInfo?.isUpdateAvailable ?? false,
+        latestVersion: updateInfo?.latestVersion ?? null,
+        dismissedTimestamp: dismissedStoreUpdateTimestamp,
+        dismissedVersion: dismissedStoreUpdateVersion
+      })
     },
     isLoading,
     checkForUpdate: refetch,

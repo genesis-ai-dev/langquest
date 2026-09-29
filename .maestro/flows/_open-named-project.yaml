@@ -1,0 +1,28 @@
+appId: ${MAESTRO_APP_ID}
+---
+- tapOn:
+    id: projects-tab-my
+    waitToSettleTimeoutMs: 0
+# Retyping into a still-filtered field concatenates the query
+# (`maestro-offrl-…maestro-offrl-…`) and shows No projects found.
+- runFlow:
+    when:
+      notVisible: ${output.projectName}
+    commands:
+      - tapOn:
+          id: projects-search
+      - inputText: ${output.projectName}
+      - runFlow: _hide-keyboard.yaml
+- extendedWaitUntil:
+    visible:
+      id: project-list-item
+    timeout: 45000
+# One tap opens the project. The list must keep taps while the keyboard
+# is up; home chrome must not steal the press during the push.
+- tapOn:
+    id: project-list-item
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    notVisible:
+      id: projects-create-button
+    timeout: 20000

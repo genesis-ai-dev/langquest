@@ -1,0 +1,105 @@
+appId: ${MAESTRO_APP_ID}
+onFlowStart:
+  - runScript: ../api.js
+---
+# 4.1–4.3: My vs All search, then quest search in a seeded project.
+# All excludes the signed-in user's projects; My excludes everyone else's.
+# Open the owned project before changing the search query — eraseText on a
+# controlled field leaves leftover characters (Sign-in email had the same bug).
+- evalScript: ${output.otherEmail = output.api.uniqueEmail("tabother")}
+- evalScript: ${output.otherPassword = output.api.uniquePassword("tabother")}
+- evalScript: ${output.mineName = "maestro-mine-" + Date.now()}
+- evalScript: ${output.publicName = "maestro-all-" + Date.now()}
+- evalScript: ${output.questName = "maestro-qsearch-" + Date.now()}
+- evalScript: ${output.skipSignInCleanup = true}
+- evalScript: ${output.api.createConfirmedUser(output.otherEmail, output.otherPassword)}
+- evalScript: ${output.api.seedProject(output.publicName, output.otherEmail, false)}
+- runFlow: _start-signed-in.yaml
+- evalScript: ${output.api.seedProject(output.mineName, output.signInEmail, true)}
+- evalScript: ${output.api.seedQuest(output.mineName, output.questName, output.signInEmail, true)}
+- tapOn:
+    id: projects-tab-my
+    waitToSettleTimeoutMs: 0
+- tapOn:
+    id: projects-search
+- inputText: ${output.mineName}
+- runFlow: _hide-keyboard.yaml
+- extendedWaitUntil:
+    visible:
+      id: project-list-item
+    timeout: 45000
+- tapOn:
+    text: ${output.mineName}
+    below:
+      id: projects-search
+# Do not hideKeyboard here: with the keyboard already down, Android Back
+# pops the project and returns to the list.
+- extendedWaitUntil:
+    visible:
+      id: quests-search
+    timeout: 20000
+- tapOn:
+    id: quests-search
+- inputText: ${output.questName}
+- runFlow: _hide-keyboard.yaml
+# Search is proven when the name is in the list. Seeded quests are
+# cloud-source and this user owns the project, so opening one shows
+# Download Required instead of the assets screen (non-members browse it
+# like guests; see download-quest.yaml). Cancel, then one back returns to
+# projects.
+- extendedWaitUntil:
+    visible:
+      id: quest-list-item
+    timeout: 45000
+- assertVisible: ${output.questName}
+- tapOn:
+    id: quest-list-item
+- runFlow:
+    when:
+      visible:
+        id: quest-list-item
+      notVisible: '(?i)Download Now'
+    commands:
+      - tapOn:
+          id: quest-list-item
+- extendedWaitUntil:
+    visible: '(?i)Download Now'
+    timeout: 15000
+- assertNotVisible:
+    id: assets-refresh-button
+- tapOn: '(?i)^Cancel$'
+- extendedWaitUntil:
+    notVisible: '(?i)Download Now'
+    timeout: 10000
+- tapOn:
+    id: nav-back
+    waitToSettleTimeoutMs: 0
+- tapOn:
+    id: projects-tab-all
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible: No projects found
+    timeout: 45000
+- tapOn:
+    id: projects-search
+- eraseText: 200
+- runFlow: _hide-keyboard.yaml
+- tapOn:
+    id: projects-search
+- eraseText: 200
+- inputText: ${output.publicName}
+- runFlow: _hide-keyboard.yaml
+- extendedWaitUntil:
+    visible:
+      id: project-list-item
+    timeout: 45000
+- tapOn:
+    id: projects-tab-my
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible: No projects found
+    timeout: 45000
+- evalScript: ${output.api.deleteProject(output.mineName)}
+- evalScript: ${output.api.deleteProject(output.publicName)}
+- evalScript: ${output.api.deleteUserIfExists(output.signInEmail)}
+- evalScript: ${output.api.deleteUserIfExists(output.otherEmail)}
