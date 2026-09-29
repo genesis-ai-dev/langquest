@@ -1,3 +1,4 @@
+import { execFileSync } from 'child_process';
 import { gateway4sync } from 'default-gateway';
 import * as fs from 'fs';
 import { networkInterfaces } from 'os';
@@ -25,6 +26,30 @@ function getNetworkAddress(ip: string, netmask: string): string {
   const maskNum = ipToNumber(netmask);
   const networkNum = (ipNum & maskNum) >>> 0;
   return numberToIp(networkNum);
+}
+
+function getWindowsDefaultGateway(): string | null {
+  if (process.platform !== 'win32') return null;
+
+  try {
+    const output = execFileSync(
+      'powershell.exe',
+      [
+        '-NoProfile',
+        '-Command',
+        "$r = Get-NetRoute -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue | Sort-Object RouteMetric, InterfaceMetric | Select-Object -First 1; if ($r) { $r.NextHop }"
+      ],
+      { encoding: 'utf8', windowsHide: true }
+    ).trim();
+
+    if (/^\d{1,3}(\.\d{1,3}){3}$/.test(output) && output !== '0.0.0.0') {
+      return output;
+    }
+  } catch (error) {
+    console.warn('Windows gateway lookup failed:', error);
+  }
+
+  return null;
 }
 
 function getLocalIP(): string {
@@ -96,6 +121,13 @@ function getLocalIP(): string {
     return findIPInGatewaySubnet(gatewayIP, nets, gatewaySubnetMask);
   } catch (error) {
     console.warn('Error getting gateway:', error);
+    const windowsGateway = getWindowsDefaultGateway();
+    if (windowsGateway) {
+      console.warn(
+        `Using Windows default gateway ${windowsGateway} to find a local IP`
+      );
+      return findIPInGatewaySubnet(windowsGateway, networkInterfaces());
+    }
     return 'localhost';
   }
 }

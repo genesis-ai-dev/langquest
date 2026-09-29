@@ -1700,3 +1700,105 @@ export function createProjectLanguoidSuggestionTable<
 
   return table;
 }
+
+export function createReviewTable<
+  T extends TableSource,
+  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
+>(
+  source: T,
+  {
+    project,
+    quest,
+    profile
+  }: {
+    project: typeof project_local;
+    quest: typeof quest_local;
+    profile: typeof profile_local;
+  },
+  columns?: TColumnsMap,
+  extraConfig?: (
+    self: BuildExtraConfigColumns<'review', TColumnsMap, 'sqlite'>
+  ) => SQLiteTableExtraConfigValue[]
+) {
+  const extraColumns = (columns ?? {}) as TColumnsMap;
+  const table = getTableCreator(source)(
+    'review',
+    {
+      ...getTableColumns(source),
+      project_id: text()
+        .notNull()
+        .references(() => project.id),
+      quest_id: text()
+        .notNull()
+        .references(() => quest.id),
+      profile_id: text().references(() => profile.id),
+      status: text().notNull().default('in_progress'),
+      access_token: text(),
+      origin: text().notNull(),
+      external_id: text(),
+      quest_result: text(),
+      conclusion: text(),
+      metadata: text({ mode: 'json' })
+        .$type<Record<string, unknown>>()
+        .notNull()
+        .$defaultFn(() => ({})),
+      concluded_at: text(),
+      ...extraColumns
+    },
+    (table) => [
+      index('review_project_id_idx').on(table.project_id),
+      index('review_quest_id_idx').on(table.quest_id),
+      index('review_profile_id_idx').on(table.profile_id),
+      index('review_access_token_idx').on(table.access_token),
+      ...normalizeParams(extraConfig, table)
+    ]
+  );
+
+  return table;
+}
+
+export function createReviewAssetTable<
+  T extends TableSource,
+  TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
+>(
+  source: T,
+  {
+    review,
+    asset
+  }: {
+    review: { id: AnySQLiteColumn };
+    asset: typeof asset_local;
+  },
+  columns?: TColumnsMap,
+  extraConfig?: (
+    self: BuildExtraConfigColumns<'review_asset', TColumnsMap, 'sqlite'>
+  ) => SQLiteTableExtraConfigValue[]
+) {
+  const extraColumns = (columns ?? {}) as TColumnsMap;
+  const table = getTableCreator(source)(
+    'review_asset',
+    {
+      ...getBaseColumns(source),
+      review_id: text()
+        .notNull()
+        .references(() => review.id, { onDelete: 'cascade' }),
+      asset_id: text()
+        .notNull()
+        .references(() => asset.id),
+      asset_result: text(),
+      comment: text(),
+      audio: text({ mode: 'json' }).$type<string[]>(),
+      metadata: text({ mode: 'json' })
+        .$type<Record<string, unknown>>()
+        .notNull()
+        .$defaultFn(() => ({})),
+      ...extraColumns
+    },
+    (table) => [
+      primaryKey({ columns: [table.review_id, table.asset_id] }),
+      ...normalizeParams(extraConfig, table)
+    ]
+  );
+
+  return table;
+}

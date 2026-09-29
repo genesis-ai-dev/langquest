@@ -35,6 +35,8 @@ import {
   createRegionSourceTable,
   createRegionTable,
   createReportsTable,
+  createReviewAssetTable,
+  createReviewTable,
   createRequestTable,
   createSubscriptionTable,
   createTagTable,
@@ -339,7 +341,8 @@ export const quest_localRelations = relations(quest_local, ({ one, many }) => ({
   }),
   children: many(quest_local, { relationName: 'quest_parent' }),
   tags: many(quest_tag_link_local),
-  assets: many(quest_asset_link_local)
+  assets: many(quest_asset_link_local),
+  reviews: many(review_local)
 }));
 
 export const tag_local = createTagTable('local');
@@ -392,7 +395,8 @@ export const asset_localRelations = relations(asset_local, ({ one, many }) => ({
   tags: many(asset_tag_link_local),
   quests: many(quest_asset_link_local),
   content: many(asset_content_link_local),
-  votes: many(vote_local)
+  votes: many(vote_local),
+  review_assets: many(review_asset_local)
 }));
 
 export const asset_tag_link_local = createAssetTagLinkTable('local', {
@@ -428,6 +432,47 @@ export const quest_asset_link_localRelations = relations(
     }),
     asset: one(asset_local, {
       fields: [quest_asset_link_local.asset_id],
+      references: [asset_local.id]
+    })
+  })
+);
+
+export const review_local = createReviewTable('local', {
+  project: project_local,
+  quest: quest_local,
+  profile: profile_local
+});
+
+export const review_localRelations = relations(review_local, ({ one, many }) => ({
+  project: one(project_local, {
+    fields: [review_local.project_id],
+    references: [project_local.id]
+  }),
+  quest: one(quest_local, {
+    fields: [review_local.quest_id],
+    references: [quest_local.id]
+  }),
+  profile: one(profile_local, {
+    fields: [review_local.profile_id],
+    references: [profile_local.id]
+  }),
+  assets: many(review_asset_local)
+}));
+
+export const review_asset_local = createReviewAssetTable('local', {
+  review: review_local,
+  asset: asset_local
+});
+
+export const review_asset_localRelations = relations(
+  review_asset_local,
+  ({ one }) => ({
+    review: one(review_local, {
+      fields: [review_asset_local.review_id],
+      references: [review_local.id]
+    }),
+    asset: one(asset_local, {
+      fields: [review_asset_local.asset_id],
       references: [asset_local.id]
     })
   })

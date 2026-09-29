@@ -42,10 +42,12 @@ import { cn, useThemeColor } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Image } from 'expo-image';
+import type { Href } from 'expo-router';
 import {
   BookOpenIcon,
   CopyIcon,
   HardDriveIcon,
+  ClipboardListIcon,
   PlusCircleIcon
 } from 'lucide-react-native';
 import React from 'react';
@@ -228,7 +230,7 @@ export function BibleChapterList({
   bookId,
   onCloudLoadingChange
 }: BibleChapterListProps) {
-  const { goToQuest } = useNavigationHelpers();
+  const { goToQuest, questId, router } = useNavigationHelpers();
   const { project } = useProjectById(projectId);
   const { createChapter, isCreating } = useBibleChapterCreation();
   const { currentUser } = useAuth();
@@ -239,7 +241,8 @@ export function BibleChapterList({
   const { t } = useLocalization();
 
   const { membership } = useUserPermissions(projectId, 'open_project');
-  const canCreateNew = membership === 'member' || membership === 'owner';
+  const isProjectMember = membership === 'member' || membership === 'owner';
+  const canCreateNew = isProjectMember;
 
   const {
     chapters: chapterGroups,
@@ -543,6 +546,19 @@ export function BibleChapterList({
   const hasNoChapters = chapterGroups.length === 0;
   const showEmptyState = !isLoadingChapters && hasNoChapters && !canCreateNew;
 
+  const openReviews = () => {
+    if (!questId) return;
+    router.push({
+      pathname: '/(app)/project/[projectId]/quest/[questId]/reviews',
+      params: {
+        projectId,
+        questId,
+        subjectName: book.name,
+        parentQuestId: questId
+      }
+    } as Href);
+  };
+
   const renderBookHeader = (rowClassName?: string) => (
     <View className={cn('flex-row items-center gap-3', rowClassName)}>
       {bookIconSource ? (
@@ -564,6 +580,19 @@ export function BibleChapterList({
           {book.chapters} {t('chapters')}
         </Text>
       </View>
+      {isProjectMember ? (
+        <Button
+          variant="ghost"
+          size="icon"
+          onPress={openReviews}
+          accessibilityLabel="Reviews"
+        >
+          <Icon
+            as={ClipboardListIcon}
+            className="size-6 text-foreground"
+          />
+        </Button>
+      ) : null}
     </View>
   );
 

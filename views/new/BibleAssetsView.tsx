@@ -33,7 +33,7 @@ import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import RNAlert from '@blazejkustra/react-native-alert';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useKeepAwake } from 'expo-keep-awake';
-import { Stack } from 'expo-router';
+import { Stack, type Href } from 'expo-router';
 import {
   BookmarkPlusIcon,
   BookOpenIcon,
@@ -43,6 +43,7 @@ import {
   FlagIcon,
   InfoIcon,
   LockIcon,
+  ClipboardListIcon,
   PlayIcon,
   Redo2,
   RefreshCwIcon,
@@ -3980,6 +3981,32 @@ export default function BibleAssetsView() {
               <Icon as={RefreshCwIcon} size={18} className="text-primary" />
             </Animated.View>
           </Button>
+          {isPublished && isMember && questId && projectId && selectedQuest ? (
+            <Button
+              variant="ghost"
+              size="icon"
+              accessibilityLabel="Reviews"
+              onPress={() => {
+                router.push({
+                  pathname: '/(app)/project/[projectId]/quest/[questId]/reviews',
+                  params: {
+                    projectId,
+                    questId,
+                    subjectName: formatQuestDisplayLabel(
+                      selectedQuest.name,
+                      selectedQuest.metadata
+                    )
+                  }
+                } as Href);
+              }}
+            >
+              <Icon
+                as={ClipboardListIcon}
+                size={18}
+                className="text-primary"
+              />
+            </Button>
+          ) : null}
           {!isPublished && currentUser && (
             <Button
               variant="ghost"
