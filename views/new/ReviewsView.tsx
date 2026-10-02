@@ -1,11 +1,15 @@
 import { ReviewCard } from '@/components/ReviewCard';
+import { Button } from '@/components/ui/button';
+import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { LegendList } from '@/components/ui/legend-list';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Text } from '@/components/ui/text';
 import type { Review, ReviewTab } from '@/hooks/useReviews';
 import { useReviews } from '@/hooks/useReviews';
-import { SearchIcon } from 'lucide-react-native';
+import {  useRouter } from 'expo-router';
+import type {Href} from 'expo-router';
+import { ClipboardPlusIcon, SearchIcon } from 'lucide-react-native';
 import React from 'react';
 import { View } from 'react-native';
 
@@ -58,23 +62,43 @@ function ReviewListCard({ review }: { review: Review }) {
 
 export default function ReviewsView({
   subjectName,
-  parentQuestId: _parentQuestId,
-  projectId: _projectId,
-  questId: _questId
+  parentQuestId,
+  projectId,
+  questId
 }: ReviewsViewProps) {
+  const router = useRouter();
   const [activeTab, setActiveTab] = React.useState<ReviewTab>('in-progress');
   const [searchQuery, setSearchQuery] = React.useState('');
 
+  // Book-level access (BibleChapterList) passes parentQuestId; only a direct
+  // quest (BibleAssetsView) can have a review created for it.
+  const canAddReview = !!projectId && !!questId && !parentQuestId;
+
+  const openAddReview = () => {
+    router.push({
+      pathname: '/(app)/project/[projectId]/quest/[questId]/review-edit',
+      params: { projectId, questId, subjectName }
+    } as Href);
+  };
+
   return (
     <View className="flex-1 flex-col gap-6 px-4">
-      <View className="min-w-0 flex-col items-start">
-        <Text variant="h3" className="w-full text-left">
-          Reviews
-        </Text>
-        {subjectName ? (
-          <Text className="w-full text-left text-sm text-muted-foreground">
-            {subjectName}
+      <View className="flex-row items-center justify-between gap-3">
+        <View className="min-w-0 flex-1 flex-col items-start">
+          <Text variant="h3" className="w-full text-left">
+            Reviews
           </Text>
+          {subjectName ? (
+            <Text className="w-full text-left text-sm text-muted-foreground">
+              {subjectName}
+            </Text>
+          ) : null}
+        </View>
+        {canAddReview ? (
+          <Button size="sm" onPress={openAddReview}>
+            <Icon as={ClipboardPlusIcon} size={16} />
+            <Text>Add Review</Text>
+          </Button>
         ) : null}
       </View>
 

@@ -31,7 +31,11 @@
  */
 
 import type * as drizzleSchema from '@/db/drizzleSchema';
-import { asset_content_link_synced } from '@/db/drizzleSchemaSynced';
+import {
+  asset_content_link_synced,
+  review_asset_synced,
+  review_synced
+} from '@/db/drizzleSchemaSynced';
 import type { SupabaseStorageAdapter } from '@/db/supabase/SupabaseStorageAdapter';
 import { isInvalidAudioValue, isLocalOnlyAudio } from '@/utils/attachmentPaths';
 import { getLocalAttachmentUri } from '@/utils/fileUtils';
@@ -224,11 +228,39 @@ export class AudioUploader {
    * All unconfirmed, uploadable filenames present on this device —
    * including ones currently backing off.
    */
+  private pendingReviewAudioQuery() {
+    return this.options.db
+      .select({ audio: review_synced.audio })
+      .from(review_synced)
+      .where(
+        and(
+          isNotNull(review_synced.audio),
+          isNull(review_synced.audio_uploaded_at)
+        )
+      );
+  }
+
+  private pendingReviewAssetAudioQuery() {
+    return this.options.db
+      .select({ audio: review_asset_synced.audio })
+      .from(review_asset_synced)
+      .where(
+        and(
+          isNotNull(review_asset_synced.audio),
+          isNull(review_asset_synced.audio_uploaded_at)
+        )
+      );
+  }
+
   private async getWorkList(): Promise<string[]> {
-    const syncedRows = await this.pendingSyncedQuery();
+    const [contentRows, reviewRows, reviewAssetRows] = await Promise.all([
+      this.pendingSyncedQuery(),
+      this.pendingReviewAudioQuery(),
+      this.pendingReviewAssetAudioQuery()
+    ]);
 
     const names = new Set<string>();
-    for (const row of syncedRows) {
+    for (const row of [...contentRows, ...reviewRows, ...reviewAssetRows]) {
       for (const value of row.audio ?? []) {
         if (!value || isInvalidAudioValue(value) || isLocalOnlyAudio(value)) {
           continue;

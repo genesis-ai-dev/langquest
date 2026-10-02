@@ -1701,6 +1701,23 @@ export function createProjectLanguoidSuggestionTable<
   return table;
 }
 
+/** Server-stamped columns on the syncing review table. Omitted from the local draft. */
+export function reviewCloudColumns() {
+  return {
+    audio: text({ mode: 'json' }).$type<string[] | null>(),
+    uploaded_at: text(),
+    audio_uploaded_at: text()
+  };
+}
+
+/** Server-stamped columns on the syncing review_asset table. */
+export function reviewAssetCloudColumns() {
+  return {
+    uploaded_at: text(),
+    audio_uploaded_at: text()
+  };
+}
+
 export function createReviewTable<
   T extends TableSource,
   TColumnsMap extends Record<string, SQLiteColumnBuilderBase> = {}
@@ -1711,9 +1728,9 @@ export function createReviewTable<
     quest,
     profile
   }: {
-    project: typeof project_local;
-    quest: typeof quest_local;
-    profile: typeof profile_local;
+    project: { id: AnySQLiteColumn };
+    quest: { id: AnySQLiteColumn };
+    profile: { id: AnySQLiteColumn };
   },
   columns?: TColumnsMap,
   extraConfig?: (
@@ -1767,7 +1784,7 @@ export function createReviewAssetTable<
     asset
   }: {
     review: { id: AnySQLiteColumn };
-    asset: typeof asset_local;
+    asset: { id: AnySQLiteColumn };
   },
   columns?: TColumnsMap,
   extraConfig?: (

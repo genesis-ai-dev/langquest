@@ -33,7 +33,8 @@ import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import RNAlert from '@blazejkustra/react-native-alert';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useKeepAwake } from 'expo-keep-awake';
-import { Stack, type Href } from 'expo-router';
+import { Stack  } from 'expo-router';
+import type {Href} from 'expo-router';
 import {
   BookmarkPlusIcon,
   BookOpenIcon,
@@ -107,6 +108,11 @@ import {
   buildPericopeSequence,
   formatPericopeVerseLabel
 } from '@/constants/bibleStructure';
+import {
+  extractFiaMetadata,
+  getBibleBookIdFromFia,
+  parseFiaVerseRange
+} from '@/utils/verseLabelUtils';
 import { run as runAssetGarbageCollector } from '@/database_services/assetGarbageCollectorService';
 import type { AssetUpdatePayload } from '@/database_services/assetService';
 import {
@@ -128,7 +134,6 @@ import type {
   AssetOperationDataItem,
   AssetOperationTypes
 } from '@/database_services/types';
-import type { FiaMetadata } from '@/db/drizzleSchemaColumns';
 import { AppConfig } from '@/db/supabase/AppConfig';
 import { useAssetsByQuest, useLocalAssetsByQuest } from '@/hooks/db/useAssets';
 import { useBlockedAssetsCount } from '@/hooks/useBlockedCount';
@@ -202,64 +207,6 @@ interface ManualSeparator {
   to: number;
   key: string;
   assetId?: string;
-}
-
-// ============================================================================
-// FIA METADATA HELPERS
-// Maps FIA book IDs to BIBLE_BOOKS IDs for label/verse lookup
-// ============================================================================
-
-const FIA_TO_BIBLE_BOOK_ID: Record<string, string> = {
-  mrk: 'mar',
-  php: 'phi',
-  jol: 'joe',
-  nam: 'nah'
-};
-
-function getBibleBookIdFromFia(fiaBookId: string): string {
-  return FIA_TO_BIBLE_BOOK_ID[fiaBookId] ?? fiaBookId;
-}
-
-/**
- * Parse FIA verseRange string like "1:1-13", "4:30-5:20", or "6:1-6a"
- * Sub-verse letters (a, b, c…) are stripped — "6a" becomes verse 6.
- * Returns chapter, startVerse, endVerse for use in verse labeling
- */
-function parseFiaVerseRange(verseRange: string): {
-  startChapter: number;
-  startVerse: number;
-  endChapter: number;
-  endVerse: number;
-} | null {
-  const match = /^(\d+):(\d+)[a-z]?-(?:(\d+):)?(\d+)[a-z]?$/.exec(verseRange);
-  if (!match) return null;
-  const startChapter = parseInt(match[1]!, 10);
-  const startVerse = parseInt(match[2]!, 10);
-  const endChapter = match[3] ? parseInt(match[3], 10) : startChapter;
-  const endVerse = parseInt(match[4]!, 10);
-  return { startChapter, startVerse, endChapter, endVerse };
-}
-
-/**
- * Extract FIA metadata from quest metadata (handles both string and object forms)
- */
-function extractFiaMetadata(metadata: unknown): FiaMetadata | null {
-  try {
-    const parsed =
-      typeof metadata === 'string' ? JSON.parse(metadata) : metadata;
-    if (
-      parsed &&
-      typeof parsed === 'object' &&
-      'fia' in parsed &&
-      parsed.fia &&
-      typeof parsed.fia === 'object'
-    ) {
-      return parsed.fia as FiaMetadata;
-    }
-  } catch {
-    // Ignore parse errors
-  }
-  return null;
 }
 
 // ============================================================================

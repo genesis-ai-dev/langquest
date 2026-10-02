@@ -4,6 +4,7 @@ import {
   PencilIcon
 } from 'lucide-react-native';
 import React from 'react';
+import { formatVerseRangeLabel } from '@/utils/verseLabelUtils';
 import { Pressable, View } from 'react-native';
 import { Icon } from './ui/icon';
 import { Text } from './ui/text';
@@ -40,30 +41,8 @@ export function VerseSeparator({
 }: VerseSeparatorProps) {
   const hasNumbers = from !== undefined || to !== undefined;
 
-  const getText = () => {
-    if (!hasNumbers) {
-      return `No label assigned`;
-    }
-
-    // Pericope-aware formatting: map position to chapter:verse label
-    if (formatVerse) {
-      if (from === to || from === undefined || to === undefined) {
-        const value = from ?? to;
-        return formatVerse(value!) ?? `${value}`;
-      }
-      const fromLabel = formatVerse(from);
-      const toLabel = formatVerse(to);
-      if (fromLabel && toLabel) return `${fromLabel}-${toLabel}`;
-      if (fromLabel) return fromLabel;
-    }
-
-    if (from === to || from === undefined || to === undefined) {
-      const value = from ?? to;
-      return `Verse ${value}`;
-    }
-
-    return `Verse ${from}-${to}`;
-  };
+  const getText = () =>
+    formatVerseRangeLabel(from, to, formatVerse) ?? 'No label assigned';
 
   if (!hasNumbers) {
     // No assigned - warning style with amber/orange tones
