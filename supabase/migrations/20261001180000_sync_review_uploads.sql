@@ -175,3 +175,8 @@ exception
   when insufficient_privilege then
     raise notice 'Insufficient privileges to create trigger on storage.objects - skipping (normal for local dev)';
 end $$;
+
+-- PowerSync only replicates tables in this publication; without it the
+-- server-stamped confirmation columns never sync down.
+alter publication powersync add table only public.review;
+alter publication powersync add table only public.review_asset;

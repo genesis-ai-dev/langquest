@@ -1,11 +1,13 @@
-import { AudioPlayerControls } from '@/components/AudioPlayerControls';
 import AudioRecorder from '@/components/AudioRecorder';
 import { ReviewAssetCard } from '@/components/ReviewAssetCard';
 import {
   OVERALL_FEEDBACK_AUDIO_ID,
-  parseReviewAudioId,
   ReviewAudioPlayButton
 } from '@/components/ReviewAudioPlayButton';
+import {
+  ReviewAudioPlayer,
+  ReviewAudioPlayerSpacer
+} from '@/components/ReviewAudioPlayer';
 import { ResultOptions, ResultSoftBadge } from '@/components/ReviewResult';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -22,7 +24,6 @@ import { LegendList } from '@/components/ui/legend-list';
 import { Progress } from '@/components/ui/progress';
 import { Text } from '@/components/ui/text';
 import { Textarea } from '@/components/ui/textarea';
-import { useAudio } from '@/contexts/AudioContext';
 import type {
   AssetResult,
   QuestResult
@@ -515,70 +516,7 @@ function ReviewAssetListItem({
   );
 }
 
-const SEEK_STEP_MS = 5000;
 const RECORDING_DRAWER_HEIGHT = 300;
-const AUDIO_PLAYER_SPACER_HEIGHT = 120;
-
-function useReviewAudioTitle(assetNames: Map<string, string>) {
-  const { currentAudioId, isPlaying, isPaused } = useAudio();
-  const parsed = parseReviewAudioId(currentAudioId);
-  if (!parsed || (!isPlaying && !isPaused)) return null;
-  if (parsed.kind === 'overall') return 'Overall Feedback';
-
-  const assetName = assetNames.get(parsed.assetId) ?? '';
-  return parsed.kind === 'feedback' ? `Feedback · ${assetName}` : assetName;
-}
-
-function ReviewAudioPlayer({
-  assetNames
-}: {
-  assetNames: Map<string, string>;
-}) {
-  const audio = useAudio();
-  const title = useReviewAudioTitle(assetNames);
-  if (title === null) return null;
-
-  const seekBy = (deltaMs: number) => {
-    const duration = Math.max(0, audio.duration);
-    const target = audio.position + deltaMs;
-    void audio.setPosition(
-      duration > 0
-        ? Math.max(0, Math.min(target, duration))
-        : Math.max(0, target)
-    );
-  };
-
-  return (
-    <AudioPlayerControls
-      mode="individual"
-      position="footer"
-      currentAssetName={title}
-      isPlaying={audio.isPlaying}
-      isPaused={audio.isPaused}
-      positionShared={audio.positionShared}
-      durationShared={audio.durationShared}
-      onRewind={() => seekBy(-SEEK_STEP_MS)}
-      onForward={() => seekBy(SEEK_STEP_MS)}
-      onPlayPause={() =>
-        void (audio.isPlaying ? audio.pauseSound() : audio.resumeSound())
-      }
-      onStop={() => void audio.stopCurrentSound()}
-    />
-  );
-}
-
-// Keeps the last card clear of the floating player without re-rendering the
-// whole view on every audio position update.
-function AudioPlayerSpacer({
-  assetNames
-}: {
-  assetNames: Map<string, string>;
-}) {
-  const title = useReviewAudioTitle(assetNames);
-  return title === null ? null : (
-    <View style={{ height: AUDIO_PLAYER_SPACER_HEIGHT }} />
-  );
-}
 
 function RecordingDrawer({ assetNames }: { assetNames: Map<string, string> }) {
   const recordingAssetId = useReviewDraft((state) => state.recordingAssetId);
@@ -647,7 +585,7 @@ export default function ReviewEditView({
   projectId,
   questId,
   reviewId,
-  origin = 'bible',
+  origin = 'Internal',
   subjectName
 }: ReviewEditViewProps) {
   const { store, assets, contentByAsset, formatVerse, isLoading } =
@@ -708,7 +646,9 @@ export default function ReviewEditView({
                 />
               );
             }}
-            ListFooterComponent={<AudioPlayerSpacer assetNames={assetNames} />}
+            ListFooterComponent={
+              <ReviewAudioPlayerSpacer assetNames={assetNames} />
+            }
           />
         </View>
         <ReviewAudioPlayer assetNames={assetNames} />

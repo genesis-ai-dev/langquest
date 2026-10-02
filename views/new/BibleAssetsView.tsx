@@ -34,7 +34,6 @@ import RNAlert from '@blazejkustra/react-native-alert';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useKeepAwake } from 'expo-keep-awake';
 import { Stack  } from 'expo-router';
-import type {Href} from 'expo-router';
 import {
   BookmarkPlusIcon,
   BookOpenIcon,
@@ -517,8 +516,14 @@ function KeepAwakeGuard() {
 }
 
 export default function BibleAssetsView() {
-  const { questId, projectId, router, goToRecording, promptVersionLabel } =
-    useNavigationHelpers();
+  const {
+    questId,
+    projectId,
+    router,
+    goToRecording,
+    goToReviews,
+    promptVersionLabel
+  } = useNavigationHelpers();
   const { currentUser } = useAuth();
   const audioContext = useAudio();
   const queryClient = useQueryClient();
@@ -3933,19 +3938,16 @@ export default function BibleAssetsView() {
               variant="ghost"
               size="icon"
               accessibilityLabel="Reviews"
-              onPress={() => {
-                router.push({
-                  pathname: '/(app)/project/[projectId]/quest/[questId]/reviews',
-                  params: {
-                    projectId,
-                    questId,
-                    subjectName: formatQuestDisplayLabel(
-                      selectedQuest.name,
-                      selectedQuest.metadata
-                    )
-                  }
-                } as Href);
-              }}
+              onPress={() =>
+                goToReviews({
+                  projectId,
+                  questId,
+                  subjectName: formatQuestDisplayLabel(
+                    selectedQuest.name,
+                    selectedQuest.metadata
+                  )
+                })
+              }
             >
               <Icon
                 as={ClipboardListIcon}

@@ -28,7 +28,7 @@ create table public.review (
 
     conclusion text null,
 
-    metadata jsonb not null default '{}'::jsonb,
+    metadata text not null default '{}',
 
     created_at timestamptz not null default now(),
 
@@ -48,7 +48,7 @@ create table public.review_asset (
 
     audio text[] null,
 
-    metadata jsonb not null default '{}'::jsonb,
+    metadata text not null default '{}',
 
     primary key (review_id, asset_id)
 );

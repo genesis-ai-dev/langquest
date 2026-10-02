@@ -113,6 +113,101 @@ export function useNavigationHelpers() {
     [router, projectId, questId]
   );
 
+  const goToReviews = useCallback(
+    (options: {
+      projectId?: string;
+      questId?: string;
+      subjectName?: string;
+      /** Set when opened from a book; the list then filters by metadata. */
+      parentQuestId?: string;
+      metadata?: Record<string, unknown>;
+    }) => {
+      const targetProjectId = options.projectId || projectId;
+      const targetQuestId = options.questId || questId;
+
+      if (!targetProjectId || !targetQuestId) {
+        console.warn('Cannot navigate to reviews without projectId and questId');
+        return;
+      }
+
+      router.push({
+        pathname: '/(app)/project/[projectId]/quest/[questId]/reviews',
+        params: {
+          projectId: targetProjectId,
+          questId: targetQuestId,
+          ...(options.subjectName ? { subjectName: options.subjectName } : {}),
+          ...(options.parentQuestId
+            ? { parentQuestId: options.parentQuestId }
+            : {}),
+          ...(options.metadata
+            ? { metadata: JSON.stringify(options.metadata) }
+            : {})
+        }
+      });
+    },
+    [router, projectId, questId]
+  );
+
+  const goToReviewEdit = useCallback(
+    (options: {
+      projectId?: string;
+      questId?: string;
+      reviewId?: string;
+      subjectName?: string;
+    }) => {
+      const targetProjectId = options.projectId || projectId;
+      const targetQuestId = options.questId || questId;
+
+      if (!targetProjectId || !targetQuestId) {
+        console.warn(
+          'Cannot navigate to review edit without projectId and questId'
+        );
+        return;
+      }
+
+      router.push({
+        pathname: '/(app)/project/[projectId]/quest/[questId]/review-edit',
+        params: {
+          projectId: targetProjectId,
+          questId: targetQuestId,
+          ...(options.reviewId ? { reviewId: options.reviewId } : {}),
+          ...(options.subjectName ? { subjectName: options.subjectName } : {})
+        }
+      });
+    },
+    [router, projectId, questId]
+  );
+
+  const goToReviewResult = useCallback(
+    (options: {
+      reviewId: string;
+      projectId?: string;
+      questId?: string;
+      subjectName?: string;
+    }) => {
+      const targetProjectId = options.projectId || projectId;
+      const targetQuestId = options.questId || questId;
+
+      if (!targetProjectId || !targetQuestId) {
+        console.warn(
+          'Cannot navigate to review result without projectId and questId'
+        );
+        return;
+      }
+
+      router.push({
+        pathname: '/(app)/project/[projectId]/quest/[questId]/review-result',
+        params: {
+          projectId: targetProjectId,
+          questId: targetQuestId,
+          reviewId: options.reviewId,
+          ...(options.subjectName ? { subjectName: options.subjectName } : {})
+        }
+      });
+    },
+    [router, projectId, questId]
+  );
+
   return {
     projectId,
     questId,
@@ -124,6 +219,9 @@ export function useNavigationHelpers() {
     goToProjects,
     goToQuest,
     goToAsset,
-    goToRecording
+    goToRecording,
+    goToReviews,
+    goToReviewEdit,
+    goToReviewResult
   };
 }

@@ -97,6 +97,29 @@ export function ResultSoftBadge({ result }: { result: AssetResult }) {
   );
 }
 
+/** Solid badge for a submitted (final) status. */
+export function ResultBadge({ result }: { result: AssetResult }) {
+  return (
+    <View
+      className={cn(
+        'flex-row items-center gap-1.5 self-start rounded-full border border-border px-2.5 py-1',
+        RESULT_OPTION_CLASS[result]
+      )}
+    >
+      <Icon
+        as={RESULT_ICON[result]}
+        size={14}
+        className={RESULT_OPTION_TEXT_CLASS[result]}
+      />
+      <Text
+        className={cn('text-xs font-medium', RESULT_OPTION_TEXT_CLASS[result])}
+      >
+        {RESULT_LABEL[result]}
+      </Text>
+    </View>
+  );
+}
+
 export function ResultOptions({
   result,
   onSelect

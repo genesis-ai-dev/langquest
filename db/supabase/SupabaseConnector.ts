@@ -517,7 +517,6 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
           delete record.uploaded_at;
           delete record.audio_uploaded_at;
         }
-
         batchOps.push({
           table_name: op.table,
           op: opName,

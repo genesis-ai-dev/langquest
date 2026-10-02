@@ -42,7 +42,6 @@ import { cn, useThemeColor } from '@/utils/styleUtils';
 import RNAlert from '@blazejkustra/react-native-alert';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Image } from 'expo-image';
-import type { Href } from 'expo-router';
 import {
   BookOpenIcon,
   CopyIcon,
@@ -230,7 +229,7 @@ export function BibleChapterList({
   bookId,
   onCloudLoadingChange
 }: BibleChapterListProps) {
-  const { goToQuest, questId, router } = useNavigationHelpers();
+  const { goToQuest, goToReviews, questId } = useNavigationHelpers();
   const { project } = useProjectById(projectId);
   const { createChapter, isCreating } = useBibleChapterCreation();
   const { currentUser } = useAuth();
@@ -548,15 +547,13 @@ export function BibleChapterList({
 
   const openReviews = () => {
     if (!questId) return;
-    router.push({
-      pathname: '/(app)/project/[projectId]/quest/[questId]/reviews',
-      params: {
-        projectId,
-        questId,
-        subjectName: book.name,
-        parentQuestId: questId
-      }
-    } as Href);
+    goToReviews({
+      projectId,
+      questId,
+      subjectName: book.name,
+      parentQuestId: questId,
+      metadata: { bible: { book: bookId } }
+    });
   };
 
   const renderBookHeader = (rowClassName?: string) => (

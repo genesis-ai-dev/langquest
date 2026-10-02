@@ -240,6 +240,19 @@ function groupContentByAsset(contents: AssetContent[]) {
   return byAsset;
 }
 
+/** Quest assets with their source text/audio, as shown on review screens. */
+export function useReviewQuestAssets(questId: string) {
+  const assetsQuery = useLocalAssetsByQuest(questId, '', false);
+  const assets = dedupePreferSynced(
+    assetsQuery.data.pages.flatMap((page) => page.data)
+  );
+  const { assetsContent } = useAssetsContent(assets.map((item) => item.id));
+  const contentByAsset = groupContentByAsset(
+    dedupePreferSynced(assetsContent)
+  );
+  return { assets, contentByAsset, isLoading: assetsQuery.isLoading };
+}
+
 export function useReviewEditor({
   projectId,
   questId,
@@ -260,14 +273,11 @@ export function useReviewEditor({
   const { quest, isQuestLoading } = useQuestById(questId);
   const formatVerse = createQuestVerseFormatter(quest?.metadata);
 
-  const assetsQuery = useLocalAssetsByQuest(questId, '', false);
-  const assets = dedupePreferSynced(
-    assetsQuery.data.pages.flatMap((page) => page.data)
-  );
-  const { assetsContent } = useAssetsContent(assets.map((item) => item.id));
-  const contentByAsset = groupContentByAsset(
-    dedupePreferSynced(assetsContent)
-  );
+  const {
+    assets,
+    contentByAsset,
+    isLoading: isAssetsLoading
+  } = useReviewQuestAssets(questId);
 
   const draftQuery = useQuery({
     queryKey: ['review-draft', reviewId ?? questId, profileId],
@@ -312,6 +322,6 @@ export function useReviewEditor({
     assets,
     contentByAsset,
     formatVerse,
-    isLoading: assetsQuery.isLoading || !isHydrated
+    isLoading: isAssetsLoading || !isHydrated
   };
 }
