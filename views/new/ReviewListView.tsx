@@ -32,12 +32,12 @@ function ReviewsList({
   tab,
   filter,
   searchQuery,
-  onOpenResult
+  onOpen
 }: {
   tab: ReviewTab;
   filter: ReviewsFilter;
   searchQuery: string;
-  onOpenResult: (review: Review) => void;
+  onOpen: (review: Review) => void;
 }) {
   const { reviews, isLoading } = useReviews(tab, filter);
   const query = searchQuery.trim().toLowerCase();
@@ -58,7 +58,7 @@ function ReviewsList({
       data={visibleReviews}
       keyExtractor={(item) => item.id}
       renderItem={({ item }) => (
-        <ReviewListCard review={item} onOpenResult={onOpenResult} />
+        <ReviewListCard review={item} onOpen={onOpen} />
       )}
       estimatedItemSize={112}
       ItemSeparatorComponent={() => <View className="h-2" />}
@@ -74,37 +74,35 @@ function ReviewsList({
 
 function ReviewListCard({
   review,
-  onOpenResult
+  onOpen
 }: {
   review: Review;
-  onOpenResult: (review: Review) => void;
+  onOpen: (review: Review) => void;
 }) {
-  if (review.status === 'draft') {
-    return (
-      <ReviewCard
-        title={review.title}
-        creatorName={review.creatorName}
-        date={review.date}
-        origin={review.origin}
-        status="draft"
-      />
-    );
-  }
-
   return (
     <Pressable
       accessibilityRole="button"
-      onPress={() => onOpenResult(review)}
+      onPress={() => onOpen(review)}
       className="active:opacity-70"
     >
-      <ReviewCard
-        title={review.title}
-        creatorName={review.creatorName}
-        date={review.date}
-        origin={review.origin}
-        status="published"
-        outcome={review.outcome}
-      />
+      {review.status === 'draft' ? (
+        <ReviewCard
+          title={review.title}
+          creatorName={review.creatorName}
+          date={review.date}
+          origin={review.origin}
+          status="draft"
+        />
+      ) : (
+        <ReviewCard
+          title={review.title}
+          creatorName={review.creatorName}
+          date={review.date}
+          origin={review.origin}
+          status="published"
+          outcome={review.outcome}
+        />
+      )}
     </Pressable>
   );
 }
@@ -129,12 +127,17 @@ export default function ReviewListView({
     goToReviewEdit({ projectId, questId, subjectName });
   };
 
-  const openResult = (review: Review) => {
-    goToReviewResult({
+  const openReview = (review: Review) => {
+    const target = {
       projectId,
       questId: review.questId,
       reviewId: review.id
-    });
+    };
+    if (review.status === 'draft') {
+      goToReviewEdit({ ...target, subjectName: review.title });
+    } else {
+      goToReviewResult(target);
+    }
   };
 
   return (
@@ -187,7 +190,7 @@ export default function ReviewListView({
             tab="in-progress"
             filter={filter}
             searchQuery={searchQuery}
-            onOpenResult={openResult}
+            onOpen={openReview}
           />
         </TabsContent>
         <TabsContent value="completed" className="min-h-0 flex-1">
@@ -195,7 +198,7 @@ export default function ReviewListView({
             tab="completed"
             filter={filter}
             searchQuery={searchQuery}
-            onOpenResult={openResult}
+            onOpen={openReview}
           />
         </TabsContent>
       </Tabs>

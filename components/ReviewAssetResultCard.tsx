@@ -39,26 +39,29 @@ export function ReviewAssetResultCard({
         <Text className="min-w-0 flex-1 font-semibold" numberOfLines={1}>
           {name}
         </Text>
-        <ResultBadge result={result} />
+        {result !== 'not_reviewed' ? <ResultBadge result={result} /> : null}
       </View>
 
       {hasFeedback ? (
-        <View className="flex-row items-start gap-2 rounded-md bg-muted p-3">
-          <Text
-            className={cn(
-              'flex-1 text-sm',
-              !trimmedComment && 'italic text-muted-foreground'
-            )}
-          >
-            {trimmedComment || 'Audio feedback only'}
-          </Text>
-          {audio.length > 0 ? (
-            <ReviewAudioPlayButton
-              size="icon-sm"
-              audioId={getFeedbackAudioId(assetId)}
-              audioValues={audio}
-            />
-          ) : null}
+        <View className="gap-1">
+          <Text className="text-sm font-semibold">Feedback</Text>
+          <View className="flex-row items-start gap-2 rounded-md bg-muted p-3">
+            <Text
+              className={cn(
+                'flex-1 text-sm',
+                !trimmedComment && 'italic text-muted-foreground'
+              )}
+            >
+              {trimmedComment || 'Audio feedback only'}
+            </Text>
+            {audio.length > 0 ? (
+              <ReviewAudioPlayButton
+                size="icon-sm"
+                audioId={getFeedbackAudioId(assetId)}
+                audioValues={audio}
+              />
+            ) : null}
+          </View>
         </View>
       ) : null}
     </View>

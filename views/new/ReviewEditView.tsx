@@ -9,8 +9,8 @@ import {
   ReviewAudioPlayerSpacer
 } from '@/components/ReviewAudioPlayer';
 import { ResultOptions, ResultSoftBadge } from '@/components/ReviewResult';
-import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
 import {
   Drawer,
   DrawerClose,
@@ -31,7 +31,6 @@ import type {
 import { findIncompleteSuggestedChanges } from '@/database_services/reviewService';
 import { useAutosaveText } from '@/hooks/useAutosaveText';
 import { useLocalization } from '@/hooks/useLocalization';
-import { useReviewUploadProgress } from '@/hooks/useReviewUploadProgress';
 import type { AssetReviewContent } from '@/hooks/useReviewEditor';
 import {
   EMPTY_ASSET_CONTENT,
@@ -41,6 +40,7 @@ import {
   useReviewDraftStore,
   useReviewEditor
 } from '@/hooks/useReviewEditor';
+import { useReviewUploadProgress } from '@/hooks/useReviewUploadProgress';
 import {
   deleteIfExists,
   getLocalAttachmentUri,
@@ -149,9 +149,7 @@ function SubmitReviewDrawer({
   onClose: () => void;
 }) {
   const { t } = useLocalization();
-  const reviewId = useReviewDraft((state) =>
-    open ? state.reviewId : null
-  );
+  const reviewId = useReviewDraft((state) => (open ? state.reviewId : null));
   const progress = useReviewUploadProgress(isSubmitted ? reviewId : null);
 
   return (
@@ -189,8 +187,7 @@ function SubmitReviewDrawer({
             <Text className="text-base leading-6">
               Once submitted, your review will be shared with every member of
               this project and can no longer be edited. Please make sure your
-              statuses, comments and audio feedback are final before
-              continuing.
+              statuses, comments and audio feedback are final before continuing.
             </Text>
           ) : null}
 
@@ -463,11 +460,11 @@ function ConclusionAudio() {
     <Button
       variant="outline"
       size="sm"
-      className="self-start"
+      className="w-full rounded-xl border-primary"
       onPress={() => setRecordingAssetId(OVERALL_FEEDBACK_AUDIO_ID)}
     >
-      <Icon as={MicIcon} size={16} />
-      <Text>Add audio</Text>
+      <Icon as={MicIcon} size={16} className="text-primary" />
+      <Text className="text-primary">Add audio</Text>
     </Button>
   );
 }

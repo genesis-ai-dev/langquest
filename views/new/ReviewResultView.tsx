@@ -14,6 +14,7 @@ import { EMPTY_ASSET_CONTENT, useReviewQuestAssets } from '@/hooks/useReviewEdit
 import type { ReviewAssetResult, ReviewResult } from '@/hooks/useReviewResult';
 import { useReviewResult } from '@/hooks/useReviewResult';
 import { formatRelativeDate } from '@/utils/dateUtils';
+import { cn } from '@/utils/styleUtils';
 import { ActivityIndicator, View } from 'react-native';
 
 interface ReviewResultViewProps {
@@ -30,6 +31,7 @@ const NOT_REVIEWED: ReviewAssetResult = {
 
 function OverallFeedbackResult({ result }: { result: ReviewResult }) {
   const conclusion = result.conclusion?.trim();
+  const hasAudio = result.audio.length > 0;
 
   return (
     <View className="gap-2">
@@ -38,24 +40,29 @@ function OverallFeedbackResult({ result }: { result: ReviewResult }) {
         <ResultBadge result={result.questResult ?? 'not_reviewed'} />
       </View>
 
-      {conclusion ? <Text className="text-sm">{conclusion}</Text> : null}
-
-      {result.audio.length > 0 ? (
-        <View className="flex-row items-center gap-2">
-          <ReviewAudioPlayButton
-            size="icon-sm"
-            audioId={OVERALL_FEEDBACK_AUDIO_ID}
-            audioValues={result.audio}
-          />
-          <Text className="flex-1 text-sm">Audio feedback</Text>
+      {conclusion || hasAudio ? (
+        <View className="flex-row items-start gap-2 rounded-md border border-border bg-card p-3">
+          <Text
+            className={cn(
+              'flex-1 text-sm',
+              !conclusion && 'italic text-muted-foreground'
+            )}
+          >
+            {conclusion || 'Audio feedback only'}
+          </Text>
+          {hasAudio ? (
+            <ReviewAudioPlayButton
+              size="icon-sm"
+              audioId={OVERALL_FEEDBACK_AUDIO_ID}
+              audioValues={result.audio}
+            />
+          ) : null}
         </View>
-      ) : null}
-
-      {!conclusion && result.audio.length === 0 ? (
+      ) : (
         <Text className="text-sm italic text-muted-foreground">
           No overall feedback
         </Text>
-      ) : null}
+      )}
     </View>
   );
 }

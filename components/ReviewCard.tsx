@@ -1,20 +1,23 @@
-import { Badge } from '@/components/ui/badge';
+import { ResultBadge } from '@/components/ReviewResult';
+import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
+import type { AssetResult } from '@/database_services/reviewService';
 import { formatRelativeDate } from '@/utils/dateUtils';
 import { cn } from '@/utils/styleUtils';
+import { PencilLineIcon } from 'lucide-react-native';
 import React from 'react';
 import { View } from 'react-native';
 
 export type ReviewStatus = 'draft' | 'published';
 export type ReviewOutcome = 'suggested-changes' | 'approved';
 
-type ReviewCardBaseProps = {
+interface ReviewCardBaseProps {
   title: string;
   creatorName: string;
   date: string;
   origin: string;
   className?: string;
-};
+}
 
 export type ReviewCardProps = ReviewCardBaseProps &
   (
@@ -31,10 +34,19 @@ function creatorInitials(name: string): string {
   return `${first}${last}`.toUpperCase();
 }
 
-const BADGE_LABEL: Record<ReviewOutcome, string> = {
-  'suggested-changes': 'Suggested Changes',
-  approved: 'Approved'
+const OUTCOME_RESULT: Record<ReviewOutcome, AssetResult> = {
+  'suggested-changes': 'suggested_changes',
+  approved: 'approved'
 };
+
+function DraftBadge() {
+  return (
+    <View className="flex-row items-center gap-1.5 self-start rounded-full border border-border bg-muted px-2.5 py-1">
+      <Icon as={PencilLineIcon} size={14} className="text-muted-foreground" />
+      <Text className="text-xs font-medium text-muted-foreground">Draft</Text>
+    </View>
+  );
+}
 
 export function ReviewCard({
   title,
@@ -76,28 +88,12 @@ export function ReviewCard({
           <Text className="min-w-0 flex-1 font-semibold" numberOfLines={1}>
             {title}
           </Text>
+        </View>
+        <View className="py-0.5">
           {isDraft ? (
-            <Badge variant="outline" className="bg-transparent">
-              <Text className="text-muted-foreground">Draft</Text>
-            </Badge>
+            <DraftBadge />
           ) : (
-            <Badge
-              variant="default"
-              className={cn(
-                'border-transparent',
-                outcome === 'suggested-changes'
-                  ? 'bg-yellow-500'
-                  : 'bg-green-500'
-              )}
-            >
-              <Text
-                className={
-                  outcome === 'suggested-changes' ? 'text-black' : 'text-white'
-                }
-              >
-                {BADGE_LABEL[outcome]}
-              </Text>
-            </Badge>
+            <ResultBadge result={OUTCOME_RESULT[outcome]} />
           )}
         </View>
         <Text className="text-sm text-muted-foreground" numberOfLines={1}>

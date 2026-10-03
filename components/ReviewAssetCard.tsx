@@ -145,11 +145,11 @@ export function ReviewAssetCard({
             <Button
               variant="outline"
               size="sm"
-              className="self-start"
+              className="w-full rounded-xl border-primary"
               onPress={onRequestRecord}
             >
-              <Icon as={MicIcon} size={16} />
-              <Text>Add audio</Text>
+              <Icon as={MicIcon} size={16} className="text-primary" />
+              <Text className="text-primary">Add audio</Text>
             </Button>
           )}
         </View>
