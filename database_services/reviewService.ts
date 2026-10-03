@@ -52,13 +52,29 @@ export interface ReviewAssetPatch {
   audio?: string[] | null;
 }
 
+export function getReviewLabel(metadata: unknown): string | null {
+  let value = metadata;
+  if (typeof value === 'string') {
+    try {
+      value = JSON.parse(value);
+    } catch {
+      return null;
+    }
+  }
+  if (!value || typeof value !== 'object') return null;
+  const label = (value as { reviewLabel?: unknown }).reviewLabel;
+  return typeof label === 'string' && label.trim() ? label.trim() : null;
+}
+
 export async function createDraftReview(data: {
   projectId: string;
   questId: string;
   profileId: string;
   origin: string;
   questScope: ReviewQuestScope;
+  reviewLabel?: string;
 }): Promise<string> {
+  const reviewLabel = data.reviewLabel?.trim();
   const [created] = await system.db
     .insert(review_local)
     .values({
@@ -67,7 +83,10 @@ export async function createDraftReview(data: {
       profile_id: data.profileId,
       origin: data.origin,
       status: REVIEW_STATUS_IN_PROGRESS,
-      metadata: { ...data.questScope }
+      metadata: {
+        ...data.questScope,
+        ...(reviewLabel ? { reviewLabel } : {})
+      }
     })
     .returning({ id: review_local.id });
 
@@ -138,6 +157,17 @@ export function getReviewAudio(review: Pick<ReviewRow, 'metadata'>): string[] {
   return Array.isArray(audio)
     ? audio.filter((value): value is string => typeof value === 'string')
     : [];
+}
+
+export async function updateReviewLabel(
+  reviewId: string,
+  reviewLabel: string
+) {
+  const review = await getReview(reviewId);
+  await system.db
+    .update(review_local)
+    .set({ metadata: { ...review?.metadata, reviewLabel } })
+    .where(eq(review_local.id, reviewId));
 }
 
 export async function updateReviewAudio(reviewId: string, audio: string[]) {

@@ -176,6 +176,106 @@ exception
     raise notice 'Insufficient privileges to create trigger on storage.objects - skipping (normal for local dev)';
 end $$;
 
+-- Reviews sync with their quest: download_profiles mirrors quest.download_profiles
+-- on insert and whenever the quest is downloaded or offloaded.
+alter table public.review
+  add column if not exists download_profiles uuid[] not null default '{}';
+alter table public.review_asset
+  add column if not exists download_profiles uuid[] not null default '{}';
+
+create index if not exists idx_review_download_profiles_gin
+  on public.review using gin (download_profiles);
+create index if not exists idx_review_asset_download_profiles_gin
+  on public.review_asset using gin (download_profiles);
+
+create or replace function public.copy_quest_download_profiles_to_review()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  select coalesce(q.download_profiles, '{}')
+    into new.download_profiles
+    from public.quest q
+   where q.id = new.quest_id;
+
+  new.download_profiles := coalesce(new.download_profiles, '{}');
+  return new;
+end;
+$$;
+
+drop trigger if exists trigger_copy_quest_download_profiles on public.review;
+create trigger trigger_copy_quest_download_profiles
+  before insert on public.review
+  for each row
+  execute function public.copy_quest_download_profiles_to_review();
+
+create or replace function public.copy_review_download_profiles_to_review_asset()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  select coalesce(r.download_profiles, '{}')
+    into new.download_profiles
+    from public.review r
+   where r.id = new.review_id;
+
+  new.download_profiles := coalesce(new.download_profiles, '{}');
+  return new;
+end;
+$$;
+
+drop trigger if exists trigger_copy_review_download_profiles on public.review_asset;
+create trigger trigger_copy_review_download_profiles
+  before insert on public.review_asset
+  for each row
+  execute function public.copy_review_download_profiles_to_review_asset();
+
+create or replace function public.propagate_quest_download_profiles_to_reviews()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_profiles uuid[] := coalesce(new.download_profiles, '{}');
+begin
+  update public.review r
+     set download_profiles = v_profiles
+   where r.quest_id = new.id
+     and r.download_profiles is distinct from v_profiles;
+
+  update public.review_asset ra
+     set download_profiles = v_profiles
+    from public.review r
+   where r.id = ra.review_id
+     and r.quest_id = new.id
+     and ra.download_profiles is distinct from v_profiles;
+
+  return null;
+end;
+$$;
+
+drop trigger if exists trigger_propagate_download_profiles_to_reviews on public.quest;
+create trigger trigger_propagate_download_profiles_to_reviews
+  after update of download_profiles on public.quest
+  for each row
+  when (old.download_profiles is distinct from new.download_profiles)
+  execute function public.propagate_quest_download_profiles_to_reviews();
+
+update public.review r
+   set download_profiles = coalesce(q.download_profiles, '{}')
+  from public.quest q
+ where q.id = r.quest_id;
+
+update public.review_asset ra
+   set download_profiles = r.download_profiles
+  from public.review r
+ where r.id = ra.review_id;
+
 -- PowerSync only replicates tables in this publication; without it the
 -- server-stamped confirmation columns never sync down.
 alter publication powersync add table only public.review;

@@ -15,6 +15,7 @@ import { cn } from '@/utils/styleUtils';
 import {
   AlertCircleIcon,
   CheckCircleIcon,
+  ClipboardListIcon,
   DatabaseIcon,
   FileTextIcon,
   FolderIcon,
@@ -129,7 +130,8 @@ export function QuestDownloadDiscoveryDrawer({
     questTagLinks: { count: 0, isLoading: false, hasError: false },
     assetTagLinks: { count: 0, isLoading: false, hasError: false },
     tags: { count: 0, isLoading: false, hasError: false },
-    languages: { count: 0, isLoading: false, hasError: false }
+    languages: { count: 0, isLoading: false, hasError: false },
+    reviews: { count: 0, isLoading: false, hasError: false }
   });
   const [totalRecords, setTotalRecords] = useState(0);
 
@@ -146,6 +148,7 @@ export function QuestDownloadDiscoveryDrawer({
       assetTagLinks: progressSharedValues.assetTagLinks.value,
       tags: progressSharedValues.tags.value,
       languages: progressSharedValues.languages.value,
+      reviews: progressSharedValues.reviews.value,
       total: totalRecordsShared.value
     }),
     (result, prev) => {
@@ -161,7 +164,8 @@ export function QuestDownloadDiscoveryDrawer({
           questTagLinks: result.questTagLinks,
           assetTagLinks: result.assetTagLinks,
           tags: result.tags,
-          languages: result.languages
+          languages: result.languages,
+          reviews: result.reviews
         });
         runOnJS(setTotalRecords)(result.total);
       }
@@ -227,6 +231,11 @@ export function QuestDownloadDiscoveryDrawer({
               label="Languages"
               icon={DatabaseIcon}
               {...progress.languages}
+            />
+            <CategoryRow
+              label="Review records"
+              icon={ClipboardListIcon}
+              {...progress.reviews}
             />
           </View>
         </View>

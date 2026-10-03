@@ -11,6 +11,7 @@ import {
   getDraftReviewForQuest,
   getReview,
   getReviewAssets,
+  getReviewLabel,
   getReviewAudio,
   getReviewQuestScope,
   publishReview,
@@ -18,6 +19,7 @@ import {
   submitReview,
   updateReviewAudio,
   updateReviewConclusion,
+  updateReviewLabel,
   updateReviewQuestResult,
   upsertReviewAsset
 } from '@/database_services/reviewService';
@@ -55,11 +57,13 @@ interface ReviewDraftConfig {
   profileId: string;
   origin: string;
   questScope: ReviewQuestScope;
+  reviewLabel?: string;
 }
 
 interface ReviewDraftState {
   isHydrated: boolean;
   reviewId: string | null;
+  reviewLabel: string | null;
   isSubmitted: boolean;
   questResult: QuestResult | null;
   conclusion: string;
@@ -80,6 +84,7 @@ interface ReviewDraftState {
     patch: Partial<ReviewAssetDraft>
   ) => Promise<void>;
   submit: () => Promise<void>;
+  setReviewLabel: (label: string) => Promise<void>;
 }
 
 export type ReviewDraftStore = StoreApi<ReviewDraftState>;
@@ -105,6 +110,7 @@ function createReviewDraftStore(): ReviewDraftStore {
   return createStore<ReviewDraftState>()((set) => ({
     isHydrated: false,
     reviewId: null,
+    reviewLabel: null,
     isSubmitted: false,
     questResult: null,
     conclusion: '',
@@ -138,6 +144,7 @@ function createReviewDraftStore(): ReviewDraftStore {
       set({
         isHydrated: true,
         reviewId,
+        reviewLabel: review ? getReviewLabel(review.metadata) : null,
         isSubmitted: review?.status === 'submitted',
         questResult: (review?.quest_result as QuestResult | null) ?? null,
         conclusion: review?.conclusion ?? '',
@@ -162,6 +169,19 @@ function createReviewDraftStore(): ReviewDraftStore {
         await updateReviewQuestResult(await ensureReviewId(), value);
       } catch (error) {
         console.error('[ReviewDraft] Failed to save quest result:', error);
+      }
+    },
+
+    setReviewLabel: async (label) => {
+      if (!config) return;
+      config = { ...config, reviewLabel: label };
+      set({ reviewLabel: label });
+      try {
+        const id = await ensureReviewId();
+        set({ reviewId: id });
+        await updateReviewLabel(id, label);
+      } catch (error) {
+        console.error('[ReviewDraft] Failed to save review label:', error);
       }
     },
 

@@ -1,5 +1,6 @@
 import AudioRecorder from '@/components/AudioRecorder';
 import { ReviewAssetCard } from '@/components/ReviewAssetCard';
+import { ReviewLabelDrawer } from '@/components/ReviewLabelDrawer';
 import {
   OVERALL_FEEDBACK_AUDIO_ID,
   ReviewAudioPlayButton
@@ -79,6 +80,8 @@ interface ReviewEditViewProps {
   reviewId?: string;
   origin?: string;
   subjectName?: string;
+  /** Set when this screen is the first open of a new review. */
+  promptReviewLabel?: string;
 }
 
 function deleteAudioFiles(values: string[]) {
@@ -578,12 +581,28 @@ function RecordingDrawer({ assetNames }: { assetNames: Map<string, string> }) {
   );
 }
 
+function ReviewTitle() {
+  const reviewLabel = useReviewDraft((state) => state.reviewLabel);
+
+  return (
+    <View className="flex-row items-baseline">
+      <Text variant="h4">Review</Text>
+      {reviewLabel ? (
+        <Text className="text-base font-normal text-muted-foreground">
+          {` · ${reviewLabel}`}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
 export default function ReviewEditView({
   projectId,
   questId,
   reviewId,
   origin = 'Internal',
-  subjectName
+  subjectName,
+  promptReviewLabel
 }: ReviewEditViewProps) {
   const { store, assets, contentByAsset, formatVerse, isLoading } =
     useReviewEditor({
@@ -592,6 +611,14 @@ export default function ReviewEditView({
       reviewId,
       origin
     });
+  const [labelPromptDismissed, setLabelPromptDismissed] = useState(false);
+  const showLabelDrawer =
+    promptReviewLabel === '1' && !isLoading && !labelPromptDismissed;
+
+  const closeLabelDrawer = () => {
+    setLabelPromptDismissed(true);
+    router.setParams({ promptReviewLabel: undefined });
+  };
 
   const assetNames = new Map(assets.map((item) => [item.id, item.name ?? '']));
 
@@ -609,7 +636,7 @@ export default function ReviewEditView({
         <View className="flex-1 gap-6 px-4">
           <View className="flex-row items-center justify-between gap-3">
             <View className="min-w-0 flex-1">
-              <Text variant="h4">Review</Text>
+              <ReviewTitle />
               {subjectName ? (
                 <Text className="text-sm text-muted-foreground">
                   {subjectName}
@@ -651,6 +678,15 @@ export default function ReviewEditView({
         <ReviewAudioPlayer assetNames={assetNames} />
       </View>
       <RecordingDrawer assetNames={assetNames} />
+      <ReviewLabelDrawer
+        isOpen={showLabelDrawer}
+        onOpenChange={(open) => {
+          if (!open) closeLabelDrawer();
+        }}
+        onConfirm={(reviewLabel) => {
+          void store.getState().setReviewLabel(reviewLabel);
+        }}
+      />
     </ReviewDraftContext.Provider>
   );
 }

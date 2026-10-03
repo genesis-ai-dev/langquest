@@ -6,12 +6,14 @@ function firstParam(value: string | string[] | undefined) {
 }
 
 export default function ReviewEditRoute() {
-  const { projectId, questId, reviewId, subjectName } = useLocalSearchParams<{
-    projectId: string;
-    questId: string;
-    reviewId?: string;
-    subjectName?: string;
-  }>();
+  const { projectId, questId, reviewId, subjectName, promptReviewLabel } =
+    useLocalSearchParams<{
+      projectId: string;
+      questId: string;
+      reviewId?: string;
+      subjectName?: string;
+      promptReviewLabel?: string;
+    }>();
 
   const project = firstParam(projectId);
   const quest = firstParam(questId);
@@ -23,6 +25,7 @@ export default function ReviewEditRoute() {
       questId={quest}
       reviewId={firstParam(reviewId)}
       subjectName={firstParam(subjectName)}
+      promptReviewLabel={firstParam(promptReviewLabel)}
     />
   );
 }

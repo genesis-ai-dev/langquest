@@ -154,6 +154,7 @@ export function useNavigationHelpers() {
       questId?: string;
       reviewId?: string;
       subjectName?: string;
+      promptReviewLabel?: boolean;
     }) => {
       const targetProjectId = options.projectId || projectId;
       const targetQuestId = options.questId || questId;
@@ -171,7 +172,8 @@ export function useNavigationHelpers() {
           projectId: targetProjectId,
           questId: targetQuestId,
           ...(options.reviewId ? { reviewId: options.reviewId } : {}),
-          ...(options.subjectName ? { subjectName: options.subjectName } : {})
+          ...(options.subjectName ? { subjectName: options.subjectName } : {}),
+          ...(options.promptReviewLabel ? { promptReviewLabel: '1' } : {})
         }
       });
     },

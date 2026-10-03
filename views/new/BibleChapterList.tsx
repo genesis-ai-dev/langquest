@@ -32,7 +32,10 @@ import type {
 import { useBibleChapters } from '@/hooks/useBibleChapters';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNavigationHelpers } from '@/hooks/useNavigation';
-import { useQuestDownloadDiscovery } from '@/hooks/useQuestDownloadDiscovery';
+import {
+  getDiscoveredCounts,
+  useQuestDownloadDiscovery
+} from '@/hooks/useQuestDownloadDiscovery';
 import { useQuestDownloadStatusLive } from '@/hooks/useQuestDownloadStatusLive';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { syncCallbackService } from '@/services/syncCallbackService';
@@ -719,22 +722,8 @@ export function BibleChapterList({
         onConfirm={handleConfirmDownload}
         onCancel={handleCancelConfirmation}
         downloadType="quest"
-        discoveredCounts={{
-          Quests: discoveryState.progressSharedValues.quest.value.count,
-          Projects: discoveryState.progressSharedValues.project.value.count,
-          'Quest-Asset Links':
-            discoveryState.progressSharedValues.questAssetLinks.value.count,
-          Assets: discoveryState.progressSharedValues.assets.value.count,
-          'Asset Content Links':
-            discoveryState.progressSharedValues.assetContentLinks.value.count,
-          Votes: discoveryState.progressSharedValues.votes.value.count,
-          'Quest Tags':
-            discoveryState.progressSharedValues.questTagLinks.value.count,
-          'Asset Tags':
-            discoveryState.progressSharedValues.assetTagLinks.value.count,
-          Tags: discoveryState.progressSharedValues.tags.value.count,
-          Languages: discoveryState.progressSharedValues.languages.value.count
-        }}
+        discoveredCounts={getDiscoveredCounts(discoveryState)}
+
       />
     </View>
   );

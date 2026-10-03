@@ -1,3 +1,4 @@
+import { REVIEW_STATUS_IN_PROGRESS } from '@/database_services/reviewService';
 import { system } from '@/db/powersync/system';
 import { AppConfig } from '@/db/supabase/AppConfig';
 import { getDirectory } from '@/utils/fileUtils';
@@ -63,6 +64,8 @@ export interface VerificationState {
   verifiedIds: VerifiedIds;
   hasError: boolean;
   estimatedStorageBytes: number;
+  /** Local-only review drafts for the quest; offload deletes them permanently. */
+  draftReviewCount: number;
   cancel: () => void;
   startVerification: () => void;
 }
@@ -89,6 +92,7 @@ export function useQuestOffloadVerification(
   const [pendingUploadCount, setPendingUploadCount] = useState(0);
   const [hasError, setHasError] = useState(false);
   const [estimatedStorageBytes, setEstimatedStorageBytes] = useState(0);
+  const [draftReviewCount, setDraftReviewCount] = useState(0);
   const [verifiedIds, setVerifiedIds] = useState<VerifiedIds>({
     questIds: [],
     projectIds: [],
@@ -222,6 +226,12 @@ export function useQuestOffloadVerification(
     };
 
     try {
+      const draftReviews = await system.powersync.get<{ count: number }>(
+        `SELECT COUNT(*) as count FROM review_local WHERE quest_id = ? AND status = ? AND active = 1`,
+        [questId, REVIEW_STATUS_IN_PROGRESS]
+      );
+      setDraftReviewCount(draftReviews.count);
+
       // ============================================================================
       // PHASE 1: Check for pending uploads
       // ============================================================================
@@ -1153,6 +1163,7 @@ export function useQuestOffloadVerification(
     verifiedIds,
     hasError,
     estimatedStorageBytes,
+    draftReviewCount,
     cancel,
     startVerification
   };

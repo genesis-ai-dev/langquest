@@ -1,3 +1,5 @@
+import { DownloadConfirmationModal } from '@/components/DownloadConfirmationModal';
+import { QuestDownloadDiscoveryDrawer } from '@/components/QuestDownloadDiscoveryDrawer';
 import { ReviewCard } from '@/components/ReviewCard';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
@@ -5,9 +7,18 @@ import { Input } from '@/components/ui/input';
 import { LegendList } from '@/components/ui/legend-list';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Text } from '@/components/ui/text';
-import type { Review, ReviewsFilter, ReviewTab } from '@/hooks/useReviews';
+import { useAuth } from '@/contexts/AuthContext';
+import { getDraftReviewForQuest } from '@/database_services/reviewService';
 import { useNavigationHelpers } from '@/hooks/useNavigation';
+import {
+  getDiscoveredCounts,
+  useQuestDownloadDiscovery
+} from '@/hooks/useQuestDownloadDiscovery';
+import type { Review, ReviewsFilter, ReviewTab } from '@/hooks/useReviews';
 import { useReviews } from '@/hooks/useReviews';
+import { syncCallbackService } from '@/services/syncCallbackService';
+import { bulkDownloadQuest } from '@/utils/bulkDownload';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ClipboardPlusIcon, SearchIcon } from 'lucide-react-native';
 import React from 'react';
 import { ActivityIndicator, Pressable, View } from 'react-native';
@@ -23,20 +34,22 @@ interface ReviewListViewProps {
 
 function matchesSearch(review: Review, query: string) {
   if (!query) return true;
-  return [review.title, review.creatorName, review.origin].some((value) =>
-    value.toLowerCase().includes(query)
-  );
+  return [review.title, review.creatorName, review.reviewLabel, review.origin]
+    .filter((value) => value != null)
+    .some((value) => value.toLowerCase().includes(query));
 }
 
 function ReviewsList({
   tab,
   filter,
   searchQuery,
+  downloadingQuestIds,
   onOpen
 }: {
   tab: ReviewTab;
   filter: ReviewsFilter;
   searchQuery: string;
+  downloadingQuestIds: Set<string>;
   onOpen: (review: Review) => void;
 }) {
   const { reviews, isLoading } = useReviews(tab, filter);
@@ -58,13 +71,19 @@ function ReviewsList({
       data={visibleReviews}
       keyExtractor={(item) => item.id}
       renderItem={({ item }) => (
-        <ReviewListCard review={item} onOpen={onOpen} />
+        <ReviewListCard
+          review={item}
+          isDownloading={downloadingQuestIds.has(item.questId)}
+          onOpen={onOpen}
+        />
       )}
       estimatedItemSize={112}
       ItemSeparatorComponent={() => <View className="h-2" />}
       ListEmptyComponent={
         <Text className="py-8 text-center text-muted-foreground">
-          No reviews yet
+          {tab === 'in-progress'
+            ? 'No reviews in progress'
+            : 'No completed reviews yet'}
         </Text>
       }
       recycleItems
@@ -74,11 +93,19 @@ function ReviewsList({
 
 function ReviewListCard({
   review,
+  isDownloading,
   onOpen
 }: {
   review: Review;
+  isDownloading: boolean;
   onOpen: (review: Review) => void;
 }) {
+  const downloadProps = {
+    needsDownload: review.needsDownload,
+    isDownloading,
+    onDownloadPress: () => onOpen(review)
+  };
+
   return (
     <Pressable
       accessibilityRole="button"
@@ -91,6 +118,7 @@ function ReviewListCard({
           creatorName={review.creatorName}
           date={review.date}
           origin={review.origin}
+          reviewLabel={review.reviewLabel}
           status="draft"
         />
       ) : (
@@ -99,8 +127,10 @@ function ReviewListCard({
           creatorName={review.creatorName}
           date={review.date}
           origin={review.origin}
+          reviewLabel={review.reviewLabel}
           status="published"
           outcome={review.outcome}
+          {...downloadProps}
         />
       )}
     </Pressable>
@@ -115,7 +145,8 @@ export default function ReviewListView({
   metadata
 }: ReviewListViewProps) {
   const { goToReviewEdit, goToReviewResult } = useNavigationHelpers();
-  const [activeTab, setActiveTab] = React.useState<ReviewTab>('in-progress');
+  const { currentUser } = useAuth();
+  const [activeTab, setActiveTab] = React.useState<ReviewTab>('completed');
   const [searchQuery, setSearchQuery] = React.useState('');
 
   // Book-level access (BibleChapterList) passes parentQuestId; only a direct
@@ -123,11 +154,124 @@ export default function ReviewListView({
   const canAddReview = !!projectId && !!questId && !parentQuestId;
   const filter: ReviewsFilter = { projectId, questId, metadata };
 
-  const openAddReview = () => {
-    goToReviewEdit({ projectId, questId, subjectName });
+  const openAddReview = async () => {
+    if (!projectId || !questId || !currentUser?.id) return;
+    const existing = await getDraftReviewForQuest(questId, currentUser.id);
+    goToReviewEdit({
+      projectId,
+      questId,
+      subjectName,
+      ...(existing
+        ? { reviewId: existing.id }
+        : { promptReviewLabel: true })
+    });
+  };
+
+  const queryClient = useQueryClient();
+  const [questIdToDownload, setQuestIdToDownload] = React.useState<
+    string | null
+  >(null);
+  const [showDiscoveryDrawer, setShowDiscoveryDrawer] = React.useState(false);
+  const [showConfirmationModal, setShowConfirmationModal] =
+    React.useState(false);
+  const [downloadingQuestIds, setDownloadingQuestIds] = React.useState<
+    Set<string>
+  >(new Set());
+
+  const discoveryState = useQuestDownloadDiscovery(questIdToDownload ?? '');
+  const startedDiscoveryRef = React.useRef<string | null>(null);
+
+  React.useEffect(() => {
+    if (
+      showDiscoveryDrawer &&
+      questIdToDownload &&
+      !discoveryState.isDiscovering &&
+      startedDiscoveryRef.current !== questIdToDownload
+    ) {
+      startedDiscoveryRef.current = questIdToDownload;
+      discoveryState.startDiscovery();
+    }
+    if (!showDiscoveryDrawer) {
+      startedDiscoveryRef.current = null;
+    }
+  }, [showDiscoveryDrawer, questIdToDownload, discoveryState]);
+
+  const stopTrackingDownload = (downloadQuestId: string) => {
+    setDownloadingQuestIds((prev) => {
+      const next = new Set(prev);
+      next.delete(downloadQuestId);
+      return next;
+    });
+  };
+
+  const downloadMutation = useMutation({
+    mutationFn: async (downloadQuestId: string) => {
+      if (!currentUser?.id) throw new Error('Missing user');
+      await bulkDownloadQuest(discoveryState.discoveredIds, currentUser.id);
+      return downloadQuestId;
+    },
+    onSuccess: (downloadQuestId) => {
+      // The review leaves the cloud list once PowerSync delivers the quest.
+      syncCallbackService.registerCallback(downloadQuestId, async () => {
+        stopTrackingDownload(downloadQuestId);
+        await queryClient.invalidateQueries({
+          queryKey: ['reviews', 'cloud']
+        });
+      });
+    }
+  });
+
+  const startDownload = (downloadQuestId: string) => {
+    setQuestIdToDownload(downloadQuestId);
+    setShowDiscoveryDrawer(true);
+  };
+
+  // Closing the discovery drawer to continue also fires onOpenChange(false),
+  // so the quest being confirmed must survive that cancel.
+  const confirmingQuestIdRef = React.useRef<string | null>(null);
+
+  const handleDiscoveryContinue = () => {
+    confirmingQuestIdRef.current = questIdToDownload;
+    setShowDiscoveryDrawer(false);
+    setShowConfirmationModal(true);
+  };
+
+  const handleCancelDiscovery = () => {
+    setShowDiscoveryDrawer(false);
+    if (confirmingQuestIdRef.current) return;
+    discoveryState.cancel();
+    setQuestIdToDownload(null);
+  };
+
+  const handleConfirmDownload = async () => {
+    setShowConfirmationModal(false);
+    const downloadQuestId = confirmingQuestIdRef.current;
+    confirmingQuestIdRef.current = null;
+    if (!downloadQuestId) return;
+    setDownloadingQuestIds((prev) => new Set(prev).add(downloadQuestId));
+    try {
+      await downloadMutation.mutateAsync(downloadQuestId);
+    } catch (error) {
+      console.error('Failed to download quest for review:', error);
+      stopTrackingDownload(downloadQuestId);
+    } finally {
+      setQuestIdToDownload(null);
+    }
+  };
+
+  const handleCancelConfirmation = () => {
+    confirmingQuestIdRef.current = null;
+    setShowConfirmationModal(false);
+    setQuestIdToDownload(null);
   };
 
   const openReview = (review: Review) => {
+    if (review.needsDownload) {
+      if (!downloadingQuestIds.has(review.questId)) {
+        startDownload(review.questId);
+      }
+      return;
+    }
     const target = {
       projectId,
       questId: review.questId,
@@ -154,7 +298,12 @@ export default function ReviewListView({
           ) : null}
         </View>
         {canAddReview ? (
-          <Button size="sm" onPress={openAddReview}>
+          <Button
+            size="sm"
+            onPress={() => {
+              void openAddReview();
+            }}
+          >
             <Icon as={ClipboardPlusIcon} size={16} />
             <Text>Add Review</Text>
           </Button>
@@ -190,6 +339,7 @@ export default function ReviewListView({
             tab="in-progress"
             filter={filter}
             searchQuery={searchQuery}
+            downloadingQuestIds={downloadingQuestIds}
             onOpen={openReview}
           />
         </TabsContent>
@@ -198,10 +348,28 @@ export default function ReviewListView({
             tab="completed"
             filter={filter}
             searchQuery={searchQuery}
+            downloadingQuestIds={downloadingQuestIds}
             onOpen={openReview}
           />
         </TabsContent>
       </Tabs>
+
+      <QuestDownloadDiscoveryDrawer
+        isOpen={showDiscoveryDrawer}
+        onOpenChange={(open) => {
+          if (!open) handleCancelDiscovery();
+        }}
+        onContinue={handleDiscoveryContinue}
+        discoveryState={discoveryState}
+      />
+
+      <DownloadConfirmationModal
+        visible={showConfirmationModal}
+        onConfirm={handleConfirmDownload}
+        onCancel={handleCancelConfirmation}
+        downloadType="quest"
+        discoveredCounts={getDiscoveredCounts(discoveryState)}
+      />
     </View>
   );
 }

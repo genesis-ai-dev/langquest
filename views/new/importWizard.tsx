@@ -22,7 +22,10 @@ import { AppConfig } from '@/db/supabase/AppConfig';
 import { useAssetsByQuest, useLocalAssetsByQuest } from '@/hooks/db/useAssets';
 import { useAudioPlaybackCheckpoint } from '@/hooks/useAudioPlaybackCheckpoint';
 import { useLocalization } from '@/hooks/useLocalization';
-import { useQuestDownloadDiscovery } from '@/hooks/useQuestDownloadDiscovery';
+import {
+  getDiscoveredCounts,
+  useQuestDownloadDiscovery
+} from '@/hooks/useQuestDownloadDiscovery';
 import { useQuestDownloadStatusLive } from '@/hooks/useQuestDownloadStatusLive';
 import { useSingleAudioController } from '@/hooks/useSingleAudioController';
 import type { LocalizationKey } from '@/services/localizations';
@@ -1895,22 +1898,8 @@ export function ImportWizard({
         onConfirm={handleConfirmDownload}
         onCancel={handleCancelConfirmation}
         downloadType="quest"
-        discoveredCounts={{
-          Quests: discoveryState.progressSharedValues.quest.value.count,
-          Projects: discoveryState.progressSharedValues.project.value.count,
-          'Quest-Asset Links':
-            discoveryState.progressSharedValues.questAssetLinks.value.count,
-          Assets: discoveryState.progressSharedValues.assets.value.count,
-          'Asset Content Links':
-            discoveryState.progressSharedValues.assetContentLinks.value.count,
-          Votes: discoveryState.progressSharedValues.votes.value.count,
-          'Quest Tags':
-            discoveryState.progressSharedValues.questTagLinks.value.count,
-          'Asset Tags':
-            discoveryState.progressSharedValues.assetTagLinks.value.count,
-          Tags: discoveryState.progressSharedValues.tags.value.count,
-          Languages: discoveryState.progressSharedValues.languages.value.count
-        }}
+        discoveredCounts={getDiscoveredCounts(discoveryState)}
+
       />
     </>
   );

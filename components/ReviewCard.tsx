@@ -1,3 +1,4 @@
+import { DownloadIndicator } from '@/components/DownloadIndicator';
 import { ResultBadge } from '@/components/ReviewResult';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
@@ -16,6 +17,11 @@ interface ReviewCardBaseProps {
   creatorName: string;
   date: string;
   origin: string;
+  reviewLabel?: string | null;
+  /** Cloud-only review: rendered translucent with a download action. */
+  needsDownload?: boolean;
+  isDownloading?: boolean;
+  onDownloadPress?: () => void;
   className?: string;
 }
 
@@ -53,8 +59,12 @@ export function ReviewCard({
   creatorName,
   date,
   origin,
+  reviewLabel,
   status,
   outcome,
+  needsDownload = false,
+  isDownloading = false,
+  onDownloadPress,
   className
 }: ReviewCardProps) {
   const displayCreator = creatorName.trim() || 'Unknown';
@@ -64,19 +74,22 @@ export function ReviewCard({
     <View
       className={cn(
         'flex-row items-center gap-3 rounded-lg border border-border bg-card p-4',
+        needsDownload && 'opacity-60',
         className
       )}
     >
       <View
         className={cn(
           'h-10 w-10 items-center justify-center rounded-full',
-          isDraft ? 'bg-chart-2' : 'bg-primary'
+          isDraft ? 'bg-chart-2' : needsDownload ? 'bg-muted' : 'bg-primary'
         )}
       >
         <Text
           className={cn(
             'font-semibold',
-            isDraft ? 'text-secondary-foreground' : 'text-primary-foreground'
+            isDraft || needsDownload
+              ? 'text-secondary-foreground'
+              : 'text-primary-foreground'
           )}
         >
           {creatorInitials(displayCreator)}
@@ -100,9 +113,18 @@ export function ReviewCard({
           {displayCreator} · {formatRelativeDate(date)}
         </Text>
         <Text className="text-sm text-muted-foreground" numberOfLines={1}>
-          {origin}
+          {reviewLabel ? `${reviewLabel} · ${origin}` : origin}
         </Text>
       </View>
+
+      {needsDownload && onDownloadPress ? (
+        <DownloadIndicator
+          isFlaggedForDownload={false}
+          isLoading={isDownloading}
+          onPress={onDownloadPress}
+          size={18}
+        />
+      ) : null}
     </View>
   );
 }

@@ -39,6 +39,9 @@ bucket_definitions:
       - SELECT quest_id || '_' || tag_id as id, * FROM "quest_tag_link" WHERE bucket.profile_id in download_profiles
       - SELECT * FROM "tag" WHERE bucket.profile_id in download_profiles
       - SELECT * FROM "vote" WHERE bucket.profile_id in download_profiles
+      # Reviews inherit download_profiles from their quest (see review triggers)
+      - SELECT * FROM "review" WHERE bucket.profile_id in download_profiles
+      - SELECT review_id || '_' || asset_id as id, * FROM "review_asset" WHERE bucket.profile_id in download_profiles
       - SELECT profile_id || '_' || project_id as id, * FROM "profile_project_link" WHERE bucket.profile_id in download_profiles AND active = true
 
       # Sync languoids - using download_profiles directly (populated by bulk download function)
@@ -119,14 +122,6 @@ bucket_definitions:
         WHERE id = bucket.project_id
 
       - SELECT * FROM invite
-        WHERE project_id = bucket.project_id
-
-      # Reviews published by any member of the project.
-      - SELECT * FROM review
-        WHERE project_id = bucket.project_id
-
-      - SELECT review_id || '_' || asset_id as id, *
-        FROM review_asset
         WHERE project_id = bucket.project_id
 
   project_ownerships:
