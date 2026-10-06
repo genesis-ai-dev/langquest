@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
-import { useAudio } from '@/contexts/AudioContext';
+import { useAudioControls } from '@/contexts/AudioContext';
 import { resolveExistingAudioUri } from '@/utils/attachmentPaths';
 import { PauseIcon, PlayIcon } from 'lucide-react-native';
 
@@ -41,8 +41,6 @@ export function parseReviewAudioId(
   return null;
 }
 
-// AudioContext updates position every 100ms; only this small component
-// subscribes to it so its parent does not re-render while playing.
 export function ReviewAudioPlayButton({
   audioId,
   audioValues,
@@ -59,7 +57,7 @@ export function ReviewAudioPlayButton({
     isPlaying,
     isPaused,
     currentAudioId
-  } = useAudio();
+  } = useAudioControls();
   const isActive = currentAudioId === audioId && (isPlaying || isPaused);
   const isThisPlaying = isActive && isPlaying;
 

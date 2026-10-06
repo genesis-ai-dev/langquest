@@ -187,6 +187,13 @@ export interface RecordingSessionMetadata {
   id: string;
   created_at: string;
 }
+
+/** Snapshot of the review this quest or link was created from. */
+export interface ReviewSnapshot {
+  id: string;
+  label?: string;
+  result?: 'suggested_changes' | 'approved' | 'not_reviewed';
+}
 /**
  * Extensible metadata type for quests
  * Can be extended with other metadata types as needed
@@ -200,6 +207,8 @@ export interface QuestMetadata {
   recordingSessions?: RecordingSessionMetadata[];
   /** When true, this quest can receive imported assets (Bible chapter / FIA pericope). */
   allowImportAssets?: boolean;
+  /** Set when this draft was created from a published review. */
+  review?: ReviewSnapshot;
   // Add other metadata types here as needed
   // e.g., curriculum?: { unit: string; lesson: number };
 }

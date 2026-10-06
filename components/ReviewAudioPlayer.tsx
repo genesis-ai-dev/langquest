@@ -1,13 +1,13 @@
 import { AudioPlayerControls } from '@/components/AudioPlayerControls';
 import { parseReviewAudioId } from '@/components/ReviewAudioPlayButton';
-import { useAudio } from '@/contexts/AudioContext';
+import { useAudio, useAudioControls } from '@/contexts/AudioContext';
 import { View } from 'react-native';
 
 const SEEK_STEP_MS = 5000;
 const AUDIO_PLAYER_SPACER_HEIGHT = 120;
 
 function useReviewAudioTitle(assetNames: Map<string, string>) {
-  const { currentAudioId, isPlaying, isPaused } = useAudio();
+  const { currentAudioId, isPlaying, isPaused } = useAudioControls();
   const parsed = parseReviewAudioId(currentAudioId);
   if (!parsed || (!isPlaying && !isPaused)) return null;
   if (parsed.kind === 'overall') return 'Overall Feedback';
@@ -16,7 +16,10 @@ function useReviewAudioTitle(assetNames: Map<string, string>) {
   return parsed.kind === 'feedback' ? `Feedback · ${assetName}` : assetName;
 }
 
-/** Footer player shared by every review audio button on the screen. */
+/**
+ * Footer player shared by every review audio button on the screen. It stays
+ * mounted with the screen, so its `useAudio` stops playback when leaving.
+ */
 export function ReviewAudioPlayer({
   assetNames
 }: {

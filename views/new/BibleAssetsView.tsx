@@ -1,5 +1,10 @@
 /* eslint-disable @typescript-eslint/no-unnecessary-condition */
+import { AssetReviewDrawer } from '@/components/AssetReviewDrawer';
+import type { AssetReviewDrawerHandle } from '@/components/AssetReviewDrawer';
+import { QuestReviewDrawer } from '@/components/QuestReviewDrawer';
+import type { QuestReviewDrawerHandle } from '@/components/QuestReviewDrawer';
 import { AssetsDeletionDrawer } from '@/components/AssetsDeletionDrawer';
+import { MessageCard } from '@/components/MessageCard';
 import { AudioPlayerControls } from '@/components/AudioPlayerControls';
 import { QuestSettingsModal } from '@/components/QuestSettingsModal';
 import { Button } from '@/components/ui/button';
@@ -150,7 +155,7 @@ import { resolveTable } from '@/utils/dbUtils';
 import { publishQuest as publishQuestUtils } from '@/utils/publishQuest';
 import { offloadQuest } from '@/utils/questOffloadUtils';
 import { formatQuestDisplayLabel } from '@/utils/questVersionLabel';
-import { getThemeColor } from '@/utils/styleUtils';
+import { cn, getThemeColor } from '@/utils/styleUtils';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { eq } from 'drizzle-orm';
@@ -284,6 +289,7 @@ interface DraggableAssetItemProps {
   onEnterSelection?: (assetId: string) => void;
   onSelectForRecording?: (assetId: string) => void;
   onRename?: (assetId: string, currentName: string | null) => void;
+  onOpenReview?: (assetId: string, reviewAssetId: string) => void;
   onAddVersePress?: () => void;
   onQuickAddVersePress?: () => void;
   onStartRecording?: () => void;
@@ -307,6 +313,7 @@ const DraggableAssetItem = React.memo(function DraggableAssetItem({
   onEnterSelection,
   onSelectForRecording,
   onRename,
+  onOpenReview,
   onAddVersePress,
   onQuickAddVersePress,
   onStartRecording
@@ -350,6 +357,7 @@ const DraggableAssetItem = React.memo(function DraggableAssetItem({
         isSelectedForRecording={isAssetSelectedForRecording}
         onSelectForRecording={onSelectForRecording}
         onRename={onRename}
+        onOpenReview={onOpenReview}
         isHighlighted={isHighlighted && !isPublished}
       />
       {!isPublished &&
@@ -1092,6 +1100,11 @@ export default function BibleAssetsView() {
       parseQuestMetadata(selectedQuest?.metadata).allowImportAssets === true,
     [selectedQuest?.metadata]
   );
+  const questReview = React.useMemo(
+    () => parseQuestMetadata(selectedQuest?.metadata).review,
+    [selectedQuest?.metadata]
+  );
+  const questReviewLabel = questReview?.label?.trim() || undefined;
 
   // Call both hooks unconditionally to comply with React Hooks rules
   const publishedAssets = useAssetsByQuest(
@@ -2847,6 +2860,14 @@ export default function BibleAssetsView() {
 
   // Stable wrapper for onPlay callback (avoids creating new function in renderItem)
   const blockIndividualPlayRef = React.useRef(false);
+  const reviewDrawerRef = React.useRef<AssetReviewDrawerHandle>(null);
+  const questReviewDrawerRef = React.useRef<QuestReviewDrawerHandle>(null);
+  const openAssetReview = React.useCallback(
+    (assetId: string, reviewAssetId: string) => {
+      reviewDrawerRef.current?.open(assetId, reviewAssetId);
+    },
+    []
+  );
   const stableOnPlay = React.useCallback((assetId: string) => {
     if (blockIndividualPlayRef.current) {
       return;
@@ -3031,6 +3052,9 @@ export default function BibleAssetsView() {
               !isPublished ? handleSelectForRecording : undefined
             }
             onRename={!isPublished ? handleRenameAsset : undefined}
+            onOpenReview={
+              !isPublished && questReview ? openAssetReview : undefined
+            }
             onAddVersePress={
               isAssetSelectedForRecording && hasAvailableVerses
                 ? () => handleAddVersePressRef.current?.(asset.id)
@@ -3068,6 +3092,8 @@ export default function BibleAssetsView() {
       handleSelectForRecording,
       handleSelectSeparatorForRecording,
       handleRenameAsset,
+      openAssetReview,
+      questReview,
       selectedQuest?.metadata?.lastRecordingSessionId
     ]
   );
@@ -3893,6 +3919,13 @@ export default function BibleAssetsView() {
           </View>
         </View>
       </View>
+      {questReview && isMember ? (
+        <MessageCard
+          title="Based on review"
+          subtitle={questReviewLabel ?? ''}
+          onPress={null}
+        />
+      ) : null}
       <View className="flex w-full flex-row items-center">
         <View className="flex-1 flex-row items-center gap-1">
           {fiaPericopeId && (
@@ -3999,6 +4032,39 @@ export default function BibleAssetsView() {
           )}
         </View>
         <View className="flex-1 flex-row items-center justify-end gap-1">
+          {!isPublished && questReview ? (
+            <Pressable
+              onPress={() =>
+                questReviewDrawerRef.current?.open(
+                  questReview.id,
+                  questReview.label
+                )
+              }
+              accessibilityRole="button"
+              accessibilityLabel={
+                questReview.result === 'approved'
+                  ? 'Approved review'
+                  : 'Suggested changes review'
+              }
+              hitSlop={8}
+              className={cn(
+                'flex size-10 items-center justify-center rounded-full border',
+                questReview.result === 'approved'
+                  ? 'border-green-600 bg-green-600/15'
+                  : 'border-yellow-600 bg-yellow-500/20'
+              )}
+            >
+              <Icon
+                as={ClipboardListIcon}
+                size={16}
+                className={
+                  questReview.result === 'approved'
+                    ? 'text-green-600'
+                    : 'text-yellow-600'
+                }
+              />
+            </Pressable>
+          ) : null}
           {assets.length > 0 && (
             <Button
               variant="secondary"
@@ -4301,6 +4367,13 @@ export default function BibleAssetsView() {
           questSource={selectedQuest?.source}
         />
       )}
+
+      {!isPublished && questReview ? (
+        <>
+          <AssetReviewDrawer ref={reviewDrawerRef} />
+          <QuestReviewDrawer ref={questReviewDrawerRef} />
+        </>
+      ) : null}
 
       {/* Delete All Assets Drawer */}
       {showDeleteAllDrawer && (

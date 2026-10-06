@@ -25,7 +25,13 @@ interface AudioContextType {
   durationShared: SharedValue<number>;
 }
 
+/** Playback state without position/duration, which change every 100ms while playing. */
+export type AudioControlsType = Omit<AudioContextType, 'position' | 'duration'>;
+
 const AudioContext = createContext<AudioContextType | undefined>(undefined);
+const AudioControlsContext = createContext<AudioControlsType | undefined>(
+  undefined
+);
 
 export function AudioProvider({ children }: { children: React.ReactNode }) {
   const [isPlaying, setIsPlaying] = useState(false);
@@ -59,21 +65,32 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   // Helper to wait for an AudioPlayer to finish loading
   const waitForPlayerLoaded = (player: AudioPlayer): Promise<void> => {
     return new Promise((resolve) => {
-      if (player.isLoaded) {
+      let settled = false;
+      let check: ReturnType<typeof setInterval> | null = null;
+      let timeout: ReturnType<typeof setTimeout> | null = null;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        if (check) clearInterval(check);
+        if (timeout) clearTimeout(timeout);
         resolve();
+      };
+      // A released native player throws instead of returning false.
+      const readLoaded = () => {
+        try {
+          return player.isLoaded;
+        } catch {
+          return null;
+        }
+      };
+      if (readLoaded() !== false) {
+        finish();
         return;
       }
-      const check = setInterval(() => {
-        if (player.isLoaded) {
-          clearInterval(check);
-          resolve();
-        }
+      check = setInterval(() => {
+        if (readLoaded() !== false) finish();
       }, 10);
-      // Safety timeout to avoid hanging forever
-      setTimeout(() => {
-        clearInterval(check);
-        resolve();
-      }, 5000);
+      timeout = setTimeout(finish, 5000);
     });
   };
 
@@ -91,16 +108,20 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     isTrackingPositionRef.current.value = true;
 
     positionUpdateInterval.current = setInterval(() => {
-      if (playerRef.current?.isLoaded) {
+      const player = playerRef.current;
+      if (!player) return;
+      try {
+        if (!player.isLoaded) return;
         // Calculate cumulative position across all segments
         let cumulativeDuration = 0;
         for (let i = 0; i < currentSequenceIndex.current; i++) {
           cumulativeDuration += segmentDurations.current[i] || 0;
         }
-        const totalPosition =
-          cumulativeDuration + playerRef.current.currentTime * 1000;
+        const totalPosition = cumulativeDuration + player.currentTime * 1000;
         cumulativePositionSharedRef.current.value = totalPosition; // Update SharedValue
         setPositionState(totalPosition);
+      } catch {
+        clearPositionInterval();
       }
     }, 100); // Update every 100ms for smoother animation
   };
@@ -308,9 +329,14 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
       playerListenerRef.current?.remove();
       playerListenerRef.current = null;
-      playerRef.current.pause();
-      playerRef.current.release();
+      const previousPlayer = playerRef.current;
       playerRef.current = null;
+      try {
+        previousPlayer.pause();
+        previousPlayer.release();
+      } catch {
+        // Native shared object may already be deallocated
+      }
     }
 
     // Set up audio mode
@@ -454,27 +480,93 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  return (
-    <AudioContext.Provider
-      value={{
-        playSound,
-        playSoundSequence,
-        stopCurrentSound,
-        pauseSound,
-        resumeSound,
-        isPlaying,
-        isPaused,
-        currentAudioId,
-        position,
-        duration,
-        setPosition,
-        positionShared,
-        durationShared
-      }}
-    >
-      {children}
-    </AudioContext.Provider>
+  // The provider re-renders on every position tick, recreating these functions;
+  // stable wrappers keep the controls context from changing with them.
+  const actionsRef = useRef({
+    playSound,
+    playSoundSequence,
+    stopCurrentSound,
+    pauseSound,
+    resumeSound,
+    setPosition
+  });
+  React.useLayoutEffect(() => {
+    actionsRef.current = {
+      playSound,
+      playSoundSequence,
+      stopCurrentSound,
+      pauseSound,
+      resumeSound,
+      setPosition
+    };
+  });
+  const [stableActions] = useState(() => ({
+    playSound: (uri: string, audioId?: string) =>
+      actionsRef.current.playSound(uri, audioId),
+    playSoundSequence: (uris: string[], audioId?: string) =>
+      actionsRef.current.playSoundSequence(uris, audioId),
+    stopCurrentSound: () => actionsRef.current.stopCurrentSound(),
+    pauseSound: () => actionsRef.current.pauseSound(),
+    resumeSound: () => actionsRef.current.resumeSound(),
+    setPosition: (nextPosition: number) =>
+      actionsRef.current.setPosition(nextPosition)
+  }));
+
+  const controls = React.useMemo<AudioControlsType>(
+    () => ({
+      ...stableActions,
+      isPlaying,
+      isPaused,
+      currentAudioId,
+      positionShared,
+      durationShared
+    }),
+    [
+      stableActions,
+      isPlaying,
+      isPaused,
+      currentAudioId,
+      positionShared,
+      durationShared
+    ]
   );
+
+  return (
+    <AudioControlsContext.Provider value={controls}>
+      <AudioContext.Provider
+        value={{
+          playSound,
+          playSoundSequence,
+          stopCurrentSound,
+          pauseSound,
+          resumeSound,
+          isPlaying,
+          isPaused,
+          currentAudioId,
+          position,
+          duration,
+          setPosition,
+          positionShared,
+          durationShared
+        }}
+      >
+        {children}
+      </AudioContext.Provider>
+    </AudioControlsContext.Provider>
+  );
+}
+
+/**
+ * Playback controls and play/pause state, without the 100ms position updates.
+ * Unlike `useAudio`, it never stops playback when the component unmounts, so
+ * buttons in virtualized lists can scroll out of view while audio keeps playing.
+ */
+export function useAudioControls() {
+  const context = useContext(AudioControlsContext);
+  if (context === undefined) {
+    throw new Error('useAudioControls must be used within an AudioProvider');
+  }
+  return context;
 }
 
 /**

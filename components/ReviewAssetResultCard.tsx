@@ -7,7 +7,62 @@ import { ResultBadge } from '@/components/ReviewResult';
 import { Text } from '@/components/ui/text';
 import type { AssetResult } from '@/database_services/reviewService';
 import { cn } from '@/utils/styleUtils';
+import { useState } from 'react';
+import type { ReactNode } from 'react';
 import { View } from 'react-native';
+import { ScrollView } from 'react-native-gesture-handler';
+
+const FEEDBACK_BOX_HEIGHT = 120;
+
+export function FeedbackTextScroll({
+  text,
+  muted = false,
+  className,
+  accessory
+}: {
+  text: string;
+  muted?: boolean;
+  className?: string;
+  accessory?: ReactNode;
+}) {
+  const [scrollEnabled, setScrollEnabled] = useState(false);
+
+  return (
+    <View className="flex-row items-start gap-2">
+      <View
+        className={cn('min-w-0 flex-1 overflow-hidden', className)}
+        style={
+          scrollEnabled
+            ? { height: FEEDBACK_BOX_HEIGHT }
+            : { maxHeight: FEEDBACK_BOX_HEIGHT }
+        }
+      >
+        <ScrollView
+          nestedScrollEnabled
+          scrollEnabled={scrollEnabled}
+          showsVerticalScrollIndicator={scrollEnabled}
+          disallowInterruption={scrollEnabled}
+          onContentSizeChange={(_width, height) => {
+            const next = height > FEEDBACK_BOX_HEIGHT;
+            setScrollEnabled((current) => (current === next ? current : next));
+          }}
+        >
+          <View className="p-3">
+            <Text
+              className={cn(
+                'text-sm leading-5',
+                muted && 'italic text-muted-foreground'
+              )}
+            >
+              {text}
+            </Text>
+          </View>
+        </ScrollView>
+      </View>
+      {accessory}
+    </View>
+  );
+}
 
 export interface ReviewAssetResultCardProps {
   assetId: string;
@@ -45,23 +100,18 @@ export function ReviewAssetResultCard({
       {hasFeedback ? (
         <View className="gap-1">
           <Text className="text-sm font-semibold">Feedback</Text>
-          <View className="flex-row items-start gap-2 rounded-md bg-muted p-3">
-            <Text
-              className={cn(
-                'flex-1 text-sm',
-                !trimmedComment && 'italic text-muted-foreground'
-              )}
-            >
-              {trimmedComment || 'Audio feedback only'}
-            </Text>
-            {audio.length > 0 ? (
+          <FeedbackTextScroll
+            text={trimmedComment || 'Audio feedback only'}
+            muted={!trimmedComment}
+            className="rounded-md bg-muted"
+            accessory={
               <ReviewAudioPlayButton
                 size="icon-sm"
                 audioId={getFeedbackAudioId(assetId)}
                 audioValues={audio}
               />
-            ) : null}
-          </View>
+            }
+          />
         </View>
       ) : null}
     </View>

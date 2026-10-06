@@ -1,4 +1,9 @@
-import { ReviewAssetResultCard } from '@/components/ReviewAssetResultCard';
+import {
+  FeedbackTextScroll,
+  ReviewAssetResultCard
+} from '@/components/ReviewAssetResultCard';
+import { Button } from '@/components/ui/button';
+import { Icon } from '@/components/ui/icon';
 import {
   OVERALL_FEEDBACK_AUDIO_ID,
   ReviewAudioPlayButton
@@ -10,12 +15,20 @@ import {
 import { ResultBadge } from '@/components/ReviewResult';
 import { LegendList } from '@/components/ui/legend-list';
 import { Text } from '@/components/ui/text';
-import { EMPTY_ASSET_CONTENT, useReviewQuestAssets } from '@/hooks/useReviewEditor';
+import { useAuth } from '@/contexts/AuthContext';
+import { createQuestVersionFromQuest } from '@/database_services/questService';
+import {
+  EMPTY_ASSET_CONTENT,
+  useReviewQuestAssets
+} from '@/hooks/useReviewEditor';
+import { useNavigationHelpers } from '@/hooks/useNavigation';
 import type { ReviewAssetResult, ReviewResult } from '@/hooks/useReviewResult';
 import { useReviewResult } from '@/hooks/useReviewResult';
 import { formatRelativeDate } from '@/utils/dateUtils';
-import { cn } from '@/utils/styleUtils';
-import { ActivityIndicator, View } from 'react-native';
+import { useQueryClient } from '@tanstack/react-query';
+import { GitBranchPlusIcon } from 'lucide-react-native';
+import { useState } from 'react';
+import { ActivityIndicator, Alert, View } from 'react-native';
 
 interface ReviewResultViewProps {
   questId: string;
@@ -41,23 +54,18 @@ function OverallFeedbackResult({ result }: { result: ReviewResult }) {
       </View>
 
       {conclusion || hasAudio ? (
-        <View className="flex-row items-start gap-2 rounded-md border border-border bg-card p-3">
-          <Text
-            className={cn(
-              'flex-1 text-sm',
-              !conclusion && 'italic text-muted-foreground'
-            )}
-          >
-            {conclusion || 'Audio feedback only'}
-          </Text>
-          {hasAudio ? (
+        <FeedbackTextScroll
+          text={conclusion || 'Audio feedback only'}
+          muted={!conclusion}
+          className="rounded-md border border-border bg-card"
+          accessory={
             <ReviewAudioPlayButton
               size="icon-sm"
               audioId={OVERALL_FEEDBACK_AUDIO_ID}
               audioValues={result.audio}
             />
-          ) : null}
-        </View>
+          }
+        />
       ) : (
         <Text className="text-sm italic text-muted-foreground">
           No overall feedback
@@ -78,6 +86,50 @@ export default function ReviewResultView({
     contentByAsset,
     isLoading: isAssetsLoading
   } = useReviewQuestAssets(questId);
+  const { currentUser } = useAuth();
+  const { goToQuest } = useNavigationHelpers();
+  const queryClient = useQueryClient();
+  const [isCreatingVersion, setIsCreatingVersion] = useState(false);
+
+  const createVersion = async () => {
+    if (!currentUser?.id || isCreatingVersion) return;
+    setIsCreatingVersion(true);
+    try {
+      const created = await createQuestVersionFromQuest({
+        sourceQuestId: questId,
+        userId: currentUser.id,
+        reviewId
+      });
+      await queryClient.invalidateQueries({ queryKey: ['bible-chapters'] });
+      await queryClient.invalidateQueries({
+        queryKey: ['fia-pericope-quests']
+      });
+      await queryClient.invalidateQueries({ queryKey: ['quests'] });
+      await queryClient.invalidateQueries({ queryKey: ['assets'] });
+      goToQuest({
+        id: created.questId,
+        project_id: created.projectId,
+        name: created.questName,
+        promptVersionLabel: true
+      });
+    } catch (error) {
+      console.error('Failed to create quest version from review:', error);
+      Alert.alert('Could not create the quest version');
+    } finally {
+      setIsCreatingVersion(false);
+    }
+  };
+
+  const confirmCreateVersion = () => {
+    Alert.alert(
+      'New quest version',
+      'Create a draft quest from this review? It starts with the assets from the original quest.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Create', onPress: () => void createVersion() }
+      ]
+    );
+  };
 
   const assetNames = new Map(assets.map((item) => [item.id, item.name ?? '']));
 
@@ -101,26 +153,42 @@ export default function ReviewResultView({
 
   return (
     <View className="flex-1">
-      <View className="flex-1 gap-6 px-4">
-        <View className="min-w-0">
-          <Text variant="h4">Review</Text>
-          <Text className="text-sm text-muted-foreground">
-            {subjectName ?? result.questLabel}
-          </Text>
-          <Text className="text-xs text-muted-foreground">
-            {creator} · {formatRelativeDate(result.date)}
-          </Text>
+      <View className="flex-1 px-4">
+        <View className="flex-row items-start justify-between gap-3">
+          <View className="min-w-0 flex-1">
+            <Text variant="h4">Review</Text>
+            <Text className="text-sm text-muted-foreground">
+              {subjectName ?? result.questLabel}
+            </Text>
+            <Text className="text-xs text-muted-foreground">
+              {creator} · {formatRelativeDate(result.date)}
+            </Text>
+          </View>
+          <Button
+            variant="outline"
+            size="icon"
+            accessibilityLabel="Create quest version"
+            disabled={isCreatingVersion}
+            loading={isCreatingVersion}
+            onPress={confirmCreateVersion}
+          >
+            <Icon as={GitBranchPlusIcon} size={18} />
+          </Button>
         </View>
 
-        <OverallFeedbackResult result={result} />
-        <Text variant="h4">Assets</Text>
-
         <LegendList
+          style={{ flex: 1 }}
           data={assets}
           keyExtractor={(item) => item.id}
           estimatedItemSize={96}
           ItemSeparatorComponent={() => <View className="h-3" />}
           contentContainerStyle={{ paddingBottom: 24 }}
+          ListHeaderComponent={
+            <View className="gap-6 pb-6 pt-6">
+              <OverallFeedbackResult result={result} />
+              <Text variant="h4">Assets</Text>
+            </View>
+          }
           renderItem={({ item }) => {
             const assetResult = result.assets.get(item.id) ?? NOT_REVIEWED;
             return (

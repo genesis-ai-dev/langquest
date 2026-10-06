@@ -21,7 +21,6 @@ import {
   DrawerTitle
 } from '@/components/ui/drawer';
 import { Icon } from '@/components/ui/icon';
-import { LegendList } from '@/components/ui/legend-list';
 import { Progress } from '@/components/ui/progress';
 import { Text } from '@/components/ui/text';
 import { Textarea } from '@/components/ui/textarea';
@@ -64,14 +63,20 @@ import {
   TriangleAlertIcon,
   XIcon
 } from 'lucide-react-native';
-import { useState } from 'react';
+import { useImperativeHandle, useRef, useState } from 'react';
+import type { Ref } from 'react';
+import type { ScrollViewProps } from 'react-native';
 import {
   ActivityIndicator,
+  FlatList,
   Keyboard,
   Platform,
   Pressable,
   View
 } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
+import type { KeyboardAwareScrollViewRef } from 'react-native-keyboard-controller';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { toast } from 'sonner-native';
 
 interface ReviewEditViewProps {
@@ -82,6 +87,64 @@ interface ReviewEditViewProps {
   subjectName?: string;
   /** Set when this screen is the first open of a new review. */
   promptReviewLabel?: string;
+}
+
+const MEASURE_METHODS = new Set<PropertyKey>([
+  'measure',
+  'measureInWindow',
+  'measureLayout'
+]);
+
+// Lists may measure their scroll ref, but KeyboardAwareScrollView's handle only
+// copies the scroll methods, so measuring is delegated to a same-sized frame.
+function KeyboardAwareListScroll({
+  ref,
+  style,
+  ...props
+}: ScrollViewProps & { ref?: Ref<unknown> }) {
+  const frameRef = useRef<View>(null);
+  const scrollRef = useRef<KeyboardAwareScrollViewRef>(null);
+
+  useImperativeHandle(
+    ref,
+    () =>
+      new Proxy(
+        {},
+        {
+          get: (_target, key): unknown => {
+            const source = MEASURE_METHODS.has(key)
+              ? frameRef.current
+              : scrollRef.current;
+            const value = (source as Record<PropertyKey, unknown> | null)?.[
+              key
+            ];
+            return typeof value === 'function'
+              ? (value as (...args: unknown[]) => unknown).bind(source)
+              : value;
+          }
+        }
+      ),
+    []
+  );
+
+  return (
+    <View ref={frameRef} style={style} collapsable={false}>
+      <KeyboardAwareScrollView
+        {...props}
+        ref={scrollRef}
+        style={{ flex: 1 }}
+        bottomOffset={24}
+      />
+    </View>
+  );
+}
+
+function renderKeyboardAwareScroll(props: ScrollViewProps) {
+  return <KeyboardAwareListScroll {...props} />;
+}
+
+function ItemSeparator() {
+  return <View className="h-3" />;
 }
 
 function deleteAudioFiles(values: string[]) {
@@ -620,6 +683,7 @@ export default function ReviewEditView({
     router.setParams({ promptReviewLabel: undefined });
   };
 
+  const { bottom: bottomInset } = useSafeAreaInsets();
   const assetNames = new Map(assets.map((item) => [item.id, item.name ?? '']));
 
   if (isLoading) {
@@ -633,7 +697,7 @@ export default function ReviewEditView({
   return (
     <ReviewDraftContext.Provider value={store}>
       <View className="flex-1">
-        <View className="flex-1 gap-6 px-4">
+        <View className="flex-1 px-4">
           <View className="flex-row items-center justify-between gap-3">
             <View className="min-w-0 flex-1">
               <ReviewTitle />
@@ -646,15 +710,23 @@ export default function ReviewEditView({
             <SubmitReviewButton assetNames={assetNames} />
           </View>
 
-          <OverallFeedback />
-          <Text variant="h4">Assets</Text>
-
-          <LegendList
+          <FlatList
+            style={{ flex: 1 }}
             data={assets}
             keyExtractor={(item) => item.id}
-            estimatedItemSize={72}
-            ItemSeparatorComponent={() => <View className="h-3" />}
-            contentContainerStyle={{ paddingBottom: 24 }}
+            initialNumToRender={8}
+            windowSize={11}
+            removeClippedSubviews={false}
+            keyboardShouldPersistTaps="handled"
+            renderScrollComponent={renderKeyboardAwareScroll}
+            contentContainerStyle={{ paddingBottom: bottomInset + 24 }}
+            ItemSeparatorComponent={ItemSeparator}
+            ListHeaderComponent={
+              <View className="gap-6 pb-6 pt-6">
+                <OverallFeedback />
+                <Text variant="h4">Assets</Text>
+              </View>
+            }
             renderItem={({ item }) => {
               const verse = getAssetVerseRange(item.metadata);
               return (

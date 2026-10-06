@@ -18,7 +18,7 @@ import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type AudioControlsMode = 'individual' | 'playAll';
-type ControlsPosition = 'top' | 'footer';
+type ControlsPosition = 'top' | 'footer' | 'inline';
 
 interface AudioPlayerControlsProps {
   mode: AudioControlsMode;
@@ -64,6 +64,7 @@ export const AudioPlayerControls = React.memo(function AudioPlayerControls({
   className
 }: AudioPlayerControlsProps) {
   const insets = useSafeAreaInsets();
+  const isInline = position === 'inline';
   const isPlayAll = mode === 'playAll';
   const isActive = isPlaying || isPaused;
   const assetName = currentAssetName?.trim() || 'No audio selected';
@@ -104,14 +105,20 @@ export const AudioPlayerControls = React.memo(function AudioPlayerControls({
   return (
     <View
       className={cn(
-        'absolute left-0 right-0 z-50 border-t border-border bg-background/95 px-4 py-3',
-        position === 'top' ? 'top-0 border-b border-t-0' : 'bottom-0',
+        'border-t border-border bg-background/95 px-4 py-3',
+        isInline ? 'w-full' : 'absolute left-0 right-0 z-50',
+        !isInline &&
+          (position === 'top' ? 'top-0 border-b border-t-0' : 'bottom-0'),
         className
       )}
-      style={{
-        paddingTop: position === 'top' ? insets.top + 8 : 12,
-        paddingBottom: position === 'footer' ? insets.bottom + 8 : 12
-      }}
+      style={
+        isInline
+          ? undefined
+          : {
+              paddingTop: position === 'top' ? insets.top + 8 : 12,
+              paddingBottom: position === 'footer' ? insets.bottom + 8 : 12
+            }
+      }
     >
       <View className="mb-2 flex-row items-center justify-between">
         <Text numberOfLines={1} className="mr-2 flex-1 text-sm font-medium">
