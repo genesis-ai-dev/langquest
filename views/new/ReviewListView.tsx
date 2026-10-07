@@ -120,6 +120,7 @@ function ReviewListCard({
           origin={review.origin}
           reviewLabel={review.reviewLabel}
           status="draft"
+          inactive={!review.active}
         />
       ) : (
         <ReviewCard
@@ -130,6 +131,7 @@ function ReviewListCard({
           reviewLabel={review.reviewLabel}
           status="published"
           outcome={review.outcome}
+          inactive={!review.active}
           {...downloadProps}
         />
       )}
@@ -161,9 +163,7 @@ export default function ReviewListView({
       projectId,
       questId,
       subjectName,
-      ...(existing
-        ? { reviewId: existing.id }
-        : { promptReviewLabel: true })
+      ...(existing ? { reviewId: existing.id } : { promptReviewLabel: true })
     });
   };
 

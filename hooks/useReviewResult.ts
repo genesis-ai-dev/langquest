@@ -1,6 +1,9 @@
 import { profile, quest, review, review_asset } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
-import type { AssetResult, QuestResult } from '@/database_services/reviewService';
+import type {
+  AssetResult,
+  QuestResult
+} from '@/database_services/reviewService';
 import { getReviewAudio } from '@/database_services/reviewService';
 import { formatQuestDisplayLabel } from '@/utils/questVersionLabel';
 import { useQuery } from '@tanstack/react-query';
@@ -14,6 +17,9 @@ export interface ReviewAssetResult {
 
 export interface ReviewResult {
   id: string;
+  projectId: string;
+  profileId: string | null;
+  active: boolean;
   questLabel: string;
   creatorName: string;
   date: string;
@@ -23,10 +29,15 @@ export interface ReviewResult {
   assets: Map<string, ReviewAssetResult>;
 }
 
-async function fetchReviewResult(reviewId: string): Promise<ReviewResult | null> {
+async function fetchReviewResult(
+  reviewId: string
+): Promise<ReviewResult | null> {
   const [row] = await system.db
     .select({
       id: review.id,
+      projectId: review.project_id,
+      profileId: review.profile_id,
+      active: review.active,
       questResult: review.quest_result,
       conclusion: review.conclusion,
       metadata: review.metadata,
@@ -71,6 +82,9 @@ async function fetchReviewResult(reviewId: string): Promise<ReviewResult | null>
 
   return {
     id: row.id,
+    projectId: row.projectId,
+    profileId: row.profileId,
+    active: row.active,
     questLabel: formatQuestDisplayLabel(row.questName, row.questMetadata),
     creatorName: row.username ?? '',
     date: row.concludedAt ?? row.lastUpdated,

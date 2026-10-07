@@ -9,6 +9,7 @@ import type { ButtonProps } from './button';
 import { Button } from './button';
 import { Icon } from './icon';
 import * as Slot from './slot';
+import { Text } from './text';
 
 // Consumers control placement and alignment by composing these parts.
 
@@ -143,6 +144,11 @@ SpeedDialItems.displayName = 'SpeedDialItems';
 interface ItemProps {
   icon: LucideIcon;
   onPress: () => void;
+  /** Text shown next to the icon. */
+  label?: string;
+  /** Side the content aligns to; the icon sits on that side of the label. */
+  align?: 'left' | 'right';
+  disabled?: boolean;
   className?: string;
   variant?: React.ComponentProps<typeof Button>['variant'];
   size?: React.ComponentProps<typeof Button>['size'];
@@ -158,6 +164,9 @@ interface ItemInjectedProps {
 function SpeedDialItem({
   icon,
   onPress,
+  label,
+  align = 'left',
+  disabled,
   className,
   variant,
   size,
@@ -200,16 +209,24 @@ function SpeedDialItem({
     >
       <Button
         onPress={handlePress}
-        size={size ?? 'icon-xl'}
+        size={size ?? (label ? 'default' : 'icon-xl')}
         variant={variant}
-        className={cn('bg-primary/95', className)}
+        disabled={disabled}
+        accessibilityLabel={label}
+        className={cn(
+          'bg-primary/95',
+          label && (align === 'right' ? 'justify-end' : 'justify-start'),
+          className
+        )}
       >
+        {label && align === 'right' ? <Text>{label}</Text> : null}
         <Icon
           as={icon}
-          size={20}
-          strokeWidth={2.5}
+          size={label ? 16 : 20}
+          strokeWidth={label ? 2 : 2.5}
           className={cn('text-secondary', iconClassName)}
         />
+        {label && align === 'left' ? <Text>{label}</Text> : null}
       </Button>
     </MotiView>
   );

@@ -48,6 +48,7 @@ interface AssetReviewItem {
   username: string;
   createdAt: string;
   source: string;
+  active: boolean;
 }
 
 function toAssetResult(value: string | null): AssetResult {
@@ -95,7 +96,8 @@ async function fetchAssetReviewById(
       createdAt: review.created_at,
       assetCreatedAt: review_asset.created_at,
       source: review_asset.source,
-      username: profile.username
+      username: profile.username,
+      active: review.active
     })
     .from(review_asset)
     .leftJoin(review, eq(review.id, review_asset.review_id))
@@ -117,7 +119,8 @@ async function fetchAssetReviews(assetId: string): Promise<AssetReviewItem[]> {
       createdAt: review.created_at,
       assetCreatedAt: review_asset.created_at,
       source: review_asset.source,
-      username: profile.username
+      username: profile.username,
+      active: review.active
     })
     .from(review_asset)
     .leftJoin(review, eq(review.id, review_asset.review_id))
@@ -137,6 +140,7 @@ function toAssetReviewItem(row: {
   assetCreatedAt: string;
   source: string;
   username: string | null;
+  active: boolean | null;
 }): AssetReviewItem {
   return {
     id: row.id,
@@ -146,7 +150,8 @@ function toAssetReviewItem(row: {
     audio: audioValues(row.audio),
     username: row.username?.trim() || 'Unknown',
     createdAt: row.createdAt ?? row.assetCreatedAt,
-    source: row.source
+    source: row.source,
+    active: row.active ?? true
   };
 }
 
@@ -259,10 +264,13 @@ function AssetReviewDrawerBody({
   const initialReviewId = detailQuery.data?.reviewId;
   const isInitialReview = (item: AssetReviewItem) =>
     item.id === reviewAssetId || item.reviewId === initialReviewId;
-  const listItems = listQuery.data
+  const visibleItems = listQuery.data?.filter(
+    (item) => item.active || isInitialReview(item)
+  );
+  const listItems = visibleItems
     ? [
-        ...listQuery.data.filter(isInitialReview),
-        ...listQuery.data.filter((item) => !isInitialReview(item))
+        ...visibleItems.filter(isInitialReview),
+        ...visibleItems.filter((item) => !isInitialReview(item))
       ]
     : undefined;
 
@@ -358,7 +366,8 @@ function AssetReviewDrawerBody({
                         accessibilityState={{ selected: isSelected }}
                         className={cn(
                           'flex-row items-center justify-between gap-3 rounded-lg border border-border px-3 py-2',
-                          isSelected && 'border-primary bg-primary/10'
+                          isSelected && 'border-primary bg-primary/10',
+                          !item.active && 'opacity-50'
                         )}
                       >
                         <View className="min-w-0 flex-1 flex-row items-center gap-1.5">

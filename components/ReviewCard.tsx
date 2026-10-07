@@ -22,6 +22,8 @@ interface ReviewCardBaseProps {
   needsDownload?: boolean;
   isDownloading?: boolean;
   onDownloadPress?: () => void;
+  /** Inactive review, shown only to its creator and project owners. */
+  inactive?: boolean;
   className?: string;
 }
 
@@ -65,6 +67,7 @@ export function ReviewCard({
   needsDownload = false,
   isDownloading = false,
   onDownloadPress,
+  inactive = false,
   className
 }: ReviewCardProps) {
   const displayCreator = creatorName.trim() || 'Unknown';
@@ -75,6 +78,7 @@ export function ReviewCard({
       className={cn(
         'flex-row items-center gap-3 rounded-lg border border-border bg-card p-4',
         needsDownload && 'opacity-60',
+        inactive && 'opacity-40',
         className
       )}
     >

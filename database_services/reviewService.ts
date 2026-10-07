@@ -1,5 +1,6 @@
 import type { QuestMetadata } from '@/db/drizzleSchemaColumns';
 import { review_asset_local, review_local } from '@/db/drizzleSchemaLocal';
+import { review_synced } from '@/db/drizzleSchemaSynced';
 import { system } from '@/db/powersync/system';
 import { getNetworkStatus } from '@/hooks/useNetworkStatus';
 import { promoteLocalAudioValue } from '@/services/attachments/promoteLocalAudio';
@@ -151,6 +152,23 @@ export async function updateReviewConclusion(
     .where(eq(review_local.id, reviewId));
 }
 
+/**
+ * Published reviews live in review_synced (the update uploads through
+ * PowerSync); the publisher's local copy is kept in step.
+ */
+export async function setReviewActive(reviewId: string, active: boolean) {
+  await system.db.transaction(async (tx) => {
+    await tx
+      .update(review_synced)
+      .set({ active })
+      .where(eq(review_synced.id, reviewId));
+    await tx
+      .update(review_local)
+      .set({ active })
+      .where(eq(review_local.id, reviewId));
+  });
+}
+
 /** The review table has no audio column; overall feedback audio lives in metadata.audio. */
 export function getReviewAudio(review: Pick<ReviewRow, 'metadata'>): string[] {
   const audio = (review.metadata as { audio?: unknown } | null)?.audio;
@@ -159,10 +177,7 @@ export function getReviewAudio(review: Pick<ReviewRow, 'metadata'>): string[] {
     : [];
 }
 
-export async function updateReviewLabel(
-  reviewId: string,
-  reviewLabel: string
-) {
+export async function updateReviewLabel(reviewId: string, reviewLabel: string) {
   const review = await getReview(reviewId);
   await system.db
     .update(review_local)

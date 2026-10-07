@@ -68,6 +68,7 @@ import type { Ref } from 'react';
 import type { ScrollViewProps } from 'react-native';
 import {
   ActivityIndicator,
+  Alert as RNAlert,
   FlatList,
   Keyboard,
   Platform,
@@ -514,7 +515,20 @@ function ConclusionAudio() {
           variant="ghost"
           size="icon-sm"
           accessibilityLabel="Remove audio"
-          onPress={() => void handleRemove()}
+          onPress={() => {
+            RNAlert.alert(
+              'Remove audio',
+              'This audio feedback will be deleted.',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Remove',
+                  style: 'destructive',
+                  onPress: () => void handleRemove()
+                }
+              ]
+            );
+          }}
         >
           <Icon as={Trash2Icon} size={16} className="text-destructive" />
         </Button>
@@ -535,16 +549,33 @@ function ConclusionAudio() {
   );
 }
 
+function toggleId(ids: Set<string>, id: string) {
+  const next = new Set(ids);
+  if (next.has(id)) next.delete(id);
+  else next.add(id);
+  return next;
+}
+
 function ReviewAssetListItem({
   assetId,
   name,
   verseLabel,
-  content
+  content,
+  isFeedbackOpen,
+  onToggleFeedback,
+  isResultPickerOpen,
+  onToggleResultPicker,
+  onCloseResultPicker
 }: {
   assetId: string;
   name: string;
   verseLabel: string | null;
   content: AssetReviewContent;
+  isFeedbackOpen: boolean;
+  onToggleFeedback: () => void;
+  isResultPickerOpen: boolean;
+  onToggleResultPicker: () => void;
+  onCloseResultPicker: () => void;
 }) {
   const draft =
     useReviewDraft((state) => state.assets[assetId]) ?? EMPTY_REVIEW_ASSET;
@@ -575,6 +606,11 @@ function ReviewAssetListItem({
       onCommentChange={(comment) => void patchAsset(assetId, { comment })}
       onRequestRecord={() => setRecordingAssetId(assetId)}
       onRemoveAudio={() => void handleRemoveAudio()}
+      isFeedbackOpen={isFeedbackOpen}
+      onToggleFeedback={onToggleFeedback}
+      isResultPickerOpen={isResultPickerOpen}
+      onToggleResultPicker={onToggleResultPicker}
+      onCloseResultPicker={onCloseResultPicker}
     />
   );
 }
@@ -674,6 +710,12 @@ export default function ReviewEditView({
       reviewId,
       origin
     });
+  const [openFeedbackIds, setOpenFeedbackIds] = useState<Set<string>>(
+    () => new Set()
+  );
+  const [openResultIds, setOpenResultIds] = useState<Set<string>>(
+    () => new Set()
+  );
   const [labelPromptDismissed, setLabelPromptDismissed] = useState(false);
   const showLabelDrawer =
     promptReviewLabel === '1' && !isLoading && !labelPromptDismissed;
@@ -717,6 +759,7 @@ export default function ReviewEditView({
             initialNumToRender={8}
             windowSize={11}
             removeClippedSubviews={false}
+            extraData={[openFeedbackIds, openResultIds]}
             keyboardShouldPersistTaps="handled"
             renderScrollComponent={renderKeyboardAwareScroll}
             contentContainerStyle={{ paddingBottom: bottomInset + 24 }}
@@ -739,6 +782,22 @@ export default function ReviewEditView({
                     formatVerse
                   )}
                   content={contentByAsset.get(item.id) ?? EMPTY_ASSET_CONTENT}
+                  isFeedbackOpen={openFeedbackIds.has(item.id)}
+                  onToggleFeedback={() =>
+                    setOpenFeedbackIds((ids) => toggleId(ids, item.id))
+                  }
+                  isResultPickerOpen={openResultIds.has(item.id)}
+                  onToggleResultPicker={() =>
+                    setOpenResultIds((ids) => toggleId(ids, item.id))
+                  }
+                  onCloseResultPicker={() =>
+                    setOpenResultIds((ids) => {
+                      if (!ids.has(item.id)) return ids;
+                      const next = new Set(ids);
+                      next.delete(item.id);
+                      return next;
+                    })
+                  }
                 />
               );
             }}

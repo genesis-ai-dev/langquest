@@ -7,12 +7,13 @@ import {
   REVIEW_STATUS_SUBMITTED
 } from '@/database_services/reviewService';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
+import { useReviewAccess } from '@/hooks/useReviewAccess';
 import { formatQuestDisplayLabel } from '@/utils/questVersionLabel';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useQuery } from '@powersync/tanstack-react-query';
 import { useQuery as useTanstackQuery } from '@tanstack/react-query';
 import type { SQL } from 'drizzle-orm';
-import { and, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, or, sql } from 'drizzle-orm';
 
 export type ReviewTab = 'in-progress' | 'completed';
 
@@ -26,6 +27,8 @@ interface ReviewBase {
   reviewLabel: string | null;
   /** Published in the cloud but its quest is not downloaded on this device. */
   needsDownload: boolean;
+  /** Inactive reviews are only listed for their creator and project owners. */
+  active: boolean;
 }
 
 export type Review = ReviewBase &
@@ -45,6 +48,12 @@ export interface ReviewsFilter {
 }
 
 type JsonLeaf = string | number | boolean;
+
+interface ReviewVisibility {
+  userId: string | null;
+  /** Project owners see every inactive review; others only their own. */
+  includeAllInactive: boolean;
+}
 
 function flattenMetadata(
   value: Record<string, unknown>,
@@ -95,6 +104,7 @@ interface CloudReviewRow {
   id: string;
   quest_id: string;
   profile_id: string | null;
+  active: boolean;
   quest_result: string | null;
   origin: string;
   concluded_at: string | null;
@@ -106,16 +116,21 @@ interface CloudReviewRow {
 async function fetchCloudReviews(
   projectId: string,
   questId: string | undefined,
-  metadataEntries: [string, JsonLeaf][]
+  metadataEntries: [string, JsonLeaf][],
+  visibility: ReviewVisibility
 ): Promise<Review[]> {
   let request = system.supabaseConnector.client
     .from('review')
     .select(
-      'id, quest_id, profile_id, quest_result, origin, concluded_at, created_at, metadata, quest:quest_id(name, metadata)'
+      'id, quest_id, profile_id, active, quest_result, origin, concluded_at, created_at, metadata, quest:quest_id(name, metadata)'
     )
     .eq('project_id', projectId)
-    .eq('active', true)
     .eq('status', REVIEW_STATUS_SUBMITTED);
+  if (!visibility.includeAllInactive) {
+    request = visibility.userId
+      ? request.or(`active.eq.true,profile_id.eq.${visibility.userId}`)
+      : request.eq('active', true);
+  }
   // metadata is text server-side, so JSON matching happens client-side.
   if (metadataEntries.length === 0 && questId) {
     request = request.eq('quest_id', questId);
@@ -152,6 +167,7 @@ async function fetchCloudReviews(
     origin: row.origin,
     reviewLabel: getReviewLabel(row.metadata),
     needsDownload: true,
+    active: row.active,
     status: 'published',
     outcome: toOutcome(row.quest_result)
   }));
@@ -161,10 +177,14 @@ export function useReviews(tab: ReviewTab, filter: ReviewsFilter) {
   const { projectId, questId, metadata } = filter;
   const metadataEntries = metadata ? flattenMetadata(metadata) : [];
   const isDraftTab = tab === 'in-progress';
+  const { userId, isProjectOwner } = useReviewAccess();
+  const visibility: ReviewVisibility = {
+    userId,
+    includeAllInactive: isProjectOwner(projectId)
+  };
 
   const conditions: SQL[] = [
     eq(review.project_id, projectId ?? ''),
-    eq(review.active, true),
     eq(
       review.status,
       isDraftTab ? REVIEW_STATUS_IN_PROGRESS : REVIEW_STATUS_SUBMITTED
@@ -179,13 +199,20 @@ export function useReviews(tab: ReviewTab, filter: ReviewsFilter) {
   } else if (questId) {
     conditions.push(eq(review.quest_id, questId));
   }
+  if (!visibility.includeAllInactive) {
+    const visible = userId
+      ? or(eq(review.active, true), eq(review.profile_id, userId))
+      : eq(review.active, true);
+    if (visible) conditions.push(visible);
+  }
 
   const { data, isLoading } = useQuery({
     queryKey: [
       'reviews',
       tab,
       projectId,
-      metadataEntries.length > 0 ? metadataEntries : questId
+      metadataEntries.length > 0 ? metadataEntries : questId,
+      visibility
     ],
     enabled: !!projectId,
     query: toCompilableQuery(
@@ -193,6 +220,7 @@ export function useReviews(tab: ReviewTab, filter: ReviewsFilter) {
         .select({
           id: review.id,
           questId: review.quest_id,
+          active: review.active,
           status: review.status,
           questResult: review.quest_result,
           origin: review.origin,
@@ -219,9 +247,11 @@ export function useReviews(tab: ReviewTab, filter: ReviewsFilter) {
       'reviews',
       'cloud',
       projectId,
-      metadataEntries.length > 0 ? metadataEntries : questId
+      metadataEntries.length > 0 ? metadataEntries : questId,
+      visibility
     ],
-    queryFn: () => fetchCloudReviews(projectId!, questId, metadataEntries),
+    queryFn: () =>
+      fetchCloudReviews(projectId!, questId, metadataEntries, visibility),
     enabled: !!projectId && !isDraftTab && isOnline,
     staleTime: 60000
   });
@@ -235,7 +265,8 @@ export function useReviews(tab: ReviewTab, filter: ReviewsFilter) {
       date: row.concludedAt ?? row.lastUpdated,
       origin: row.origin,
       reviewLabel: getReviewLabel(row.metadata),
-      needsDownload: false
+      needsDownload: false,
+      active: row.active
     };
     return isDraftTab
       ? { ...base, status: 'draft' }

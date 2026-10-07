@@ -1,11 +1,10 @@
 /* eslint-disable @typescript-eslint/no-unnecessary-condition */
-import { AssetReviewDrawer } from '@/components/AssetReviewDrawer';
 import type { AssetReviewDrawerHandle } from '@/components/AssetReviewDrawer';
-import { QuestReviewDrawer } from '@/components/QuestReviewDrawer';
-import type { QuestReviewDrawerHandle } from '@/components/QuestReviewDrawer';
+import { AssetReviewDrawer } from '@/components/AssetReviewDrawer';
 import { AssetsDeletionDrawer } from '@/components/AssetsDeletionDrawer';
-import { MessageCard } from '@/components/MessageCard';
 import { AudioPlayerControls } from '@/components/AudioPlayerControls';
+import type { QuestReviewDrawerHandle } from '@/components/QuestReviewDrawer';
+import { QuestReviewDrawer } from '@/components/QuestReviewDrawer';
 import { QuestSettingsModal } from '@/components/QuestSettingsModal';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
@@ -38,17 +37,17 @@ import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
 import RNAlert from '@blazejkustra/react-native-alert';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useKeepAwake } from 'expo-keep-awake';
-import { Stack  } from 'expo-router';
+import { Stack } from 'expo-router';
 import {
   BookmarkPlusIcon,
   BookOpenIcon,
   BrushCleaning,
+  ClipboardListIcon,
   DownloadIcon,
   FilePenIcon,
   FlagIcon,
   InfoIcon,
   LockIcon,
-  ClipboardListIcon,
   PlayIcon,
   Redo2,
   RefreshCwIcon,
@@ -112,11 +111,6 @@ import {
   buildPericopeSequence,
   formatPericopeVerseLabel
 } from '@/constants/bibleStructure';
-import {
-  extractFiaMetadata,
-  getBibleBookIdFromFia,
-  parseFiaVerseRange
-} from '@/utils/verseLabelUtils';
 import { run as runAssetGarbageCollector } from '@/database_services/assetGarbageCollectorService';
 import type { AssetUpdatePayload } from '@/database_services/assetService';
 import {
@@ -156,6 +150,11 @@ import { publishQuest as publishQuestUtils } from '@/utils/publishQuest';
 import { offloadQuest } from '@/utils/questOffloadUtils';
 import { formatQuestDisplayLabel } from '@/utils/questVersionLabel';
 import { cn, getThemeColor } from '@/utils/styleUtils';
+import {
+  extractFiaMetadata,
+  getBibleBookIdFromFia,
+  parseFiaVerseRange
+} from '@/utils/verseLabelUtils';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { eq } from 'drizzle-orm';
@@ -3919,13 +3918,13 @@ export default function BibleAssetsView() {
           </View>
         </View>
       </View>
-      {questReview && isMember ? (
+      {/* {questReview && isMember ? (
         <MessageCard
           title="Based on review"
           subtitle={questReviewLabel ?? ''}
           onPress={null}
         />
-      ) : null}
+      ) : null} */}
       <View className="flex w-full flex-row items-center">
         <View className="flex-1 flex-row items-center gap-1">
           {fiaPericopeId && (
@@ -3982,11 +3981,7 @@ export default function BibleAssetsView() {
                 })
               }
             >
-              <Icon
-                as={ClipboardListIcon}
-                size={18}
-                className="text-primary"
-              />
+              <Icon as={ClipboardListIcon} size={18} className="text-primary" />
             </Button>
           ) : null}
           {!isPublished && currentUser && (

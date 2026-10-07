@@ -21,8 +21,7 @@ import {
   MicIcon,
   Trash2Icon
 } from 'lucide-react-native';
-import { useState } from 'react';
-import { View } from 'react-native';
+import { Alert, View } from 'react-native';
 
 export interface ReviewAssetCardProps {
   assetId: string;
@@ -37,6 +36,11 @@ export interface ReviewAssetCardProps {
   onCommentChange: (comment: string) => void;
   onRequestRecord: () => void;
   onRemoveAudio: () => void;
+  isFeedbackOpen: boolean;
+  onToggleFeedback: () => void;
+  isResultPickerOpen: boolean;
+  onToggleResultPicker: () => void;
+  onCloseResultPicker: () => void;
 }
 
 export function ReviewAssetCard({
@@ -51,10 +55,13 @@ export function ReviewAssetCard({
   onResultChange,
   onCommentChange,
   onRequestRecord,
-  onRemoveAudio
+  onRemoveAudio,
+  isFeedbackOpen,
+  onToggleFeedback,
+  isResultPickerOpen,
+  onToggleResultPicker,
+  onCloseResultPicker
 }: ReviewAssetCardProps) {
-  const [isResultPickerOpen, setIsResultPickerOpen] = useState(false);
-  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
   const commentField = useAutosaveText(comment, onCommentChange);
 
   return (
@@ -78,7 +85,7 @@ export function ReviewAssetCard({
           variant="ghost"
           size="icon"
           accessibilityLabel={RESULT_LABEL[result]}
-          onPress={() => setIsResultPickerOpen((open) => !open)}
+          onPress={onToggleResultPicker}
         >
           <ResultIcon result={result} />
         </Button>
@@ -88,7 +95,7 @@ export function ReviewAssetCard({
           accessibilityLabel={
             isFeedbackOpen ? 'Hide feedback' : 'Show feedback'
           }
-          onPress={() => setIsFeedbackOpen((open) => !open)}
+          onPress={onToggleFeedback}
         >
           <Icon
             as={isFeedbackOpen ? ChevronUpIcon : ChevronDownIcon}
@@ -101,7 +108,7 @@ export function ReviewAssetCard({
         <ResultOptions
           result={result}
           onSelect={(value) => {
-            setIsResultPickerOpen(false);
+            onCloseResultPicker();
             if (value !== result) onResultChange(value);
           }}
         />
@@ -136,7 +143,20 @@ export function ReviewAssetCard({
                 variant="ghost"
                 size="icon-sm"
                 accessibilityLabel="Remove audio"
-                onPress={onRemoveAudio}
+                onPress={() => {
+                  Alert.alert(
+                    'Remove audio',
+                    'This audio feedback will be deleted.',
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      {
+                        text: 'Remove',
+                        style: 'destructive',
+                        onPress: onRemoveAudio
+                      }
+                    ]
+                  );
+                }}
               >
                 <Icon as={Trash2Icon} size={16} className="text-destructive" />
               </Button>
