@@ -8,6 +8,7 @@ import {
 } from '@/database_services/reviewService';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useReviewAccess } from '@/hooks/useReviewAccess';
+import { firstDate } from '@/utils/dateUtils';
 import { formatQuestDisplayLabel } from '@/utils/questVersionLabel';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
 import { useQuery } from '@powersync/tanstack-react-query';
@@ -163,7 +164,7 @@ async function fetchCloudReviews(
     questId: row.quest_id,
     title: formatQuestDisplayLabel(row.quest?.name, row.quest?.metadata),
     creatorName: (row.profile_id && usernames.get(row.profile_id)) || '',
-    date: row.concluded_at ?? row.created_at,
+    date: firstDate(row.concluded_at, row.created_at),
     origin: row.origin,
     reviewLabel: getReviewLabel(row.metadata),
     needsDownload: true,
@@ -199,7 +200,10 @@ export function useReviews(tab: ReviewTab, filter: ReviewsFilter) {
   } else if (questId) {
     conditions.push(eq(review.quest_id, questId));
   }
-  if (!visibility.includeAllInactive) {
+  if (isDraftTab) {
+    conditions.push(eq(review.profile_id, userId ?? ''));
+    conditions.push(eq(review.active, true));
+  } else if (!visibility.includeAllInactive) {
     const visible = userId
       ? or(eq(review.active, true), eq(review.profile_id, userId))
       : eq(review.active, true);
@@ -227,6 +231,7 @@ export function useReviews(tab: ReviewTab, filter: ReviewsFilter) {
           metadata: review.metadata,
           concludedAt: review.concluded_at,
           lastUpdated: review.last_updated,
+          createdAt: review.created_at,
           questName: quest.name,
           questMetadata: quest.metadata,
           username: profile.username
@@ -262,7 +267,7 @@ export function useReviews(tab: ReviewTab, filter: ReviewsFilter) {
       questId: row.questId,
       title: formatQuestDisplayLabel(row.questName, row.questMetadata),
       creatorName: row.username ?? '',
-      date: row.concludedAt ?? row.lastUpdated,
+      date: firstDate(row.concludedAt, row.lastUpdated, row.createdAt),
       origin: row.origin,
       reviewLabel: getReviewLabel(row.metadata),
       needsDownload: false,

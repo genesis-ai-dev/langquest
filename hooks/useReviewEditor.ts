@@ -9,13 +9,16 @@ import type {
 import {
   createDraftReview,
   getDraftReviewForQuest,
-  getReview,
+  getReviewAnywhere,
   getReviewAssets,
   getReviewLabel,
   getReviewAudio,
   getReviewQuestScope,
+  publishExternalReview,
   publishReview,
   reopenReviewDraft,
+  revokeExternalReview,
+  rotateExternalReviewToken,
   submitReview,
   updateReviewAudio,
   updateReviewConclusion,
@@ -26,11 +29,12 @@ import {
 import type { AssetContent } from '@/hooks/db/useAssets';
 import { useAssetsContent, useLocalAssetsByQuest } from '@/hooks/db/useAssets';
 import { useQuestById } from '@/hooks/db/useQuests';
+import { getNetworkStatus } from '@/hooks/useNetworkStatus';
 import { createQuestVerseFormatter } from '@/utils/verseLabelUtils';
 import { useQuery } from '@tanstack/react-query';
 import { createContext, useContext, useEffect, useState } from 'react';
-import { createStore,  useStore } from 'zustand';
-import type {StoreApi} from 'zustand';
+import { createStore, useStore } from 'zustand';
+import type { StoreApi } from 'zustand';
 
 export interface ReviewAssetDraft {
   asset_result: AssetResult;
@@ -64,6 +68,8 @@ interface ReviewDraftState {
   isHydrated: boolean;
   reviewId: string | null;
   reviewLabel: string | null;
+  /** Set while an external reviewer can fill this draft. The creator cannot edit. */
+  accessToken: string | null;
   isSubmitted: boolean;
   questResult: QuestResult | null;
   conclusion: string;
@@ -85,6 +91,11 @@ interface ReviewDraftState {
   ) => Promise<void>;
   submit: () => Promise<void>;
   setReviewLabel: (label: string) => Promise<void>;
+  /** Publishes the review row, discards filled feedback, and returns audio paths to delete. */
+  requestExternalReview: (token: string) => Promise<string[]>;
+  /** Replaces the active external-review token. */
+  replaceExternalReviewToken: (token: string) => Promise<void>;
+  revokeExternalReviewLink: () => Promise<void>;
 }
 
 export type ReviewDraftStore = StoreApi<ReviewDraftState>;
@@ -95,6 +106,7 @@ function createReviewDraftStore(): ReviewDraftStore {
   let config: ReviewDraftConfig | null = null;
   let reviewId: string | null = null;
   let pendingCreate: Promise<string> | null = null;
+  let editsLocked = false;
 
   // The review row is only created on the first edit, so opening the screen
   // without touching anything leaves no empty drafts behind.
@@ -107,10 +119,11 @@ function createReviewDraftStore(): ReviewDraftStore {
     return reviewId;
   };
 
-  return createStore<ReviewDraftState>()((set) => ({
+  return createStore<ReviewDraftState>()((set, get) => ({
     isHydrated: false,
     reviewId: null,
     reviewLabel: null,
+    accessToken: null,
     isSubmitted: false,
     questResult: null,
     conclusion: '',
@@ -121,6 +134,7 @@ function createReviewDraftStore(): ReviewDraftStore {
     setRecordingAssetId: (assetId) => set({ recordingAssetId: assetId }),
 
     setConclusion: async (value) => {
+      if (editsLocked || get().accessToken) return;
       set({ conclusion: value });
       try {
         await updateReviewConclusion(await ensureReviewId(), value || null);
@@ -130,6 +144,7 @@ function createReviewDraftStore(): ReviewDraftStore {
     },
 
     setConclusionAudio: async (audio) => {
+      if (editsLocked || get().accessToken) return;
       set({ conclusionAudio: audio });
       try {
         await updateReviewAudio(await ensureReviewId(), audio);
@@ -141,10 +156,12 @@ function createReviewDraftStore(): ReviewDraftStore {
     hydrate: (nextConfig, review, reviewAssets) => {
       config = nextConfig;
       reviewId = review?.id ?? null;
+      editsLocked = Boolean(review?.access_token);
       set({
         isHydrated: true,
         reviewId,
         reviewLabel: review ? getReviewLabel(review.metadata) : null,
+        accessToken: review?.access_token ?? null,
         isSubmitted: review?.status === 'submitted',
         questResult: (review?.quest_result as QuestResult | null) ?? null,
         conclusion: review?.conclusion ?? '',
@@ -164,6 +181,7 @@ function createReviewDraftStore(): ReviewDraftStore {
     },
 
     setQuestResult: async (value) => {
+      if (editsLocked || get().accessToken) return;
       set({ questResult: value });
       try {
         await updateReviewQuestResult(await ensureReviewId(), value);
@@ -186,6 +204,7 @@ function createReviewDraftStore(): ReviewDraftStore {
     },
 
     patchAsset: async (assetId, patch) => {
+      if (editsLocked || get().accessToken) return;
       set((state) => ({
         assets: {
           ...state.assets,
@@ -203,7 +222,45 @@ function createReviewDraftStore(): ReviewDraftStore {
       }
     },
 
+    requestExternalReview: async (token) => {
+      if (!getNetworkStatus()) throw new Error('OFFLINE');
+      editsLocked = true;
+      try {
+        const id = await ensureReviewId();
+        const audio = await publishExternalReview(id, token);
+        set({
+          reviewId: id,
+          accessToken: token,
+          questResult: null,
+          conclusion: '',
+          conclusionAudio: [],
+          assets: {},
+          recordingAssetId: null
+        });
+        return audio;
+      } catch (error) {
+        editsLocked = false;
+        throw error;
+      }
+    },
+
+    replaceExternalReviewToken: async (token) => {
+      if (!reviewId) throw new Error('Review not found');
+      await rotateExternalReviewToken(reviewId, token);
+      set({ accessToken: token });
+    },
+
+    revokeExternalReviewLink: async () => {
+      if (!reviewId) return;
+      await revokeExternalReview(reviewId);
+      editsLocked = false;
+      set({ accessToken: null });
+    },
+
     submit: async () => {
+      if (get().accessToken) {
+        throw new Error('EXTERNAL_REVIEW_ACTIVE');
+      }
       if (!config) throw new Error('Review draft is not hydrated');
       const id = await ensureReviewId();
       set({ reviewId: id });
@@ -241,7 +298,10 @@ function dedupePreferSynced<T extends { id: string; source?: string | null }>(
   const byId = new Map<string, T>();
   for (const row of rows) {
     const existing = byId.get(row.id);
-    if (!existing || (row.source === 'synced' && existing.source !== 'synced')) {
+    if (
+      !existing ||
+      (row.source === 'synced' && existing.source !== 'synced')
+    ) {
       byId.set(row.id, row);
     }
   }
@@ -267,9 +327,7 @@ export function useReviewQuestAssets(questId: string) {
     assetsQuery.data.pages.flatMap((page) => page.data)
   );
   const { assetsContent } = useAssetsContent(assets.map((item) => item.id));
-  const contentByAsset = groupContentByAsset(
-    dedupePreferSynced(assetsContent)
-  );
+  const contentByAsset = groupContentByAsset(dedupePreferSynced(assetsContent));
   return { assets, contentByAsset, isLoading: assetsQuery.isLoading };
 }
 
@@ -303,7 +361,7 @@ export function useReviewEditor({
     queryKey: ['review-draft', reviewId ?? questId, profileId],
     queryFn: async () => {
       const review = reviewId
-        ? await getReview(reviewId)
+        ? await getReviewAnywhere(reviewId)
         : await getDraftReviewForQuest(questId, profileId!);
       const reviewAssets = review ? await getReviewAssets(review.id) : [];
       return { review, reviewAssets };

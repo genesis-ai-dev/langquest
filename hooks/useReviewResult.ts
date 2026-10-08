@@ -5,6 +5,7 @@ import type {
   QuestResult
 } from '@/database_services/reviewService';
 import { getReviewAudio } from '@/database_services/reviewService';
+import { firstDate } from '@/utils/dateUtils';
 import { formatQuestDisplayLabel } from '@/utils/questVersionLabel';
 import { useQuery } from '@tanstack/react-query';
 import { eq } from 'drizzle-orm';
@@ -44,6 +45,7 @@ async function fetchReviewResult(
       audio: review.audio,
       concludedAt: review.concluded_at,
       lastUpdated: review.last_updated,
+      createdAt: review.created_at,
       questName: quest.name,
       questMetadata: quest.metadata,
       username: profile.username
@@ -87,7 +89,7 @@ async function fetchReviewResult(
     active: row.active,
     questLabel: formatQuestDisplayLabel(row.questName, row.questMetadata),
     creatorName: row.username ?? '',
-    date: row.concludedAt ?? row.lastUpdated,
+    date: firstDate(row.concludedAt, row.lastUpdated, row.createdAt),
     questResult: row.questResult as QuestResult | null,
     conclusion: row.conclusion,
     audio: row.audio?.length ? row.audio : getReviewAudio(row),

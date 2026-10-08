@@ -22,13 +22,13 @@ export const RESULT_LABEL: Record<AssetResult, string> = {
   approved: 'Approved'
 };
 
-const RESULT_OPTION_CLASS: Record<AssetResult, string> = {
+export const RESULT_OPTION_CLASS: Record<AssetResult, string> = {
   not_reviewed: 'bg-transparent',
   suggested_changes: 'border-transparent bg-yellow-500',
   approved: 'border-transparent bg-green-500'
 };
 
-const RESULT_OPTION_TEXT_CLASS: Record<AssetResult, string> = {
+export const RESULT_OPTION_TEXT_CLASS: Record<AssetResult, string> = {
   not_reviewed: 'text-muted-foreground',
   suggested_changes: 'text-black',
   approved: 'text-white'

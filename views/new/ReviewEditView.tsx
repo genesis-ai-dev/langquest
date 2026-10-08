@@ -1,6 +1,10 @@
 import AudioRecorder from '@/components/AudioRecorder';
-import { ReviewAssetCard } from '@/components/ReviewAssetCard';
-import { ReviewLabelDrawer } from '@/components/ReviewLabelDrawer';
+import { ExternalReviewDrawer } from '@/components/ExternalReviewDrawer';
+import type { ReviewAssetEditTarget } from '@/components/ReviewAssetEditCard';
+import {
+  ReviewAssetEditCard,
+  ReviewAssetEditDrawer
+} from '@/components/ReviewAssetEditCard';
 import {
   OVERALL_FEEDBACK_AUDIO_ID,
   ReviewAudioPlayButton
@@ -9,6 +13,7 @@ import {
   ReviewAudioPlayer,
   ReviewAudioPlayerSpacer
 } from '@/components/ReviewAudioPlayer';
+import { ReviewLabelDrawer } from '@/components/ReviewLabelDrawer';
 import { ResultOptions, ResultSoftBadge } from '@/components/ReviewResult';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -21,6 +26,7 @@ import {
   DrawerTitle
 } from '@/components/ui/drawer';
 import { Icon } from '@/components/ui/icon';
+import { LegendList } from '@/components/ui/legend-list';
 import { Progress } from '@/components/ui/progress';
 import { Text } from '@/components/ui/text';
 import { Textarea } from '@/components/ui/textarea';
@@ -28,10 +34,12 @@ import type {
   AssetResult,
   QuestResult
 } from '@/database_services/reviewService';
-import { findIncompleteSuggestedChanges } from '@/database_services/reviewService';
+import {
+  deleteLocalReview,
+  findIncompleteSuggestedChanges
+} from '@/database_services/reviewService';
 import { useAutosaveText } from '@/hooks/useAutosaveText';
 import { useLocalization } from '@/hooks/useLocalization';
-import type { AssetReviewContent } from '@/hooks/useReviewEditor';
 import {
   EMPTY_ASSET_CONTENT,
   EMPTY_REVIEW_ASSET,
@@ -56,6 +64,7 @@ import type { LucideIcon } from 'lucide-react-native';
 import {
   AudioLinesIcon,
   CheckCircleIcon,
+  ClipboardIcon,
   DatabaseIcon,
   MicIcon,
   SendIcon,
@@ -63,21 +72,16 @@ import {
   TriangleAlertIcon,
   XIcon
 } from 'lucide-react-native';
-import { useImperativeHandle, useRef, useState } from 'react';
-import type { Ref } from 'react';
-import type { ScrollViewProps } from 'react-native';
+import type { ReactNode } from 'react';
+import { useState } from 'react';
 import {
   ActivityIndicator,
-  Alert as RNAlert,
-  FlatList,
   Keyboard,
   Platform,
   Pressable,
+  Alert as RNAlert,
   View
 } from 'react-native';
-import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
-import type { KeyboardAwareScrollViewRef } from 'react-native-keyboard-controller';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { toast } from 'sonner-native';
 
 interface ReviewEditViewProps {
@@ -88,60 +92,6 @@ interface ReviewEditViewProps {
   subjectName?: string;
   /** Set when this screen is the first open of a new review. */
   promptReviewLabel?: string;
-}
-
-const MEASURE_METHODS = new Set<PropertyKey>([
-  'measure',
-  'measureInWindow',
-  'measureLayout'
-]);
-
-// Lists may measure their scroll ref, but KeyboardAwareScrollView's handle only
-// copies the scroll methods, so measuring is delegated to a same-sized frame.
-function KeyboardAwareListScroll({
-  ref,
-  style,
-  ...props
-}: ScrollViewProps & { ref?: Ref<unknown> }) {
-  const frameRef = useRef<View>(null);
-  const scrollRef = useRef<KeyboardAwareScrollViewRef>(null);
-
-  useImperativeHandle(
-    ref,
-    () =>
-      new Proxy(
-        {},
-        {
-          get: (_target, key): unknown => {
-            const source = MEASURE_METHODS.has(key)
-              ? frameRef.current
-              : scrollRef.current;
-            const value = (source as Record<PropertyKey, unknown> | null)?.[
-              key
-            ];
-            return typeof value === 'function'
-              ? (value as (...args: unknown[]) => unknown).bind(source)
-              : value;
-          }
-        }
-      ),
-    []
-  );
-
-  return (
-    <View ref={frameRef} style={style} collapsable={false}>
-      <KeyboardAwareScrollView
-        {...props}
-        ref={scrollRef}
-        style={{ flex: 1 }}
-        bottomOffset={24}
-      />
-    </View>
-  );
-}
-
-function renderKeyboardAwareScroll(props: ScrollViewProps) {
-  return <KeyboardAwareListScroll {...props} />;
 }
 
 function ItemSeparator() {
@@ -231,10 +181,10 @@ function SubmitReviewDrawer({
         <DrawerHeader>
           <View className="flex-row items-center justify-between">
             <View className="flex-1">
-              <DrawerTitle>{t('uploadStatus')}</DrawerTitle>
+              <DrawerTitle>Publish Review</DrawerTitle>
               <Text className="text-sm text-muted-foreground">
                 {progress.isEmpty
-                  ? t('nothingPublishedYet')
+                  ? 'Nothing has been submitted yet'
                   : progress.isComplete
                     ? t('allUploadsConfirmed')
                     : t('percentConfirmedByServer').replace(
@@ -252,9 +202,7 @@ function SubmitReviewDrawer({
         <View className="gap-4">
           {!isSubmitted ? (
             <Text className="text-base leading-6">
-              Once submitted, your review will be shared with every member of
-              this project and can no longer be edited. Please make sure your
-              statuses, comments and audio feedback are final before continuing.
+              Once submitted, no changes can be made.
             </Text>
           ) : null}
 
@@ -337,7 +285,7 @@ function SubmitReviewButton({
     const nextWarnings: string[] = [];
     if (notReviewed > 0) {
       nextWarnings.push(
-        `${pluralizeAssets(notReviewed)} still ${notReviewed === 1 ? 'has' : 'have'} no status and will be submitted as not reviewed.`
+        `${pluralizeAssets(notReviewed)} will be submitted with no status.`
       );
     }
     if (state.questResult === 'approved' && suggested > 0) {
@@ -348,45 +296,54 @@ function SubmitReviewButton({
     return { drafts, nextWarnings, state };
   };
 
-  const handleOpen = () => {
-    Keyboard.dismiss();
-    setWarnings(collectWarnings().nextWarnings);
-    setIsOpen(true);
-  };
-
-  const handleConfirm = async () => {
+  const blockingMessage = () => {
     const { drafts, state } = collectWarnings();
-
     const incomplete = findIncompleteSuggestedChanges(drafts);
     if (incomplete.length > 0) {
       const names = incomplete
         .map((assetId) => assetNames.get(assetId) || assetId)
         .join(', ');
-      toast.error('Missing feedback', {
+      return {
+        title: 'Missing feedback',
         description: `Add a comment or audio to every asset marked as Suggested Changes: ${names}`
-      });
-      return;
+      };
     }
-
     if (!state.questResult) {
-      toast.error('Missing overall status', {
+      return {
+        title: 'Missing overall status',
         description: 'Choose an overall status before submitting the review.'
-      });
-      return;
+      };
     }
-
     if (
       state.questResult === 'suggested_changes' &&
       !state.conclusion.trim() &&
       state.conclusionAudio.length === 0
     ) {
-      toast.error('Missing overall feedback', {
+      return {
+        title: 'Missing overall feedback',
         description:
           'An overall status of Suggested Changes needs a comment or audio explaining what should change.'
-      });
+      };
+    }
+    return null;
+  };
+
+  const handleOpen = () => {
+    Keyboard.dismiss();
+    if (store.getState().accessToken) {
+      toast.error('This review is waiting for an external response.');
       return;
     }
+    const blocked = blockingMessage();
+    if (blocked) {
+      toast.error(blocked.title, { description: blocked.description });
+      return;
+    }
+    setWarnings(collectWarnings().nextWarnings);
+    setIsOpen(true);
+  };
 
+  const handleConfirm = async () => {
     setIsSubmitting(true);
     try {
       await store.getState().submit();
@@ -423,6 +380,100 @@ function SubmitReviewButton({
         onClose={handleClose}
       />
     </>
+  );
+}
+
+function ReviewDraftToolbar() {
+  const store = useReviewDraftStore();
+  const [isExternalOpen, setIsExternalOpen] = useState(false);
+
+  const removeDraft = async () => {
+    const state = store.getState();
+    const audio = [
+      ...state.conclusionAudio,
+      ...Object.values(state.assets).flatMap((asset) => asset.audio)
+    ];
+    try {
+      if (state.reviewId) {
+        const result = await deleteLocalReview(state.reviewId);
+        if (result === 'deleted') deleteAudioFiles(audio);
+      }
+      router.back();
+    } catch (error) {
+      toast.error(
+        error instanceof Error && error.message === 'OFFLINE'
+          ? 'You need to be online to delete this review.'
+          : 'Could not delete the review.'
+      );
+    }
+  };
+
+  const confirmDelete = () => {
+    const hasExternalLink = store.getState().accessToken != null;
+    RNAlert.alert(
+      'Delete review',
+      hasExternalLink
+        ? 'This shared draft will be removed from the lists. You need to be online.'
+        : 'This review will be deleted.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => void removeDraft()
+        }
+      ]
+    );
+  };
+
+  return (
+    <View className="flex-row items-center justify-between pt-4">
+      <Button
+        variant="outline"
+        size="icon"
+        accessibilityLabel="Delete review"
+        onPress={confirmDelete}
+      >
+        <Icon as={Trash2Icon} size={18} className="text-destructive" />
+      </Button>
+      <Button
+        variant="outline"
+        size="sm"
+        accessibilityLabel="Request external review"
+        className="px-4"
+        onPress={() => setIsExternalOpen(true)}
+      >
+        <Icon as={ClipboardIcon} size={20} className="text-foreground" />
+        <Icon as={SendIcon} size={20} className="text-foreground" />
+      </Button>
+      <ExternalReviewDrawer
+        open={isExternalOpen}
+        onOpenChange={setIsExternalOpen}
+      />
+    </View>
+  );
+}
+
+function ReviewEditorLock({ children }: { children: ReactNode }) {
+  const accessToken = useReviewDraft((state) => state.accessToken);
+  const locked = accessToken != null;
+
+  return (
+    <View className="flex-1">
+      {locked ? (
+        <Text className="pt-4 text-sm text-muted-foreground">
+          This review is waiting for an external response. You can't edit it
+          while the link is active.
+        </Text>
+      ) : null}
+      <View
+        key={accessToken ?? 'draft'}
+        className={cn('flex-1', locked && 'opacity-50')}
+        pointerEvents={locked ? 'none' : 'auto'}
+      >
+        {children}
+      </View>
+    </View>
   );
 }
 
@@ -549,108 +600,73 @@ function ConclusionAudio() {
   );
 }
 
-function toggleId(ids: Set<string>, id: string) {
-  const next = new Set(ids);
-  if (next.has(id)) next.delete(id);
-  else next.add(id);
-  return next;
-}
-
 function ReviewAssetListItem({
   assetId,
   name,
   verseLabel,
-  content,
-  isFeedbackOpen,
-  onToggleFeedback,
+  sourceAudio,
   isResultPickerOpen,
-  onToggleResultPicker,
-  onCloseResultPicker
+  onToggleResult,
+  onOpen
 }: {
   assetId: string;
   name: string;
   verseLabel: string | null;
-  content: AssetReviewContent;
-  isFeedbackOpen: boolean;
-  onToggleFeedback: () => void;
+  sourceAudio: string[];
   isResultPickerOpen: boolean;
-  onToggleResultPicker: () => void;
-  onCloseResultPicker: () => void;
+  onToggleResult: (assetId: string) => void;
+  onOpen: (assetId: string) => void;
 }) {
   const draft =
     useReviewDraft((state) => state.assets[assetId]) ?? EMPTY_REVIEW_ASSET;
   const patchAsset = useReviewDraft((state) => state.patchAsset);
-  const setRecordingAssetId = useReviewDraft(
-    (state) => state.setRecordingAssetId
-  );
-
-  const handleRemoveAudio = async () => {
-    const previous = draft.audio;
-    await patchAsset(assetId, { audio: [] });
-    deleteAudioFiles(previous);
-  };
+  const hasContent = draft.comment.trim().length > 0 || draft.audio.length > 0;
 
   return (
-    <ReviewAssetCard
+    <ReviewAssetEditCard
       assetId={assetId}
       name={name}
       verseLabel={verseLabel}
-      texts={content.texts}
-      sourceAudio={content.audio}
+      sourceAudio={sourceAudio}
       result={draft.asset_result}
-      comment={draft.comment}
-      audio={draft.audio[0] ?? null}
-      onResultChange={(result) =>
-        void patchAsset(assetId, { asset_result: result })
-      }
-      onCommentChange={(comment) => void patchAsset(assetId, { comment })}
-      onRequestRecord={() => setRecordingAssetId(assetId)}
-      onRemoveAudio={() => void handleRemoveAudio()}
-      isFeedbackOpen={isFeedbackOpen}
-      onToggleFeedback={onToggleFeedback}
+      hasContent={hasContent}
       isResultPickerOpen={isResultPickerOpen}
-      onToggleResultPicker={onToggleResultPicker}
-      onCloseResultPicker={onCloseResultPicker}
+      onToggleResult={() => onToggleResult(assetId)}
+      onSelectResult={(result) => {
+        onToggleResult(assetId);
+        if (result !== draft.asset_result) {
+          void patchAsset(assetId, { asset_result: result });
+        }
+      }}
+      onOpen={() => onOpen(assetId)}
     />
   );
 }
 
 const RECORDING_DRAWER_HEIGHT = 300;
 
-function RecordingDrawer({ assetNames }: { assetNames: Map<string, string> }) {
+function RecordingDrawer() {
   const recordingAssetId = useReviewDraft((state) => state.recordingAssetId);
   const setRecordingAssetId = useReviewDraft(
     (state) => state.setRecordingAssetId
   );
-  const patchAsset = useReviewDraft((state) => state.patchAsset);
   const setConclusionAudio = useReviewDraft(
     (state) => state.setConclusionAudio
   );
   const store = useReviewDraftStore();
   const isOverall = recordingAssetId === OVERALL_FEEDBACK_AUDIO_ID;
 
-  const handleRecordingComplete = async (
-    assetId: string,
-    recordingUri: string
-  ) => {
-    const state = store.getState();
-    const previous =
-      assetId === OVERALL_FEEDBACK_AUDIO_ID
-        ? state.conclusionAudio
-        : (state.assets[assetId]?.audio ?? []);
+  const handleRecordingComplete = async (recordingUri: string) => {
+    const previous = store.getState().conclusionAudio;
     const savedPath = await saveAudioLocally(recordingUri);
-    if (assetId === OVERALL_FEEDBACK_AUDIO_ID) {
-      await setConclusionAudio([savedPath]);
-    } else {
-      await patchAsset(assetId, { audio: [savedPath] });
-    }
+    await setConclusionAudio([savedPath]);
     deleteAudioFiles(previous);
     setRecordingAssetId(null);
   };
 
   return (
     <Drawer
-      open={!!recordingAssetId}
+      open={isOverall}
       onOpenChange={(open) => {
         if (!open) setRecordingAssetId(null);
       }}
@@ -659,20 +675,12 @@ function RecordingDrawer({ assetNames }: { assetNames: Map<string, string> }) {
     >
       <DrawerContent className="pb-6">
         <DrawerHeader>
-          <DrawerTitle>
-            {isOverall
-              ? 'Overall Feedback'
-              : recordingAssetId
-                ? assetNames.get(recordingAssetId)
-                : ''}
-          </DrawerTitle>
+          <DrawerTitle>Overall Feedback</DrawerTitle>
         </DrawerHeader>
-        {recordingAssetId ? (
+        {isOverall ? (
           <AudioRecorder
-            key={recordingAssetId}
-            onRecordingComplete={(uri) =>
-              void handleRecordingComplete(recordingAssetId, uri)
-            }
+            key={OVERALL_FEEDBACK_AUDIO_ID}
+            onRecordingComplete={(uri) => void handleRecordingComplete(uri)}
           />
         ) : null}
       </DrawerContent>
@@ -695,6 +703,49 @@ function ReviewTitle() {
   );
 }
 
+function ConnectedAssetDrawer({
+  target,
+  onClose
+}: {
+  target: ReviewAssetEditTarget | null;
+  onClose: () => void;
+}) {
+  const assetId = target?.assetId ?? '';
+  const draft =
+    useReviewDraft((state) => state.assets[assetId]) ?? EMPTY_REVIEW_ASSET;
+  const patchAsset = useReviewDraft((state) => state.patchAsset);
+  const store = useReviewDraftStore();
+
+  const saveRecording = async (uri: string) => {
+    if (!target) return;
+    const previous = store.getState().assets[target.assetId]?.audio ?? [];
+    const savedPath = await saveAudioLocally(uri);
+    await patchAsset(target.assetId, { audio: [savedPath] });
+    deleteAudioFiles(previous);
+  };
+
+  const removeAudio = () => {
+    if (!target) return;
+    const previous = store.getState().assets[target.assetId]?.audio ?? [];
+    void patchAsset(target.assetId, { audio: [] });
+    deleteAudioFiles(previous);
+  };
+
+  return (
+    <ReviewAssetEditDrawer
+      target={target}
+      comment={draft.comment}
+      audio={draft.audio[0] ?? null}
+      onClose={onClose}
+      onCommentChange={(comment) => {
+        if (target) void patchAsset(target.assetId, { comment });
+      }}
+      onRecordingComplete={(uri) => void saveRecording(uri)}
+      onRemoveAudio={removeAudio}
+    />
+  );
+}
+
 export default function ReviewEditView({
   projectId,
   questId,
@@ -710,12 +761,11 @@ export default function ReviewEditView({
       reviewId,
       origin
     });
-  const [openFeedbackIds, setOpenFeedbackIds] = useState<Set<string>>(
-    () => new Set()
+  const [resultPickerAssetId, setResultPickerAssetId] = useState<string | null>(
+    null
   );
-  const [openResultIds, setOpenResultIds] = useState<Set<string>>(
-    () => new Set()
-  );
+  const [editingAsset, setEditingAsset] =
+    useState<ReviewAssetEditTarget | null>(null);
   const [labelPromptDismissed, setLabelPromptDismissed] = useState(false);
   const showLabelDrawer =
     promptReviewLabel === '1' && !isLoading && !labelPromptDismissed;
@@ -725,8 +775,24 @@ export default function ReviewEditView({
     router.setParams({ promptReviewLabel: undefined });
   };
 
-  const { bottom: bottomInset } = useSafeAreaInsets();
   const assetNames = new Map(assets.map((item) => [item.id, item.name ?? '']));
+
+  const toggleResultPicker = (assetId: string) => {
+    setResultPickerAssetId((current) => (current === assetId ? null : assetId));
+  };
+
+  const openAsset = (assetId: string) => {
+    const asset = assets.find((item) => item.id === assetId);
+    if (!asset) return;
+    const verse = getAssetVerseRange(asset.metadata);
+    const content = contentByAsset.get(assetId) ?? EMPTY_ASSET_CONTENT;
+    setEditingAsset({
+      assetId,
+      name: asset.name ?? '',
+      verseLabel: formatVerseRangeLabel(verse.from, verse.to, formatVerse),
+      sourceAudio: content.audio
+    });
+  };
 
   if (isLoading) {
     return (
@@ -751,64 +817,57 @@ export default function ReviewEditView({
             </View>
             <SubmitReviewButton assetNames={assetNames} />
           </View>
+          <ReviewDraftToolbar />
 
-          <FlatList
-            style={{ flex: 1 }}
-            data={assets}
-            keyExtractor={(item) => item.id}
-            initialNumToRender={8}
-            windowSize={11}
-            removeClippedSubviews={false}
-            extraData={[openFeedbackIds, openResultIds]}
-            keyboardShouldPersistTaps="handled"
-            renderScrollComponent={renderKeyboardAwareScroll}
-            contentContainerStyle={{ paddingBottom: bottomInset + 24 }}
-            ItemSeparatorComponent={ItemSeparator}
-            ListHeaderComponent={
-              <View className="gap-6 pb-6 pt-6">
-                <OverallFeedback />
-                <Text variant="h4">Assets</Text>
-              </View>
-            }
-            renderItem={({ item }) => {
-              const verse = getAssetVerseRange(item.metadata);
-              return (
-                <ReviewAssetListItem
-                  assetId={item.id}
-                  name={item.name ?? ''}
-                  verseLabel={formatVerseRangeLabel(
-                    verse.from,
-                    verse.to,
-                    formatVerse
-                  )}
-                  content={contentByAsset.get(item.id) ?? EMPTY_ASSET_CONTENT}
-                  isFeedbackOpen={openFeedbackIds.has(item.id)}
-                  onToggleFeedback={() =>
-                    setOpenFeedbackIds((ids) => toggleId(ids, item.id))
-                  }
-                  isResultPickerOpen={openResultIds.has(item.id)}
-                  onToggleResultPicker={() =>
-                    setOpenResultIds((ids) => toggleId(ids, item.id))
-                  }
-                  onCloseResultPicker={() =>
-                    setOpenResultIds((ids) => {
-                      if (!ids.has(item.id)) return ids;
-                      const next = new Set(ids);
-                      next.delete(item.id);
-                      return next;
-                    })
-                  }
-                />
-              );
-            }}
-            ListFooterComponent={
-              <ReviewAudioPlayerSpacer assetNames={assetNames} />
-            }
-          />
+          <ReviewEditorLock>
+            <LegendList
+              style={{ flex: 1 }}
+              data={assets}
+              keyExtractor={(item) => item.id}
+              estimatedItemSize={80}
+              extraData={resultPickerAssetId}
+              recycleItems
+              keyboardShouldPersistTaps="handled"
+              ItemSeparatorComponent={ItemSeparator}
+              ListHeaderComponent={
+                <View className="gap-6 pb-6 pt-4">
+                  <OverallFeedback />
+                  <Text variant="h4">Assets</Text>
+                </View>
+              }
+              renderItem={({ item }) => {
+                const verse = getAssetVerseRange(item.metadata);
+                const content =
+                  contentByAsset.get(item.id) ?? EMPTY_ASSET_CONTENT;
+                return (
+                  <ReviewAssetListItem
+                    assetId={item.id}
+                    name={item.name ?? ''}
+                    verseLabel={formatVerseRangeLabel(
+                      verse.from,
+                      verse.to,
+                      formatVerse
+                    )}
+                    sourceAudio={content.audio}
+                    isResultPickerOpen={resultPickerAssetId === item.id}
+                    onToggleResult={toggleResultPicker}
+                    onOpen={openAsset}
+                  />
+                );
+              }}
+              ListFooterComponent={
+                <ReviewAudioPlayerSpacer assetNames={assetNames} />
+              }
+            />
+          </ReviewEditorLock>
         </View>
         <ReviewAudioPlayer assetNames={assetNames} />
       </View>
-      <RecordingDrawer assetNames={assetNames} />
+      <RecordingDrawer />
+      <ConnectedAssetDrawer
+        target={editingAsset}
+        onClose={() => setEditingAsset(null)}
+      />
       <ReviewLabelDrawer
         isOpen={showLabelDrawer}
         onOpenChange={(open) => {

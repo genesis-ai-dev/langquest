@@ -16,7 +16,7 @@ const ITEM_CLASS = 'rounded-md border border-border/50 bg-background';
 
 interface ReviewSettingsMenuProps {
   active: boolean;
-  /** Creator or project owner: may inactivate or activate the review. */
+  /** Creator or project owner: may hide or show the review. */
   canManage: boolean;
   disabled?: boolean;
   /** Side the menu items align to; the icon sits on that side. */
@@ -55,7 +55,7 @@ export function ReviewSettingsMenu({
         >
           <SpeedDialItem
             icon={PencilRulerIcon}
-            label="Edit from Review"
+            label="Fix Translation"
             align={align}
             variant="outline"
             className={ITEM_CLASS}
@@ -65,7 +65,7 @@ export function ReviewSettingsMenu({
           {canManage ? (
             <SpeedDialItem
               icon={active ? EyeOffIcon : EyeIcon}
-              label={active ? 'Inactivate Review' : 'Activate Review'}
+              label={active ? 'Hide Review' : 'Show Review'}
               align={align}
               variant="outline"
               className={ITEM_CLASS}

@@ -114,7 +114,9 @@ export function ReviewCard({
           )}
         </View>
         <Text className="text-sm text-muted-foreground" numberOfLines={1}>
-          {displayCreator} · {formatRelativeDate(date)}
+          {date
+            ? `${displayCreator} · ${formatRelativeDate(date)}`
+            : displayCreator}
         </Text>
         <Text className="text-sm text-muted-foreground" numberOfLines={1}>
           {reviewLabel ? `${reviewLabel} · ${origin}` : origin}

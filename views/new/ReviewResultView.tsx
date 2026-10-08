@@ -117,7 +117,7 @@ export default function ReviewResultView({
       });
     } catch (error) {
       console.error('Failed to create quest version from review:', error);
-      Alert.alert('Could not start editing');
+      Alert.alert('Could not fix the translation');
     } finally {
       setIsCreatingVersion(false);
     }
@@ -147,12 +147,12 @@ export default function ReviewResultView({
       return;
     }
     Alert.alert(
-      'Inactivate review',
+      'Hide Review',
       'Only you and the project owners will see this review in the lists.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Inactivate',
+          text: 'Hide',
           style: 'destructive',
           onPress: () => void toggleActive(false)
         }
@@ -162,11 +162,11 @@ export default function ReviewResultView({
 
   const confirmCreateVersion = () => {
     Alert.alert(
-      'Edit from Review',
-      'Edit this quest into a new version using the review feedback.',
+      'Fix Translation',
+      'Edit this quest using this review as its base.',
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Start Editing', onPress: () => void createVersion() }
+        { text: 'Fix Translation', onPress: () => void createVersion() }
       ]
     );
   };
@@ -206,7 +206,9 @@ export default function ReviewResultView({
               {subjectName ?? result.questLabel}
             </Text>
             <Text className="text-xs text-muted-foreground">
-              {creator} · {formatRelativeDate(result.date)}
+              {result.date
+                ? `${creator} · ${formatRelativeDate(result.date)}`
+                : creator}
             </Text>
           </View>
           {isCreatingVersion || isTogglingActive ? (

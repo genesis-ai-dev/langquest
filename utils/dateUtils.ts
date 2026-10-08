@@ -35,7 +35,17 @@ export function shouldHideInvitation(
   return false;
 }
 
-export function formatRelativeDate(dateString: string): string {
+export function firstDate(...values: unknown[]): string {
+  for (const value of values) {
+    if (typeof value === 'string' && value) return value;
+  }
+  return '';
+}
+
+export function formatRelativeDate(
+  dateString: string | null | undefined
+): string {
+  if (!dateString) return '';
   // Both SQLite ("2026-03-20 14:30:00") and Postgres ("2026-03-20 14:30:00+00")
   // use a space between date and time. Hermes requires the ISO 8601 'T' separator,
   // so always replace the first space in the datetime portion. For SQLite strings

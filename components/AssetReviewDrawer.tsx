@@ -11,6 +11,7 @@ import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useAudio } from '@/contexts/AudioContext';
 import type { AssetResult } from '@/database_services/reviewService';
+import { REVIEW_STATUS_IN_PROGRESS } from '@/database_services/reviewService';
 import { profile, review, review_asset } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import { resolveExistingAudioUri } from '@/utils/attachmentPaths';
@@ -49,6 +50,7 @@ interface AssetReviewItem {
   createdAt: string;
   source: string;
   active: boolean;
+  status: string | null;
 }
 
 function toAssetResult(value: string | null): AssetResult {
@@ -97,7 +99,8 @@ async function fetchAssetReviewById(
       assetCreatedAt: review_asset.created_at,
       source: review_asset.source,
       username: profile.username,
-      active: review.active
+      active: review.active,
+      status: review.status
     })
     .from(review_asset)
     .leftJoin(review, eq(review.id, review_asset.review_id))
@@ -120,7 +123,8 @@ async function fetchAssetReviews(assetId: string): Promise<AssetReviewItem[]> {
       assetCreatedAt: review_asset.created_at,
       source: review_asset.source,
       username: profile.username,
-      active: review.active
+      active: review.active,
+      status: review.status
     })
     .from(review_asset)
     .leftJoin(review, eq(review.id, review_asset.review_id))
@@ -141,6 +145,7 @@ function toAssetReviewItem(row: {
   source: string;
   username: string | null;
   active: boolean | null;
+  status: string | null;
 }): AssetReviewItem {
   return {
     id: row.id,
@@ -151,7 +156,8 @@ function toAssetReviewItem(row: {
     username: row.username?.trim() || 'Unknown',
     createdAt: row.createdAt ?? row.assetCreatedAt,
     source: row.source,
-    active: row.active ?? true
+    active: row.active ?? true,
+    status: row.status
   };
 }
 
@@ -264,9 +270,10 @@ function AssetReviewDrawerBody({
   const initialReviewId = detailQuery.data?.reviewId;
   const isInitialReview = (item: AssetReviewItem) =>
     item.id === reviewAssetId || item.reviewId === initialReviewId;
-  const visibleItems = listQuery.data?.filter(
-    (item) => item.active || isInitialReview(item)
-  );
+  const visibleItems = listQuery.data?.filter((item) => {
+    if (item.status === REVIEW_STATUS_IN_PROGRESS && !item.active) return false;
+    return item.active || isInitialReview(item);
+  });
   const listItems = visibleItems
     ? [
         ...visibleItems.filter(isInitialReview),

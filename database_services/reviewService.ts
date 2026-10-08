@@ -1,6 +1,6 @@
 import type { QuestMetadata } from '@/db/drizzleSchemaColumns';
 import { review_asset_local, review_local } from '@/db/drizzleSchemaLocal';
-import { review_synced } from '@/db/drizzleSchemaSynced';
+import { review_asset_synced, review_synced } from '@/db/drizzleSchemaSynced';
 import { system } from '@/db/powersync/system';
 import { getNetworkStatus } from '@/hooks/useNetworkStatus';
 import { promoteLocalAudioValue } from '@/services/attachments/promoteLocalAudio';
@@ -104,6 +104,41 @@ export async function getReview(reviewId: string): Promise<ReviewRow | null> {
   return row ?? null;
 }
 
+/** Local draft, or the synced in-progress copy left by an external link. */
+export async function getReviewAnywhere(
+  reviewId: string
+): Promise<ReviewRow | null> {
+  const local = await getReview(reviewId);
+  if (local) return local;
+
+  const [synced] = await system.db
+    .select()
+    .from(review_synced)
+    .where(eq(review_synced.id, reviewId))
+    .limit(1);
+  if (!synced) return null;
+
+  return {
+    id: synced.id,
+    active: synced.active,
+    created_at: synced.created_at,
+    last_updated: synced.last_updated,
+    source: synced.source,
+    _metadata: synced._metadata,
+    project_id: synced.project_id,
+    quest_id: synced.quest_id,
+    profile_id: synced.profile_id,
+    status: synced.status,
+    access_token: synced.access_token,
+    origin: synced.origin,
+    external_id: synced.external_id,
+    quest_result: synced.quest_result,
+    conclusion: synced.conclusion,
+    metadata: synced.metadata,
+    concluded_at: synced.concluded_at
+  };
+}
+
 export async function getDraftReviewForQuest(
   questId: string,
   profileId: string
@@ -167,6 +202,147 @@ export async function setReviewActive(reviewId: string, active: boolean) {
       .set({ active })
       .where(eq(review_local.id, reviewId));
   });
+}
+
+function metadataWithoutAudio(
+  metadata: ReviewRow['metadata']
+): ReviewRow['metadata'] {
+  const next = { ...metadata };
+  delete next.audio;
+  return next;
+}
+
+/**
+ * Clears filled feedback and uploads the review row only, with an external token.
+ * Asset notes are removed locally and are not synced.
+ * Returns audio paths the caller should delete after the transaction commits.
+ */
+export async function publishExternalReview(
+  reviewId: string,
+  token: string
+): Promise<string[]> {
+  if (!getNetworkStatus()) throw new Error('OFFLINE');
+
+  const review = await getReview(reviewId);
+  if (!review) throw new Error('Review not found');
+
+  const assetRows = await getReviewAssets(reviewId);
+  const audio = [
+    ...getReviewAudio(review),
+    ...assetRows.flatMap((row) => row.audio ?? [])
+  ];
+
+  await system.db.transaction(async (tx) => {
+    await tx
+      .delete(review_asset_local)
+      .where(eq(review_asset_local.review_id, reviewId));
+    await tx
+      .update(review_local)
+      .set({
+        access_token: token,
+        conclusion: null,
+        quest_result: null,
+        metadata: metadataWithoutAudio(review.metadata)
+      })
+      .where(eq(review_local.id, reviewId));
+
+    await tx.run(sql`
+      INSERT OR IGNORE INTO review_synced (
+        id, active, created_at, last_updated, source, _metadata,
+        project_id, quest_id, profile_id, status, access_token, origin,
+        external_id, quest_result, conclusion, metadata, concluded_at, audio
+      )
+      SELECT
+        id, active, created_at, last_updated, source, _metadata,
+        project_id, quest_id, profile_id, status, access_token, origin,
+        external_id, quest_result, conclusion, metadata, concluded_at,
+        '[]'
+      FROM review_local
+      WHERE id = ${reviewId}
+    `);
+
+    await tx
+      .update(review_synced)
+      .set({
+        access_token: token,
+        conclusion: null,
+        quest_result: null,
+        audio: [],
+        metadata: metadataWithoutAudio(review.metadata),
+        status: REVIEW_STATUS_IN_PROGRESS
+      })
+      .where(eq(review_synced.id, reviewId));
+
+    await tx
+      .delete(review_asset_synced)
+      .where(eq(review_asset_synced.review_id, reviewId));
+  });
+
+  return audio;
+}
+
+/** Replaces the active external-review token without changing the review content. */
+export async function rotateExternalReviewToken(
+  reviewId: string,
+  token: string
+) {
+  if (!getNetworkStatus()) throw new Error('OFFLINE');
+
+  await system.db.transaction(async (tx) => {
+    await tx
+      .update(review_local)
+      .set({ access_token: token })
+      .where(eq(review_local.id, reviewId));
+    await tx
+      .update(review_synced)
+      .set({ access_token: token })
+      .where(eq(review_synced.id, reviewId));
+  });
+}
+
+/** Clears the external-review token locally and in the syncing row. */
+export async function revokeExternalReview(reviewId: string) {
+  if (!getNetworkStatus()) throw new Error('OFFLINE');
+
+  await system.db.transaction(async (tx) => {
+    await tx
+      .update(review_local)
+      .set({ access_token: null })
+      .where(eq(review_local.id, reviewId));
+    await tx
+      .update(review_synced)
+      .set({ access_token: null })
+      .where(eq(review_synced.id, reviewId));
+  });
+}
+
+/**
+ * Removes a draft that exists only on this device.
+ * A draft already uploaded for an external link is inactivated instead, and
+ * only while online. A submitted review is left in place.
+ */
+export async function deleteLocalReview(
+  reviewId: string
+): Promise<'inactivated' | 'deleted'> {
+  const [shared] = await system.db
+    .select({ status: review_synced.status })
+    .from(review_synced)
+    .where(eq(review_synced.id, reviewId))
+    .limit(1);
+
+  if (shared?.status === REVIEW_STATUS_IN_PROGRESS) {
+    if (!getNetworkStatus()) throw new Error('OFFLINE');
+    await setReviewActive(reviewId, false);
+    return 'inactivated';
+  }
+
+  await system.db.transaction(async (tx) => {
+    await tx
+      .delete(review_asset_local)
+      .where(eq(review_asset_local.review_id, reviewId));
+    await tx.delete(review_local).where(eq(review_local.id, reviewId));
+  });
+  return 'deleted';
 }
 
 /** The review table has no audio column; overall feedback audio lives in metadata.audio. */
