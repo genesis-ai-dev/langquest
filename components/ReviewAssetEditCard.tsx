@@ -1,5 +1,5 @@
-import AudioRecorder from '@/components/AudioRecorder';
 import { AudioPlayerControls } from '@/components/AudioPlayerControls';
+import AudioRecorder from '@/components/AudioRecorder';
 import {
   getSourceAudioId,
   ReviewAudioPlayButton
@@ -23,8 +23,8 @@ import {
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { Textarea } from '@/components/ui/textarea';
-import { useAudioControls } from '@/contexts/AudioContext';
 import type { AudioControlsType } from '@/contexts/AudioContext';
+import { useAudioControls } from '@/contexts/AudioContext';
 import type { AssetResult } from '@/database_services/reviewService';
 import { useAutosaveText } from '@/hooks/useAutosaveText';
 import { resolveExistingAudioUri } from '@/utils/attachmentPaths';
@@ -312,9 +312,7 @@ export function ReviewAssetEditDrawer({
   const drawerHeight = Math.max(
     280,
     Math.round(
-      (windowHeight - topInset - bottomInset) * 0.5 -
-        HANDLE_HEIGHT -
-        BOTTOM_GAP
+      (windowHeight - topInset - bottomInset) * 0.5 - HANDLE_HEIGHT - BOTTOM_GAP
     )
   );
 

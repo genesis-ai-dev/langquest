@@ -33,8 +33,8 @@ function siteUrl() {
 function externalReviewLink(reviewId: string, token: string) {
   const site = siteUrl();
   if (!site) return null;
-  const params = new URLSearchParams({ id: reviewId, token });
-  return `${site}/review?${params.toString()}`;
+  const params = new URLSearchParams({ token });
+  return `${site}/review/${reviewId}?${params.toString()}`;
 }
 
 function deleteAudioFiles(values: string[]) {
