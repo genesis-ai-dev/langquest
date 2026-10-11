@@ -229,6 +229,7 @@ begin
   -- Keep existing metadata keys. Only reviewer is added or replaced.
   update public.review r
      set status = 'submitted',
+         origin = 'External',
          access_token = null,
          quest_result = v_quest_result,
          conclusion = v_conclusion,
@@ -253,7 +254,7 @@ end;
 $$;
 
 comment on function public.submit_quest_review(uuid, text, jsonb) is
-  'Submits an external review. Callable with the anon key. Requires validate_review_token to pass. Writes quest_result, conclusion, audio and per-asset rows from payload, adds payload.metadata.reviewer to review.metadata, clears access_token, and sets status to submitted. audio_uploaded_at is computed from storage.objects. Audio entries must be {name}.{extension} file names at the bucket root.';
+  'Submits an external review. Callable with the anon key. Requires validate_review_token to pass. Writes quest_result, conclusion, audio and per-asset rows from payload, adds payload.metadata.reviewer to review.metadata, clears access_token, sets origin to External, and sets status to submitted. audio_uploaded_at is computed from storage.objects. Audio entries must be {name}.{extension} file names at the bucket root.';
 
 revoke all on function public.submit_quest_review(uuid, text, jsonb) from public;
 revoke all on function public.submit_quest_review(uuid, text, jsonb) from authenticated;
