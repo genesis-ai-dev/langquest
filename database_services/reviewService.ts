@@ -56,7 +56,9 @@ export interface ReviewAssetPatch {
   audio?: string[] | null;
 }
 
-export function getReviewLabel(metadata: unknown): string | null {
+function parseReviewMetadata(
+  metadata: unknown
+): Record<string, unknown> | null {
   let value = metadata;
   if (typeof value === 'string') {
     try {
@@ -66,8 +68,37 @@ export function getReviewLabel(metadata: unknown): string | null {
     }
   }
   if (!value || typeof value !== 'object') return null;
-  const label = (value as { reviewLabel?: unknown }).reviewLabel;
-  return typeof label === 'string' && label.trim() ? label.trim() : null;
+  return value as Record<string, unknown>;
+}
+
+function trimmedString(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+export function getReviewLabel(metadata: unknown): string | null {
+  return trimmedString(parseReviewMetadata(metadata)?.reviewLabel);
+}
+
+/** Name the external reviewer entered when submitting (metadata.reviewer.name). */
+export function getReviewerName(metadata: unknown): string | null {
+  const reviewer = parseReviewMetadata(metadata)?.reviewer;
+  if (!reviewer || typeof reviewer !== 'object') return null;
+  return trimmedString((reviewer as { name?: unknown }).name);
+}
+
+export function isExternalReview(origin: string | null | undefined) {
+  return origin === REVIEW_ORIGIN_EXTERNAL;
+}
+
+/** External reviews show the reviewer's name; others show the creator's username. */
+export function getReviewAuthorName(
+  origin: string | null | undefined,
+  metadata: unknown,
+  username: string | null | undefined
+): string {
+  return (
+    (isExternalReview(origin) && getReviewerName(metadata)) || (username ?? '')
+  );
 }
 
 export async function createDraftReview(data: {

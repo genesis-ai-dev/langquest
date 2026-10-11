@@ -4,7 +4,11 @@ import type {
   AssetResult,
   QuestResult
 } from '@/database_services/reviewService';
-import { getReviewAudio } from '@/database_services/reviewService';
+import {
+  getReviewAudio,
+  getReviewAuthorName,
+  isExternalReview
+} from '@/database_services/reviewService';
 import { firstDate } from '@/utils/dateUtils';
 import { formatQuestDisplayLabel } from '@/utils/questVersionLabel';
 import { useQuery } from '@tanstack/react-query';
@@ -23,6 +27,7 @@ export interface ReviewResult {
   active: boolean;
   questLabel: string;
   creatorName: string;
+  isExternal: boolean;
   date: string;
   questResult: QuestResult | null;
   conclusion: string | null;
@@ -39,6 +44,7 @@ async function fetchReviewResult(
       projectId: review.project_id,
       profileId: review.profile_id,
       active: review.active,
+      origin: review.origin,
       questResult: review.quest_result,
       conclusion: review.conclusion,
       metadata: review.metadata,
@@ -88,7 +94,8 @@ async function fetchReviewResult(
     profileId: row.profileId,
     active: row.active,
     questLabel: formatQuestDisplayLabel(row.questName, row.questMetadata),
-    creatorName: row.username ?? '',
+    creatorName: getReviewAuthorName(row.origin, row.metadata, row.username),
+    isExternal: isExternalReview(row.origin),
     date: firstDate(row.concludedAt, row.lastUpdated, row.createdAt),
     questResult: row.questResult as QuestResult | null,
     conclusion: row.conclusion,

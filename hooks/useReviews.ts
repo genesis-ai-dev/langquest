@@ -2,6 +2,7 @@ import type { ReviewOutcome, ReviewStatus } from '@/components/ReviewCard';
 import { profile, quest, review } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
 import {
+  getReviewAuthorName,
   getReviewLabel,
   REVIEW_STATUS_IN_PROGRESS,
   REVIEW_STATUS_SUBMITTED
@@ -163,7 +164,11 @@ async function fetchCloudReviews(
     id: row.id,
     questId: row.quest_id,
     title: formatQuestDisplayLabel(row.quest?.name, row.quest?.metadata),
-    creatorName: (row.profile_id && usernames.get(row.profile_id)) || '',
+    creatorName: getReviewAuthorName(
+      row.origin,
+      row.metadata,
+      row.profile_id ? usernames.get(row.profile_id) : null
+    ),
     date: firstDate(row.concluded_at, row.created_at),
     origin: row.origin,
     reviewLabel: getReviewLabel(row.metadata),
@@ -266,7 +271,7 @@ export function useReviews(tab: ReviewTab, filter: ReviewsFilter) {
       id: row.id,
       questId: row.questId,
       title: formatQuestDisplayLabel(row.questName, row.questMetadata),
-      creatorName: row.username ?? '',
+      creatorName: getReviewAuthorName(row.origin, row.metadata, row.username),
       date: firstDate(row.concludedAt, row.lastUpdated, row.createdAt),
       origin: row.origin,
       reviewLabel: getReviewLabel(row.metadata),

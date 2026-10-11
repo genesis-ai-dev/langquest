@@ -189,7 +189,9 @@ export default function ReviewResultView({
     );
   }
 
-  const creator = result.creatorName.trim() || 'Unknown';
+  const creator = `${result.creatorName.trim() || 'Unknown'}${
+    result.isExternal ? ' (External)' : ''
+  }`;
 
   return (
     <View className="flex-1">
