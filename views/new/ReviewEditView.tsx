@@ -36,7 +36,8 @@ import type {
 } from '@/database_services/reviewService';
 import {
   deleteLocalReview,
-  findIncompleteSuggestedChanges
+  findIncompleteSuggestedChanges,
+  REVIEW_ORIGIN_INTERNAL
 } from '@/database_services/reviewService';
 import { useAutosaveText } from '@/hooks/useAutosaveText';
 import { useLocalization } from '@/hooks/useLocalization';
@@ -750,7 +751,7 @@ export default function ReviewEditView({
   projectId,
   questId,
   reviewId,
-  origin = 'Internal',
+  origin = REVIEW_ORIGIN_INTERNAL,
   subjectName,
   promptReviewLabel
 }: ReviewEditViewProps) {

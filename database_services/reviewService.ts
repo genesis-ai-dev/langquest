@@ -12,6 +12,9 @@ export type ReviewAssetRow = typeof review_asset_local.$inferSelect;
 export const REVIEW_STATUS_IN_PROGRESS = 'in_progress';
 export const REVIEW_STATUS_SUBMITTED = 'submitted';
 
+export const REVIEW_ORIGIN_INTERNAL = 'Internal';
+export const REVIEW_ORIGIN_EXTERNAL = 'External';
+
 /** Book/chapter (Bible) or book/pericope (FIA) the reviewed quest refers to. */
 export interface ReviewQuestScope {
   bible?: { book: string; chapter?: number };
@@ -139,25 +142,6 @@ export async function getReviewAnywhere(
   };
 }
 
-export async function getDraftReviewForQuest(
-  questId: string,
-  profileId: string
-): Promise<ReviewRow | null> {
-  const [row] = await system.db
-    .select()
-    .from(review_local)
-    .where(
-      and(
-        eq(review_local.quest_id, questId),
-        eq(review_local.profile_id, profileId),
-        eq(review_local.status, REVIEW_STATUS_IN_PROGRESS),
-        eq(review_local.active, true)
-      )
-    )
-    .limit(1);
-  return row ?? null;
-}
-
 export async function getReviewAssets(
   reviewId: string
 ): Promise<ReviewAssetRow[]> {
@@ -240,6 +224,7 @@ export async function publishExternalReview(
       .update(review_local)
       .set({
         access_token: token,
+        origin: REVIEW_ORIGIN_EXTERNAL,
         conclusion: null,
         quest_result: null,
         metadata: metadataWithoutAudio(review.metadata)
@@ -265,6 +250,7 @@ export async function publishExternalReview(
       .update(review_synced)
       .set({
         access_token: token,
+        origin: REVIEW_ORIGIN_EXTERNAL,
         conclusion: null,
         quest_result: null,
         audio: [],
@@ -300,18 +286,18 @@ export async function rotateExternalReviewToken(
   });
 }
 
-/** Clears the external-review token locally and in the syncing row. */
+/** Clears the external-review token and resets origin, locally and in the syncing row. */
 export async function revokeExternalReview(reviewId: string) {
   if (!getNetworkStatus()) throw new Error('OFFLINE');
 
   await system.db.transaction(async (tx) => {
     await tx
       .update(review_local)
-      .set({ access_token: null })
+      .set({ access_token: null, origin: REVIEW_ORIGIN_INTERNAL })
       .where(eq(review_local.id, reviewId));
     await tx
       .update(review_synced)
-      .set({ access_token: null })
+      .set({ access_token: null, origin: REVIEW_ORIGIN_INTERNAL })
       .where(eq(review_synced.id, reviewId));
   });
 }

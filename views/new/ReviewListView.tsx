@@ -8,7 +8,6 @@ import { LegendList } from '@/components/ui/legend-list';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/AuthContext';
-import { getDraftReviewForQuest } from '@/database_services/reviewService';
 import { useNavigationHelpers } from '@/hooks/useNavigation';
 import {
   getDiscoveredCounts,
@@ -156,14 +155,14 @@ export default function ReviewListView({
   const canAddReview = !!projectId && !!questId && !parentQuestId;
   const filter: ReviewsFilter = { projectId, questId, metadata };
 
-  const openAddReview = async () => {
+  // Always starts a new review; existing drafts are opened from the list.
+  const openAddReview = () => {
     if (!projectId || !questId || !currentUser?.id) return;
-    const existing = await getDraftReviewForQuest(questId, currentUser.id);
     goToReviewEdit({
       projectId,
       questId,
       subjectName,
-      ...(existing ? { reviewId: existing.id } : { promptReviewLabel: true })
+      promptReviewLabel: true
     });
   };
 
@@ -298,12 +297,7 @@ export default function ReviewListView({
           ) : null}
         </View>
         {canAddReview ? (
-          <Button
-            size="sm"
-            onPress={() => {
-              void openAddReview();
-            }}
-          >
+          <Button size="sm" onPress={openAddReview}>
             <Icon as={ClipboardPlusIcon} size={16} />
             <Text>Add Review</Text>
           </Button>

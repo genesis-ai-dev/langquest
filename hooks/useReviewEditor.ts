@@ -8,7 +8,6 @@ import type {
 } from '@/database_services/reviewService';
 import {
   createDraftReview,
-  getDraftReviewForQuest,
   getReviewAnywhere,
   getReviewAssets,
   getReviewAudio,
@@ -358,11 +357,11 @@ export function useReviewEditor({
   } = useReviewQuestAssets(questId);
 
   const draftQuery = useQuery({
-    queryKey: ['review-draft', reviewId ?? questId, profileId],
+    // Without a reviewId the editor starts a new review; the row is created on
+    // the first edit.
+    queryKey: ['review-draft', reviewId ?? 'new', profileId],
     queryFn: async () => {
-      const review = reviewId
-        ? await getReviewAnywhere(reviewId)
-        : await getDraftReviewForQuest(questId, profileId!);
+      const review = reviewId ? await getReviewAnywhere(reviewId) : null;
       const reviewAssets = review ? await getReviewAssets(review.id) : [];
       return { review, reviewAssets };
     },
