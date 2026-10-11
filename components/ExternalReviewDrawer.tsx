@@ -7,7 +7,6 @@ import {
   DrawerView
 } from '@/components/ui/drawer';
 import { Icon } from '@/components/ui/icon';
-import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 import { useReviewDraft, useReviewDraftStore } from '@/hooks/useReviewEditor';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
@@ -15,9 +14,9 @@ import { deleteIfExists, getLocalAttachmentUri } from '@/utils/fileUtils';
 import { cn } from '@/utils/styleUtils';
 import * as Clipboard from 'expo-clipboard';
 import * as Crypto from 'expo-crypto';
-import { CopyIcon, MailIcon } from 'lucide-react-native';
+import { CopyIcon, Share2Icon } from 'lucide-react-native';
 import { useState } from 'react';
-import { Alert, View } from 'react-native';
+import { Alert, Platform, Share, View } from 'react-native';
 import { toast } from 'sonner-native';
 
 function createAccessToken() {
@@ -54,7 +53,6 @@ export function ExternalReviewDrawer({
   const accessToken = useReviewDraft((state) => state.accessToken);
   const reviewId = useReviewDraft((state) => state.reviewId);
   const isOnline = useNetworkStatus();
-  const [email, setEmail] = useState('');
   const [isWorking, setIsWorking] = useState(false);
 
   const hasLink = accessToken != null;
@@ -170,6 +168,25 @@ export function ExternalReviewDrawer({
     toast.success('Link copied');
   };
 
+  const shareLink = async () => {
+    if (!link) {
+      toast.error('The website address is not configured.');
+      return;
+    }
+    try {
+      // iOS shows url as a link preview. Android only reads message.
+      await Share.share(
+        Platform.OS === 'ios'
+          ? { url: link }
+          : { message: link, title: 'External review' },
+        { dialogTitle: 'Share review link', subject: 'External review' }
+      );
+    } catch (error) {
+      console.error('[ExternalReview]', error);
+      toast.error('Could not open the share options.');
+    }
+  };
+
   return (
     <Drawer
       open={open}
@@ -177,7 +194,6 @@ export function ExternalReviewDrawer({
       snapPoints={['80%']}
       enableDynamicSizing={false}
       enableContentPanningGesture={false}
-      keyboardBehavior="interactive"
     >
       <DrawerContent asChild>
         <DrawerView className="gap-4">
@@ -203,42 +219,34 @@ export function ExternalReviewDrawer({
             </Text>
           </View>
           {hasLink ? (
-            <Button disabled={!link} onPress={() => void copyLink()}>
-              <Icon
-                as={CopyIcon}
-                size={18}
-                className="text-primary-foreground"
-              />
-              <Text>Copy link</Text>
-            </Button>
+            <View className="flex-row gap-2">
+              <Button
+                className="flex-1"
+                disabled={!link}
+                onPress={() => void shareLink()}
+              >
+                <Icon
+                  as={Share2Icon}
+                  size={18}
+                  className="text-primary-foreground"
+                />
+                <Text>Share</Text>
+              </Button>
+              <Button
+                variant="outline"
+                className="flex-1"
+                disabled={!link}
+                onPress={() => void copyLink()}
+              >
+                <Icon as={CopyIcon} size={18} className="text-foreground" />
+                <Text>Copy link</Text>
+              </Button>
+            </View>
           ) : (
             <Button disabled={!isOnline || isWorking} onPress={confirmCreate}>
               <Text>{isWorking ? 'Creating link…' : 'Create link'}</Text>
             </Button>
           )}
-          <View className="gap-2">
-            <Text className="text-sm font-medium">Email</Text>
-            <Input
-              drawerInput
-              value={email}
-              onChangeText={setEmail}
-              placeholder="name@email.com"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-            <Button
-              disabled={!hasLink}
-              onPress={() => toast.error('Email sending is not available yet.')}
-            >
-              <Icon
-                as={MailIcon}
-                size={18}
-                className="text-primary-foreground"
-              />
-              <Text>Send email</Text>
-            </Button>
-          </View>
           {!isOnline ? (
             <Text className="text-sm text-destructive">
               You need to be online to create or revoke a link.
