@@ -90,14 +90,18 @@ export function isExternalReview(origin: string | null | undefined) {
   return origin === REVIEW_ORIGIN_EXTERNAL;
 }
 
-/** External reviews show the reviewer's name; others show the creator's username. */
+/**
+ * Reviews not marked Internal show the reviewer's name from metadata; Internal
+ * reviews, and reviews without a reviewer name, show the creator's username.
+ */
 export function getReviewAuthorName(
   origin: string | null | undefined,
   metadata: unknown,
   username: string | null | undefined
 ): string {
   return (
-    (isExternalReview(origin) && getReviewerName(metadata)) || (username ?? '')
+    (origin !== REVIEW_ORIGIN_INTERNAL && getReviewerName(metadata)) ||
+    (username ?? '')
   );
 }
 

@@ -1,3 +1,4 @@
+import { ResultBadge } from '@/components/ReviewResult';
 import { Alert, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -42,7 +43,14 @@ import {
   useProjectLanguoidSuggestions
 } from '@/hooks/db/useProjectLanguoidSuggestions';
 import { useLocalization } from '@/hooks/useLocalization';
+import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
+import type { ReviewNotification } from '@/hooks/useReviewNotifications';
+import {
+  isReviewAvailableLocally,
+  markReviewNotificationViewed,
+  useReviewNotifications
+} from '@/hooks/useReviewNotifications';
 import { useLocalStore } from '@/store/localStore';
 import { useHybridData } from '@/views/new/useHybridData';
 import RNAlert from '@blazejkustra/react-native-alert';
@@ -54,6 +62,7 @@ import {
   AlertTriangle,
   BellIcon,
   CheckIcon,
+  ClipboardCheckIcon,
   LanguagesIcon,
   LinkIcon,
   MailIcon,
@@ -272,6 +281,89 @@ function LanguoidLinkSuggestionGroup({
   );
 }
 
+interface ReviewNotificationItemProps {
+  item: ReviewNotification;
+  isProcessing: boolean;
+  onOpen: (item: ReviewNotification) => void;
+  onDismiss: (item: ReviewNotification) => void;
+}
+
+function ReviewNotificationItem({
+  item,
+  isProcessing,
+  onOpen,
+  onDismiss
+}: ReviewNotificationItemProps) {
+  const { t } = useLocalization();
+  const { details } = item;
+  const reviewer = details
+    ? `${details.reviewerName.trim() || t('unknown')}${
+        details.isExternal ? ' (External)' : ''
+      }`
+    : null;
+
+  return (
+    <Card>
+      <CardContent className="p-4">
+        <View className="flex gap-4">
+          <View className="flex gap-2">
+            <View className="flex-row items-center gap-2">
+              <Icon
+                as={ClipboardCheckIcon}
+                size={24}
+                className="text-primary"
+              />
+              <Text className="text-sm font-semibold text-foreground">
+                {t('reviewNotificationTitle')}
+              </Text>
+            </View>
+
+            <Text className="text-sm leading-5 text-foreground" ph-no-capture>
+              {details && reviewer
+                ? t('reviewNotificationMessage', {
+                    reviewer,
+                    quest: details.questLabel
+                  })
+                : t('reviewNotificationDetailsUnavailable')}
+            </Text>
+
+            {details?.questResult ? (
+              <View className="flex-row">
+                <ResultBadge result={details.questResult} />
+              </View>
+            ) : null}
+
+            <Text className="text-xs text-muted-foreground">
+              {new Date(details?.date || item.createdAt).toLocaleDateString()}
+            </Text>
+          </View>
+
+          <View className="flex-row gap-2">
+            <Button
+              size="sm"
+              className="flex-1"
+              disabled={!details || isProcessing}
+              onPress={() => onOpen(item)}
+            >
+              <Text>{t('openReview')}</Text>
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              className="flex-1"
+              disabled={isProcessing}
+              onPress={() => onDismiss(item)}
+            >
+              <Icon as={XIcon} />
+              <Text>{t('dismissReviewNotification')}</Text>
+            </Button>
+          </View>
+        </View>
+      </CardContent>
+    </Card>
+  );
+}
+
 type ProjectLanguoidSuggestionAction = 'accept' | 'dismiss';
 
 interface ProjectLanguoidSuggestionItemProps {
@@ -354,6 +446,10 @@ export default function NotificationsView() {
     Set<string>
   >(new Set());
   const [refreshing, setRefreshing] = useState(false);
+  const { goToReviewResult, goToReviews } = useNavigationHelpers();
+  const { notifications: reviewNotifications } = useReviewNotifications();
+  const [processingReviewNotificationIds, setProcessingReviewNotificationIds] =
+    useState<Set<string>>(new Set());
 
   // Project language suggestions (only if feature flag is enabled)
   const enableProjectLanguageSuggestions = useLocalStore(
@@ -1309,6 +1405,52 @@ export default function NotificationsView() {
   };
 
   // Handle pull-to-refresh
+  const withReviewNotificationProcessing = async (
+    notificationId: string,
+    action: () => Promise<void>
+  ) => {
+    if (processingReviewNotificationIds.has(notificationId)) return;
+    setProcessingReviewNotificationIds((prev) =>
+      new Set(prev).add(notificationId)
+    );
+    try {
+      await action();
+    } catch (error) {
+      console.error('Error handling review notification:', error);
+      RNAlert.alert(t('error'), t('reviewNotificationError'));
+    } finally {
+      setProcessingReviewNotificationIds((prev) => {
+        const next = new Set(prev);
+        next.delete(notificationId);
+        return next;
+      });
+    }
+  };
+
+  const handleOpenReviewNotification = (item: ReviewNotification) =>
+    withReviewNotificationProcessing(item.id, async () => {
+      const { details } = item;
+      if (!details) return;
+      await markReviewNotificationViewed(item.id);
+      const target = {
+        projectId: details.projectId,
+        questId: details.questId,
+        subjectName: details.questLabel
+      };
+      // A review of a quest that is not downloaded opens in the review list,
+      // which offers the download.
+      if (await isReviewAvailableLocally(item.reviewId)) {
+        goToReviewResult({ ...target, reviewId: item.reviewId });
+      } else {
+        goToReviews(target);
+      }
+    });
+
+  const handleDismissReviewNotification = (item: ReviewNotification) =>
+    withReviewNotificationProcessing(item.id, () =>
+      markReviewNotificationViewed(item.id)
+    );
+
   const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
     try {
@@ -1361,6 +1503,10 @@ export default function NotificationsView() {
         queryClient.invalidateQueries({
           queryKey: ['user-memberships'],
           exact: false
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ['review-notification-details'],
+          exact: false
         })
       ]);
     } catch (error) {
@@ -1373,6 +1519,7 @@ export default function NotificationsView() {
   // Check if there are any notifications (including languoid suggestions when online and feature flag enabled)
   const hasAnyNotifications =
     allNotifications.length > 0 ||
+    reviewNotifications.length > 0 ||
     sentInviteDeliveryIssues.length > 0 ||
     (enableProjectLanguageSuggestions &&
       ((isOnline && uniqueLanguoidCount > 0) ||
@@ -1464,6 +1611,19 @@ export default function NotificationsView() {
 
               {/* Project invites and requests */}
               {allNotifications.map(renderNotificationItem)}
+
+              {/* Reviews submitted for quests the user created */}
+              {reviewNotifications.map((item) => (
+                <ReviewNotificationItem
+                  key={item.id}
+                  item={item}
+                  isProcessing={processingReviewNotificationIds.has(item.id)}
+                  onOpen={(target) => void handleOpenReviewNotification(target)}
+                  onDismiss={(target) =>
+                    void handleDismissReviewNotification(target)
+                  }
+                />
+              ))}
             </View>
           )}
         </ScrollView>

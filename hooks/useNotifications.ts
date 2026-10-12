@@ -7,6 +7,7 @@ import {
   request
 } from '@/db/drizzleSchema';
 import { system } from '@/db/powersync/system';
+import { useUnviewedReviewNotifications } from '@/hooks/useReviewNotifications';
 import { useLocalStore } from '@/store/localStore';
 import { useHybridData } from '@/views/new/useHybridData';
 import { toCompilableQuery } from '@powersync/drizzle-driver';
@@ -74,6 +75,9 @@ export const useNotifications = () => {
     ),
     enableOfflineQuery: !!currentUser?.id
   });
+
+  const { notifications: reviewNotifications } =
+    useUnviewedReviewNotifications();
 
   // Get all projects where the user is an owner
 
@@ -265,6 +269,7 @@ export const useNotifications = () => {
     ? projectLanguoidSuggestions.length
     : 0;
   const sentInviteDeliveryFailureCount = sentInviteDeliveryFailures.length;
+  const reviewCount = reviewNotifications.length;
 
   return {
     inviteCount,
@@ -272,11 +277,13 @@ export const useNotifications = () => {
     languoidLinkCount,
     projectLanguoidSuggestionCount,
     sentInviteDeliveryFailureCount,
+    reviewCount,
     totalCount:
       inviteCount +
       requestCount +
       languoidLinkCount +
       projectLanguoidSuggestionCount +
-      sentInviteDeliveryFailureCount
+      sentInviteDeliveryFailureCount +
+      reviewCount
   };
 };

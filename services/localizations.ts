@@ -14325,6 +14325,94 @@ export const localizations = {
     burmese: 'မူကြမ်း',
     thai: 'ฉบับร่าง',
     mandarin: '草稿'
+  },
+  reviewNotificationTitle: {
+    english: 'New review',
+    french: 'Nouvelle révision',
+    spanish: 'Nueva revisión',
+    brazilian_portuguese: 'Nova revisão',
+    tok_pisin: 'Nupela review',
+    indonesian: 'Tinjauan baru',
+    nepali: 'नयाँ समीक्षा',
+    hindi: 'नई समीक्षा',
+    burmese: 'သုံးသပ်ချက်အသစ်',
+    thai: 'การตรวจทานใหม่',
+    mandarin: '新的审阅'
+  },
+  reviewNotificationMessage: {
+    english: '{reviewer} reviewed "{quest}"',
+    french: '{reviewer} a révisé « {quest} »',
+    spanish: '{reviewer} revisó "{quest}"',
+    brazilian_portuguese: '{reviewer} revisou "{quest}"',
+    tok_pisin: '{reviewer} i review "{quest}"',
+    indonesian: '{reviewer} meninjau "{quest}"',
+    nepali: '{reviewer} ले "{quest}" को समीक्षा गर्नुभयो',
+    hindi: '{reviewer} ने "{quest}" की समीक्षा की',
+    burmese: '{reviewer} သည် "{quest}" ကို သုံးသပ်ခဲ့သည်',
+    thai: '{reviewer} ตรวจทาน "{quest}" แล้ว',
+    mandarin: '{reviewer} 审阅了"{quest}"'
+  },
+  reviewNotificationDetailsUnavailable: {
+    english:
+      'A review was submitted for one of your quests. Connect to the internet to see the details.',
+    french:
+      "Une révision a été soumise pour l'une de vos quêtes. Connectez-vous à Internet pour voir les détails.",
+    spanish:
+      'Se envió una revisión de una de tus misiones. Conéctate a internet para ver los detalles.',
+    brazilian_portuguese:
+      'Uma revisão foi enviada para uma das suas quests. Conecte-se à internet para ver os detalhes.',
+    tok_pisin:
+      'Wanpela review i kam long wanpela quest bilong yu. Konek long internet bilong lukim ol detail.',
+    indonesian:
+      'Sebuah tinjauan dikirim untuk salah satu quest Anda. Hubungkan ke internet untuk melihat detailnya.',
+    nepali:
+      'तपाईंको एउटा क्वेस्टको लागि समीक्षा पेश गरिएको छ। विवरण हेर्न इन्टरनेटमा जडान गर्नुहोस्।',
+    hindi:
+      'आपके एक क्वेस्ट के लिए समीक्षा भेजी गई है। विवरण देखने के लिए इंटरनेट से जुड़ें।',
+    burmese:
+      'သင်၏ quest တစ်ခုအတွက် သုံးသပ်ချက် တင်သွင်းထားပါသည်။ အသေးစိတ်ကြည့်ရန် အင်တာနက်ချိတ်ဆက်ပါ။',
+    thai: 'มีการส่งการตรวจทานสำหรับเควสต์หนึ่งของคุณ เชื่อมต่ออินเทอร์เน็ตเพื่อดูรายละเอียด',
+    mandarin: '您的一个任务收到了审阅。请连接互联网查看详情。'
+  },
+  openReview: {
+    english: 'Open review',
+    french: 'Ouvrir la révision',
+    spanish: 'Abrir revisión',
+    brazilian_portuguese: 'Abrir revisão',
+    tok_pisin: 'Opim review',
+    indonesian: 'Buka tinjauan',
+    nepali: 'समीक्षा खोल्नुहोस्',
+    hindi: 'समीक्षा खोलें',
+    burmese: 'သုံးသပ်ချက်ဖွင့်ရန်',
+    thai: 'เปิดการตรวจทาน',
+    mandarin: '打开审阅'
+  },
+  dismissReviewNotification: {
+    english: 'Dismiss',
+    french: 'Masquer',
+    spanish: 'Descartar',
+    brazilian_portuguese: 'Dispensar',
+    tok_pisin: 'Rausim',
+    indonesian: 'Tutup',
+    nepali: 'हटाउनुहोस्',
+    hindi: 'हटाएँ',
+    burmese: 'ပယ်ရန်',
+    thai: 'ปิด',
+    mandarin: '忽略'
+  },
+  reviewNotificationError: {
+    english: 'Could not open this notification. Please try again.',
+    french: "Impossible d'ouvrir cette notification. Veuillez réessayer.",
+    spanish: 'No se pudo abrir esta notificación. Inténtalo de nuevo.',
+    brazilian_portuguese:
+      'Não foi possível abrir esta notificação. Tente novamente.',
+    tok_pisin: 'I no inap opim dispela notification. Traim gen.',
+    indonesian: 'Tidak dapat membuka notifikasi ini. Silakan coba lagi.',
+    nepali: 'यो सूचना खोल्न सकिएन। कृपया फेरि प्रयास गर्नुहोस्।',
+    hindi: 'यह सूचना नहीं खोली जा सकी। कृपया फिर से प्रयास करें।',
+    burmese: 'ဤအသိပေးချက်ကို ဖွင့်၍မရပါ။ ထပ်မံကြိုးစားပါ။',
+    thai: 'ไม่สามารถเปิดการแจ้งเตือนนี้ได้ โปรดลองอีกครั้ง',
+    mandarin: '无法打开此通知，请重试。'
   }
 } as const;
 
