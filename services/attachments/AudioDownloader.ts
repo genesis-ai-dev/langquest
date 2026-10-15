@@ -3,8 +3,8 @@
  *
  * Work list, derived on every pass:
  *
- *   asset_content_link_synced rows where
- *     audio IS NOT NULL AND audio_uploaded_at IS NOT NULL
+ *   asset_content_link_synced, review_synced and review_asset_synced rows
+ *   where audio IS NOT NULL AND audio_uploaded_at IS NOT NULL
  *   → flattened to filenames
  *   → minus files already on this device (LocalFileIndex)
  *
@@ -18,7 +18,11 @@
  */
 
 import type * as drizzleSchema from '@/db/drizzleSchema';
-import { asset_content_link_synced } from '@/db/drizzleSchemaSynced';
+import {
+  asset_content_link_synced,
+  review_asset_synced,
+  review_synced
+} from '@/db/drizzleSchemaSynced';
 import type { SupabaseStorageAdapter } from '@/db/supabase/SupabaseStorageAdapter';
 import { isInvalidAudioValue, isLocalOnlyAudio } from '@/utils/attachmentPaths';
 import { getLocalAttachmentUri, writeFile } from '@/utils/fileUtils';
@@ -85,9 +89,11 @@ export class AudioDownloader {
     if (this.started) return;
     this.started = true;
 
-    this.options.db.watch(this.confirmedAudioQuery(), {
-      onResult: () => this.schedule()
-    });
+    for (const query of this.confirmedAudioQueries()) {
+      this.options.db.watch(query, {
+        onResult: () => this.schedule()
+      });
+    }
     // The work list is "confirmed rows minus files on device", so index
     // changes (including our own downloads landing) must re-derive it —
     // otherwise the final published `pending` count goes stale until the
@@ -129,16 +135,37 @@ export class AudioDownloader {
     this.started = false;
   }
 
-  private confirmedAudioQuery() {
-    return this.options.db
-      .select({ audio: asset_content_link_synced.audio })
-      .from(asset_content_link_synced)
-      .where(
-        and(
-          isNotNull(asset_content_link_synced.audio),
-          isNotNull(asset_content_link_synced.audio_uploaded_at)
+  private confirmedAudioQueries() {
+    const { db } = this.options;
+    return [
+      db
+        .select({ audio: asset_content_link_synced.audio })
+        .from(asset_content_link_synced)
+        .where(
+          and(
+            isNotNull(asset_content_link_synced.audio),
+            isNotNull(asset_content_link_synced.audio_uploaded_at)
+          )
+        ),
+      db
+        .select({ audio: review_synced.audio })
+        .from(review_synced)
+        .where(
+          and(
+            isNotNull(review_synced.audio),
+            isNotNull(review_synced.audio_uploaded_at)
+          )
+        ),
+      db
+        .select({ audio: review_asset_synced.audio })
+        .from(review_asset_synced)
+        .where(
+          and(
+            isNotNull(review_asset_synced.audio),
+            isNotNull(review_asset_synced.audio_uploaded_at)
+          )
         )
-      );
+    ];
   }
 
   private schedule(delay: number = DEBOUNCE_MS): void {
@@ -170,7 +197,7 @@ export class AudioDownloader {
   }
 
   private async getWorkList(): Promise<string[]> {
-    const rows = await this.confirmedAudioQuery();
+    const rows = (await Promise.all(this.confirmedAudioQueries())).flat();
     const names = new Set<string>();
     for (const row of rows) {
       for (const value of row.audio ?? []) {

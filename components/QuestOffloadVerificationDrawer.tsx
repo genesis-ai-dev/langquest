@@ -146,7 +146,8 @@ export function QuestOffloadVerificationDrawer({
     progressSharedValues,
     totalRecordsShared,
     hasError,
-    estimatedStorageBytes
+    estimatedStorageBytes,
+    draftReviewCount
   } = verificationState;
 
   // Use React state for display values
@@ -372,6 +373,26 @@ export function QuestOffloadVerificationDrawer({
               )}
 
               {/* Warnings and errors in scrollable area */}
+              {draftReviewCount > 0 && (
+                <View className="mb-2 rounded-lg bg-destructive/10 p-3">
+                  <View className="mb-1 flex-row items-center gap-2">
+                    <Icon
+                      as={AlertCircleIcon}
+                      size={18}
+                      className="text-destructive"
+                    />
+                    <Text className="font-semibold text-destructive">
+                      Unpublished review drafts
+                    </Text>
+                  </View>
+                  <Text className="text-sm text-destructive">
+                    {draftReviewCount === 1
+                      ? '1 review draft for this quest exists only on this device and will be permanently deleted.'
+                      : `${draftReviewCount} review drafts for this quest exist only on this device and will be permanently deleted.`}
+                  </Text>
+                </View>
+              )}
+
               {isReadyToOffload && (
                 <View className="mb-2 rounded-lg bg-yellow-500/10 p-3">
                   <Text className="text-sm text-yellow-600">

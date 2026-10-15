@@ -32,7 +32,10 @@ import type {
 import { useBibleChapters } from '@/hooks/useBibleChapters';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNavigationHelpers } from '@/hooks/useNavigation';
-import { useQuestDownloadDiscovery } from '@/hooks/useQuestDownloadDiscovery';
+import {
+  getDiscoveredCounts,
+  useQuestDownloadDiscovery
+} from '@/hooks/useQuestDownloadDiscovery';
 import { useQuestDownloadStatusLive } from '@/hooks/useQuestDownloadStatusLive';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { syncCallbackService } from '@/services/syncCallbackService';
@@ -46,6 +49,7 @@ import {
   BookOpenIcon,
   CopyIcon,
   HardDriveIcon,
+  ClipboardListIcon,
   PlusCircleIcon
 } from 'lucide-react-native';
 import React from 'react';
@@ -228,7 +232,7 @@ export function BibleChapterList({
   bookId,
   onCloudLoadingChange
 }: BibleChapterListProps) {
-  const { goToQuest } = useNavigationHelpers();
+  const { goToQuest, goToReviews, questId } = useNavigationHelpers();
   const { project } = useProjectById(projectId);
   const { createChapter, isCreating } = useBibleChapterCreation();
   const { currentUser } = useAuth();
@@ -239,7 +243,8 @@ export function BibleChapterList({
   const { t } = useLocalization();
 
   const { membership } = useUserPermissions(projectId, 'open_project');
-  const canCreateNew = membership === 'member' || membership === 'owner';
+  const isProjectMember = membership === 'member' || membership === 'owner';
+  const canCreateNew = isProjectMember;
 
   const {
     chapters: chapterGroups,
@@ -543,6 +548,29 @@ export function BibleChapterList({
   const hasNoChapters = chapterGroups.length === 0;
   const showEmptyState = !isLoadingChapters && hasNoChapters && !canCreateNew;
 
+  const openReviews = () => {
+    if (!questId) return;
+    goToReviews({
+      projectId,
+      questId,
+      subjectName: book.name,
+      parentQuestId: questId,
+      metadata: { bible: { book: bookId } }
+    });
+  };
+
+  const openChapterReviews = (chapterNum: number) => {
+    if (!questId) return;
+    setPickerChapterNum(null);
+    goToReviews({
+      projectId,
+      questId,
+      subjectName: `${book.name} ${chapterNum}`,
+      parentQuestId: questId,
+      metadata: { bible: { book: bookId, chapter: chapterNum } }
+    });
+  };
+
   const renderBookHeader = (rowClassName?: string) => (
     <View className={cn('flex-row items-center gap-3', rowClassName)}>
       {bookIconSource ? (
@@ -564,6 +592,16 @@ export function BibleChapterList({
           {book.chapters} {t('chapters')}
         </Text>
       </View>
+      {isProjectMember ? (
+        <Button
+          variant="ghost"
+          size="icon"
+          onPress={openReviews}
+          accessibilityLabel="Reviews"
+        >
+          <Icon as={ClipboardListIcon} className="size-6 text-foreground" />
+        </Button>
+      ) : null}
     </View>
   );
 
@@ -627,18 +665,33 @@ export function BibleChapterList({
         enableDynamicSizing={false}
       >
         <DrawerContent>
-          <DrawerHeader>
-            <DrawerTitle>
-              {book.name} {pickerChapterNum} {t('versions')}
-            </DrawerTitle>
-            <DrawerDescription>
-              {/* {pickerGroup?.versions.length ?? 0} version
-              {(pickerGroup?.versions.length ?? 0) !== 1 ? 's' : ''} available */}
-              {pickerGroup?.versions.length ?? 0}{' '}
-              {pickerGroup?.versions.length === 1
-                ? t('version') + ' ' + t('available')
-                : t('versions') + ' ' + t('available_plural')}
-            </DrawerDescription>
+          <DrawerHeader className="flex-row items-start justify-between gap-3">
+            <View className="min-w-0 flex-1 gap-0.5">
+              <DrawerTitle>
+                {book.name} {pickerChapterNum} {t('versions')}
+              </DrawerTitle>
+              <DrawerDescription>
+                {/* {pickerGroup?.versions.length ?? 0} version
+                {(pickerGroup?.versions.length ?? 0) !== 1 ? 's' : ''} available */}
+                {pickerGroup?.versions.length ?? 0}{' '}
+                {pickerGroup?.versions.length === 1
+                  ? t('version') + ' ' + t('available')
+                  : t('versions') + ' ' + t('available_plural')}
+              </DrawerDescription>
+            </View>
+            {isProjectMember && pickerChapterNum ? (
+              <Button
+                variant="ghost"
+                size="icon"
+                onPress={() => openChapterReviews(pickerChapterNum)}
+                accessibilityLabel="Chapter reviews"
+              >
+                <Icon
+                  as={ClipboardListIcon}
+                  className="size-6 text-foreground"
+                />
+              </Button>
+            ) : null}
           </DrawerHeader>
 
           <View className={cn('gap-3 pb-8')}>
@@ -693,22 +746,7 @@ export function BibleChapterList({
         onConfirm={handleConfirmDownload}
         onCancel={handleCancelConfirmation}
         downloadType="quest"
-        discoveredCounts={{
-          Quests: discoveryState.progressSharedValues.quest.value.count,
-          Projects: discoveryState.progressSharedValues.project.value.count,
-          'Quest-Asset Links':
-            discoveryState.progressSharedValues.questAssetLinks.value.count,
-          Assets: discoveryState.progressSharedValues.assets.value.count,
-          'Asset Content Links':
-            discoveryState.progressSharedValues.assetContentLinks.value.count,
-          Votes: discoveryState.progressSharedValues.votes.value.count,
-          'Quest Tags':
-            discoveryState.progressSharedValues.questTagLinks.value.count,
-          'Asset Tags':
-            discoveryState.progressSharedValues.assetTagLinks.value.count,
-          Tags: discoveryState.progressSharedValues.tags.value.count,
-          Languages: discoveryState.progressSharedValues.languages.value.count
-        }}
+        discoveredCounts={getDiscoveredCounts(discoveryState)}
       />
     </View>
   );

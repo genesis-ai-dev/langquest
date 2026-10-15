@@ -13,13 +13,16 @@ import { LayerType, useStatusContext } from '@/contexts/StatusContext';
 // import type { Tag } from '@/database_services/tagCache';
 // import { tagService } from '@/database_services/tagService';
 import type { asset as asset_type } from '@/db/drizzleSchema';
+import type { ReviewSnapshot } from '@/db/drizzleSchemaColumns';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNavigationHelpers } from '@/hooks/useNavigation';
 // import { useTagStore } from '@/hooks/useTagStore';
 import { isImportedAsset } from '@/utils/assetProvenance';
 import { SHOW_DEV_ELEMENTS } from '@/utils/featureFlags';
+import { cn } from '@/utils/styleUtils';
 import {
   CheckSquareIcon,
+  ClipboardListIcon,
   EyeOffIcon,
   GripVerticalIcon,
   HardDriveIcon,
@@ -34,7 +37,6 @@ import {
 import React from 'react';
 import { Pressable, View } from 'react-native';
 // import { TagModal } from '../../components/TagModal';
-import { Text } from '@/components/ui/text';
 import { useItemDownload, useItemDownloadStatus } from './useHybridData';
 
 // Define props locally to avoid require cycle.
@@ -46,6 +48,33 @@ type AssetQuestLink = Asset & {
   quest_visible: boolean;
   tag_ids?: string[] | undefined;
 };
+
+function reviewSnapshotFromMetadata(
+  metadata: unknown
+): ReviewSnapshot | undefined {
+  if (!metadata || typeof metadata !== 'object') return undefined;
+  const review = (metadata as { review?: ReviewSnapshot }).review;
+  if (!review?.id) return undefined;
+  return review;
+}
+
+const REVIEW_ICON_CLASS = {
+  approved: {
+    circle: 'border-green-600 bg-green-600/15',
+    icon: 'text-green-600',
+    label: 'Approved review'
+  },
+  suggested_changes: {
+    circle: 'border-yellow-600 bg-yellow-500/20',
+    icon: 'text-yellow-600',
+    label: 'Suggested changes review'
+  },
+  not_reviewed: {
+    circle: 'border-primary/50 bg-muted',
+    icon: 'text-primary',
+    label: 'Review feedback'
+  }
+} as const;
 
 export interface AssetCardItemProps {
   asset: AssetQuestLink;
@@ -70,6 +99,7 @@ export interface AssetCardItemProps {
   onSelectForRecording?: (assetId: string) => void;
   // Rename asset
   onRename?: (assetId: string, currentName: string | null) => void;
+  onOpenReview?: (assetId: string, reviewAssetId: string) => void;
 }
 
 const AssetCardItemComponent: React.FC<AssetCardItemProps> = ({
@@ -90,6 +120,7 @@ const AssetCardItemComponent: React.FC<AssetCardItemProps> = ({
   isSelectedForRecording = false,
   onSelectForRecording,
   onRename,
+  onOpenReview,
   isHighlighted = false
 }) => {
   const { goToAsset } = useNavigationHelpers();
@@ -99,6 +130,10 @@ const AssetCardItemComponent: React.FC<AssetCardItemProps> = ({
   const isDownloaded = useItemDownloadStatus(asset, currentUser?.id);
   const isImported = isImportedAsset(asset.metadata);
   const canRenameAsset = asset.source === 'local' || isImported;
+  const review = isPublished
+    ? undefined
+    : reviewSnapshotFromMetadata(asset.metadata);
+  const reviewStyle = REVIEW_ICON_CLASS[review?.result ?? 'not_reviewed'];
   const canOpenAssetDetails = isPublished || !isImported;
 
   // Tags functionality commented out
@@ -412,6 +447,32 @@ const AssetCardItemComponent: React.FC<AssetCardItemProps> = ({
                   />
                 )}
 
+                {!isSelectionMode &&
+                !isPublished &&
+                onRename &&
+                canRenameAsset &&
+                review ? (
+                  <Pressable
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      onOpenReview?.(asset.id, review.id);
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel={reviewStyle.label}
+                    hitSlop={8}
+                    className={cn(
+                      'flex h-8 w-8 items-center justify-center rounded-full border',
+                      reviewStyle.circle
+                    )}
+                  >
+                    <Icon
+                      as={ClipboardListIcon}
+                      size={16}
+                      className={reviewStyle.icon}
+                    />
+                  </Pressable>
+                ) : null}
+
                 {!isSelectionMode && (
                   <Pressable
                     disabled={!canOpenAssetDetails}
@@ -517,7 +578,7 @@ const arePropsEqual = (
   }
 
   // 5. Ignore function props (they're stable from Part 2 optimization)
-  // onUpdate, onPlay, onToggleSelect, onEnterSelection, onSelectForRecording, onRename
+  // onUpdate, onPlay, onToggleSelect, onEnterSelection, onSelectForRecording, onRename, onOpenReview
   // These are ignored because they're memoized in the parent component
 
   return true; // Props are equal, skip re-render ✅

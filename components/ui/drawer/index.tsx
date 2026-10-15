@@ -110,6 +110,9 @@ function Drawer({
   const stableSnapPoints = drawerProps.snapPoints;
   const stableEnableDynamicSizing = drawerProps.enableDynamicSizing;
   const stableGestureEventsHandlersHook = drawerProps.gestureEventsHandlersHook;
+  const stableEnableContentPanningGesture =
+    drawerProps.enableContentPanningGesture;
+  const stableKeyboardBehavior = drawerProps.keyboardBehavior;
 
   // Memoize snapPoints array to prevent unnecessary re-renders
   const memoizedSnapPoints = React.useMemo(() => {
@@ -127,6 +130,12 @@ function Drawer({
       snapPoints: memoizedSnapPoints,
       enableDynamicSizing: stableEnableDynamicSizing,
       gestureEventsHandlersHook: stableGestureEventsHandlersHook,
+      ...(stableEnableContentPanningGesture !== undefined
+        ? { enableContentPanningGesture: stableEnableContentPanningGesture }
+        : {}),
+      ...(stableKeyboardBehavior !== undefined
+        ? { keyboardBehavior: stableKeyboardBehavior }
+        : {}),
       dismissible
     };
   }, [
@@ -136,6 +145,8 @@ function Drawer({
     memoizedSnapPoints,
     stableEnableDynamicSizing,
     stableGestureEventsHandlersHook,
+    stableEnableContentPanningGesture,
+    stableKeyboardBehavior,
     dismissible
   ]);
 

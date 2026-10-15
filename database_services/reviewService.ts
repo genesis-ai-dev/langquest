@@ -1,0 +1,536 @@
+import type { QuestMetadata } from '@/db/drizzleSchemaColumns';
+import { review_asset_local, review_local } from '@/db/drizzleSchemaLocal';
+import { review_asset_synced, review_synced } from '@/db/drizzleSchemaSynced';
+import { system } from '@/db/powersync/system';
+import { getNetworkStatus } from '@/hooks/useNetworkStatus';
+import { promoteLocalAudioValue } from '@/services/attachments/promoteLocalAudio';
+import { and, eq, sql } from 'drizzle-orm';
+
+export type ReviewRow = typeof review_local.$inferSelect;
+export type ReviewAssetRow = typeof review_asset_local.$inferSelect;
+
+export const REVIEW_STATUS_IN_PROGRESS = 'in_progress';
+export const REVIEW_STATUS_SUBMITTED = 'submitted';
+
+export const REVIEW_ORIGIN_INTERNAL = 'Internal';
+export const REVIEW_ORIGIN_EXTERNAL = 'External';
+
+/** Book/chapter (Bible) or book/pericope (FIA) the reviewed quest refers to. */
+export interface ReviewQuestScope {
+  bible?: { book: string; chapter?: number };
+  fia?: { bookId: string; pericopeId?: string; verseRange?: string };
+}
+
+export function getReviewQuestScope(questMetadata: unknown): ReviewQuestScope {
+  let metadata: unknown = questMetadata;
+  if (typeof metadata === 'string') {
+    try {
+      metadata = JSON.parse(metadata);
+    } catch {
+      return {};
+    }
+  }
+  if (!metadata || typeof metadata !== 'object') return {};
+
+  const { bible, fia } = metadata as Pick<QuestMetadata, 'bible' | 'fia'>;
+  const scope: ReviewQuestScope = {};
+  if (bible?.book) {
+    scope.bible = { book: bible.book, chapter: bible.chapter };
+  }
+  if (fia?.bookId) {
+    scope.fia = {
+      bookId: fia.bookId,
+      pericopeId: fia.pericopeId,
+      verseRange: fia.verseRange
+    };
+  }
+  return scope;
+}
+
+export type QuestResult = 'suggested_changes' | 'approved';
+export type AssetResult = 'not_reviewed' | 'suggested_changes' | 'approved';
+
+export interface ReviewAssetPatch {
+  asset_result?: AssetResult;
+  comment?: string | null;
+  audio?: string[] | null;
+}
+
+function parseReviewMetadata(
+  metadata: unknown
+): Record<string, unknown> | null {
+  let value = metadata;
+  if (typeof value === 'string') {
+    try {
+      value = JSON.parse(value);
+    } catch {
+      return null;
+    }
+  }
+  if (!value || typeof value !== 'object') return null;
+  return value as Record<string, unknown>;
+}
+
+function trimmedString(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+export function getReviewLabel(metadata: unknown): string | null {
+  return trimmedString(parseReviewMetadata(metadata)?.reviewLabel);
+}
+
+/** Name the external reviewer entered when submitting (metadata.reviewer.name). */
+export function getReviewerName(metadata: unknown): string | null {
+  const reviewer = parseReviewMetadata(metadata)?.reviewer;
+  if (!reviewer || typeof reviewer !== 'object') return null;
+  return trimmedString((reviewer as { name?: unknown }).name);
+}
+
+export function isExternalReview(origin: string | null | undefined) {
+  return origin === REVIEW_ORIGIN_EXTERNAL;
+}
+
+/**
+ * Reviews not marked Internal show the reviewer's name from metadata; Internal
+ * reviews, and reviews without a reviewer name, show the creator's username.
+ */
+export function getReviewAuthorName(
+  origin: string | null | undefined,
+  metadata: unknown,
+  username: string | null | undefined
+): string {
+  return (
+    (origin !== REVIEW_ORIGIN_INTERNAL && getReviewerName(metadata)) ||
+    (username ?? '')
+  );
+}
+
+export async function createDraftReview(data: {
+  projectId: string;
+  questId: string;
+  profileId: string;
+  origin: string;
+  questScope: ReviewQuestScope;
+  reviewLabel?: string;
+}): Promise<string> {
+  const reviewLabel = data.reviewLabel?.trim();
+  const [created] = await system.db
+    .insert(review_local)
+    .values({
+      project_id: data.projectId,
+      quest_id: data.questId,
+      profile_id: data.profileId,
+      origin: data.origin,
+      status: REVIEW_STATUS_IN_PROGRESS,
+      metadata: {
+        ...data.questScope,
+        ...(reviewLabel ? { reviewLabel } : {})
+      }
+    })
+    .returning({ id: review_local.id });
+
+  if (!created) throw new Error('Failed to create review');
+  return created.id;
+}
+
+export async function getReview(reviewId: string): Promise<ReviewRow | null> {
+  const [row] = await system.db
+    .select()
+    .from(review_local)
+    .where(eq(review_local.id, reviewId))
+    .limit(1);
+  return row ?? null;
+}
+
+/** Local draft, or the synced in-progress copy left by an external link. */
+export async function getReviewAnywhere(
+  reviewId: string
+): Promise<ReviewRow | null> {
+  const local = await getReview(reviewId);
+  if (local) return local;
+
+  const [synced] = await system.db
+    .select()
+    .from(review_synced)
+    .where(eq(review_synced.id, reviewId))
+    .limit(1);
+  if (!synced) return null;
+
+  return {
+    id: synced.id,
+    active: synced.active,
+    created_at: synced.created_at,
+    last_updated: synced.last_updated,
+    source: synced.source,
+    _metadata: synced._metadata,
+    project_id: synced.project_id,
+    quest_id: synced.quest_id,
+    profile_id: synced.profile_id,
+    status: synced.status,
+    access_token: synced.access_token,
+    origin: synced.origin,
+    external_id: synced.external_id,
+    quest_result: synced.quest_result,
+    conclusion: synced.conclusion,
+    metadata: synced.metadata,
+    concluded_at: synced.concluded_at
+  };
+}
+
+export async function getReviewAssets(
+  reviewId: string
+): Promise<ReviewAssetRow[]> {
+  return system.db
+    .select()
+    .from(review_asset_local)
+    .where(eq(review_asset_local.review_id, reviewId));
+}
+
+export async function updateReviewQuestResult(
+  reviewId: string,
+  questResult: QuestResult | null
+) {
+  await system.db
+    .update(review_local)
+    .set({ quest_result: questResult })
+    .where(eq(review_local.id, reviewId));
+}
+
+export async function updateReviewConclusion(
+  reviewId: string,
+  conclusion: string | null
+) {
+  await system.db
+    .update(review_local)
+    .set({ conclusion })
+    .where(eq(review_local.id, reviewId));
+}
+
+/**
+ * Published reviews live in review_synced (the update uploads through
+ * PowerSync); the publisher's local copy is kept in step.
+ */
+export async function setReviewActive(reviewId: string, active: boolean) {
+  await system.db.transaction(async (tx) => {
+    await tx
+      .update(review_synced)
+      .set({ active })
+      .where(eq(review_synced.id, reviewId));
+    await tx
+      .update(review_local)
+      .set({ active })
+      .where(eq(review_local.id, reviewId));
+  });
+}
+
+function metadataWithoutAudio(
+  metadata: ReviewRow['metadata']
+): ReviewRow['metadata'] {
+  const next = { ...metadata };
+  delete next.audio;
+  return next;
+}
+
+/**
+ * Clears filled feedback and uploads the review row only, with an external token.
+ * Asset notes are removed locally and are not synced.
+ * Returns audio paths the caller should delete after the transaction commits.
+ */
+export async function publishExternalReview(
+  reviewId: string,
+  token: string
+): Promise<string[]> {
+  if (!getNetworkStatus()) throw new Error('OFFLINE');
+
+  const review = await getReview(reviewId);
+  if (!review) throw new Error('Review not found');
+
+  const assetRows = await getReviewAssets(reviewId);
+  const audio = [
+    ...getReviewAudio(review),
+    ...assetRows.flatMap((row) => row.audio ?? [])
+  ];
+
+  await system.db.transaction(async (tx) => {
+    await tx
+      .delete(review_asset_local)
+      .where(eq(review_asset_local.review_id, reviewId));
+    await tx
+      .update(review_local)
+      .set({
+        access_token: token,
+        origin: REVIEW_ORIGIN_EXTERNAL,
+        conclusion: null,
+        quest_result: null,
+        metadata: metadataWithoutAudio(review.metadata)
+      })
+      .where(eq(review_local.id, reviewId));
+
+    await tx.run(sql`
+      INSERT OR IGNORE INTO review_synced (
+        id, active, created_at, last_updated, source, _metadata,
+        project_id, quest_id, profile_id, status, access_token, origin,
+        external_id, quest_result, conclusion, metadata, concluded_at, audio
+      )
+      SELECT
+        id, active, created_at, last_updated, source, _metadata,
+        project_id, quest_id, profile_id, status, access_token, origin,
+        external_id, quest_result, conclusion, metadata, concluded_at,
+        '[]'
+      FROM review_local
+      WHERE id = ${reviewId}
+    `);
+
+    await tx
+      .update(review_synced)
+      .set({
+        access_token: token,
+        origin: REVIEW_ORIGIN_EXTERNAL,
+        conclusion: null,
+        quest_result: null,
+        audio: [],
+        metadata: metadataWithoutAudio(review.metadata),
+        status: REVIEW_STATUS_IN_PROGRESS
+      })
+      .where(eq(review_synced.id, reviewId));
+
+    await tx
+      .delete(review_asset_synced)
+      .where(eq(review_asset_synced.review_id, reviewId));
+  });
+
+  return audio;
+}
+
+/** Replaces the active external-review token without changing the review content. */
+export async function rotateExternalReviewToken(
+  reviewId: string,
+  token: string
+) {
+  if (!getNetworkStatus()) throw new Error('OFFLINE');
+
+  await system.db.transaction(async (tx) => {
+    await tx
+      .update(review_local)
+      .set({ access_token: token })
+      .where(eq(review_local.id, reviewId));
+    await tx
+      .update(review_synced)
+      .set({ access_token: token })
+      .where(eq(review_synced.id, reviewId));
+  });
+}
+
+/** Clears the external-review token and resets origin, locally and in the syncing row. */
+export async function revokeExternalReview(reviewId: string) {
+  if (!getNetworkStatus()) throw new Error('OFFLINE');
+
+  await system.db.transaction(async (tx) => {
+    await tx
+      .update(review_local)
+      .set({ access_token: null, origin: REVIEW_ORIGIN_INTERNAL })
+      .where(eq(review_local.id, reviewId));
+    await tx
+      .update(review_synced)
+      .set({ access_token: null, origin: REVIEW_ORIGIN_INTERNAL })
+      .where(eq(review_synced.id, reviewId));
+  });
+}
+
+/**
+ * Removes a draft that exists only on this device.
+ * A draft already uploaded for an external link is inactivated instead, and
+ * only while online. A submitted review is left in place.
+ */
+export async function deleteLocalReview(
+  reviewId: string
+): Promise<'inactivated' | 'deleted'> {
+  const [shared] = await system.db
+    .select({ status: review_synced.status })
+    .from(review_synced)
+    .where(eq(review_synced.id, reviewId))
+    .limit(1);
+
+  if (shared?.status === REVIEW_STATUS_IN_PROGRESS) {
+    if (!getNetworkStatus()) throw new Error('OFFLINE');
+    await setReviewActive(reviewId, false);
+    return 'inactivated';
+  }
+
+  await system.db.transaction(async (tx) => {
+    await tx
+      .delete(review_asset_local)
+      .where(eq(review_asset_local.review_id, reviewId));
+    await tx.delete(review_local).where(eq(review_local.id, reviewId));
+  });
+  return 'deleted';
+}
+
+/** The review table has no audio column; overall feedback audio lives in metadata.audio. */
+export function getReviewAudio(review: Pick<ReviewRow, 'metadata'>): string[] {
+  const audio = (review.metadata as { audio?: unknown } | null)?.audio;
+  return Array.isArray(audio)
+    ? audio.filter((value): value is string => typeof value === 'string')
+    : [];
+}
+
+export async function updateReviewLabel(reviewId: string, reviewLabel: string) {
+  const review = await getReview(reviewId);
+  await system.db
+    .update(review_local)
+    .set({ metadata: { ...review?.metadata, reviewLabel } })
+    .where(eq(review_local.id, reviewId));
+}
+
+export async function updateReviewAudio(reviewId: string, audio: string[]) {
+  const review = await getReview(reviewId);
+  await system.db
+    .update(review_local)
+    .set({ metadata: { ...review?.metadata, audio } })
+    .where(eq(review_local.id, reviewId));
+}
+
+/** Concludes the review; once submitted it is no longer an editable draft. */
+export async function submitReview(
+  reviewId: string,
+  questScope: ReviewQuestScope
+) {
+  const review = await getReview(reviewId);
+  await system.db
+    .update(review_local)
+    .set({
+      status: REVIEW_STATUS_SUBMITTED,
+      concluded_at: new Date().toISOString(),
+      metadata: { ...review?.metadata, ...questScope }
+    })
+    .where(eq(review_local.id, reviewId));
+}
+
+export async function reopenReviewDraft(reviewId: string) {
+  await system.db
+    .update(review_local)
+    .set({ status: REVIEW_STATUS_IN_PROGRESS, concluded_at: null })
+    .where(eq(review_local.id, reviewId));
+}
+
+function publishedAudioName(value: string) {
+  return value.replace(/^local\//, '');
+}
+
+/**
+ * Copies the local review into the syncing tables so PowerSync uploads it.
+ * Audio filenames lose the local/ prefix, matching quest publish, and the
+ * files are moved to the shared attachments folder for the uploader.
+ */
+export async function publishReview(reviewId: string) {
+  if (!getNetworkStatus()) {
+    throw new Error('OFFLINE');
+  }
+
+  const review = await getReview(reviewId);
+  if (!review) throw new Error('Review not found');
+
+  const assetRows = await getReviewAssets(reviewId);
+  const overallAudio = getReviewAudio(review).map(publishedAudioName);
+  const audioValues = [
+    ...getReviewAudio(review),
+    ...assetRows.flatMap((row) => row.audio ?? [])
+  ];
+
+  await system.db.transaction(async (tx) => {
+    await tx.run(sql`
+      INSERT OR IGNORE INTO review_synced (
+        id, active, created_at, last_updated, source, _metadata,
+        project_id, quest_id, profile_id, status, access_token, origin,
+        external_id, quest_result, conclusion, metadata, concluded_at, audio
+      )
+      SELECT
+        id, active, created_at, last_updated, source, _metadata,
+        project_id, quest_id, profile_id, status, access_token, origin,
+        external_id, quest_result, conclusion,
+        REPLACE(metadata, 'local/', ''),
+        concluded_at,
+        ${JSON.stringify(overallAudio)}
+      FROM review_local
+      WHERE id = ${reviewId}
+    `);
+
+    await tx.run(sql`
+      INSERT OR IGNORE INTO review_asset_synced (
+        id, active, created_at, last_updated, source, _metadata,
+        review_id, asset_id, asset_result, comment, audio, metadata
+      )
+      SELECT
+        id, active, created_at, last_updated, source, _metadata,
+        review_id, asset_id, asset_result, comment,
+        REPLACE(IFNULL(audio, '[]'), 'local/', ''),
+        metadata
+      FROM review_asset_local
+      WHERE review_id = ${reviewId}
+    `);
+
+    await Promise.all(
+      audioValues.map((value) => promoteLocalAudioValue(value))
+    );
+  });
+
+  system.audioUploader?.trigger();
+}
+
+export async function upsertReviewAsset(
+  reviewId: string,
+  assetId: string,
+  patch: ReviewAssetPatch
+) {
+  const [existing] = await system.db
+    .select({ id: review_asset_local.id })
+    .from(review_asset_local)
+    .where(
+      and(
+        eq(review_asset_local.review_id, reviewId),
+        eq(review_asset_local.asset_id, assetId)
+      )
+    )
+    .limit(1);
+
+  if (existing) {
+    await system.db
+      .update(review_asset_local)
+      .set(patch)
+      .where(
+        and(
+          eq(review_asset_local.review_id, reviewId),
+          eq(review_asset_local.asset_id, assetId)
+        )
+      );
+    return;
+  }
+
+  await system.db.insert(review_asset_local).values({
+    review_id: reviewId,
+    asset_id: assetId,
+    asset_result: patch.asset_result ?? 'not_reviewed',
+    comment: patch.comment ?? null,
+    audio: patch.audio ?? null
+  });
+}
+
+/**
+ * Asset ids marked as suggested changes that still have no comment and no
+ * audio. Submission must be blocked while this list is not empty.
+ */
+export function findIncompleteSuggestedChanges(
+  reviewAssets: Pick<
+    ReviewAssetRow,
+    'asset_id' | 'asset_result' | 'comment' | 'audio'
+  >[]
+): string[] {
+  return reviewAssets
+    .filter(
+      (item) =>
+        item.asset_result === 'suggested_changes' &&
+        !item.comment?.trim() &&
+        !item.audio?.length
+    )
+    .map((item) => item.asset_id);
+}

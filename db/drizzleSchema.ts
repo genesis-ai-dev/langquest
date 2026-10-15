@@ -34,6 +34,10 @@ import {
   createFeedbackTable,
   createReportsTable,
   createRequestTable,
+  createReviewAssetTable,
+  createReviewTable,
+  reviewAssetCloudColumns,
+  reviewCloudColumns,
   createSubscriptionTable,
   createTagTable,
   createVoteTable
@@ -387,6 +391,45 @@ export const quest_asset_linkRelations = relations(
     })
   })
 );
+
+export const review = createReviewTable(
+  'merged',
+  { project, quest, profile },
+  reviewCloudColumns()
+);
+
+export const review_asset = createReviewAssetTable(
+  'merged',
+  { review, asset },
+  reviewAssetCloudColumns()
+);
+
+export const reviewRelations = relations(review, ({ one, many }) => ({
+  project: one(project, {
+    fields: [review.project_id],
+    references: [project.id]
+  }),
+  quest: one(quest, {
+    fields: [review.quest_id],
+    references: [quest.id]
+  }),
+  profile: one(profile, {
+    fields: [review.profile_id],
+    references: [profile.id]
+  }),
+  assets: many(review_asset)
+}));
+
+export const review_assetRelations = relations(review_asset, ({ one }) => ({
+  review: one(review, {
+    fields: [review_asset.review_id],
+    references: [review.id]
+  }),
+  asset: one(asset, {
+    fields: [review_asset.asset_id],
+    references: [asset.id]
+  })
+}));
 
 // Project-language link with explicit type separation (source/target)
 export const project_language_link = createProjectLanguageLinkTable('merged', {

@@ -259,7 +259,7 @@ export async function offloadQuest(params: OffloadQuestParams): Promise<void> {
 
     await system.db.transaction(async (tx) => {
       let currentStep = 0;
-      const totalSteps = 11;
+      const totalSteps = 12;
 
       const updateProgress = (message: string) => {
         currentStep++;
@@ -397,21 +397,46 @@ export async function offloadQuest(params: OffloadQuestParams): Promise<void> {
         `✅ [Offload] Deleted ${deletedLinksCount} quest-asset links for this quest (both shared and non-shared)`
       );
 
-      // Step 9: Delete the quest itself
+      // Step 9: Delete local review rows for this quest (drafts and
+      // published copies; published reviews come back with the quest download)
+      updateProgress('Deleting reviews...');
+      const localReviews = await tx
+        .select({ id: drizzleSchemaLocal.review_local.id })
+        .from(drizzleSchemaLocal.review_local)
+        .where(eq(drizzleSchemaLocal.review_local.quest_id, questId));
+      const localReviewIds = localReviews.map((r) => r.id);
+      if (localReviewIds.length > 0) {
+        await tx
+          .delete(drizzleSchemaLocal.review_asset_local)
+          .where(
+            inArray(
+              drizzleSchemaLocal.review_asset_local.review_id,
+              localReviewIds
+            )
+          );
+        await tx
+          .delete(drizzleSchemaLocal.review_local)
+          .where(eq(drizzleSchemaLocal.review_local.quest_id, questId));
+        console.log(
+          `✅ [Offload] Deleted ${localReviewIds.length} local reviews`
+        );
+      }
+
+      // Step 10: Delete the quest itself
       updateProgress('Deleting quest...');
       await tx
         .delete(drizzleSchemaLocal.quest_local)
         .where(eq(drizzleSchemaLocal.quest_local.id, questId));
       console.log(`✅ [Offload] Deleted quest: ${questId}`);
 
-      // Step 10: Clean up languages (only if not used elsewhere)
+      // Step 11: Clean up languages (only if not used elsewhere)
       // Note: We're being conservative - languages are likely shared
       updateProgress('Skipping language deletion (may be used elsewhere)...');
       console.log(
         '⏭️ [Offload] Skipping languages (likely shared across projects)'
       );
 
-      // Step 11: Clean up project (only if not used elsewhere)
+      // Step 12: Clean up project (only if not used elsewhere)
       // Note: We're being conservative - project may have other quests
       updateProgress('Skipping project deletion (may have other quests)...');
       console.log('⏭️ [Offload] Skipping project (may have other quests)');

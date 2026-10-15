@@ -33,6 +33,10 @@ import {
   createRegionTable,
   createReportsTable,
   createRequestTable,
+  createReviewAssetTable,
+  createReviewTable,
+  reviewAssetCloudColumns,
+  reviewCloudColumns,
   createSubscriptionTable,
   createTagTable,
   createVoteTable
@@ -428,6 +432,55 @@ export const quest_asset_link_syncedRelations = relations(
     }),
     asset: one(asset_synced, {
       fields: [quest_asset_link_synced.asset_id],
+      references: [asset_synced.id]
+    })
+  })
+);
+
+export const review_synced = createReviewTable(
+  'synced',
+  {
+    project: project_synced,
+    quest: quest_synced,
+    profile: profile_synced
+  },
+  reviewCloudColumns()
+);
+
+export const review_asset_synced = createReviewAssetTable(
+  'synced',
+  { review: review_synced, asset: asset_synced },
+  reviewAssetCloudColumns()
+);
+
+export const review_syncedRelations = relations(
+  review_synced,
+  ({ one, many }) => ({
+    project: one(project_synced, {
+      fields: [review_synced.project_id],
+      references: [project_synced.id]
+    }),
+    quest: one(quest_synced, {
+      fields: [review_synced.quest_id],
+      references: [quest_synced.id]
+    }),
+    profile: one(profile_synced, {
+      fields: [review_synced.profile_id],
+      references: [profile_synced.id]
+    }),
+    assets: many(review_asset_synced)
+  })
+);
+
+export const review_asset_syncedRelations = relations(
+  review_asset_synced,
+  ({ one }) => ({
+    review: one(review_synced, {
+      fields: [review_asset_synced.review_id],
+      references: [review_synced.id]
+    }),
+    asset: one(asset_synced, {
+      fields: [review_asset_synced.asset_id],
       references: [asset_synced.id]
     })
   })

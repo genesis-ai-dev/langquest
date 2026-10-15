@@ -2,6 +2,7 @@
  * Asset service - Database operations for assets.
  */
 
+import type { ReviewSnapshot } from '@/db/drizzleSchemaColumns';
 import { system } from '@/db/powersync/system';
 import { resolveTable } from '@/utils/dbUtils';
 import { and, asc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
@@ -29,6 +30,8 @@ export interface QuestAssetLinkMetadata {
   provenance?: {
     type: 'created' | 'imported';
   };
+  /** The review_asset this link was imported from. */
+  review?: ReviewSnapshot;
 }
 
 /**

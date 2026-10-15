@@ -28,6 +28,8 @@ interface DiscoveredIds {
   regionAliasIds: string[];
   regionSourceIds: string[];
   regionPropertyIds: string[];
+  /** Reviews follow the quest's download_profiles server-side; tracked for display only. */
+  reviewIds: string[];
 }
 
 export interface DiscoveryState {
@@ -43,6 +45,7 @@ export interface DiscoveryState {
     assetTagLinks: ReturnType<typeof useSharedValue<CategoryProgress>>;
     tags: ReturnType<typeof useSharedValue<CategoryProgress>>;
     languages: ReturnType<typeof useSharedValue<CategoryProgress>>;
+    reviews: ReturnType<typeof useSharedValue<CategoryProgress>>;
   };
   totalRecordsShared: ReturnType<typeof useSharedValue<number>>;
   discoveredIds: DiscoveredIds;
@@ -83,7 +86,8 @@ export function useQuestDownloadDiscovery(questId: string): DiscoveryState {
     regionIds: [],
     regionAliasIds: [],
     regionSourceIds: [],
-    regionPropertyIds: []
+    regionPropertyIds: [],
+    reviewIds: []
   });
 
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -103,6 +107,7 @@ export function useQuestDownloadDiscovery(questId: string): DiscoveryState {
     useSharedValue<CategoryProgress>(initialProgress);
   const tagsProgress = useSharedValue<CategoryProgress>(initialProgress);
   const languagesProgress = useSharedValue<CategoryProgress>(initialProgress);
+  const reviewsProgress = useSharedValue<CategoryProgress>(initialProgress);
   const totalRecordsShared = useSharedValue<number>(0);
 
   const updateTotal = useCallback(() => {
@@ -117,7 +122,8 @@ export function useQuestDownloadDiscovery(questId: string): DiscoveryState {
       questTagLinksProgress.value.count +
       assetTagLinksProgress.value.count +
       tagsProgress.value.count +
-      languagesProgress.value.count;
+      languagesProgress.value.count +
+      reviewsProgress.value.count;
   }, [
     questProgress,
     projectProgress,
@@ -129,6 +135,7 @@ export function useQuestDownloadDiscovery(questId: string): DiscoveryState {
     assetTagLinksProgress,
     tagsProgress,
     languagesProgress,
+    reviewsProgress,
     totalRecordsShared
   ]);
 
@@ -150,6 +157,7 @@ export function useQuestDownloadDiscovery(questId: string): DiscoveryState {
     assetTagLinksProgress.value = { ...initialProgress, isLoading: true };
     tagsProgress.value = { ...initialProgress, isLoading: true };
     languagesProgress.value = { ...initialProgress, isLoading: true };
+    reviewsProgress.value = { ...initialProgress, isLoading: true };
     totalRecordsShared.value = 0;
 
     // Create abort controller for cancellation
@@ -175,11 +183,12 @@ export function useQuestDownloadDiscovery(questId: string): DiscoveryState {
       regionIds: [],
       regionAliasIds: [],
       regionSourceIds: [],
-      regionPropertyIds: []
+      regionPropertyIds: [],
+      reviewIds: []
     };
 
     try {
-      // Wave 1: Independent queries (quest, project, quest-asset links, quest-tag links)
+      // Wave 1: Independent queries (quest, project, quest-asset links, quest-tag links, reviews)
       const [questResult, questAssetLinksResult, questTagLinksResult] =
         await Promise.all([
           // Query quest and its project
@@ -317,6 +326,58 @@ export function useQuestDownloadDiscovery(questId: string): DiscoveryState {
                 error
               );
               questTagLinksProgress.value = {
+                count: 0,
+                isLoading: false,
+                hasError: true
+              };
+              setHasError(true);
+              return null;
+            }
+          })(),
+
+          // Query published reviews and their per-asset rows
+          (async () => {
+            try {
+              if (signal.aborted) return null;
+              const { data, error } = await system.supabaseConnector.client
+                .from('review')
+                .select('id')
+                .eq('quest_id', questId)
+                .eq('active', true)
+                .eq('status', 'submitted');
+
+              if (error) throw error;
+              if (signal.aborted) return null;
+
+              ids.reviewIds = data.map((review) => review.id);
+
+              let reviewAssetCount = 0;
+              if (ids.reviewIds.length > 0) {
+                const { count, error: reviewAssetError } =
+                  await system.supabaseConnector.client
+                    .from('review_asset')
+                    .select('review_id', { count: 'exact', head: true })
+                    .in('review_id', ids.reviewIds);
+
+                if (reviewAssetError) throw reviewAssetError;
+                reviewAssetCount = count ?? 0;
+              }
+              if (signal.aborted) return null;
+
+              reviewsProgress.value = {
+                count: data.length + reviewAssetCount,
+                isLoading: false,
+                hasError: false
+              };
+              updateTotal();
+
+              console.log(
+                `🔍 [Discovery] Reviews found: ${data.length} (${reviewAssetCount} review assets)`
+              );
+              return data;
+            } catch (error) {
+              console.error('🔍 [Discovery] Error fetching reviews:', error);
+              reviewsProgress.value = {
                 count: 0,
                 isLoading: false,
                 hasError: true
@@ -779,6 +840,7 @@ export function useQuestDownloadDiscovery(questId: string): DiscoveryState {
     assetTagLinksProgress,
     tagsProgress,
     languagesProgress,
+    reviewsProgress,
     totalRecordsShared,
     updateTotal
   ]);
@@ -813,12 +875,33 @@ export function useQuestDownloadDiscovery(questId: string): DiscoveryState {
       questTagLinks: questTagLinksProgress,
       assetTagLinks: assetTagLinksProgress,
       tags: tagsProgress,
-      languages: languagesProgress
+      languages: languagesProgress,
+      reviews: reviewsProgress
     },
     totalRecordsShared,
     discoveredIds,
     hasError,
     cancel,
     startDiscovery
+  };
+}
+
+/** Category counts shown in the download confirmation drawer. */
+export function getDiscoveredCounts(
+  discoveryState: DiscoveryState
+): Record<string, number> {
+  const progress = discoveryState.progressSharedValues;
+  return {
+    Quests: progress.quest.value.count,
+    Projects: progress.project.value.count,
+    'Quest-Asset Links': progress.questAssetLinks.value.count,
+    Assets: progress.assets.value.count,
+    'Asset Content Links': progress.assetContentLinks.value.count,
+    Votes: progress.votes.value.count,
+    'Quest Tags': progress.questTagLinks.value.count,
+    'Asset Tags': progress.assetTagLinks.value.count,
+    Tags: progress.tags.value.count,
+    Languages: progress.languages.value.count,
+    Reviews: progress.reviews.value.count
   };
 }
