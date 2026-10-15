@@ -559,6 +559,18 @@ export function BibleChapterList({
     });
   };
 
+  const openChapterReviews = (chapterNum: number) => {
+    if (!questId) return;
+    setPickerChapterNum(null);
+    goToReviews({
+      projectId,
+      questId,
+      subjectName: `${book.name} ${chapterNum}`,
+      parentQuestId: questId,
+      metadata: { bible: { book: bookId, chapter: chapterNum } }
+    });
+  };
+
   const renderBookHeader = (rowClassName?: string) => (
     <View className={cn('flex-row items-center gap-3', rowClassName)}>
       {bookIconSource ? (
@@ -587,10 +599,7 @@ export function BibleChapterList({
           onPress={openReviews}
           accessibilityLabel="Reviews"
         >
-          <Icon
-            as={ClipboardListIcon}
-            className="size-6 text-foreground"
-          />
+          <Icon as={ClipboardListIcon} className="size-6 text-foreground" />
         </Button>
       ) : null}
     </View>
@@ -656,18 +665,33 @@ export function BibleChapterList({
         enableDynamicSizing={false}
       >
         <DrawerContent>
-          <DrawerHeader>
-            <DrawerTitle>
-              {book.name} {pickerChapterNum} {t('versions')}
-            </DrawerTitle>
-            <DrawerDescription>
-              {/* {pickerGroup?.versions.length ?? 0} version
-              {(pickerGroup?.versions.length ?? 0) !== 1 ? 's' : ''} available */}
-              {pickerGroup?.versions.length ?? 0}{' '}
-              {pickerGroup?.versions.length === 1
-                ? t('version') + ' ' + t('available')
-                : t('versions') + ' ' + t('available_plural')}
-            </DrawerDescription>
+          <DrawerHeader className="flex-row items-start justify-between gap-3">
+            <View className="min-w-0 flex-1 gap-0.5">
+              <DrawerTitle>
+                {book.name} {pickerChapterNum} {t('versions')}
+              </DrawerTitle>
+              <DrawerDescription>
+                {/* {pickerGroup?.versions.length ?? 0} version
+                {(pickerGroup?.versions.length ?? 0) !== 1 ? 's' : ''} available */}
+                {pickerGroup?.versions.length ?? 0}{' '}
+                {pickerGroup?.versions.length === 1
+                  ? t('version') + ' ' + t('available')
+                  : t('versions') + ' ' + t('available_plural')}
+              </DrawerDescription>
+            </View>
+            {isProjectMember && pickerChapterNum ? (
+              <Button
+                variant="ghost"
+                size="icon"
+                onPress={() => openChapterReviews(pickerChapterNum)}
+                accessibilityLabel="Chapter reviews"
+              >
+                <Icon
+                  as={ClipboardListIcon}
+                  className="size-6 text-foreground"
+                />
+              </Button>
+            ) : null}
           </DrawerHeader>
 
           <View className={cn('gap-3 pb-8')}>
@@ -723,7 +747,6 @@ export function BibleChapterList({
         onCancel={handleCancelConfirmation}
         downloadType="quest"
         discoveredCounts={getDiscoveredCounts(discoveryState)}
-
       />
     </View>
   );

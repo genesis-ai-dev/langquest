@@ -25,6 +25,7 @@ import { system } from '@/db/powersync/system';
 import { useProjectById } from '@/hooks/db/useProjects';
 import { useDebouncedState } from '@/hooks/use-debounced-state';
 import { useAudioPlaybackCheckpoint } from '@/hooks/useAudioPlaybackCheckpoint';
+import { useCreateQuestVersion } from '@/hooks/useCreateQuestVersion';
 import { useLocalization } from '@/hooks/useLocalization';
 import { useNavigationHelpers } from '@/hooks/useNavigation';
 import { usePlayAllAudioController } from '@/hooks/usePlayAllAudioController';
@@ -48,6 +49,7 @@ import {
   FlagIcon,
   InfoIcon,
   LockIcon,
+  PencilRulerIcon,
   PlayIcon,
   Redo2,
   RefreshCwIcon,
@@ -532,6 +534,8 @@ export default function BibleAssetsView() {
     promptVersionLabel
   } = useNavigationHelpers();
   const { currentUser } = useAuth();
+  const { createVersion: createQuestVersion, isCreatingVersion } =
+    useCreateQuestVersion();
   const audioContext = useAudio();
   const queryClient = useQueryClient();
   const {
@@ -3965,6 +3969,40 @@ export default function BibleAssetsView() {
               <Icon as={RefreshCwIcon} size={18} className="text-primary" />
             </Animated.View>
           </Button>
+          {isPublished && isMember && questId ? (
+            <Button
+              variant="ghost"
+              size="icon"
+              accessibilityLabel="Edit Quest"
+              disabled={isCreatingVersion || isPlayAllPlayerActive}
+              onPress={() =>
+                RNAlert.alert(
+                  'Fix translation',
+                  'Do you want to edit this quest?',
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                      text: 'Edit Quest',
+                      onPress: () =>
+                        void createQuestVersion({
+                          sourceQuestId: questId,
+                          errorMessage: 'Could not edit the quest'
+                        })
+                    }
+                  ]
+                )
+              }
+            >
+              {isCreatingVersion ? (
+                <ActivityIndicator
+                  size="small"
+                  color={getThemeColor('primary')}
+                />
+              ) : (
+                <Icon as={PencilRulerIcon} size={18} className="text-primary" />
+              )}
+            </Button>
+          ) : null}
           {isPublished && isMember && questId && projectId && selectedQuest ? (
             <Button
               variant="ghost"

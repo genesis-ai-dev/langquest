@@ -14,10 +14,8 @@ import { ResultBadge } from '@/components/ReviewResult';
 import { ReviewSettingsMenu } from '@/components/ReviewSettingsMenu';
 import { LegendList } from '@/components/ui/legend-list';
 import { Text } from '@/components/ui/text';
-import { useAuth } from '@/contexts/AuthContext';
-import { createQuestVersionFromQuest } from '@/database_services/questService';
 import { setReviewActive } from '@/database_services/reviewService';
-import { useNavigationHelpers } from '@/hooks/useNavigation';
+import { useCreateQuestVersion } from '@/hooks/useCreateQuestVersion';
 import { useReviewAccess } from '@/hooks/useReviewAccess';
 import {
   EMPTY_ASSET_CONTENT,
@@ -87,41 +85,18 @@ export default function ReviewResultView({
     contentByAsset,
     isLoading: isAssetsLoading
   } = useReviewQuestAssets(questId);
-  const { currentUser } = useAuth();
-  const { goToQuest } = useNavigationHelpers();
   const queryClient = useQueryClient();
-  const [isCreatingVersion, setIsCreatingVersion] = useState(false);
+  const { createVersion: createQuestVersion, isCreatingVersion } =
+    useCreateQuestVersion();
   const [isTogglingActive, setIsTogglingActive] = useState(false);
   const { canManageReview } = useReviewAccess();
 
-  const createVersion = async () => {
-    if (!currentUser?.id || isCreatingVersion) return;
-    setIsCreatingVersion(true);
-    try {
-      const created = await createQuestVersionFromQuest({
-        sourceQuestId: questId,
-        userId: currentUser.id,
-        reviewId
-      });
-      await queryClient.invalidateQueries({ queryKey: ['bible-chapters'] });
-      await queryClient.invalidateQueries({
-        queryKey: ['fia-pericope-quests']
-      });
-      await queryClient.invalidateQueries({ queryKey: ['quests'] });
-      await queryClient.invalidateQueries({ queryKey: ['assets'] });
-      goToQuest({
-        id: created.questId,
-        project_id: created.projectId,
-        name: created.questName,
-        promptVersionLabel: true
-      });
-    } catch (error) {
-      console.error('Failed to create quest version from review:', error);
-      Alert.alert('Could not fix the translation');
-    } finally {
-      setIsCreatingVersion(false);
-    }
-  };
+  const createVersion = () =>
+    createQuestVersion({
+      sourceQuestId: questId,
+      reviewId,
+      errorMessage: 'Could not fix the translation'
+    });
 
   const toggleActive = async (active: boolean) => {
     if (isTogglingActive) return;
