@@ -126,7 +126,9 @@ export function useNavigationHelpers() {
       const targetQuestId = options.questId || questId;
 
       if (!targetProjectId || !targetQuestId) {
-        console.warn('Cannot navigate to reviews without projectId and questId');
+        console.warn(
+          'Cannot navigate to reviews without projectId and questId'
+        );
         return;
       }
 

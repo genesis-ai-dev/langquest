@@ -443,21 +443,24 @@ export const review_local = createReviewTable('local', {
   profile: profile_local
 });
 
-export const review_localRelations = relations(review_local, ({ one, many }) => ({
-  project: one(project_local, {
-    fields: [review_local.project_id],
-    references: [project_local.id]
-  }),
-  quest: one(quest_local, {
-    fields: [review_local.quest_id],
-    references: [quest_local.id]
-  }),
-  profile: one(profile_local, {
-    fields: [review_local.profile_id],
-    references: [profile_local.id]
-  }),
-  assets: many(review_asset_local)
-}));
+export const review_localRelations = relations(
+  review_local,
+  ({ one, many }) => ({
+    project: one(project_local, {
+      fields: [review_local.project_id],
+      references: [project_local.id]
+    }),
+    quest: one(quest_local, {
+      fields: [review_local.quest_id],
+      references: [quest_local.id]
+    }),
+    profile: one(profile_local, {
+      fields: [review_local.profile_id],
+      references: [profile_local.id]
+    }),
+    assets: many(review_asset_local)
+  })
+);
 
 export const review_asset_local = createReviewAssetTable('local', {
   review: review_local,

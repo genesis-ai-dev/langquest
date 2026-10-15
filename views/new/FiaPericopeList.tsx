@@ -731,7 +731,6 @@ export function FiaPericopeList({
         onCancel={handleCancelConfirmation}
         downloadType="quest"
         discoveredCounts={getDiscoveredCounts(discoveryState)}
-
       />
     </View>
   );

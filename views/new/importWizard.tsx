@@ -1899,7 +1899,6 @@ export function ImportWizard({
         onCancel={handleCancelConfirmation}
         downloadType="quest"
         discoveredCounts={getDiscoveredCounts(discoveryState)}
-
       />
     </>
   );

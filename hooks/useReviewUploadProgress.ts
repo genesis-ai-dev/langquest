@@ -1,7 +1,4 @@
-import {
-  review_asset_synced,
-  review_synced
-} from '@/db/drizzleSchemaSynced';
+import { review_asset_synced, review_synced } from '@/db/drizzleSchemaSynced';
 import { system } from '@/db/powersync/system';
 import type { QuestUploadProgress } from '@/hooks/useQuestUploadProgress';
 import { eq, sql } from 'drizzle-orm';

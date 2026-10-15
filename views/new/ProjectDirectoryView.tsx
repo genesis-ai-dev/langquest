@@ -1519,7 +1519,6 @@ export default function ProjectDirectoryView() {
         onCancel={handleCancelConfirmation}
         downloadType="quest"
         discoveredCounts={getDiscoveredCounts(discoveryState)}
-
       />
       {/* Offload Verification Drawer */}
       <QuestOffloadVerificationDrawer
